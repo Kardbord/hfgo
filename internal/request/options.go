@@ -112,6 +112,13 @@ func (o Options) Validate() error {
 			Err:     nil,
 		}
 	}
+	if o.Provider == nil {
+		return &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "provider must not be nil",
+			Err:     nil,
+		}
+	}
 
 	return nil
 }

@@ -560,6 +560,12 @@ func TestOptions_Validate(t *testing.T) {
 			wantErr: true,
 			kind:    hferrors.SDKErrorKindConfiguration,
 		},
+		{
+			name:    "nil provider",
+			opts:    NewOptions().WithProvider(nil),
+			wantErr: true,
+			kind:    hferrors.SDKErrorKindConfiguration,
+		},
 	}
 
 	for i := range tests {
