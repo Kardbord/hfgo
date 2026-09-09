@@ -65,4 +65,12 @@ const (
 	TaskTabularRegression = providers.TaskTabularRegression
 	// TaskTextToAudio is the text to audio task.
 	TaskTextToAudio = providers.TaskTextToAudio
+	// TaskTextToVideo is the text to video task.
+	TaskTextToVideo = providers.TaskTextToVideo
+	// TaskImageToVideo is the image to video task.
+	TaskImageToVideo = providers.TaskImageToVideo
+	// TaskImageTextToImage is the image text to image task.
+	TaskImageTextToImage = providers.TaskImageTextToImage
+	// TaskImageTextToVideo is the image text to video task.
+	TaskImageTextToVideo = providers.TaskImageTextToVideo
 )
