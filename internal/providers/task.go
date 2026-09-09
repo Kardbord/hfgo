@@ -60,4 +60,12 @@ const (
 	TaskTabularRegression Task = "tabular-regression"
 	// TaskTextToAudio is the text to audio task.
 	TaskTextToAudio Task = "text-to-audio"
+	// TaskTextToVideo is the text to video task.
+	TaskTextToVideo Task = "text-to-video"
+	// TaskImageToVideo is the image to video task.
+	TaskImageToVideo Task = "image-to-video"
+	// TaskImageTextToImage is the image text to image task.
+	TaskImageTextToImage Task = "image-text-to-image"
+	// TaskImageTextToVideo is the image text to video task.
+	TaskImageTextToVideo Task = "image-text-to-video"
 )
