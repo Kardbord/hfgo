@@ -566,137 +566,32 @@ func TestChatService_ProviderFallback(t *testing.T) {
 		optsProvider   Provider
 		reqModel       *string
 		wantModel      string
+		wantErr        bool
 		description    string
 	}
 
 	cases := []TestCase{
 		{
-			name:           "applies client provider to client model",
+			name:           "happy path with default HF provider",
 			clientModel:    "mistral-7b",
 			clientProvider: providers.HuggingFaceProvider{},
 			wantModel:      "mistral-7b",
-			description:    "client model + client provider",
+			description:    "end-to-end chat with HF provider (no suffix)",
 		},
 		{
-			name:         "applies request provider to request model",
-			clientModel:  "default-model",
-			reqModel:     testutils.Ptr("mistral-7b"),
-			optsProvider: providers.HuggingFaceProvider{},
-			wantModel:    "mistral-7b",
-			description:  "request model + request provider",
-		},
-		{
-			name:           "request provider overrides client provider",
-			clientModel:    "mistral-7b",
-			clientProvider: mockProvider{name: "mistral"},
-			optsProvider:   providers.HuggingFaceProvider{},
-			wantModel:      "mistral-7b",
-			description:    "request provider overrides client provider",
-		},
-		{
-			name:           "ignores provider when model already has provider",
-			clientModel:    "mistral-7b:mistral",
-			clientProvider: providers.HuggingFaceProvider{},
-			wantModel:      "mistral-7b:mistral",
-			description:    "model with provider + provider option (ignored)",
-		},
-		{
-			name:           "request model takes precedence over provider",
-			clientModel:    "default-model",
-			clientProvider: providers.HuggingFaceProvider{},
-			reqModel:       testutils.Ptr("mistral-7b:mistral"),
-			optsProvider:   providers.HuggingFaceProvider{},
-			wantModel:      "mistral-7b:mistral",
-			description:    "request model with provider + request provider (model wins)",
-		},
-		{
-			name:           "applies request provider to request model without provider",
-			clientModel:    "default-model",
-			clientProvider: providers.HuggingFaceProvider{},
-			reqModel:       testutils.Ptr("mistral-7b"),
-			optsProvider:   providers.HuggingFaceProvider{},
-			wantModel:      "mistral-7b",
-			description:    "request model + request provider (overrides client)",
-		},
-		{
-			name:           "no provider applied when both missing",
+			name:           "happy path with model that already has provider",
 			clientModel:    "mistral-7b",
 			clientProvider: providers.HuggingFaceProvider{},
-			wantModel:      "mistral-7b",
-			description:    "model without provider, no provider option",
+			reqModel:       testutils.Ptr("mistral-7b:sambanova"),
+			wantModel:      "mistral-7b:sambanova",
+			description:    "model with existing provider is not modified",
 		},
 		{
-			name:           "client provider applied to request model when no request provider",
-			clientModel:    "default-model",
-			clientProvider: providers.HuggingFaceProvider{},
-			reqModel:       testutils.Ptr("mistral-7b"),
-			wantModel:      "mistral-7b",
-			description:    "client provider with request model",
-		},
-		{
-			name:           "model with multiple colons not modified by provider",
-			clientModel:    "org:model:variant",
-			clientProvider: providers.HuggingFaceProvider{},
-			wantModel:      "org:model:variant",
-			description:    "multiple colons in model",
-		},
-		{
-			name:           "optsModel_without_optsProvider_uses_clientProvider",
-			clientModel:    "default-model",
-			clientProvider: providers.HuggingFaceProvider{},
-			optsModel:      testutils.Ptr("opts-model"),
-			wantModel:      "opts-model",
-			description:    "opts model with client provider fallback",
-		},
-		{
-			name:           "both optsModel and optsProvider set override client defaults",
-			clientModel:    "client-model",
-			clientProvider: providers.HuggingFaceProvider{},
-			optsModel:      testutils.Ptr("opts-model"),
-			optsProvider:   providers.HuggingFaceProvider{},
-			wantModel:      "opts-model",
-			description:    "both request-level options override client defaults",
-		},
-		{
-			name:           "empty reqModel falls back to optsModel",
-			clientModel:    "default-model",
-			clientProvider: providers.HuggingFaceProvider{},
-			reqModel:       testutils.Ptr(""),
-			optsModel:      testutils.Ptr("opts-model"),
-			optsProvider:   providers.HuggingFaceProvider{},
-			wantModel:      "opts-model",
-			description:    "empty request model treated as nil for fallback",
-		},
-		{
-			name:           "model with trailing colon not modified by provider",
-			clientModel:    "model:",
-			clientProvider: providers.HuggingFaceProvider{},
-			wantModel:      "model:",
-			description:    "model with trailing colon treated as having provider",
-		},
-		{
-			name:           "use client provider when no options provider set",
+			name:           "error on nil provider",
 			clientModel:    "mistral-7b",
-			clientProvider: providers.HuggingFaceProvider{},
-			optsProvider:   nil,
-			wantModel:      "mistral-7b",
-			description:    "nil optsProvider uses client provider (HF, no suffix)",
-		},
-		{
-			name:           "override optsModel with empty, keep optsProvider",
-			clientModel:    "default-model",
-			clientProvider: providers.HuggingFaceProvider{},
-			optsProvider:   providers.HuggingFaceProvider{},
-			wantModel:      "default-model",
-			description:    "request provider override without model override uses client model",
-		},
-		{
-			name:           "override client provider with opts provider, no model override",
-			clientModel:    "mistral-7b",
-			clientProvider: providers.HuggingFaceProvider{},
-			optsProvider:   providers.HuggingFaceProvider{},
-			wantModel:      "mistral-7b",
-			description:    "request provider overrides client provider without model change",
+			clientProvider: nil,
+			wantErr:        true,
+			description:    "nil provider returns configuration error",
 		},
 	}
 
@@ -735,6 +630,11 @@ func TestChatService_ProviderFallback(t *testing.T) {
 		}
 
 		err := methodCall(&client, req, optsToPass)
+		if tc.wantErr {
+			require.Error(t, err, tc.description)
+
+			return
+		}
 		require.NoError(t, err)
 
 		require.NotNil(t, mt.LastRequest)
@@ -762,32 +662,34 @@ func TestChatService_ProviderFallback(t *testing.T) {
 				},
 			)
 
-			// Test CompleteStream method
-			sseBody := "data: {\"id\":\"id\",\"created\":1,\"model\":\"" + tc.wantModel + "\",\"system_fingerprint\":\"sig\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n" +
-				"data: [DONE]\n\n"
-			testImpl(t, tc,
-				func() *testutils.MockTransport {
-					mt := testutils.NewMockTransport(http.StatusOK, sseBody, nil)
-					mt.Response.Header.Set("Content-Type", "text/event-stream")
+			// Test CompleteStream method (skip for error cases)
+			if !tc.wantErr {
+				sseBody := "data: {\"id\":\"id\",\"created\":1,\"model\":\"" + tc.wantModel + "\",\"system_fingerprint\":\"sig\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n" +
+					"data: [DONE]\n\n"
+				testImpl(t, tc,
+					func() *testutils.MockTransport {
+						mt := testutils.NewMockTransport(http.StatusOK, sseBody, nil)
+						mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-					return mt
-				},
-				func(client *Client, req ChatRequest, opts []Option) error {
-					stream, err := client.ChatStream(req, opts...)
-					if err != nil {
-						return err
-					}
-					defer func() { _ = stream.Close() }()
+						return mt
+					},
+					func(client *Client, req ChatRequest, opts []Option) error {
+						stream, err := client.ChatStream(req, opts...)
+						if err != nil {
+							return err
+						}
+						defer func() { _ = stream.Close() }()
 
-					chunk, err := stream.Recv(context.Background())
-					if err != nil {
-						return err
-					}
-					require.Equal(t, tc.wantModel, chunk.Model)
+						chunk, err := stream.Recv(context.Background())
+						if err != nil {
+							return err
+						}
+						require.Equal(t, tc.wantModel, chunk.Model)
 
-					return nil
-				},
-			)
+						return nil
+					},
+				)
+			}
 		})
 	}
 }

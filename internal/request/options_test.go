@@ -293,6 +293,12 @@ func TestOptions_DefensiveHeaderClone(t *testing.T) {
 			},
 		},
 		{
+			name: "WithDefaultProvider",
+			apply: func(opts Options) Options {
+				return opts.WithDefaultProvider()
+			},
+		},
+		{
 			name: "WithUserAgent",
 			apply: func(opts Options) Options {
 				return opts.WithUserAgent("ua/1.0")

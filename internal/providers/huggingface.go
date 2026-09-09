@@ -1,6 +1,8 @@
 package providers
 
-import "errors"
+import (
+	"github.com/Kardbord/hfgo/v4/internal/hferrors"
+)
 
 // HuggingFaceProvider implements Provider for the HuggingFace inference API.
 type HuggingFaceProvider struct{}
@@ -20,14 +22,18 @@ func (p HuggingFaceProvider) ProviderSuffix() string {
 // default model path.
 func (p HuggingFaceProvider) Endpoint(task, model string) (string, error) {
 	if model == "" {
-		return "", errors.New("model is required")
+		return "", &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "model is required",
+			Err:     nil,
+		}
 	}
 
 	switch task {
 	case "feature-extraction", "sentence-similarity":
 		return "hf-inference/models/" + model + "/pipeline/" + task, nil
 	case "chat-completion":
-		return "/v1/chat/completions", nil
+		return "v1/chat/completions", nil
 	default:
 		return "hf-inference/models/" + model, nil
 	}
