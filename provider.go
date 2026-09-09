@@ -31,4 +31,38 @@ const (
 	TaskSentenceSimilarity = providers.TaskSentenceSimilarity
 	// TaskChatCompletion is the chat completion task.
 	TaskChatCompletion = providers.TaskChatCompletion
+	// TaskTextToImage is the text to image task.
+	TaskTextToImage = providers.TaskTextToImage
+	// TaskTextGeneration is the text generation task.
+	TaskTextGeneration = providers.TaskTextGeneration
+	// TaskAudioClassification is the audio classification task.
+	TaskAudioClassification = providers.TaskAudioClassification
+	// TaskAutomaticSpeechRecognition is the automatic speech recognition task.
+	TaskAutomaticSpeechRecognition = providers.TaskAutomaticSpeechRecognition
+	// TaskImageClassification is the image classification task.
+	TaskImageClassification = providers.TaskImageClassification
+	// TaskImageSegmentation is the image segmentation task.
+	TaskImageSegmentation = providers.TaskImageSegmentation
+	// TaskDocumentQuestionAnswering is the document question answering task.
+	TaskDocumentQuestionAnswering = providers.TaskDocumentQuestionAnswering
+	// TaskImageToText is the image to text task.
+	TaskImageToText = providers.TaskImageToText
+	// TaskObjectDetection is the object detection task.
+	TaskObjectDetection = providers.TaskObjectDetection
+	// TaskAudioToAudio is the audio to audio task.
+	TaskAudioToAudio = providers.TaskAudioToAudio
+	// TaskZeroShotImageClassification is the zero-shot image classification task.
+	TaskZeroShotImageClassification = providers.TaskZeroShotImageClassification
+	// TaskImageToImage is the image to image task.
+	TaskImageToImage = providers.TaskImageToImage
+	// TaskTabularClassification is the tabular classification task.
+	TaskTabularClassification = providers.TaskTabularClassification
+	// TaskTextToSpeech is the text to speech task.
+	TaskTextToSpeech = providers.TaskTextToSpeech
+	// TaskVisualQuestionAnswering is the visual question answering task.
+	TaskVisualQuestionAnswering = providers.TaskVisualQuestionAnswering
+	// TaskTabularRegression is the tabular regression task.
+	TaskTabularRegression = providers.TaskTabularRegression
+	// TaskTextToAudio is the text to audio task.
+	TaskTextToAudio = providers.TaskTextToAudio
 )

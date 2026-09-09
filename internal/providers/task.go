@@ -26,4 +26,38 @@ const (
 	TaskSentenceSimilarity Task = "sentence-similarity"
 	// TaskChatCompletion is the chat completion task.
 	TaskChatCompletion Task = "chat-completion"
+	// TaskTextToImage is the text to image task.
+	TaskTextToImage Task = "text-to-image"
+	// TaskTextGeneration is the text generation task.
+	TaskTextGeneration Task = "text-generation"
+	// TaskAudioClassification is the audio classification task.
+	TaskAudioClassification Task = "audio-classification"
+	// TaskAutomaticSpeechRecognition is the automatic speech recognition task.
+	TaskAutomaticSpeechRecognition Task = "automatic-speech-recognition"
+	// TaskImageClassification is the image classification task.
+	TaskImageClassification Task = "image-classification"
+	// TaskImageSegmentation is the image segmentation task.
+	TaskImageSegmentation Task = "image-segmentation"
+	// TaskDocumentQuestionAnswering is the document question answering task.
+	TaskDocumentQuestionAnswering Task = "document-question-answering"
+	// TaskImageToText is the image to text task.
+	TaskImageToText Task = "image-to-text"
+	// TaskObjectDetection is the object detection task.
+	TaskObjectDetection Task = "object-detection"
+	// TaskAudioToAudio is the audio to audio task.
+	TaskAudioToAudio Task = "audio-to-audio"
+	// TaskZeroShotImageClassification is the zero-shot image classification task.
+	TaskZeroShotImageClassification Task = "zero-shot-image-classification"
+	// TaskImageToImage is the image to image task.
+	TaskImageToImage Task = "image-to-image"
+	// TaskTabularClassification is the tabular classification task.
+	TaskTabularClassification Task = "tabular-classification"
+	// TaskTextToSpeech is the text to speech task.
+	TaskTextToSpeech Task = "text-to-speech"
+	// TaskVisualQuestionAnswering is the visual question answering task.
+	TaskVisualQuestionAnswering Task = "visual-question-answering"
+	// TaskTabularRegression is the tabular regression task.
+	TaskTabularRegression Task = "tabular-regression"
+	// TaskTextToAudio is the text to audio task.
+	TaskTextToAudio Task = "text-to-audio"
 )
