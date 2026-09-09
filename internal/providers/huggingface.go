@@ -29,7 +29,7 @@ func (p HuggingFaceProvider) Endpoint(task Task, model string) (string, error) {
 		}
 	}
 
-	switch task {
+	switch task { //nolint:exhaustive // Additional hf-inference tasks are not yet supported by either the SDK or upstream API.
 	case TaskFeatureExtraction, TaskSentenceSimilarity:
 		return "hf-inference/models/" + model + "/pipeline/" + string(task), nil
 	case TaskChatCompletion:
