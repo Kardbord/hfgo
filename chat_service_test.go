@@ -429,6 +429,13 @@ func TestApplyProvider(t *testing.T) {
 			wantModel:   testutils.Ptr("org:model:variant"),
 			description: "model with multiple colons",
 		},
+		{
+			name:        "ignores non-hf provider when model has multiple colons",
+			model:       testutils.Ptr("org:model:variant"),
+			provider:    mockProvider{name: "sambanova"},
+			wantModel:   testutils.Ptr("org:model:variant"),
+			description: "non-HF provider ignored for multi-colon model",
+		},
 	}
 
 	for _, tc := range cases {
