@@ -25,9 +25,8 @@ func FuzzHuggingFaceProviderEndpoint(f *testing.F) {
 		if model == "" && err == nil {
 			t.Errorf("expected error for empty model, got %q", ep)
 		}
-		if model != "" && err != nil {
-			// Unknown tasks now return an error; only known tasks succeed.
-			_ = ep
+		if task == "" && err == nil {
+			t.Errorf("expected error for empty task, got %q", ep)
 		}
 	})
 }
