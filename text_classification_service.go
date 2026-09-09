@@ -27,7 +27,7 @@ func (s textClassificationService) classify(
 	// contains a list of TextClassification objects.
 	resp, err := doModelInference[TextClassificationRequest, [][]TextClassification](
 		optsOverride,
-		"text classification",
+		TaskTextClassification,
 		req,
 	)
 	if err != nil {
@@ -51,7 +51,7 @@ func (s textClassificationService) classifyBatch(
 
 	resp, err := doModelInference[TextClassificationBatchRequest, [][]TextClassification](
 		optsOverride,
-		"text classification",
+		TaskTextClassification,
 		req,
 	)
 	if err != nil {

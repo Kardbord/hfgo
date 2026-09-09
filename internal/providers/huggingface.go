@@ -14,13 +14,13 @@ func (p HuggingFaceProvider) ProviderSuffix() string {
 }
 
 // Endpoint returns the API endpoint path for the given task and model.
-// It returns an error if model is empty.
+// It returns an error if model is empty or the task is unsupported.
 //
-// The endpoint depends on the task: pipeline tasks (e.g. "feature-extraction",
-// "sentence-similarity") return a task-specific path, "chat-completion" returns
+// The endpoint depends on the task: pipeline tasks (e.g. feature-extraction,
+// sentence-similarity) return a task-specific path, chat-completion returns
 // the OpenAI-compatible chat completions path, and all other tasks return the
 // default model path.
-func (p HuggingFaceProvider) Endpoint(task, model string) (string, error) {
+func (p HuggingFaceProvider) Endpoint(task Task, model string) (string, error) {
 	if model == "" {
 		return "", &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
@@ -30,11 +30,19 @@ func (p HuggingFaceProvider) Endpoint(task, model string) (string, error) {
 	}
 
 	switch task {
-	case "feature-extraction", "sentence-similarity":
-		return "hf-inference/models/" + model + "/pipeline/" + task, nil
-	case "chat-completion":
+	case TaskFeatureExtraction, TaskSentenceSimilarity:
+		return "hf-inference/models/" + model + "/pipeline/" + string(task), nil
+	case TaskChatCompletion:
 		return "v1/chat/completions", nil
-	default:
+	case TaskTextClassification, TaskZeroShotTextClassification, TaskTokenClassification,
+		TaskQuestionAnswering, TaskTableQuestionAnswering, TaskFillMask,
+		TaskSummarization, TaskTranslation:
 		return "hf-inference/models/" + model, nil
+	default:
+		return "", &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "unsupported task " + string(task),
+			Err:     nil,
+		}
 	}
 }

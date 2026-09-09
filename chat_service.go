@@ -84,7 +84,7 @@ func (s chatService) resolveEndpoint(
 		}
 	}
 
-	endpoint, err := provider.Endpoint("chat-completion", *req.Model)
+	endpoint, err := provider.Endpoint(TaskChatCompletion, *req.Model)
 	if err != nil {
 		return "", request.Options{}, err
 	}

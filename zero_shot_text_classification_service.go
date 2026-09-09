@@ -35,7 +35,7 @@ func (s zeroShotTextClassificationService) classify(
 
 	resp, err := doModelInference[ZeroShotTextClassificationRequest, []ZeroShotTextClassification](
 		optsOverride,
-		"zero-shot text classification",
+		TaskZeroShotTextClassification,
 		req,
 	)
 	if err != nil {
@@ -63,7 +63,7 @@ func (s zeroShotTextClassificationService) classifyBatch(
 
 	resp, err := doModelInference[ZeroShotTextClassificationBatchRequest, []zeroShotTextClassificationBatched](
 		optsOverride,
-		"zero-shot text classification",
+		TaskZeroShotTextClassification,
 		req,
 	)
 	if err != nil {

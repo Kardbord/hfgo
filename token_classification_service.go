@@ -21,7 +21,7 @@ func (s tokenClassificationService) classify(
 ) ([]TokenClassification, error) {
 	return doModelInference[TokenClassificationRequest, []TokenClassification](
 		s.opts.With(opts...),
-		"token classification",
+		TaskTokenClassification,
 		req,
 	)
 }
@@ -33,7 +33,7 @@ func (s tokenClassificationService) classifyBatch(
 ) ([][]TokenClassification, error) {
 	return doModelInference[TokenClassificationBatchRequest, [][]TokenClassification](
 		s.opts.With(opts...),
-		"token classification",
+		TaskTokenClassification,
 		req,
 	)
 }

@@ -21,7 +21,7 @@ func (s summarizationService) summarize(
 ) ([]Summarization, error) {
 	return doModelInference[SummarizationRequest, []Summarization](
 		s.opts.With(opts...),
-		"summarization",
+		TaskSummarization,
 		req,
 	)
 }
@@ -33,7 +33,7 @@ func (s summarizationService) summarizeBatch(
 ) ([]Summarization, error) {
 	return doModelInference[SummarizationBatchRequest, []Summarization](
 		s.opts.With(opts...),
-		"summarization",
+		TaskSummarization,
 		req,
 	)
 }

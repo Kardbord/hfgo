@@ -21,7 +21,7 @@ func (s fillMaskService) fill(
 ) ([]FillMaskPrediction, error) {
 	return doModelInference[FillMaskRequest, []FillMaskPrediction](
 		s.opts.With(opts...),
-		"fill mask",
+		TaskFillMask,
 		req,
 	)
 }
@@ -33,7 +33,7 @@ func (s fillMaskService) fillBatch(
 ) ([][]FillMaskPrediction, error) {
 	return doModelInference[FillMaskBatchRequest, [][]FillMaskPrediction](
 		s.opts.With(opts...),
-		"fill mask",
+		TaskFillMask,
 		req,
 	)
 }

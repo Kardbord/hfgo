@@ -23,7 +23,7 @@ type mockProvider struct {
 	name string
 }
 
-func (p mockProvider) Endpoint(_, _ string) (string, error) {
+func (p mockProvider) Endpoint(_ Task, _ string) (string, error) {
 	return "", nil
 }
 

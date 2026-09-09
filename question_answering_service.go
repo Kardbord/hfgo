@@ -36,14 +36,14 @@ func (s questionAnsweringService) answer(
 	if req.Parameters != nil && req.Parameters.TopK != nil && *req.Parameters.TopK > 1 {
 		return doModelInference[QuestionAnsweringRequest, []QuestionAnswering](
 			optsOverride,
-			"question answering",
+			TaskQuestionAnswering,
 			req,
 		)
 	}
 
 	single, err := doModelInference[QuestionAnsweringRequest, QuestionAnswering](
 		optsOverride,
-		"question answering",
+		TaskQuestionAnswering,
 		req,
 	)
 	if err != nil {

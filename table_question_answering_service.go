@@ -26,7 +26,7 @@ func (s tableQuestionAnsweringService) answer(
 ) (TableQuestionAnswer, error) {
 	return doModelInference[TableQuestionAnsweringRequest, TableQuestionAnswer](
 		s.opts.With(opts...),
-		"table question answering",
+		TaskTableQuestionAnswering,
 		req,
 	)
 }
