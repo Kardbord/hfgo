@@ -21,7 +21,7 @@ func (s featureExtractionService) extract(
 ) (FeatureExtraction, error) {
 	return doModelInference[FeatureExtractionRequest, FeatureExtraction](
 		s.opts.With(opts...),
-		"feature extraction",
+		TaskFeatureExtraction,
 		req,
 	)
 }
@@ -33,7 +33,7 @@ func (s featureExtractionService) extractBatch(
 ) ([]FeatureExtraction, error) {
 	return doModelInference[FeatureExtractionBatchRequest, []FeatureExtraction](
 		s.opts.With(opts...),
-		"feature extraction",
+		TaskFeatureExtraction,
 		req,
 	)
 }

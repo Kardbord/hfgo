@@ -8,6 +8,7 @@ import (
 	"net/url"
 
 	"github.com/Kardbord/hfgo/v4/internal/hferrors"
+	"github.com/Kardbord/hfgo/v4/internal/providers"
 	"github.com/Kardbord/hfgo/v4/internal/sdkversion"
 )
 
@@ -20,7 +21,7 @@ type Options struct {
 	BaseURL              string
 	Token                string
 	Model                string
-	Provider             string
+	Provider             providers.Provider
 	UserAgent            string
 	Headers              http.Header
 	MaxResponseBodyBytes int64
@@ -34,8 +35,6 @@ const (
 	DefaultToken = ""
 	// DefaultModel is the default model to use.
 	DefaultModel = ""
-	// DefaultProvider is the default inference provider.
-	DefaultProvider = ""
 	// DefaultMaxResponseBodyBytes caps the amount of response data read into memory by default.
 	DefaultMaxResponseBodyBytes int64 = 1 << 20 // 1 MiB
 )
@@ -68,7 +67,7 @@ func NewOptions() Options {
 		BaseURL:              DefaultBaseURL,
 		Token:                DefaultToken,
 		Model:                DefaultModel,
-		Provider:             DefaultProvider,
+		Provider:             providers.HuggingFaceProvider{},
 		UserAgent:            sdkversion.UserAgent(),
 		Headers:              nil,
 		MaxResponseBodyBytes: DefaultMaxResponseBodyBytes,
@@ -113,6 +112,13 @@ func (o Options) Validate() error {
 			Err:     nil,
 		}
 	}
+	if o.Provider == nil {
+		return &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "provider must not be nil",
+			Err:     nil,
+		}
+	}
 
 	return nil
 }
@@ -152,9 +158,18 @@ func (o Options) WithModel(m string) Options {
 }
 
 // WithProvider returns a new Options instance with the provider updated.
-func (o Options) WithProvider(p string) Options {
+func (o Options) WithProvider(p providers.Provider) Options {
 	o = o.clone()
 	o.Provider = p
+
+	return o
+}
+
+// WithDefaultProvider returns a new Options instance with the default
+// HuggingFace provider.
+func (o Options) WithDefaultProvider() Options {
+	o = o.clone()
+	o.Provider = providers.HuggingFaceProvider{}
 
 	return o
 }
@@ -288,9 +303,17 @@ func WithModel(m string) Option {
 }
 
 // WithProvider returns an Option that sets the provider for API requests.
-func WithProvider(p string) Option {
+func WithProvider(p providers.Provider) Option {
 	return func(o *Options) {
 		o.Provider = p
+	}
+}
+
+// WithDefaultProvider returns an Option that sets the provider to the default
+// HuggingFace provider.
+func WithDefaultProvider() Option {
+	return func(o *Options) {
+		o.Provider = providers.HuggingFaceProvider{}
 	}
 }
 

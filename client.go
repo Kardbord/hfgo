@@ -44,14 +44,16 @@ func NewClient(opts ...Option) Client {
 //  3. Client-level Model option
 //
 // Provider Precedence:
-// The Provider field is applied as a fallback only if the resolved Model does not
-// already contain a provider (indicated by ":" in the model string). If the Model
-// is in the format "model:provider", the Provider option is ignored.
+// The Provider option is used as a suffix appended to the model string for
+// routing in OpenAI-compatible endpoints. If the Model is in the format
+// "model:provider", the Provider option is ignored. When the provider is
+// the default HuggingFace provider, no suffix is appended and the router
+// selects a provider automatically.
 //
 // For example:
-//   - Model="mistral-7b", Provider="huggingface" → "mistral-7b:huggingface"
-//   - Model="mistral-7b:huggingface", Provider="mistral" → "mistral-7b:huggingface" (Provider ignored)
-//   - Model="mistral-7b:huggingface", Provider="" → "mistral-7b:huggingface"
+//   - Model="mistral-7b", Provider=HuggingFaceProvider → "mistral-7b"
+//   - Model="mistral-7b", Provider=mockProvider("sambanova") → "mistral-7b:sambanova"
+//   - Model="mistral-7b:sambanova", Provider=HuggingFaceProvider → "mistral-7b:sambanova" (Provider ignored)
 //
 // Behavior:
 //   - Returns a configuration error if the request is missing a model or messages.
@@ -85,14 +87,16 @@ func (c Client) Chat(req ChatRequest, opts ...Option) (ChatResponse, error) {
 //  3. Client-level Model option
 //
 // Provider Precedence:
-// The Provider field is applied as a fallback only if the resolved Model does not
-// already contain a provider (indicated by ":" in the model string). If the Model
-// is in the format "model:provider", the Provider option is ignored.
+// The Provider option is used as a suffix appended to the model string for
+// routing in OpenAI-compatible endpoints. If the Model is in the format
+// "model:provider", the Provider option is ignored. When the provider is
+// the default HuggingFace provider, no suffix is appended and the router
+// selects a provider automatically.
 //
 // For example:
-//   - Model="mistral-7b", Provider="huggingface" → "mistral-7b:huggingface"
-//   - Model="mistral-7b:huggingface", Provider="mistral" → "mistral-7b:huggingface" (Provider ignored)
-//   - Model="mistral-7b:huggingface", Provider="" → "mistral-7b:huggingface"
+//   - Model="mistral-7b", Provider=HuggingFaceProvider → "mistral-7b"
+//   - Model="mistral-7b", Provider=mockProvider("sambanova") → "mistral-7b:sambanova"
+//   - Model="mistral-7b:sambanova", Provider=HuggingFaceProvider → "mistral-7b:sambanova" (Provider ignored)
 //
 // Behavior:
 //   - Returns a configuration error if the request is missing a model or messages.
@@ -107,8 +111,6 @@ func (c Client) ChatStream(req ChatRequest, opts ...Option) (*ChatStream, error)
 // classification response for a single input.
 //
 // For multiple classification inputs, use ClassifyTextBatch.
-//
-// The Provider option is ignored for now, as hf-inference is currently the only supported provider.
 func (c Client) ClassifyText(
 	req TextClassificationRequest,
 	opts ...Option,
@@ -123,8 +125,6 @@ func (c Client) ClassifyText(
 // officially documented; behavior may change without notice.
 //
 // Callers should check the length of the response list before indexing.
-//
-// The Provider option is ignored for now, as hf-inference is currently the only supported provider.
 func (c Client) ClassifyTextBatch(
 	req TextClassificationBatchRequest,
 	opts ...Option,
@@ -136,8 +136,6 @@ func (c Client) ClassifyTextBatch(
 // classification response for a single input.
 //
 // For multiple inputs, use ClassifyTokensBatch.
-//
-// The Provider option is ignored for now, as hf-inference is currently the only supported provider.
 func (c Client) ClassifyTokens(
 	req TokenClassificationRequest,
 	opts ...Option,
@@ -152,8 +150,6 @@ func (c Client) ClassifyTokens(
 // officially documented; behavior may change without notice.
 //
 // Callers should check the length of the response list before indexing.
-//
-// The Provider option is ignored for now, as hf-inference is currently the only supported provider.
 func (c Client) ClassifyTokensBatch(
 	req TokenClassificationBatchRequest,
 	opts ...Option,
@@ -165,8 +161,6 @@ func (c Client) ClassifyTokensBatch(
 //
 // The request must include both a question and a context. The model will
 // identify the answer to the question within the provided context.
-//
-// The Provider option is ignored for now, as hf-inference is currently the only supported provider.
 func (c Client) AnswerQuestion(
 	req QuestionAnsweringRequest,
 	opts ...Option,
@@ -178,8 +172,6 @@ func (c Client) AnswerQuestion(
 // returns the zero-shot text classification response for a single input.
 //
 // For multiple inputs, use ZeroShotClassifyTextBatch.
-//
-// The Provider option is ignored for now, as hf-inference is currently the only supported provider.
 func (c Client) ZeroShotClassifyText(
 	req ZeroShotTextClassificationRequest,
 	opts ...Option,
@@ -195,8 +187,6 @@ func (c Client) ZeroShotClassifyText(
 // officially documented; behavior may change without notice.
 //
 // Callers should check the length of the response list before indexing.
-//
-// The Provider option is ignored for now, as hf-inference is currently the only supported provider.
 func (c Client) ZeroShotClassifyTextBatch(
 	req ZeroShotTextClassificationBatchRequest,
 	opts ...Option,
@@ -208,8 +198,6 @@ func (c Client) ZeroShotClassifyTextBatch(
 // for a single input.
 //
 // For multiple inputs, use FillMaskBatch.
-//
-// The Provider option is ignored for now, as hf-inference is currently the only supported provider.
 func (c Client) FillMask(req FillMaskRequest, opts ...Option) ([]FillMaskPrediction, error) {
 	return newFillMaskService(c.opts).fill(req, opts...)
 }
@@ -221,8 +209,6 @@ func (c Client) FillMask(req FillMaskRequest, opts ...Option) ([]FillMaskPredict
 // officially documented; behavior may change without notice.
 //
 // Callers should check the length of the response list before indexing.
-//
-// The Provider option is ignored for now, as hf-inference is currently the only supported provider.
 func (c Client) FillMaskBatch(
 	req FillMaskBatchRequest,
 	opts ...Option,
@@ -237,8 +223,6 @@ func (c Client) FillMaskBatch(
 // one-element list rather than a bare summary object.
 //
 // For multiple inputs, use SummarizeBatch.
-//
-// The Provider option is ignored for now, as hf-inference is currently the only supported provider.
 func (c Client) Summarize(req SummarizationRequest, opts ...Option) ([]Summarization, error) {
 	return newSummarizationService(c.opts).summarize(req, opts...)
 }
@@ -251,8 +235,6 @@ func (c Client) Summarize(req SummarizationRequest, opts ...Option) ([]Summariza
 // officially documented; behavior may change without notice. The response is
 // a flat list (one summary per input) — not a nested list — consistent with
 // how the API returns a list even for a single input.
-//
-// The Provider option is ignored for now, as hf-inference is currently the only supported provider.
 func (c Client) SummarizeBatch(
 	req SummarizationBatchRequest,
 	opts ...Option,
@@ -269,8 +251,6 @@ func (c Client) SummarizeBatch(
 // answering, not an array — despite the upstream schema declaring an array
 // response. This method returns a single TableQuestionAnswer to match the
 // actual API behavior.
-//
-// The Provider option is ignored for now, as hf-inference is currently the only supported provider.
 func (c Client) AnswerTableQuestion(
 	req TableQuestionAnsweringRequest,
 	opts ...Option,
@@ -285,8 +265,6 @@ func (c Client) AnswerTableQuestion(
 // one-element list rather than a bare translation object.
 //
 // For multiple inputs, use TranslateBatch.
-//
-// The Provider option is ignored for now, as hf-inference is currently the only supported provider.
 func (c Client) Translate(req TranslationRequest, opts ...Option) ([]Translation, error) {
 	return newTranslationService(c.opts).translate(req, opts...)
 }
@@ -299,8 +277,6 @@ func (c Client) Translate(req TranslationRequest, opts ...Option) ([]Translation
 // officially documented; behavior may change without notice. The response is
 // a flat list (one translation per input) — not a nested list — consistent with
 // how the API returns a list even for a single input.
-//
-// The Provider option is ignored for now, as hf-inference is currently the only supported provider.
 func (c Client) TranslateBatch(
 	req TranslationBatchRequest,
 	opts ...Option,

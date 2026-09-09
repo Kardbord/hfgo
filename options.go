@@ -28,8 +28,14 @@ func WithModel(m string) Option {
 
 // WithProvider returns an Option that sets the provider for API requests.
 // The provider specifies which inference provider should handle the request.
-func WithProvider(p string) Option {
+func WithProvider(p Provider) Option {
 	return request.WithProvider(p)
+}
+
+// WithDefaultProvider returns an Option that sets the provider to the default
+// HuggingFace provider.
+func WithDefaultProvider() Option {
+	return request.WithDefaultProvider()
 }
 
 // WithHTTPClientFactory returns an Option that sets a http.Client created by the factory.
