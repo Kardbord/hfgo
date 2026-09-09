@@ -175,7 +175,7 @@ response, err := client.Chat(
 - `WithBaseURL(url string)`: Base URL for API requests (no query params/fragments)
 - `WithToken(token string)`: Bearer authentication token
 - `WithModel(model string)`: Model identifier for requests
-- `WithProvider(provider string)`: Inference provider
+- `WithProvider(provider Provider)`: Inference provider
 
 ### HTTP & Transport
 - `WithHTTPClientFactory(factory func() http.Client)`: Factory for HTTP clients
@@ -320,7 +320,7 @@ The Model field is resolved with the following precedence (highest to lowest):
 2. Per-request options Model override
 3. Client-level Model option
 
-The Provider field is applied as a fallback only if the resolved Model does not already contain a provider (indicated by ":" in the model string). If the Model is in the format "model:provider", the Provider option is ignored.
+The Provider field is applied as a suffix to the model string for routing in OpenAI-compatible endpoints. If the Model is in the format "model:provider", the Provider option is ignored. When the provider is the default HuggingFace provider, no suffix is appended and the router selects a provider automatically.
 
 **Behavior**:
 - Returns `SDKError` (kind: Configuration) if the request is missing a model or messages (zero-value request)
@@ -543,7 +543,6 @@ Same as `StreamRaw`, but streams the request body from an `io.Reader`.
 ## Endpoints
 
 ### Chat Completions
-- **Constant**: `EndpointChatCompletion = "/v1/chat/completions"`
 - **Method**: POST
 - **Methods**: `Client.Chat(...)` or `Client.ChatStream(...)`
 

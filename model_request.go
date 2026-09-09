@@ -25,10 +25,23 @@ func doModelInference[Req, Resp any](opts request.Options, task string, req Req)
 		}
 	}
 
+	if opts.Provider == nil {
+		return zero, &SDKError{
+			Kind:    SDKErrorKindConfiguration,
+			Message: "provider must not be nil",
+			Err:     nil,
+		}
+	}
+
+	endpoint, err := opts.Provider.Endpoint(task, opts.Model)
+	if err != nil {
+		return zero, err
+	}
+
 	return request.DoJSON[Req, Resp](
 		opts,
 		http.MethodPost,
-		"hf-inference/models/"+opts.Model,
+		endpoint,
 		req,
 	)
 }

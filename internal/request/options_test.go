@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/internal/hferrors"
+	"github.com/Kardbord/hfgo/v4/internal/providers"
 	"github.com/Kardbord/hfgo/v4/internal/sdkversion"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 )
@@ -58,7 +59,7 @@ func TestOptions_With(t *testing.T) {
 			options: []Option{
 				WithToken("token123"),
 				WithModel("llama-3"),
-				WithProvider("aws"),
+				WithProvider(providers.HuggingFaceProvider{}),
 				WithUserAgent("myapp/1.2.3"),
 			},
 			validate: func(t *testing.T, _ Options, updated Options) {
@@ -69,8 +70,9 @@ func TestOptions_With(t *testing.T) {
 				if updated.Model != "llama-3" {
 					t.Errorf("expected Model 'llama-3', got %q", updated.Model)
 				}
-				if updated.Provider != "aws" {
-					t.Errorf("expected Provider 'aws', got %q", updated.Provider)
+				defaultProvider := providers.HuggingFaceProvider{}
+				if updated.Provider != defaultProvider {
+					t.Errorf("expected Provider %v, got %v", defaultProvider, updated.Provider)
 				}
 				if updated.UserAgent != "myapp/1.2.3" {
 					t.Errorf("expected UserAgent 'myapp/1.2.3, got %q", updated.UserAgent)
@@ -178,7 +180,7 @@ func TestOptions_WithHelpers(t *testing.T) {
 		WithBaseURL("https://example.com").
 		WithToken("token").
 		WithModel("model").
-		WithProvider("provider").
+		WithProvider(providers.HuggingFaceProvider{}).
 		WithContext(ctx).
 		WithDefaultHTTPClient().
 		WithMaxResponseBodyBytes(42).
@@ -195,8 +197,9 @@ func TestOptions_WithHelpers(t *testing.T) {
 	if opts.Model != "model" {
 		t.Errorf("expected Model to be set, got %q", opts.Model)
 	}
-	if opts.Provider != "provider" {
-		t.Errorf("expected Provider to be set, got %q", opts.Provider)
+	defaultProvider := providers.HuggingFaceProvider{}
+	if opts.Provider != defaultProvider {
+		t.Errorf("expected Provider %v, got %v", defaultProvider, opts.Provider)
 	}
 	if opts.Context() != ctx {
 		t.Error("expected context to be set")
@@ -286,7 +289,7 @@ func TestOptions_DefensiveHeaderClone(t *testing.T) {
 		{
 			name: "WithProvider",
 			apply: func(opts Options) Options {
-				return opts.WithProvider("provider")
+				return opts.WithProvider(providers.HuggingFaceProvider{})
 			},
 		},
 		{
@@ -440,8 +443,8 @@ func TestNewOptions(t *testing.T) {
 			name: "has default Provider",
 			validate: func(t *testing.T, opts Options) {
 				t.Helper()
-				if opts.Provider != DefaultProvider {
-					t.Errorf("expected Provider %q, got %q", DefaultProvider, opts.Provider)
+				if opts.Provider == nil {
+					t.Errorf("expected Provider not nil, got nil")
 				}
 			},
 		},

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/internal/hferrors"
+	"github.com/Kardbord/hfgo/v4/internal/providers"
 	"github.com/Kardbord/hfgo/v4/internal/request"
 	"github.com/Kardbord/hfgo/v4/internal/sdkversion"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
@@ -17,6 +18,18 @@ import (
 )
 
 const chatServiceResponseBody = `{"id":"id","created":1,"model":"m","system_fingerprint":"s","choices":[{"finish_reason":"stop","index":0,"message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`
+
+type mockProvider struct {
+	name string
+}
+
+func (p mockProvider) Endpoint(_, _ string) (string, error) {
+	return "", nil
+}
+
+func (p mockProvider) ProviderSuffix() string {
+	return p.name
+}
 
 func TestNewClient_Defaults(t *testing.T) {
 	t.Parallel()
@@ -26,7 +39,7 @@ func TestNewClient_Defaults(t *testing.T) {
 	require.Equal(t, request.DefaultBaseURL, client.opts.BaseURL)
 	require.Equal(t, request.DefaultToken, client.opts.Token)
 	require.Equal(t, request.DefaultModel, client.opts.Model)
-	require.Equal(t, request.DefaultProvider, client.opts.Provider)
+	require.Equal(t, providers.HuggingFaceProvider{}, client.opts.Provider)
 	require.Equal(t, request.DefaultMaxResponseBodyBytes, client.opts.MaxResponseBodyBytes)
 	require.Equal(t, sdkversion.UserAgent(), client.opts.UserAgent)
 	require.Nil(t, client.opts.Headers)
@@ -91,7 +104,7 @@ func TestChatService_Complete_ModelSelection(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NotNil(t, mt.LastRequest)
-			require.Equal(t, EndpointChatCompletion, mt.LastRequest.URL.Path)
+			require.Equal(t, "/v1/chat/completions", mt.LastRequest.URL.Path)
 
 			got := testutils.ReadRequestBody(t, mt)
 			require.Equal(t, tc.wantModel, got["model"])
@@ -349,70 +362,70 @@ func TestApplyProvider(t *testing.T) {
 	cases := []struct {
 		name        string
 		model       *string
-		provider    string
+		provider    Provider
 		wantModel   *string
 		description string
 	}{
 		{
 			name:        "applies provider to model without provider",
 			model:       testutils.Ptr("mistral-7b"),
-			provider:    "huggingface",
-			wantModel:   testutils.Ptr("mistral-7b:huggingface"),
+			provider:    providers.HuggingFaceProvider{},
+			wantModel:   testutils.Ptr("mistral-7b"),
 			description: "model + provider → model:provider",
 		},
 		{
 			name:        "ignores provider when model already has provider",
 			model:       testutils.Ptr("mistral-7b:mistral"),
-			provider:    "huggingface",
+			provider:    providers.HuggingFaceProvider{},
 			wantModel:   testutils.Ptr("mistral-7b:mistral"),
 			description: "model:provider + different provider → unchanged",
 		},
 		{
 			name:        "returns nil model when model is nil",
 			model:       nil,
-			provider:    "huggingface",
+			provider:    providers.HuggingFaceProvider{},
 			wantModel:   nil,
 			description: "nil model → nil",
 		},
 		{
 			name:        "returns nil model when model is empty string",
 			model:       testutils.Ptr(""),
-			provider:    "huggingface",
+			provider:    providers.HuggingFaceProvider{},
 			wantModel:   testutils.Ptr(""),
 			description: "empty model → empty",
 		},
 		{
 			name:        "returns model unchanged when provider is empty",
 			model:       testutils.Ptr("mistral-7b"),
-			provider:    "",
+			provider:    nil,
 			wantModel:   testutils.Ptr("mistral-7b"),
 			description: "model + empty provider → model unchanged",
 		},
 		{
 			name:        "handles provider with special characters",
 			model:       testutils.Ptr("mistral-7b"),
-			provider:    "provider-name",
+			provider:    mockProvider{name: "provider-name"},
 			wantModel:   testutils.Ptr("mistral-7b:provider-name"),
 			description: "provider with hyphens",
 		},
 		{
 			name:        "handles provider with underscores",
 			model:       testutils.Ptr("mistral-7b"),
-			provider:    "provider_name",
+			provider:    mockProvider{name: "provider_name"},
 			wantModel:   testutils.Ptr("mistral-7b:provider_name"),
 			description: "provider with underscores",
 		},
 		{
 			name:        "handles provider with dots",
 			model:       testutils.Ptr("mistral-7b"),
-			provider:    "provider.com",
+			provider:    mockProvider{name: "provider.com"},
 			wantModel:   testutils.Ptr("mistral-7b:provider.com"),
 			description: "provider with dots",
 		},
 		{
 			name:        "ignores provider when model has multiple colons",
 			model:       testutils.Ptr("org:model:variant"),
-			provider:    "huggingface",
+			provider:    providers.HuggingFaceProvider{},
 			wantModel:   testutils.Ptr("org:model:variant"),
 			description: "model with multiple colons",
 		},
@@ -440,9 +453,9 @@ func TestResolveModel(t *testing.T) {
 		name           string
 		reqModel       *string
 		clientModel    string
-		clientProvider string
+		clientProvider Provider
 		optsModel      string
-		optsProvider   string
+		optsProvider   Provider
 		wantModel      *string
 		description    string
 	}{
@@ -469,16 +482,16 @@ func TestResolveModel(t *testing.T) {
 		{
 			name:           "applies provider to resolved model",
 			clientModel:    "mistral-7b",
-			clientProvider: "huggingface",
-			wantModel:      testutils.Ptr("mistral-7b:huggingface"),
+			clientProvider: providers.HuggingFaceProvider{},
+			wantModel:      testutils.Ptr("mistral-7b"),
 			description:    "provider applied to client model",
 		},
 		{
 			name:           "applies options provider to request model",
 			reqModel:       testutils.Ptr("mistral-7b"),
 			clientModel:    "client-model",
-			clientProvider: "client-provider",
-			optsProvider:   "opts-provider",
+			clientProvider: mockProvider{name: "client-provider"},
+			optsProvider:   mockProvider{name: "opts-provider"},
 			wantModel:      testutils.Ptr("mistral-7b:opts-provider"),
 			description:    "options provider applied to request model",
 		},
@@ -486,7 +499,7 @@ func TestResolveModel(t *testing.T) {
 			name:         "request model with provider ignores provider option",
 			reqModel:     testutils.Ptr("mistral-7b:mistral"),
 			clientModel:  "client-model",
-			optsProvider: "huggingface",
+			optsProvider: providers.HuggingFaceProvider{},
 			wantModel:    testutils.Ptr("mistral-7b:mistral"),
 			description:  "existing provider in model not overridden",
 		},
@@ -494,8 +507,8 @@ func TestResolveModel(t *testing.T) {
 			name:           "empty request model falls back to options model",
 			reqModel:       testutils.Ptr(""),
 			optsModel:      "opts-model",
-			clientProvider: "client-provider",
-			optsProvider:   "opts-provider",
+			clientProvider: mockProvider{name: "client-provider"},
+			optsProvider:   mockProvider{name: "opts-provider"},
 			wantModel:      testutils.Ptr("opts-model:opts-provider"),
 			description:    "empty string treated as nil for fallback",
 		},
@@ -516,16 +529,12 @@ func TestResolveModel(t *testing.T) {
 				WithProvider(tc.clientProvider)
 
 			// For this test, we'll apply the options with the client defaults
-			var optsOverride request.Options
-			if tc.optsModel == "" && tc.optsProvider == "" {
-				// Use only client options
-				optsOverride = baseOpts
-			} else {
-				// Apply client defaults first, then override with opts
-				optsOverride = baseOpts.With(
-					WithModel(tc.optsModel),
-					WithProvider(tc.optsProvider),
-				)
+			optsOverride := baseOpts
+			if tc.optsModel != "" {
+				optsOverride = optsOverride.With(WithModel(tc.optsModel))
+			}
+			if tc.optsProvider != nil {
+				optsOverride = optsOverride.With(WithProvider(tc.optsProvider))
 			}
 
 			resolveModel(payload, optsOverride)
@@ -552,9 +561,9 @@ func TestChatService_ProviderFallback(t *testing.T) {
 	type TestCase struct {
 		name           string
 		clientModel    string
-		clientProvider string
+		clientProvider Provider
 		optsModel      *string
-		optsProvider   *string
+		optsProvider   Provider
 		reqModel       *string
 		wantModel      string
 		description    string
@@ -564,128 +573,129 @@ func TestChatService_ProviderFallback(t *testing.T) {
 		{
 			name:           "applies client provider to client model",
 			clientModel:    "mistral-7b",
-			clientProvider: "huggingface",
-			wantModel:      "mistral-7b:huggingface",
+			clientProvider: providers.HuggingFaceProvider{},
+			wantModel:      "mistral-7b",
 			description:    "client model + client provider",
 		},
 		{
 			name:         "applies request provider to request model",
 			clientModel:  "default-model",
 			reqModel:     testutils.Ptr("mistral-7b"),
-			optsProvider: testutils.Ptr("huggingface"),
-			wantModel:    "mistral-7b:huggingface",
+			optsProvider: providers.HuggingFaceProvider{},
+			wantModel:    "mistral-7b",
 			description:  "request model + request provider",
 		},
 		{
 			name:           "request provider overrides client provider",
 			clientModel:    "mistral-7b",
-			clientProvider: "mistral",
-			optsProvider:   testutils.Ptr("huggingface"),
-			wantModel:      "mistral-7b:huggingface",
+			clientProvider: mockProvider{name: "mistral"},
+			optsProvider:   providers.HuggingFaceProvider{},
+			wantModel:      "mistral-7b",
 			description:    "request provider overrides client provider",
 		},
 		{
 			name:           "ignores provider when model already has provider",
 			clientModel:    "mistral-7b:mistral",
-			clientProvider: "huggingface",
+			clientProvider: providers.HuggingFaceProvider{},
 			wantModel:      "mistral-7b:mistral",
 			description:    "model with provider + provider option (ignored)",
 		},
 		{
 			name:           "request model takes precedence over provider",
 			clientModel:    "default-model",
-			clientProvider: "huggingface",
+			clientProvider: providers.HuggingFaceProvider{},
 			reqModel:       testutils.Ptr("mistral-7b:mistral"),
-			optsProvider:   testutils.Ptr("huggingface"),
+			optsProvider:   providers.HuggingFaceProvider{},
 			wantModel:      "mistral-7b:mistral",
 			description:    "request model with provider + request provider (model wins)",
 		},
 		{
 			name:           "applies request provider to request model without provider",
 			clientModel:    "default-model",
-			clientProvider: "client-provider",
+			clientProvider: providers.HuggingFaceProvider{},
 			reqModel:       testutils.Ptr("mistral-7b"),
-			optsProvider:   testutils.Ptr("huggingface"),
-			wantModel:      "mistral-7b:huggingface",
+			optsProvider:   providers.HuggingFaceProvider{},
+			wantModel:      "mistral-7b",
 			description:    "request model + request provider (overrides client)",
 		},
 		{
-			name:        "no provider applied when both missing",
-			clientModel: "mistral-7b",
-			wantModel:   "mistral-7b",
-			description: "model without provider, no provider option",
+			name:           "no provider applied when both missing",
+			clientModel:    "mistral-7b",
+			clientProvider: providers.HuggingFaceProvider{},
+			wantModel:      "mistral-7b",
+			description:    "model without provider, no provider option",
 		},
 		{
 			name:           "client provider applied to request model when no request provider",
 			clientModel:    "default-model",
-			clientProvider: "client-provider",
+			clientProvider: providers.HuggingFaceProvider{},
 			reqModel:       testutils.Ptr("mistral-7b"),
-			wantModel:      "mistral-7b:client-provider",
+			wantModel:      "mistral-7b",
 			description:    "client provider with request model",
 		},
 		{
 			name:           "model with multiple colons not modified by provider",
 			clientModel:    "org:model:variant",
-			clientProvider: "huggingface",
+			clientProvider: providers.HuggingFaceProvider{},
 			wantModel:      "org:model:variant",
 			description:    "multiple colons in model",
 		},
 		{
-			name:           "optsModel without optsProvider uses clientProvider",
+			name:           "optsModel_without_optsProvider_uses_clientProvider",
 			clientModel:    "default-model",
-			clientProvider: "client-provider",
+			clientProvider: providers.HuggingFaceProvider{},
 			optsModel:      testutils.Ptr("opts-model"),
-			wantModel:      "opts-model:client-provider",
+			wantModel:      "opts-model",
 			description:    "opts model with client provider fallback",
 		},
 		{
 			name:           "both optsModel and optsProvider set override client defaults",
 			clientModel:    "client-model",
-			clientProvider: "client-provider",
+			clientProvider: providers.HuggingFaceProvider{},
 			optsModel:      testutils.Ptr("opts-model"),
-			optsProvider:   testutils.Ptr("opts-provider"),
-			wantModel:      "opts-model:opts-provider",
+			optsProvider:   providers.HuggingFaceProvider{},
+			wantModel:      "opts-model",
 			description:    "both request-level options override client defaults",
 		},
 		{
 			name:           "empty reqModel falls back to optsModel",
 			clientModel:    "default-model",
-			clientProvider: "client-provider",
+			clientProvider: providers.HuggingFaceProvider{},
 			reqModel:       testutils.Ptr(""),
 			optsModel:      testutils.Ptr("opts-model"),
-			optsProvider:   testutils.Ptr("opts-provider"),
-			wantModel:      "opts-model:opts-provider",
+			optsProvider:   providers.HuggingFaceProvider{},
+			wantModel:      "opts-model",
 			description:    "empty request model treated as nil for fallback",
 		},
 		{
 			name:           "model with trailing colon not modified by provider",
 			clientModel:    "model:",
-			clientProvider: "provider",
+			clientProvider: providers.HuggingFaceProvider{},
 			wantModel:      "model:",
 			description:    "model with trailing colon treated as having provider",
 		},
 		{
-			name:           "override client provider with empty provider",
+			name:           "use client provider when no options provider set",
 			clientModel:    "mistral-7b",
-			clientProvider: "huggingface",
-			optsProvider:   testutils.Ptr(""),
+			clientProvider: providers.HuggingFaceProvider{},
+			optsProvider:   nil,
 			wantModel:      "mistral-7b",
-			description:    "explicitly passing empty provider removes provider",
+			description:    "nil optsProvider uses client provider (HF, no suffix)",
 		},
 		{
 			name:           "override optsModel with empty, keep optsProvider",
 			clientModel:    "default-model",
-			clientProvider: "client-provider",
-			optsProvider:   testutils.Ptr("opts-provider"),
-			wantModel:      "default-model:opts-provider",
+			clientProvider: providers.HuggingFaceProvider{},
+			optsProvider:   providers.HuggingFaceProvider{},
+			wantModel:      "default-model",
 			description:    "request provider override without model override uses client model",
 		},
 		{
 			name:           "override client provider with opts provider, no model override",
 			clientModel:    "mistral-7b",
-			clientProvider: "huggingface",
-			optsProvider:   testutils.Ptr("mistral"),
-			wantModel:      "mistral-7b:mistral",
+			clientProvider: providers.HuggingFaceProvider{},
+			optsProvider:   providers.HuggingFaceProvider{},
+			wantModel:      "mistral-7b",
 			description:    "request provider overrides client provider without model change",
 		},
 	}
@@ -721,14 +731,14 @@ func TestChatService_ProviderFallback(t *testing.T) {
 			optsToPass = append(optsToPass, WithModel(*tc.optsModel))
 		}
 		if tc.optsProvider != nil {
-			optsToPass = append(optsToPass, WithProvider(*tc.optsProvider))
+			optsToPass = append(optsToPass, WithProvider(tc.optsProvider))
 		}
 
 		err := methodCall(&client, req, optsToPass)
 		require.NoError(t, err)
 
 		require.NotNil(t, mt.LastRequest)
-		require.Equal(t, EndpointChatCompletion, mt.LastRequest.URL.Path)
+		require.Equal(t, "/v1/chat/completions", mt.LastRequest.URL.Path)
 
 		got := testutils.ReadRequestBody(t, mt)
 		require.Equal(t, tc.wantModel, got["model"], tc.description)
