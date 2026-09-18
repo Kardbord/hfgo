@@ -36,7 +36,7 @@ func (p HuggingFaceProvider) Endpoint(task Task, model string) (string, error) {
 		return "v1/chat/completions", nil
 	case TaskTextClassification, TaskZeroShotTextClassification, TaskTokenClassification,
 		TaskQuestionAnswering, TaskTableQuestionAnswering, TaskFillMask,
-		TaskSummarization, TaskTranslation:
+		TaskSummarization, TaskTranslation, TaskAutomaticSpeechRecognition:
 		return "hf-inference/models/" + model, nil
 	default:
 		return "", &hferrors.SDKError{

@@ -1,6 +1,9 @@
 package hfgo
 
 import (
+	"encoding/base64"
+	"io"
+
 	"github.com/Kardbord/hfgo/v4/internal/request"
 )
 
@@ -10,6 +13,17 @@ import (
 // If options include externally-owned pointers, callers must avoid mutating them after creation
 // or ensure their own synchronization.
 // RawService captures a snapshot of these options when created.
+//
+// Concurrency and request mutation:
+//   - A single Client is safe for concurrent use.
+//   - Reusing one request across sequential, fully-awaited calls is safe.
+//   - To invoke the same template request from multiple goroutines, pass a
+//     defensive copy per call (e.g. go client.Chat(req.Clone(), ...)), or build a
+//     fresh request per call. Every request DTO provides a deep Clone method.
+//   - Request DTOs are passed to Client methods by value and the SDK never mutates
+//     the caller's payload. The value copy shares the request's nested data (slices,
+//     maps, and pointed-to values) with the caller, so the caller must treat the request
+//     and the data it references as read-only while a call is in flight.
 type Client struct {
 	opts request.Options
 }
@@ -24,18 +38,6 @@ func NewClient(opts ...Option) Client {
 }
 
 // Chat sends a chat completion request and returns a chat completion response.
-//
-// The request is passed by value and the SDK never mutates the received
-// payload. The value copy shares the request's nested data (slices, maps, and
-// pointed-to values) with the caller, so the caller must treat the request and
-// the data it references as read-only while a call is in flight.
-//
-// Concurrency:
-//   - A single Client is safe for concurrent use.
-//   - Reusing one request across sequential, fully-awaited calls is safe.
-//   - To invoke the same template request from multiple goroutines, pass a
-//     defensive copy per call, e.g. go client.Chat(req.Clone(), ...), or build a
-//     fresh request per call.
 //
 // Model Precedence:
 // The Model field is resolved with the following precedence (highest to lowest):
@@ -67,18 +69,6 @@ func (c Client) Chat(req ChatRequest, opts ...Option) (ChatResponse, error) {
 // ChatStream sends a chat completion request and returns a streaming response.
 // Callers should Close the returned ChatStream when finished so the underlying HTTP
 // connection and decoder goroutine are released promptly.
-//
-// The request is passed by value and the SDK never mutates the received
-// payload. The value copy shares the request's nested data (slices, maps, and
-// pointed-to values) with the caller, so the caller must treat the request and
-// the data it references as read-only while a call is in flight.
-//
-// Concurrency:
-//   - A single Client is safe for concurrent use.
-//   - Reusing one request across sequential, fully-awaited calls is safe.
-//   - To invoke the same template request from multiple goroutines, pass a
-//     defensive copy per call, e.g. go client.ChatStream(req.Clone(), ...), or
-//     build a fresh request per call.
 //
 // Model Precedence:
 // The Model field is resolved with the following precedence (highest to lowest):
@@ -310,6 +300,60 @@ func (c Client) FeatureExtractBatch(
 	opts ...Option,
 ) ([]FeatureExtraction, error) {
 	return newFeatureExtractionService(c.opts).extractBatch(req, opts...)
+}
+
+// RecognizeSpeech sends a speech recognition request and returns the
+// recognized text for a single input.
+func (c Client) RecognizeSpeech(
+	req SpeechRecognitionRequest,
+	opts ...Option,
+) (SpeechRecognition, error) {
+	return newSpeechRecognitionService(c.opts).recognize(req, opts...)
+}
+
+// RecognizeSpeechBatch sends a speech recognition request for a batch of
+// inputs and returns a list of speech recognition responses, one for each
+// input in the batch, in the same order as the inputs.
+//
+// NOTE: Batched inference is supported by the upstream API, but is not
+// officially documented; behavior may change without notice.
+//
+// Callers should check the length of the response list before indexing.
+func (c Client) RecognizeSpeechBatch(
+	req SpeechRecognitionBatchRequest,
+	opts ...Option,
+) ([]SpeechRecognition, error) {
+	return newSpeechRecognitionService(c.opts).recognizeBatch(req, opts...)
+}
+
+// RecognizeSpeechReader reads audio data from the provided reader,
+// base64-encodes it, and sends it as a speech recognition request.
+//
+// This is a convenience method that avoids the caller having to
+// manually base64-encode audio data and construct a SpeechRecognitionRequest.
+//
+// The request is built internally and the SDK never mutates the reader.
+// The reader is fully consumed before the request is dispatched.
+//
+// params may be omitted to use the provider defaults.
+func (c Client) RecognizeSpeechReader(
+	reader io.Reader,
+	params *SpeechRecognitionRequestParameters,
+	opts ...Option,
+) (SpeechRecognition, error) {
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return SpeechRecognition{}, &SDKError{
+			Kind:    SDKErrorKindSerialization,
+			Message: "failed to read audio data",
+			Err:     err,
+		}
+	}
+
+	return c.RecognizeSpeech(SpeechRecognitionRequest{
+		Input:      base64.StdEncoding.EncodeToString(data),
+		Parameters: params,
+	}, opts...)
 }
 
 // Raw returns the raw HTTP request service for this client. Unlike the other

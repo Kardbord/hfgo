@@ -22,18 +22,19 @@ The SDK follows a strict immutability pattern for concurrency safety:
    - Each method call snapshots the client's options, so calls are independent and deterministic
 
 2. **Client Methods**: Every inference endpoint is called directly on the `Client`
-   - `Chat` / `ChatStream`: Chat completions
+    - `Chat` / `ChatStream`: Chat completions
     - `ClassifyText` / `ClassifyTextBatch`: Text classification
     - `AnswerQuestion`: Question answering
     - `ClassifyTokens` / `ClassifyTokensBatch`: Token classification (named entity recognition)
     - `ZeroShotClassifyText` / `ZeroShotClassifyTextBatch`: Zero-shot text classification
-   - `FillMask` / `FillMaskBatch`: Mask filling
-   - `Summarize` / `SummarizeBatch`: Summarization
+    - `FillMask` / `FillMaskBatch`: Mask filling
+    - `Summarize` / `SummarizeBatch`: Summarization
     - `Translate` / `TranslateBatch`: Translation
     - `AnswerTableQuestion`: Table question answering
     - `FeatureExtract` / `FeatureExtractBatch`: Feature extraction (embeddings)
+    - `RecognizeSpeech` / `RecognizeSpeechBatch`: Automatic speech recognition
     - The former per-domain service types are unexported implementation details; callers interact only with the Client
-   - `Client.Raw()` returns the `RawService` escape hatch for arbitrary endpoints (see below); it is the deliberate exception to the flat-method design
+    - `Client.Raw()` returns the `RawService` escape hatch for arbitrary endpoints (see below); it is the deliberate exception to the flat-method design
 
 3. **Per-Request Options**: Can override client defaults for single calls
    - Applied by value with defensive header copies
@@ -308,12 +309,6 @@ exception and is documented separately.
 #### Chat(req ChatRequest, opts ...Option) (ChatResponse, error)
 Non-streaming chat completion.
 
-**Concurrency and request mutation**:
-- The request is passed **by value**; the SDK never mutates the caller's payload.
-- The value copy shares nested data (slices, maps, pointed-to values) with the caller, so the request and the data it references must be treated as **read-only while a call is in flight**.
-- Sequential, fully-awaited reuse of one request is safe and requires no cloning.
-- For concurrent invocation, pass a defensive copy per call: `go client.Chat(req.Clone(), ...)`, or build a fresh request per call.
-
 **Model and Provider Precedence**:
 The Model field is resolved with the following precedence (highest to lowest):
 1. ChatRequest.Model field (if non-nil and non-empty)
@@ -332,11 +327,6 @@ The Provider field is applied as a suffix to the model string for routing in Ope
 
 #### ChatStream(req ChatRequest, opts ...Option) (*ChatStream, error)
 Streaming chat completion using SSE.
-
-**Concurrency and request mutation**:
-- The request is passed **by value**; the SDK never mutates the caller's payload.
-- The request is fully consumed before the stream is returned, so the same sequential-reuse rules as `Chat` apply.
-- For concurrent invocation, pass a defensive copy per call: `go client.ChatStream(req.Clone(), ...)`, or build a fresh request per call.
 
 **Behavior**:
 - Returns `SDKError` (kind: Configuration) if the request is missing a model or messages (zero-value request)
@@ -510,6 +500,23 @@ Batch feature extraction for multiple inputs.
 - Applies per-request options
 - Validates that a model is configured
 - Returns a list of embedding vectors (`[][]float64`), one per input, in input order
+- Callers should check the length of the response list before indexing
+
+#### RecognizeSpeech(req SpeechRecognitionRequest, opts ...Option) (SpeechRecognition, error)
+Non-streaming speech recognition for a single input.
+
+**Behavior**:
+- Applies per-request options
+- Validates that a model is configured
+- Returns a [SpeechRecognition] struct with the recognized text and optional timestamp chunks
+
+#### RecognizeSpeechBatch(req SpeechRecognitionBatchRequest, opts ...Option) ([]SpeechRecognition, error)
+Batch speech recognition for multiple inputs.
+
+**Behavior**:
+- Applies per-request options
+- Validates that a model is configured
+- Returns a list of speech recognition results, one per input, in input order
 - Callers should check the length of the response list before indexing
 
 ### RawService (escape hatch)

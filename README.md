@@ -86,6 +86,7 @@ See the [examples](./examples) directory for more.
 - [Fill Mask](./examples/fill-mask)
 - [Question Answering](./examples/question-answering)
 - [Summarization](./examples/summarization)
+- [Speech Recognition](./examples/speech-recognition)
 - [Table Question Answering](./examples/table-question-answering)
 - [Text Classification](./examples/text-classification)
 - [Token Classification](./examples/token-classification)
