@@ -10,7 +10,7 @@ import (
 // inference request to the API for a single input.
 type SpeechRecognitionRequest struct {
 	// The input audio data as a base64-encoded string.
-	Input string `json:"input"`
+	Input string `json:"inputs"`
 
 	// Additional inference parameters for Automatic Speech Recognition.
 	Parameters *SpeechRecognitionRequestParameters `json:"parameters,omitempty"`
