@@ -6,7 +6,7 @@ meta {
 
 post {
   url: {{HF_BASE_URL}}/hf-inference/models/{{model_automatic_speech_recognition}}
-  body: multipartForm
+  body: json
   auth: inherit
 }
 
@@ -14,7 +14,11 @@ headers {
   Accept: application/json
 }
 
-body:multipart-form {
-  inputs: @file({{sample_audio}})
-  parameters: {"return_timestamps": true}
+body:json {
+  {
+    "inputs": "UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA",
+    "parameters": {
+      "return_timestamps": true
+    }
+  }
 }
