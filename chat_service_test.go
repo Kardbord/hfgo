@@ -31,6 +31,11 @@ func (p mockProvider) ProviderSuffix() string {
 	return p.name
 }
 
+//nolint:ireturn // mockProvider implements the Provider interface.
+func (p mockProvider) Codec(_ Task) (Codec, error) {
+	return DefaultCodec{}, nil
+}
+
 func TestNewClient_Defaults(t *testing.T) {
 	t.Parallel()
 

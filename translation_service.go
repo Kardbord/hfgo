@@ -19,7 +19,7 @@ func (s translationService) translate(
 	req TranslationRequest,
 	opts ...Option,
 ) ([]Translation, error) {
-	return doModelInference[TranslationRequest, []Translation](
+	return doJSONInference[TranslationRequest, []Translation](
 		s.opts.With(opts...),
 		TaskTranslation,
 		req,
@@ -31,7 +31,7 @@ func (s translationService) translateBatch(
 	req TranslationBatchRequest,
 	opts ...Option,
 ) ([]Translation, error) {
-	return doModelInference[TranslationBatchRequest, []Translation](
+	return doJSONInference[TranslationBatchRequest, []Translation](
 		s.opts.With(opts...),
 		TaskTranslation,
 		req,

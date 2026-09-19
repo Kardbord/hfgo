@@ -34,14 +34,14 @@ func (s questionAnsweringService) answer(
 	// request parameters, similar to how text classification handles its
 	// TopK response format quirk.
 	if req.Parameters != nil && req.Parameters.TopK != nil && *req.Parameters.TopK > 1 {
-		return doModelInference[QuestionAnsweringRequest, []QuestionAnswering](
+		return doJSONInference[QuestionAnsweringRequest, []QuestionAnswering](
 			optsOverride,
 			TaskQuestionAnswering,
 			req,
 		)
 	}
 
-	single, err := doModelInference[QuestionAnsweringRequest, QuestionAnswering](
+	single, err := doJSONInference[QuestionAnsweringRequest, QuestionAnswering](
 		optsOverride,
 		TaskQuestionAnswering,
 		req,

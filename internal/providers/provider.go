@@ -1,8 +1,8 @@
 // Package providers defines the Provider interface and built-in provider implementations.
 package providers
 
-// Provider knows how to construct API endpoints for a given task and model.
-// Implementations must be safe for concurrent use.
+// Provider knows how to construct API endpoints and wire-format codecs
+// for a given task and model. Implementations must be safe for concurrent use.
 type Provider interface {
 	// Endpoint returns the API endpoint path for the given task and model.
 	// It returns an error if the model is invalid or the task is unsupported.
@@ -11,4 +11,7 @@ type Provider interface {
 	// for routing in OpenAI-compatible endpoints. An empty string means
 	// no suffix is appended (e.g. for the default HuggingFace provider).
 	ProviderSuffix() string
+	// Codec returns the wire-format adapter for the given task.
+	// It returns an error if the task is not supported by this provider.
+	Codec(task Task) (Codec, error)
 }

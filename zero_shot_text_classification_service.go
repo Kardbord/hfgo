@@ -33,7 +33,7 @@ func (s zeroShotTextClassificationService) classify(
 		}
 	}
 
-	resp, err := doModelInference[ZeroShotTextClassificationRequest, []ZeroShotTextClassification](
+	resp, err := doJSONInference[ZeroShotTextClassificationRequest, []ZeroShotTextClassification](
 		optsOverride,
 		TaskZeroShotTextClassification,
 		req,
@@ -61,7 +61,7 @@ func (s zeroShotTextClassificationService) classifyBatch(
 		}
 	}
 
-	resp, err := doModelInference[ZeroShotTextClassificationBatchRequest, []zeroShotTextClassificationBatched](
+	resp, err := doJSONInference[ZeroShotTextClassificationBatchRequest, []zeroShotTextClassificationBatched](
 		optsOverride,
 		TaskZeroShotTextClassification,
 		req,

@@ -25,7 +25,7 @@ func (s textClassificationService) classify(
 	// TextClassification objects, but in reality it returns an array of arrays, where
 	// the outer array contains only a single entry (the inner array), and the inner array
 	// contains a list of TextClassification objects.
-	resp, err := doModelInference[TextClassificationRequest, [][]TextClassification](
+	resp, err := doJSONInference[TextClassificationRequest, [][]TextClassification](
 		optsOverride,
 		TaskTextClassification,
 		req,
@@ -49,7 +49,7 @@ func (s textClassificationService) classifyBatch(
 ) ([][]TextClassification, error) {
 	optsOverride := s.opts.With(opts...)
 
-	resp, err := doModelInference[TextClassificationBatchRequest, [][]TextClassification](
+	resp, err := doJSONInference[TextClassificationBatchRequest, [][]TextClassification](
 		optsOverride,
 		TaskTextClassification,
 		req,

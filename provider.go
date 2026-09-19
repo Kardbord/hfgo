@@ -2,8 +2,17 @@ package hfgo
 
 import "github.com/Kardbord/hfgo/v4/internal/providers"
 
-// Provider knows how to construct API endpoints for a given task and model.
+// Provider knows how to construct API endpoints and wire-format codecs
+// for a given task and model.
 type Provider = providers.Provider
+
+// Codec transforms between HF-spec and provider-spec wire formats for a task.
+type Codec = providers.Codec
+
+// DefaultCodec is an identity codec that passes request and response bodies
+// through unchanged. It is the baseline wire format used by the HuggingFace
+// inference API and OpenAI-compatible endpoints.
+type DefaultCodec = providers.DefaultCodec
 
 // Task identifies an inference task type.
 type Task = providers.Task

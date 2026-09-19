@@ -46,3 +46,25 @@ func (p HuggingFaceProvider) Endpoint(task Task, model string) (string, error) {
 		}
 	}
 }
+
+// Codec returns a DefaultCodec for all tasks supported by the HuggingFace
+// inference API. The HuggingFace API is the reference wire format, so no
+// transformation is needed.
+//
+//nolint:ireturn // Returning the Codec interface is required by the Provider contract.
+func (p HuggingFaceProvider) Codec(task Task) (Codec, error) {
+	switch task { //nolint:exhaustive // Additional hf-inference tasks are not yet supported.
+	case TaskFeatureExtraction, TaskSentenceSimilarity,
+		TaskChatCompletion,
+		TaskTextClassification, TaskZeroShotTextClassification, TaskTokenClassification,
+		TaskQuestionAnswering, TaskTableQuestionAnswering, TaskFillMask,
+		TaskSummarization, TaskTranslation:
+		return DefaultCodec{}, nil
+	default:
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "unsupported task " + string(task),
+			Err:     nil,
+		}
+	}
+}

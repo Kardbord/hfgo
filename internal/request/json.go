@@ -31,7 +31,7 @@ const (
 // For HTTP errors, Do returns an *errors.APIError which includes the status code,
 // response body, and other metadata.
 //
-//nolint:bodyclose // drainAndCloseBody closes the response body.
+//nolint:bodyclose // DrainAndCloseBody closes the response body.
 func DoJSON[TReq any, TResp any](
 	opts Options,
 	method string,
@@ -52,7 +52,7 @@ func DoJSON[TReq any, TResp any](
 	if err != nil {
 		return resp, err
 	}
-	defer drainAndCloseBody(httpResp.Body)
+	defer DrainAndCloseBody(httpResp.Body)
 
 	resp, err = decodeJSONResponse[TResp](httpResp, opts.MaxResponseBodyBytes)
 
@@ -63,11 +63,11 @@ func decodeJSONResponse[T any](resp *http.Response, maxResponseBodyBytes int64) 
 	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusResetContent {
 		return out, nil
 	}
-	if err := validateJSONResponseContentType(resp.Header); err != nil {
+	if err := ValidateJSONResponseContentType(resp.Header); err != nil {
 		return out, err
 	}
 
-	body, err := readResponseBodyLimited(resp.Body, maxResponseBodyBytes)
+	body, err := ReadResponseBody(resp, maxResponseBodyBytes)
 	if err != nil {
 		return out, err
 	}
@@ -128,7 +128,7 @@ func DoJSONStream[TReq any, TResp any](
 		return nil, err
 	}
 
-	if err := validateEventStreamResponseContentType(resp.Header); err != nil {
+	if err := ValidateEventStreamResponseContentType(resp.Header); err != nil {
 		_ = resp.Body.Close()
 
 		return nil, err
@@ -141,12 +141,22 @@ func DoJSONStream[TReq any, TResp any](
 		return nil, err
 	}
 
-	return &JSONStream[TResp]{raw: raw}, nil
+	return NewJSONStream[TResp](raw, nil), nil
 }
 
 // JSONStream consumes JSON SSE events produced by DoJSONStream.
 type JSONStream[T any] struct {
 	raw *RawStream
+	// decode is an optional transform applied to each data chunk before
+	// unmarshalling. If nil, the chunk is used as-is.
+	decode func([]byte) ([]byte, error)
+}
+
+// NewJSONStream returns a JSONStream backed by the given RawStream.
+// If decode is non-nil, it is applied to each data chunk before
+// unmarshalling into T.
+func NewJSONStream[T any](raw *RawStream, decode func([]byte) ([]byte, error)) *JSONStream[T] {
+	return &JSONStream[T]{raw: raw, decode: decode}
 }
 
 // Recv blocks until the next JSON event is available or the stream ends.
@@ -173,6 +183,16 @@ func (s *JSONStream[T]) Recv(ctx context.Context) (out T, err error) {
 			_ = s.raw.Close()
 
 			return out, io.EOF
+		}
+		if s.decode != nil {
+			data, err = s.decode(data)
+			if err != nil {
+				return out, &hferrors.SDKError{
+					Kind:    hferrors.SDKErrorKindSerialization,
+					Message: "failed to decode stream event",
+					Err:     err,
+				}
+			}
 		}
 		if err := json.Unmarshal(data, &out); err != nil {
 			return out, &hferrors.SDKError{
@@ -237,8 +257,8 @@ func validateJSONRequestContentType(headers http.Header) error {
 	return nil
 }
 
-// validateJSONResponseContentType validates that the response Content-Type indicates JSON.
-func validateJSONResponseContentType(headers http.Header) error {
+// ValidateJSONResponseContentType validates that the response Content-Type indicates JSON.
+func ValidateJSONResponseContentType(headers http.Header) error {
 	contentType := headers.Get("Content-Type")
 	if contentType == "" {
 		return nil
@@ -262,8 +282,8 @@ func validateJSONResponseContentType(headers http.Header) error {
 	return nil
 }
 
-// validateEventStreamResponseContentType ensures the response advertises text/event-stream.
-func validateEventStreamResponseContentType(headers http.Header) error {
+// ValidateEventStreamResponseContentType ensures the response advertises text/event-stream.
+func ValidateEventStreamResponseContentType(headers http.Header) error {
 	contentType := headers.Get("Content-Type")
 	if contentType == "" {
 		return &hferrors.SDKError{

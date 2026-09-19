@@ -24,7 +24,7 @@ func (s tableQuestionAnsweringService) answer(
 	req TableQuestionAnsweringRequest,
 	opts ...Option,
 ) (TableQuestionAnswer, error) {
-	return doModelInference[TableQuestionAnsweringRequest, TableQuestionAnswer](
+	return doJSONInference[TableQuestionAnsweringRequest, TableQuestionAnswer](
 		s.opts.With(opts...),
 		TaskTableQuestionAnswering,
 		req,

@@ -19,7 +19,7 @@ func (s fillMaskService) fill(
 	req FillMaskRequest,
 	opts ...Option,
 ) ([]FillMaskPrediction, error) {
-	return doModelInference[FillMaskRequest, []FillMaskPrediction](
+	return doJSONInference[FillMaskRequest, []FillMaskPrediction](
 		s.opts.With(opts...),
 		TaskFillMask,
 		req,
@@ -31,7 +31,7 @@ func (s fillMaskService) fillBatch(
 	req FillMaskBatchRequest,
 	opts ...Option,
 ) ([][]FillMaskPrediction, error) {
-	return doModelInference[FillMaskBatchRequest, [][]FillMaskPrediction](
+	return doJSONInference[FillMaskBatchRequest, [][]FillMaskPrediction](
 		s.opts.With(opts...),
 		TaskFillMask,
 		req,

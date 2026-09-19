@@ -3,7 +3,6 @@ package hfgo
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/Kardbord/hfgo/v4/internal/chatstream"
@@ -25,7 +24,6 @@ func newChatService(opts request.Options) chatService {
 // Provider suffix is appended only if the model doesn't already contain a provider
 // (indicated by ":") and the provider is not the default HuggingFace provider.
 func resolveModel(payload *ChatRequest, optsOverride request.Options) {
-	// Resolve model with precedence: request > options > client
 	if payload.Model == nil || *payload.Model == "" {
 		if optsOverride.Model != "" {
 			model := optsOverride.Model
@@ -33,7 +31,6 @@ func resolveModel(payload *ChatRequest, optsOverride request.Options) {
 		}
 	}
 
-	// Apply provider fallback to the final model
 	payload.Model = applyProvider(payload.Model, optsOverride.Provider)
 }
 
@@ -57,46 +54,40 @@ func applyProvider(model *string, provider Provider) *string {
 	return model
 }
 
-// resolveEndpoint resolves the chat completion endpoint, validating the model
-// and provider. It returns the endpoint path and the resolved options override.
-func (s chatService) resolveEndpoint(
-	req *ChatRequest,
-	opts ...Option,
-) (string, request.Options, error) {
+// resolveChatOptions merges per-call options with client defaults and resolves
+// the model on the request payload. It returns the resolved options with the
+// model set so downstream dispatch (doJSONInference) can use it.
+func resolveChatOptions(s chatService, req *ChatRequest, opts []Option) (request.Options, error) {
 	optsOverride := s.opts.With(opts...)
 
 	resolveModel(req, optsOverride)
 
 	if req.Model == nil || *req.Model == "" {
-		return "", request.Options{}, &SDKError{
+		return request.Options{}, &SDKError{
 			Kind:    SDKErrorKindConfiguration,
 			Message: "the model option must be set for chat completion to succeed",
 			Err:     nil,
 		}
 	}
 
-	provider := optsOverride.Provider
-	if provider == nil {
-		return "", request.Options{}, &SDKError{
+	if optsOverride.Provider == nil {
+		return request.Options{}, &SDKError{
 			Kind:    SDKErrorKindConfiguration,
 			Message: "provider must not be nil",
 			Err:     nil,
 		}
 	}
 
-	endpoint, err := provider.Endpoint(TaskChatCompletion, *req.Model)
-	if err != nil {
-		return "", request.Options{}, err
-	}
+	optsOverride.Model = *req.Model
 
-	return endpoint, optsOverride, nil
+	return optsOverride, nil
 }
 
 // complete sends a chat completion request and returns a chat completion response.
 //
 //nolint:gocritic // hugeParam: complete takes the request by value so the SDK never mutates the caller's payload
 func (s chatService) complete(req ChatRequest, opts ...Option) (ChatResponse, error) {
-	endpoint, optsOverride, err := s.resolveEndpoint(&req, opts...)
+	optsOverride, err := resolveChatOptions(s, &req, opts)
 	if err != nil {
 		return ChatResponse{}, err
 	}
@@ -109,10 +100,9 @@ func (s chatService) complete(req ChatRequest, opts ...Option) (ChatResponse, er
 		}
 	}
 
-	return request.DoJSON[ChatRequest, ChatResponse](
+	return doJSONInference[ChatRequest, ChatResponse](
 		optsOverride,
-		http.MethodPost,
-		endpoint,
+		TaskChatCompletion,
 		req,
 	)
 }
@@ -121,7 +111,7 @@ func (s chatService) complete(req ChatRequest, opts ...Option) (ChatResponse, er
 //
 //nolint:gocritic // hugeParam: completeStream takes the request by value so the SDK never mutates the caller's payload
 func (s chatService) completeStream(req ChatRequest, opts ...Option) (*ChatStream, error) {
-	endpoint, optsOverride, err := s.resolveEndpoint(&req, opts...)
+	optsOverride, err := resolveChatOptions(s, &req, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -129,10 +119,9 @@ func (s chatService) completeStream(req ChatRequest, opts ...Option) (*ChatStrea
 	stream := true
 	req.Stream = &stream
 
-	streamResp, err := request.DoJSONStream[ChatRequest, ChatStreamResponse](
+	streamResp, err := doStreamingInference[ChatRequest, ChatStreamResponse](
 		optsOverride,
-		http.MethodPost,
-		endpoint,
+		TaskChatCompletion,
 		req,
 	)
 	if err != nil {
