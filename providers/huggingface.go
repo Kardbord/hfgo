@@ -5,10 +5,21 @@ import (
 )
 
 // HuggingFaceProvider implements Provider for the HuggingFace inference API.
-type HuggingFaceProvider struct{}
+// It embeds DefaultCodec, inheriting the identity request and response
+// transforms: the HuggingFace API is the reference wire format, so no
+// transformation is needed.
+type HuggingFaceProvider struct {
+	DefaultCodec
+}
 
-// ProviderSuffix returns the provider suffix appended to model IDs
-// for routing in OpenAI-compatible endpoints.
+// ProviderSuffix returns an empty string. On OpenAI-compatible endpoints
+// (e.g. chat completions), the HF router selects a provider server-side, so
+// the HuggingFace provider appends no routing pin to the model. A provider or
+// selection policy can be pinned by appending a suffix to the model string
+// (e.g. "model:sambanova", "model:fastest", "model:cheapest",
+// "model:preferred"); see the Inference Providers docs for provider selection
+// behavior:
+// https://huggingface.co/docs/inference-providers/main/en/index.
 func (p HuggingFaceProvider) ProviderSuffix() string {
 	return ""
 }
@@ -40,28 +51,6 @@ func (p HuggingFaceProvider) Endpoint(task Task, model string) (string, error) {
 		return "hf-inference/models/" + model, nil
 	default:
 		return "", &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: "unsupported task " + string(task),
-			Err:     nil,
-		}
-	}
-}
-
-// Codec returns a DefaultCodec for all tasks supported by the HuggingFace
-// inference API. The HuggingFace API is the reference wire format, so no
-// transformation is needed.
-//
-//nolint:ireturn // Returning the Codec interface is required by the Provider contract.
-func (p HuggingFaceProvider) Codec(task Task) (Codec, error) {
-	switch task { //nolint:exhaustive // Additional hf-inference tasks are not yet supported.
-	case TaskFeatureExtraction, TaskSentenceSimilarity,
-		TaskChatCompletion,
-		TaskTextClassification, TaskZeroShotTextClassification, TaskTokenClassification,
-		TaskQuestionAnswering, TaskTableQuestionAnswering, TaskFillMask,
-		TaskSummarization, TaskTranslation:
-		return DefaultCodec{}, nil
-	default:
-		return nil, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
 			Message: "unsupported task " + string(task),
 			Err:     nil,

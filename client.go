@@ -55,6 +55,13 @@ func NewClient(opts ...Option) Client {
 //   - Model="mistral-7b", Provider=mockProvider("sambanova") → "mistral-7b:sambanova"
 //   - Model="mistral-7b:sambanova", Provider=HuggingFaceProvider → "mistral-7b:sambanova" (Provider ignored)
 //
+// Provider selection is otherwise delegated to the HF router. To select a
+// provider or selection policy explicitly, append a suffix to the model
+// string (e.g. "model:sambanova", "model:fastest", "model:cheapest",
+// "model:preferred"). See the Inference Providers docs for the default
+// (no-suffix) behavior:
+// https://huggingface.co/docs/inference-providers/main/en/index.
+//
 // Behavior:
 //   - Returns a configuration error if the request is missing a model or messages.
 //   - Returns a configuration error if *req.Stream is true; use ChatStream for streaming.
@@ -97,6 +104,13 @@ func (c Client) Chat(req ChatRequest, opts ...Option) (ChatResponse, error) {
 //   - Model="mistral-7b", Provider=HuggingFaceProvider → "mistral-7b"
 //   - Model="mistral-7b", Provider=mockProvider("sambanova") → "mistral-7b:sambanova"
 //   - Model="mistral-7b:sambanova", Provider=HuggingFaceProvider → "mistral-7b:sambanova" (Provider ignored)
+//
+// Provider selection is otherwise delegated to the HF router. To select a
+// provider or selection policy explicitly, append a suffix to the model
+// string (e.g. "model:sambanova", "model:fastest", "model:cheapest",
+// "model:preferred"). See the Inference Providers docs for the default
+// (no-suffix) behavior:
+// https://huggingface.co/docs/inference-providers/main/en/index.
 //
 // Behavior:
 //   - Returns a configuration error if the request is missing a model or messages.

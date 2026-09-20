@@ -2,6 +2,7 @@ package hfgo
 
 import (
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // tableQuestionAnsweringService implements table question answering calls using the configured request options.
@@ -26,7 +27,7 @@ func (s tableQuestionAnsweringService) answer(
 ) (TableQuestionAnswer, error) {
 	return doJSONInference[TableQuestionAnsweringRequest, TableQuestionAnswer](
 		s.opts.With(opts...),
-		TaskTableQuestionAnswering,
+		providers.TaskTableQuestionAnswering,
 		req,
 	)
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // zeroShotTextClassificationService implements zero-shot text classification
@@ -35,7 +36,7 @@ func (s zeroShotTextClassificationService) classify(
 
 	resp, err := doJSONInference[ZeroShotTextClassificationRequest, []ZeroShotTextClassification](
 		optsOverride,
-		TaskZeroShotTextClassification,
+		providers.TaskZeroShotTextClassification,
 		req,
 	)
 	if err != nil {
@@ -63,7 +64,7 @@ func (s zeroShotTextClassificationService) classifyBatch(
 
 	resp, err := doJSONInference[ZeroShotTextClassificationBatchRequest, []zeroShotTextClassificationBatched](
 		optsOverride,
-		TaskZeroShotTextClassification,
+		providers.TaskZeroShotTextClassification,
 		req,
 	)
 	if err != nil {

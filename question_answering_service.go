@@ -2,6 +2,7 @@ package hfgo
 
 import (
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // questionAnsweringService implements question answering calls using the configured request options.
@@ -36,14 +37,14 @@ func (s questionAnsweringService) answer(
 	if req.Parameters != nil && req.Parameters.TopK != nil && *req.Parameters.TopK > 1 {
 		return doJSONInference[QuestionAnsweringRequest, []QuestionAnswering](
 			optsOverride,
-			TaskQuestionAnswering,
+			providers.TaskQuestionAnswering,
 			req,
 		)
 	}
 
 	single, err := doJSONInference[QuestionAnsweringRequest, QuestionAnswering](
 		optsOverride,
-		TaskQuestionAnswering,
+		providers.TaskQuestionAnswering,
 		req,
 	)
 	if err != nil {

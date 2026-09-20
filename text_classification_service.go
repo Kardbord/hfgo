@@ -2,6 +2,7 @@ package hfgo
 
 import (
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // textClassificationService implements text classification calls using the configured request options.
@@ -27,7 +28,7 @@ func (s textClassificationService) classify(
 	// contains a list of TextClassification objects.
 	resp, err := doJSONInference[TextClassificationRequest, [][]TextClassification](
 		optsOverride,
-		TaskTextClassification,
+		providers.TaskTextClassification,
 		req,
 	)
 	if err != nil {
@@ -51,7 +52,7 @@ func (s textClassificationService) classifyBatch(
 
 	resp, err := doJSONInference[TextClassificationBatchRequest, [][]TextClassification](
 		optsOverride,
-		TaskTextClassification,
+		providers.TaskTextClassification,
 		req,
 	)
 	if err != nil {

@@ -56,21 +56,5 @@ func FuzzHuggingFaceProviderEndpoint(f *testing.F) {
 		if task == "" && err == nil {
 			t.Errorf("expected error for empty task, got %q", ep)
 		}
-
-		_, codecErr := p.Codec(Task(task))
-		switch Task(task) { //nolint:exhaustive // Not all tasks are supported by the provider.
-		case TaskFeatureExtraction, TaskSentenceSimilarity,
-			TaskChatCompletion,
-			TaskTextClassification, TaskZeroShotTextClassification, TaskTokenClassification,
-			TaskQuestionAnswering, TaskTableQuestionAnswering, TaskFillMask,
-			TaskSummarization, TaskTranslation:
-			if codecErr != nil {
-				t.Errorf("expected no codec error for supported task %q, got: %v", task, codecErr)
-			}
-		default:
-			if codecErr == nil {
-				t.Errorf("expected codec error for unsupported task %q", task)
-			}
-		}
 	})
 }

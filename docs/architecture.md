@@ -176,6 +176,8 @@ response, err := client.Chat(
 - `WithToken(token string)`: Bearer authentication token
 - `WithModel(model string)`: Model identifier for requests
 - `WithProvider(provider Provider)`: Inference provider
+  - On OpenAI-compatible endpoints (e.g. chat completions), a provider or selection policy can be pinned by appending a suffix to the model string (e.g. `model:sambanova`, `model:fastest`, `model:cheapest`, `model:preferred`); otherwise the HF router selects the provider
+  - See https://huggingface.co/docs/inference-providers/main/en/index
 
 ### HTTP & Transport
 - `WithHTTPClientFactory(factory func() http.Client)`: Factory for HTTP clients
@@ -321,6 +323,8 @@ The Model field is resolved with the following precedence (highest to lowest):
 3. Client-level Model option
 
 The Provider field is applied as a suffix to the model string for routing in OpenAI-compatible endpoints. If the Model is in the format "model:provider", the Provider option is ignored. When the provider is the default HuggingFace provider, no suffix is appended and the router selects a provider automatically.
+
+Provider selection is otherwise delegated to the HF router. To select a provider or selection policy explicitly, append a suffix to the model string (e.g. `model:sambanova`, `model:fastest`, `model:cheapest`, `model:preferred`). See https://huggingface.co/docs/inference-providers/main/en/index for the default (no-suffix) behavior.
 
 **Behavior**:
 - Returns `SDKError` (kind: Configuration) if the request is missing a model or messages (zero-value request)

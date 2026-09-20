@@ -2,6 +2,7 @@ package hfgo
 
 import (
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // summarizationService implements summarization calls using the configured request options.
@@ -21,7 +22,7 @@ func (s summarizationService) summarize(
 ) ([]Summarization, error) {
 	return doJSONInference[SummarizationRequest, []Summarization](
 		s.opts.With(opts...),
-		TaskSummarization,
+		providers.TaskSummarization,
 		req,
 	)
 }
@@ -33,7 +34,7 @@ func (s summarizationService) summarizeBatch(
 ) ([]Summarization, error) {
 	return doJSONInference[SummarizationBatchRequest, []Summarization](
 		s.opts.With(opts...),
-		TaskSummarization,
+		providers.TaskSummarization,
 		req,
 	)
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Kardbord/hfgo/v4/internal/chatstream"
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // chatService implements chat completion calls using the configured request options.
@@ -36,7 +37,7 @@ func resolveModel(payload *ChatRequest, optsOverride request.Options) {
 
 // applyProvider applies the provider to the model if the model
 // doesn't already contain a provider (indicated by ":").
-func applyProvider(model *string, provider Provider) *string {
+func applyProvider(model *string, provider providers.Provider) *string {
 	if model == nil || *model == "" || provider == nil {
 		return model
 	}
@@ -102,7 +103,7 @@ func (s chatService) complete(req ChatRequest, opts ...Option) (ChatResponse, er
 
 	return doJSONInference[ChatRequest, ChatResponse](
 		optsOverride,
-		TaskChatCompletion,
+		providers.TaskChatCompletion,
 		req,
 	)
 }
@@ -121,7 +122,7 @@ func (s chatService) completeStream(req ChatRequest, opts ...Option) (*ChatStrea
 
 	streamResp, err := doStreamingInference[ChatRequest, ChatStreamResponse](
 		optsOverride,
-		TaskChatCompletion,
+		providers.TaskChatCompletion,
 		req,
 	)
 	if err != nil {

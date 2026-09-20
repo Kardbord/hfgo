@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 const errProviderMustNotBeNil = "provider must not be nil"
@@ -13,13 +14,12 @@ const errProviderMustNotBeNil = "provider must not be nil"
 // for doJSONInference and doStreamingInference.
 type modelDispatchConfig struct {
 	opts     request.Options
-	task     Task
+	task     providers.Task
 	endpoint string
-	codec    Codec
 }
 
-// resolveModelDispatch validates options and resolves the endpoint and codec.
-func resolveModelDispatch(opts request.Options, task Task) (modelDispatchConfig, error) {
+// resolveModelDispatch validates options and resolves the endpoint.
+func resolveModelDispatch(opts request.Options, task providers.Task) (modelDispatchConfig, error) {
 	var cfg modelDispatchConfig
 
 	if opts.Model == "" {
@@ -43,21 +43,16 @@ func resolveModelDispatch(opts request.Options, task Task) (modelDispatchConfig,
 		return cfg, err
 	}
 
-	codec, err := opts.Provider.Codec(task)
-	if err != nil {
-		return cfg, err
-	}
-
 	cfg.opts = opts
 	cfg.task = task
 	cfg.endpoint = endpoint
-	cfg.codec = codec
 
 	return cfg, nil
 }
 
-// encodeRequest marshals a typed request and applies the provider codec.
-// It returns the transformed body and the content-type to use when sending.
+// encodeRequest marshals a typed request and applies the provider wire-format
+// transform. It returns the transformed body and the content-type to use when
+// sending.
 func encodeRequest[Req any](
 	cfg *modelDispatchConfig, req Req,
 ) (body []byte, contentType string, err error) {
@@ -70,7 +65,7 @@ func encodeRequest[Req any](
 		}
 	}
 
-	providerBody, ct, err := cfg.codec.EncodeRequest(cfg.task, hfBody, "application/json")
+	providerBody, ct, err := cfg.opts.Provider.EncodeRequest(cfg.task, hfBody, "application/json")
 	if err != nil {
 		return nil, "", err
 	}
@@ -83,11 +78,11 @@ func encodeRequest[Req any](
 // SDK error when no model is set. task names the inference task in that error
 // message, e.g. "text-classification" or "summarization".
 //
-// It applies the provider's wire-format codec to transform the request before
-// sending and the response after receiving.
+// It applies the provider's wire-format transform to the request before
+// sending and to the response after receiving.
 func doJSONInference[Req, Resp any](
 	opts request.Options,
-	task Task,
+	task providers.Task,
 	req Req,
 ) (Resp, error) {
 	var zero Resp
@@ -122,7 +117,7 @@ func doJSONInference[Req, Resp any](
 	}
 
 	respCT := httpResp.Header.Get("Content-Type")
-	hfRespBody, _, err := cfg.codec.DecodeResponse(cfg.task, respBody, respCT)
+	hfRespBody, _, err := cfg.opts.Provider.DecodeResponse(cfg.task, respBody, respCT)
 	if err != nil {
 		return zero, err
 	}
@@ -139,13 +134,13 @@ func doJSONInference[Req, Resp any](
 }
 
 // doRawInference sends an arbitrary request body and returns the raw response,
-// applying provider codec transformations. It is the entry point for tasks
+// applying provider wire-format transforms. It is the entry point for tasks
 // with non-JSON request or response bodies (e.g. text-to-image, image-classification).
 //
 //nolint:unused // Entry point for future binary task services.
 func doRawInference(
 	opts request.Options,
-	task Task,
+	task providers.Task,
 	body []byte,
 	contentType string,
 	accept string, // expected response Content-Type (e.g. "image/png")
@@ -155,7 +150,7 @@ func doRawInference(
 		return nil, "", err
 	}
 
-	providerBody, ct, err := cfg.codec.EncodeRequest(cfg.task, body, contentType)
+	providerBody, ct, err := cfg.opts.Provider.EncodeRequest(cfg.task, body, contentType)
 	if err != nil {
 		return nil, "", err
 	}
@@ -176,7 +171,7 @@ func doRawInference(
 	}
 
 	respCT := httpResp.Header.Get("Content-Type")
-	hfBody, hfCT, err := cfg.codec.DecodeResponse(cfg.task, respBody, respCT)
+	hfBody, hfCT, err := cfg.opts.Provider.DecodeResponse(cfg.task, respBody, respCT)
 	if err != nil {
 		return nil, "", err
 	}
@@ -185,10 +180,10 @@ func doRawInference(
 }
 
 // doStreamingInference sends a typed request and returns a JSON stream
-// of decoded SSE events, applying provider codec transformations.
+// of decoded SSE events, applying provider wire-format transforms.
 func doStreamingInference[Req, T any](
 	opts request.Options,
-	task Task,
+	task providers.Task,
 	req Req,
 ) (*request.JSONStream[T], error) {
 	cfg, err := resolveModelDispatch(opts, task)
@@ -222,7 +217,7 @@ func doStreamingInference[Req, T any](
 	}
 
 	return request.NewJSONStream[T](raw, func(data []byte) ([]byte, error) {
-		hfData, _, decodeErr := cfg.codec.DecodeResponse(cfg.task, data, "application/json")
+		hfData, _, decodeErr := cfg.opts.Provider.DecodeResponse(cfg.task, data, "application/json")
 
 		return hfData, decodeErr
 	}), nil
