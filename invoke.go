@@ -142,16 +142,13 @@ func doJSONInference[Req, Resp any](
 // applying provider codec transformations. It is the entry point for tasks
 // with non-JSON request or response bodies (e.g. text-to-image, image-classification).
 //
-// NOTE: accept specifies the expected response Content-Type (e.g. "image/png",
-// "audio/wav"). The caller should set this based on the task's expected output.
-//
 //nolint:unused // Entry point for future binary task services.
 func doRawInference(
 	opts request.Options,
 	task Task,
 	body []byte,
 	contentType string,
-	accept string, // NOTE: expected response Content-Type (e.g. "image/png"), set when wired up.
+	accept string, // expected response Content-Type (e.g. "image/png")
 ) ([]byte, string, error) {
 	cfg, err := resolveModelDispatch(opts, task)
 	if err != nil {
