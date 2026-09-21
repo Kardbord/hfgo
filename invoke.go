@@ -100,6 +100,10 @@ func doJSONInference[Req, Resp any](
 	cfg.opts = cfg.opts.WithDefaultHeader("Content-Type", ct)
 	cfg.opts = cfg.opts.WithDefaultHeader("Accept", "application/json")
 
+	if err := request.ValidateJSONRequestContentType(cfg.opts.Headers); err != nil {
+		return zero, err
+	}
+
 	//nolint:bodyclose // DrainAndCloseBody closes the body.
 	httpResp, err := request.DoBytes(cfg.opts, http.MethodPost, cfg.endpoint, providerBody)
 	if err != nil {
@@ -107,13 +111,12 @@ func doJSONInference[Req, Resp any](
 	}
 	defer request.DrainAndCloseBody(httpResp.Body)
 
-	if err := request.ValidateJSONResponseContentType(httpResp.Header); err != nil {
-		return zero, err
-	}
-
-	respBody, err := request.ReadResponseBody(httpResp, cfg.opts.MaxResponseBodyBytes)
+	respBody, err := request.DecodeHTTPResponse(httpResp, cfg.opts.MaxResponseBodyBytes)
 	if err != nil {
 		return zero, err
+	}
+	if respBody == nil {
+		return zero, nil // 204/205
 	}
 
 	respCT := httpResp.Header.Get("Content-Type")
@@ -122,12 +125,8 @@ func doJSONInference[Req, Resp any](
 		return zero, err
 	}
 
-	if err := json.Unmarshal(hfRespBody, &zero); err != nil {
-		return zero, &SDKError{
-			Kind:    SDKErrorKindSerialization,
-			Message: "failed to decode response body",
-			Err:     err,
-		}
+	if err := request.UnmarshalJSONResponse(hfRespBody, &zero); err != nil {
+		return zero, err
 	}
 
 	return zero, nil
@@ -213,6 +212,8 @@ func doStreamingInference[Req, T any](
 
 	raw, err := request.StreamRaw(cfg.opts.Context(), httpResp.Body)
 	if err != nil {
+		request.DrainAndCloseBody(httpResp.Body)
+
 		return nil, err
 	}
 

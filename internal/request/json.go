@@ -18,6 +18,55 @@ const (
 	mimeEventStream     = "text/event-stream"
 )
 
+// DecodeHTTPResponse handles the common HTTP response decoding logic:
+// 204/205 status codes, content-type validation, body reading, and empty-body
+// detection. It returns nil body for 204/205 (the caller should return a zero
+// value in that case).
+func DecodeHTTPResponse(resp *http.Response, maxResponseBodyBytes int64) (body []byte, err error) {
+	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusResetContent {
+		return nil, nil
+	}
+	if err := ValidateJSONResponseContentType(resp.Header); err != nil {
+		return nil, err
+	}
+
+	body, err = ReadResponseBody(resp, maxResponseBodyBytes)
+	if err != nil {
+		return nil, err
+	}
+	if len(body) == 0 {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindSerialization,
+			Message: "empty response body",
+			Err:     nil,
+		}
+	}
+
+	return body, nil
+}
+
+// UnmarshalJSONResponse unmarshals a JSON response body into the target type.
+// It maps io.EOF to an "empty response body" SDK error.
+func UnmarshalJSONResponse[T any](body []byte, target *T) error {
+	if err := json.Unmarshal(body, target); err != nil {
+		if errors.Is(err, io.EOF) {
+			return &hferrors.SDKError{
+				Kind:    hferrors.SDKErrorKindSerialization,
+				Message: "empty response body",
+				Err:     err,
+			}
+		}
+
+		return &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindSerialization,
+			Message: "failed to decode response body",
+			Err:     err,
+		}
+	}
+
+	return nil
+}
+
 // DoJSON performs an HTTP request with a JSON request body and expects a JSON response.
 // It marshals the request body to JSON, sends the request, and unmarshals the response
 // into the specified response type. The function uses Go generics to provide type-safe
@@ -54,49 +103,17 @@ func DoJSON[TReq any, TResp any](
 	}
 	defer DrainAndCloseBody(httpResp.Body)
 
-	resp, err = decodeJSONResponse[TResp](httpResp, opts.MaxResponseBodyBytes)
+	body, err := DecodeHTTPResponse(httpResp, opts.MaxResponseBodyBytes)
+	if err != nil {
+		return resp, err
+	}
+	if body == nil {
+		return resp, nil // 204/205
+	}
+
+	err = UnmarshalJSONResponse(body, &resp)
 
 	return resp, err
-}
-
-func decodeJSONResponse[T any](resp *http.Response, maxResponseBodyBytes int64) (out T, err error) {
-	if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusResetContent {
-		return out, nil
-	}
-	if err := ValidateJSONResponseContentType(resp.Header); err != nil {
-		return out, err
-	}
-
-	body, err := ReadResponseBody(resp, maxResponseBodyBytes)
-	if err != nil {
-		return out, err
-	}
-	if len(body) == 0 {
-		return out, &hferrors.SDKError{
-			Kind: hferrors.SDKErrorKindSerialization,
-
-			Message: "empty response body",
-			Err:     nil,
-		}
-	}
-
-	if err := json.Unmarshal(body, &out); err != nil {
-		if errors.Is(err, io.EOF) {
-			return out, &hferrors.SDKError{
-				Kind:    hferrors.SDKErrorKindSerialization,
-				Message: "empty response body",
-				Err:     err,
-			}
-		}
-
-		return out, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "failed to decode response body",
-			Err:     err,
-		}
-	}
-
-	return out, nil
 }
 
 // DoJSONStream performs an HTTP request with a JSON body and returns a streaming JSON response.
@@ -232,8 +249,8 @@ func ensureHeader(h http.Header, key, value string) http.Header {
 	return out
 }
 
-// validateJSONRequestContentType validates that Content-Type is application/json when provided.
-func validateJSONRequestContentType(headers http.Header) error {
+// ValidateJSONRequestContentType validates that Content-Type is application/json when provided.
+func ValidateJSONRequestContentType(headers http.Header) error {
 	contentType := headers.Get("Content-Type")
 	if contentType == "" {
 		return nil
@@ -334,7 +351,7 @@ func marshalJSONRequestBody(payload any) ([]byte, error) {
 func prepareJSONOptions(opts Options, accept string) (Options, error) {
 	opts = opts.WithDefaultHeader("Content-Type", mimeApplicationJSON)
 	opts = opts.WithDefaultHeader("Accept", accept)
-	if err := validateJSONRequestContentType(opts.Headers); err != nil {
+	if err := ValidateJSONRequestContentType(opts.Headers); err != nil {
 		return Options{}, err
 	}
 

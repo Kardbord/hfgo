@@ -12,6 +12,12 @@ type HuggingFaceProvider struct {
 	DefaultCodec
 }
 
+// NewHuggingFaceProvider returns a HuggingFaceProvider with the default
+// identity codec. This is the recommended way to construct a HuggingFaceProvider.
+func NewHuggingFaceProvider() HuggingFaceProvider {
+	return HuggingFaceProvider{}
+}
+
 // ProviderSuffix returns an empty string. On OpenAI-compatible endpoints
 // (e.g. chat completions), the HF router selects a provider server-side, so
 // the HuggingFace provider appends no routing pin to the model. A provider or
