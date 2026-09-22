@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/internal/hferrors"
-	"github.com/Kardbord/hfgo/v4/internal/providers"
 	"github.com/Kardbord/hfgo/v4/internal/sdkversion"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
+	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 func TestOptions_With(t *testing.T) {

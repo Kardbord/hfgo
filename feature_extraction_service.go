@@ -2,6 +2,7 @@ package hfgo
 
 import (
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // featureExtractionService implements feature extraction calls using the configured request options.
@@ -19,9 +20,9 @@ func (s featureExtractionService) extract(
 	req FeatureExtractionRequest,
 	opts ...Option,
 ) (FeatureExtraction, error) {
-	return doModelInference[FeatureExtractionRequest, FeatureExtraction](
+	return doJSONInference[FeatureExtractionRequest, FeatureExtraction](
 		s.opts.With(opts...),
-		TaskFeatureExtraction,
+		providers.TaskFeatureExtraction,
 		req,
 	)
 }
@@ -31,9 +32,9 @@ func (s featureExtractionService) extractBatch(
 	req FeatureExtractionBatchRequest,
 	opts ...Option,
 ) ([]FeatureExtraction, error) {
-	return doModelInference[FeatureExtractionBatchRequest, []FeatureExtraction](
+	return doJSONInference[FeatureExtractionBatchRequest, []FeatureExtraction](
 		s.opts.With(opts...),
-		TaskFeatureExtraction,
+		providers.TaskFeatureExtraction,
 		req,
 	)
 }

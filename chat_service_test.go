@@ -10,20 +10,22 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/internal/hferrors"
-	"github.com/Kardbord/hfgo/v4/internal/providers"
 	"github.com/Kardbord/hfgo/v4/internal/request"
 	"github.com/Kardbord/hfgo/v4/internal/sdkversion"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
+	"github.com/Kardbord/hfgo/v4/providers"
 	"github.com/stretchr/testify/require"
 )
 
 const chatServiceResponseBody = `{"id":"id","created":1,"model":"m","system_fingerprint":"s","choices":[{"finish_reason":"stop","index":0,"message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`
 
 type mockProvider struct {
+	providers.DefaultCodec
+
 	name string
 }
 
-func (p mockProvider) Endpoint(_ Task, _ string) (string, error) {
+func (p mockProvider) Endpoint(_ providers.Task, _ string) (string, error) {
 	return "", nil
 }
 
@@ -362,7 +364,7 @@ func TestApplyProvider(t *testing.T) {
 	cases := []struct {
 		name        string
 		model       *string
-		provider    Provider
+		provider    providers.Provider
 		wantModel   *string
 		description string
 	}{
@@ -460,9 +462,9 @@ func TestResolveModel(t *testing.T) {
 		name           string
 		reqModel       *string
 		clientModel    string
-		clientProvider Provider
+		clientProvider providers.Provider
 		optsModel      string
-		optsProvider   Provider
+		optsProvider   providers.Provider
 		wantModel      *string
 		description    string
 	}{
@@ -568,9 +570,9 @@ func TestChatService_ProviderFallback(t *testing.T) {
 	type TestCase struct {
 		name           string
 		clientModel    string
-		clientProvider Provider
+		clientProvider providers.Provider
 		optsModel      *string
-		optsProvider   Provider
+		optsProvider   providers.Provider
 		reqModel       *string
 		wantModel      string
 		wantErr        bool

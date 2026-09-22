@@ -8,8 +8,8 @@ import (
 	"net/url"
 
 	"github.com/Kardbord/hfgo/v4/internal/hferrors"
-	"github.com/Kardbord/hfgo/v4/internal/providers"
 	"github.com/Kardbord/hfgo/v4/internal/sdkversion"
+	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // Options holds configuration settings for API requests.
@@ -67,7 +67,7 @@ func NewOptions() Options {
 		BaseURL:              DefaultBaseURL,
 		Token:                DefaultToken,
 		Model:                DefaultModel,
-		Provider:             providers.HuggingFaceProvider{},
+		Provider:             providers.NewHuggingFaceProvider(),
 		UserAgent:            sdkversion.UserAgent(),
 		Headers:              nil,
 		MaxResponseBodyBytes: DefaultMaxResponseBodyBytes,
@@ -169,7 +169,7 @@ func (o Options) WithProvider(p providers.Provider) Options {
 // HuggingFace provider.
 func (o Options) WithDefaultProvider() Options {
 	o = o.clone()
-	o.Provider = providers.HuggingFaceProvider{}
+	o.Provider = providers.NewHuggingFaceProvider()
 
 	return o
 }
@@ -313,7 +313,7 @@ func WithProvider(p providers.Provider) Option {
 // HuggingFace provider.
 func WithDefaultProvider() Option {
 	return func(o *Options) {
-		o.Provider = providers.HuggingFaceProvider{}
+		o.Provider = providers.NewHuggingFaceProvider()
 	}
 }
 

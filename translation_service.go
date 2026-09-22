@@ -2,6 +2,7 @@ package hfgo
 
 import (
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // translationService implements translation calls using the configured request options.
@@ -19,9 +20,9 @@ func (s translationService) translate(
 	req TranslationRequest,
 	opts ...Option,
 ) ([]Translation, error) {
-	return doModelInference[TranslationRequest, []Translation](
+	return doJSONInference[TranslationRequest, []Translation](
 		s.opts.With(opts...),
-		TaskTranslation,
+		providers.TaskTranslation,
 		req,
 	)
 }
@@ -31,9 +32,9 @@ func (s translationService) translateBatch(
 	req TranslationBatchRequest,
 	opts ...Option,
 ) ([]Translation, error) {
-	return doModelInference[TranslationBatchRequest, []Translation](
+	return doJSONInference[TranslationBatchRequest, []Translation](
 		s.opts.With(opts...),
-		TaskTranslation,
+		providers.TaskTranslation,
 		req,
 	)
 }

@@ -201,9 +201,11 @@ func DoBytesRaw(
 	return DoRaw(opts, method, path, bytes.NewReader(data))
 }
 
-// readResponseBodyLimited reads up to maxBytes and returns an error if the body is larger.
-func readResponseBodyLimited(reader io.Reader, maxBytes int64) ([]byte, error) {
-	bodyBytes, truncated, err := readResponseBodyTruncated(reader, maxBytes)
+// ReadResponseBody reads the response body up to maxBytes and returns an error
+// if the body is larger. If maxBytes is <= 0, DefaultMaxResponseBodyBytes is used.
+// The caller is still responsible for closing resp.Body.
+func ReadResponseBody(resp *http.Response, maxBytes int64) ([]byte, error) {
+	bodyBytes, truncated, err := readResponseBodyTruncated(resp.Body, maxBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +220,16 @@ func readResponseBodyLimited(reader io.Reader, maxBytes int64) ([]byte, error) {
 	return bodyBytes, nil
 }
 
-// readResponseBodyTruncated reads up to maxBytes and reports if truncation occurred.
+// DrainAndCloseBody drains any remaining data and closes the body.
+func DrainAndCloseBody(body io.ReadCloser) {
+	if body == nil || body == http.NoBody {
+		return
+	}
+	// Drain the remainder so the underlying HTTP connection can be reused.
+	_, _ = io.Copy(io.Discard, body)
+	_ = body.Close()
+}
+
 func readResponseBodyTruncated(
 	reader io.Reader,
 	maxBytes int64,
@@ -238,14 +249,4 @@ func readResponseBodyTruncated(
 	}
 
 	return body, false, nil
-}
-
-// drainAndCloseBody drains any remaining data and closes the body.
-func drainAndCloseBody(body io.ReadCloser) {
-	if body == nil || body == http.NoBody {
-		return
-	}
-	// Drain the remainder so the underlying HTTP connection can be reused.
-	_, _ = io.Copy(io.Discard, body)
-	_ = body.Close()
 }

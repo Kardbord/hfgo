@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // WithBaseURL returns an Option that sets the base URL for API requests.
@@ -28,12 +29,19 @@ func WithModel(m string) Option {
 
 // WithProvider returns an Option that sets the provider for API requests.
 // The provider specifies which inference provider should handle the request.
-func WithProvider(p Provider) Option {
+// On OpenAI-compatible endpoints (e.g. chat completions), a provider or
+// selection policy can be pinned by appending a suffix to the model string
+// (e.g. "model:sambanova", "model:fastest", "model:cheapest",
+// "model:preferred"); otherwise the HF router selects the provider. See
+// https://huggingface.co/docs/inference-providers/main/en/index.
+func WithProvider(p providers.Provider) Option {
 	return request.WithProvider(p)
 }
 
 // WithDefaultProvider returns an Option that sets the provider to the default
-// HuggingFace provider.
+// HuggingFace provider. The default provider appends no routing suffix to the
+// model; on OpenAI-compatible endpoints the HF router selects the provider
+// (see https://huggingface.co/docs/inference-providers/main/en/index).
 func WithDefaultProvider() Option {
 	return request.WithDefaultProvider()
 }

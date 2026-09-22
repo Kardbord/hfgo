@@ -2,6 +2,7 @@ package hfgo
 
 import (
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // questionAnsweringService implements question answering calls using the configured request options.
@@ -34,16 +35,16 @@ func (s questionAnsweringService) answer(
 	// request parameters, similar to how text classification handles its
 	// TopK response format quirk.
 	if req.Parameters != nil && req.Parameters.TopK != nil && *req.Parameters.TopK > 1 {
-		return doModelInference[QuestionAnsweringRequest, []QuestionAnswering](
+		return doJSONInference[QuestionAnsweringRequest, []QuestionAnswering](
 			optsOverride,
-			TaskQuestionAnswering,
+			providers.TaskQuestionAnswering,
 			req,
 		)
 	}
 
-	single, err := doModelInference[QuestionAnsweringRequest, QuestionAnswering](
+	single, err := doJSONInference[QuestionAnsweringRequest, QuestionAnswering](
 		optsOverride,
-		TaskQuestionAnswering,
+		providers.TaskQuestionAnswering,
 		req,
 	)
 	if err != nil {

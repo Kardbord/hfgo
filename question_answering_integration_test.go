@@ -59,7 +59,7 @@ func TestQuestionAnswering_LiveAPI(t *testing.T) {
 //   - When top_k is > 1: The API returns a JSON array [{"answer":"...","score":...},...]
 //
 // The SDK handles this transparently in the answer() method by dispatching
-// to doModelInference with the appropriate response type based on TopK.
+// to doJSONInference with the appropriate response type based on TopK.
 //
 // This test requires the HF_TOKEN environment variable to be set.
 func TestQuestionAnswering_TopKResponseFormatQuirk(t *testing.T) {

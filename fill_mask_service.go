@@ -2,6 +2,7 @@ package hfgo
 
 import (
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // fillMaskService implements fill mask calls using the configured request options.
@@ -19,9 +20,9 @@ func (s fillMaskService) fill(
 	req FillMaskRequest,
 	opts ...Option,
 ) ([]FillMaskPrediction, error) {
-	return doModelInference[FillMaskRequest, []FillMaskPrediction](
+	return doJSONInference[FillMaskRequest, []FillMaskPrediction](
 		s.opts.With(opts...),
-		TaskFillMask,
+		providers.TaskFillMask,
 		req,
 	)
 }
@@ -31,9 +32,9 @@ func (s fillMaskService) fillBatch(
 	req FillMaskBatchRequest,
 	opts ...Option,
 ) ([][]FillMaskPrediction, error) {
-	return doModelInference[FillMaskBatchRequest, [][]FillMaskPrediction](
+	return doJSONInference[FillMaskBatchRequest, [][]FillMaskPrediction](
 		s.opts.With(opts...),
-		TaskFillMask,
+		providers.TaskFillMask,
 		req,
 	)
 }

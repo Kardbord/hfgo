@@ -2,6 +2,7 @@ package hfgo
 
 import (
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // tokenClassificationService implements token classification calls using the configured request options.
@@ -19,9 +20,9 @@ func (s tokenClassificationService) classify(
 	req TokenClassificationRequest,
 	opts ...Option,
 ) ([]TokenClassification, error) {
-	return doModelInference[TokenClassificationRequest, []TokenClassification](
+	return doJSONInference[TokenClassificationRequest, []TokenClassification](
 		s.opts.With(opts...),
-		TaskTokenClassification,
+		providers.TaskTokenClassification,
 		req,
 	)
 }
@@ -31,9 +32,9 @@ func (s tokenClassificationService) classifyBatch(
 	req TokenClassificationBatchRequest,
 	opts ...Option,
 ) ([][]TokenClassification, error) {
-	return doModelInference[TokenClassificationBatchRequest, [][]TokenClassification](
+	return doJSONInference[TokenClassificationBatchRequest, [][]TokenClassification](
 		s.opts.With(opts...),
-		TaskTokenClassification,
+		providers.TaskTokenClassification,
 		req,
 	)
 }
