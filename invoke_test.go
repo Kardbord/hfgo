@@ -4,6 +4,7 @@ package hfgo
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"testing"
@@ -129,6 +130,53 @@ func TestDoJSONInference_ProviderTransformsRequestAndResponse(t *testing.T) {
 	require.Equal(t, "hello", result.GeneratedText)
 	require.True(t, encodeCalled, "EncodeRequest should have been called")
 	require.True(t, decodeCalled, "DecodeResponse should have been called")
+}
+
+func TestDoJSONInference_EncodeErrorPropagated(t *testing.T) {
+	t.Parallel()
+
+	encodeErr := errors.New("encode failed")
+	p := transformProvider{
+		encodeFunc: func(_ providers.Task, body []byte, ct string) ([]byte, string, error) {
+			return nil, ct, encodeErr
+		},
+	}
+
+	opts := request.NewOptions().
+		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(nil) }).
+		WithModel("test-model").
+		WithProvider(p)
+
+	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
+		opts,
+		providers.TaskTextGeneration,
+		jsonInferenceReq{Inputs: "hi"},
+	)
+	require.ErrorIs(t, err, encodeErr)
+}
+
+func TestDoJSONInference_DecodeErrorPropagated(t *testing.T) {
+	t.Parallel()
+
+	decodeErr := errors.New("decode failed")
+	mt := testutils.NewJSONMockTransport(http.StatusOK, `{"generated_text":"hello"}`, nil)
+	p := transformProvider{
+		decodeFunc: func(_ providers.Task, body []byte, ct string) ([]byte, string, error) {
+			return nil, ct, decodeErr
+		},
+	}
+
+	opts := request.NewOptions().
+		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
+		WithModel("test-model").
+		WithProvider(p)
+
+	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
+		opts,
+		providers.TaskTextGeneration,
+		jsonInferenceReq{Inputs: "hi"},
+	)
+	require.ErrorIs(t, err, decodeErr)
 }
 
 func TestDoJSONInference_204NoContent(t *testing.T) {
@@ -275,7 +323,7 @@ func TestDoJSONInference_ContentTypeValidation(t *testing.T) {
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
 
-func TestDoJSONInference_ProviderSuffixApplied(t *testing.T) {
+func TestDoJSONInference_ModelWithExistingSuffixPassedThrough(t *testing.T) {
 	t.Parallel()
 
 	respBody := `{"generated_text":"hello"}`
@@ -377,6 +425,37 @@ func TestDoStreamingInference_ProviderTransformsPerEvent(t *testing.T) {
 	chunk, err := stream.Recv(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, "hello", chunk.GeneratedText)
+}
+
+func TestDoStreamingInference_DecodeErrorPropagated(t *testing.T) {
+	t.Parallel()
+
+	decodeErr := errors.New("decode failed")
+	body := "data: {\"generated_text\":\"hello\"}\n\ndata: [DONE]\n\n"
+	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
+	mt.Response.Header.Set("Content-Type", "text/event-stream")
+
+	p := transformProvider{
+		decodeFunc: func(_ providers.Task, body []byte, ct string) ([]byte, string, error) {
+			return nil, ct, decodeErr
+		},
+	}
+
+	opts := request.NewOptions().
+		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
+		WithModel("test-model").
+		WithProvider(p)
+
+	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
+		opts,
+		providers.TaskTextGeneration,
+		jsonInferenceReq{Inputs: "hi"},
+	)
+	require.NoError(t, err)
+	defer func() { _ = stream.Close() }()
+
+	_, err = stream.Recv(context.Background())
+	require.ErrorIs(t, err, decodeErr)
 }
 
 func TestDoStreamingInference_NonEventStreamContentType(t *testing.T) {
