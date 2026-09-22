@@ -137,7 +137,7 @@ func TestDoJSONInference_EncodeErrorPropagated(t *testing.T) {
 
 	encodeErr := errors.New("encode failed")
 	p := transformProvider{
-		encodeFunc: func(_ providers.Task, body []byte, ct string) ([]byte, string, error) {
+		encodeFunc: func(_ providers.Task, _ []byte, ct string) ([]byte, string, error) {
 			return nil, ct, encodeErr
 		},
 	}
@@ -161,7 +161,7 @@ func TestDoJSONInference_DecodeErrorPropagated(t *testing.T) {
 	decodeErr := errors.New("decode failed")
 	mt := testutils.NewJSONMockTransport(http.StatusOK, `{"generated_text":"hello"}`, nil)
 	p := transformProvider{
-		decodeFunc: func(_ providers.Task, body []byte, ct string) ([]byte, string, error) {
+		decodeFunc: func(_ providers.Task, _ []byte, ct string) ([]byte, string, error) {
 			return nil, ct, decodeErr
 		},
 	}
@@ -436,7 +436,7 @@ func TestDoStreamingInference_DecodeErrorPropagated(t *testing.T) {
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
 	p := transformProvider{
-		decodeFunc: func(_ providers.Task, body []byte, ct string) ([]byte, string, error) {
+		decodeFunc: func(_ providers.Task, _ []byte, ct string) ([]byte, string, error) {
 			return nil, ct, decodeErr
 		},
 	}
