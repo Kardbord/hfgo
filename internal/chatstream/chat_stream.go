@@ -8,12 +8,6 @@ import (
 	"github.com/Kardbord/hfgo/v4/internal/request"
 )
 
-var errNilStream = &hferrors.SDKError{
-	Kind:    hferrors.SDKErrorKindInternal,
-	Message: "chat stream is nil",
-	Err:     nil,
-}
-
 // ChatStream wraps a streaming chat completion response.
 type ChatStream struct {
 	stream       *request.JSONStream[dto.ChatStreamResponse]
@@ -31,7 +25,11 @@ func NewChatStream(stream *request.JSONStream[dto.ChatStreamResponse]) *ChatStre
 // Recv blocks until the next streaming chunk arrives or the context is done.
 func (c *ChatStream) Recv(ctx context.Context) (dto.ChatStreamResponse, error) {
 	if c.stream == nil {
-		return dto.ChatStreamResponse{}, errNilStream
+		return dto.ChatStreamResponse{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindInternal,
+			Message: "chat stream is nil",
+			Err:     nil,
+		}
 	}
 
 	chunk, err := c.stream.Recv(ctx)
