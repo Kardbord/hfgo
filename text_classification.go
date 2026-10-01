@@ -9,3 +9,10 @@ type (
 	TextClassificationParameters   = dto.TextClassificationParameters
 	TextClassification             = dto.TextClassification
 )
+
+//nolint:revive // constants forward docs from internal/dto
+const (
+	TextClassificationFuncSigmoid = dto.TextClassificationFuncSigmoid
+	TextClassificationFuncSoftmax = dto.TextClassificationFuncSoftmax
+	TextClassificationFuncNone    = dto.TextClassificationFuncNone
+)

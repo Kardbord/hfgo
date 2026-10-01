@@ -1,6 +1,6 @@
 //go:build integration
 
-package hfgo
+package integration_tests
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Kardbord/hfgo/v4"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,14 +23,14 @@ func TestFillMask_LiveAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	resp, err := client.FillMask(
-		FillMaskRequest{
+		hfgo.FillMaskRequest{
 			Input: "The capital of France is [MASK].",
 		},
 	)
@@ -59,17 +60,17 @@ func TestFillMask_WithTopK(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	topK := 3
 	resp, err := client.FillMask(
-		FillMaskRequest{
+		hfgo.FillMaskRequest{
 			Input: "The capital of France is [MASK].",
-			Parameters: &FillMaskParameters{
+			Parameters: &hfgo.FillMaskParameters{
 				TopK: &topK,
 			},
 		},
@@ -101,17 +102,17 @@ func TestFillMask_WithTargets(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	targets := []string{"paris", "london"}
 	resp, err := client.FillMask(
-		FillMaskRequest{
+		hfgo.FillMaskRequest{
 			Input: "The capital of France is [MASK].",
-			Parameters: &FillMaskParameters{
+			Parameters: &hfgo.FillMaskParameters{
 				Targets: targets,
 			},
 		},
@@ -138,10 +139,10 @@ func TestFillMask_BatchLiveAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	inputs := []string{
@@ -151,7 +152,7 @@ func TestFillMask_BatchLiveAPI(t *testing.T) {
 	}
 
 	resp, err := client.FillMaskBatch(
-		FillMaskBatchRequest{
+		hfgo.FillMaskBatchRequest{
 			Inputs: inputs,
 		},
 	)
@@ -183,14 +184,14 @@ func TestFillMask_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel("google-bert/bert-base-uncased"),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel("google-bert/bert-base-uncased"),
+		hfgo.WithContext(ctx),
 	)
 
 	resp, err := client.FillMask(
-		FillMaskRequest{
+		hfgo.FillMaskRequest{
 			Input: "The capital of France is [MASK].",
 		},
 	)
@@ -210,10 +211,10 @@ func TestFillMask_VeryLargeBatch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	// Create a batch of 10 inputs
@@ -235,7 +236,7 @@ func TestFillMask_VeryLargeBatch(t *testing.T) {
 	}
 
 	resp, err := client.FillMaskBatch(
-		FillMaskBatchRequest{
+		hfgo.FillMaskBatchRequest{
 			Inputs: inputs,
 		},
 	)

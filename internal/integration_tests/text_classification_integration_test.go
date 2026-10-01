@@ -1,6 +1,6 @@
 //go:build integration
 
-package hfgo
+package integration_tests
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Kardbord/hfgo/v4"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,15 +23,15 @@ func TestTextClassification_LiveAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	const text = "This product is excellent and I love it!"
 	resp, err := client.ClassifyText(
-		TextClassificationRequest{
+		hfgo.TextClassificationRequest{
 			Input: text,
 		},
 	)
@@ -56,10 +57,10 @@ func TestTextClassification_BatchLiveAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	inputs := []string{
@@ -69,7 +70,7 @@ func TestTextClassification_BatchLiveAPI(t *testing.T) {
 	}
 
 	resp, err := client.ClassifyTextBatch(
-		TextClassificationBatchRequest{
+		hfgo.TextClassificationBatchRequest{
 			Inputs: inputs,
 		},
 	)
@@ -102,18 +103,18 @@ func TestTextClassification_WithParameters(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	topK := 2
-	function := TextClassificationFuncSoftmax
+	function := hfgo.TextClassificationFuncSoftmax
 	resp, err := client.ClassifyText(
-		TextClassificationRequest{
+		hfgo.TextClassificationRequest{
 			Input: "Excellent product!",
-			Parameters: &TextClassificationParameters{
+			Parameters: &hfgo.TextClassificationParameters{
 				TopK:            &topK,
 				FunctionToApply: &function,
 			},
@@ -148,14 +149,14 @@ func TestTextClassification_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel("ProsusAI/finbert"),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel("ProsusAI/finbert"),
+		hfgo.WithContext(ctx),
 	)
 
 	resp, err := client.ClassifyText(
-		TextClassificationRequest{
+		hfgo.TextClassificationRequest{
 			Input: "This is great!",
 		},
 	)
@@ -173,10 +174,10 @@ func TestTextClassification_VeryLargeBatch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel("ProsusAI/finbert"),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel("ProsusAI/finbert"),
+		hfgo.WithContext(ctx),
 	)
 
 	// Create a batch of 10 inputs
@@ -198,7 +199,7 @@ func TestTextClassification_VeryLargeBatch(t *testing.T) {
 	}
 
 	resp, err := client.ClassifyTextBatch(
-		TextClassificationBatchRequest{
+		hfgo.TextClassificationBatchRequest{
 			Inputs: inputs,
 		},
 	)
@@ -234,10 +235,10 @@ func TestTextClassification_TopKResponseFormatQuirk(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	inputs := []string{
@@ -249,7 +250,7 @@ func TestTextClassification_TopKResponseFormatQuirk(t *testing.T) {
 	// Test 1: Without TopK (unset) - API returns flat format which the SDK normalizes to per-input format
 	t.Run("without_topk_triggers_normalization", func(t *testing.T) {
 		resp, err := client.ClassifyTextBatch(
-			TextClassificationBatchRequest{
+			hfgo.TextClassificationBatchRequest{
 				Inputs: inputs,
 				// TopK is not set (nil)
 			},
@@ -278,9 +279,9 @@ func TestTextClassification_TopKResponseFormatQuirk(t *testing.T) {
 	t.Run("with_topk_1_skips_normalization", func(t *testing.T) {
 		topK := 1
 		resp, err := client.ClassifyTextBatch(
-			TextClassificationBatchRequest{
+			hfgo.TextClassificationBatchRequest{
 				Inputs: inputs,
-				Parameters: &TextClassificationParameters{
+				Parameters: &hfgo.TextClassificationParameters{
 					TopK: &topK,
 				},
 			},
@@ -305,9 +306,9 @@ func TestTextClassification_TopKResponseFormatQuirk(t *testing.T) {
 	t.Run("with_topk_2_skips_normalization", func(t *testing.T) {
 		topK := 2
 		resp, err := client.ClassifyTextBatch(
-			TextClassificationBatchRequest{
+			hfgo.TextClassificationBatchRequest{
 				Inputs: inputs,
-				Parameters: &TextClassificationParameters{
+				Parameters: &hfgo.TextClassificationParameters{
 					TopK: &topK,
 				},
 			},

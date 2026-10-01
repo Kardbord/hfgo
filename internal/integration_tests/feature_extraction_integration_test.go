@@ -1,6 +1,6 @@
 //go:build integration
 
-package hfgo
+package integration_tests
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Kardbord/hfgo/v4"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,14 +23,14 @@ func TestFeatureExtraction_LiveAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	resp, err := client.FeatureExtract(
-		FeatureExtractionRequest{
+		hfgo.FeatureExtractionRequest{
 			Input: "What is the capital of France?",
 		},
 	)
@@ -50,10 +51,10 @@ func TestFeatureExtraction_BatchLiveAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	inputs := []string{
@@ -62,7 +63,7 @@ func TestFeatureExtraction_BatchLiveAPI(t *testing.T) {
 	}
 
 	resp, err := client.FeatureExtractBatch(
-		FeatureExtractionBatchRequest{
+		hfgo.FeatureExtractionBatchRequest{
 			Inputs: inputs,
 		},
 	)
@@ -88,19 +89,19 @@ func TestFeatureExtraction_WithParameters(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	normalize := true
 	truncate := true
-	truncDir := FeatureExtractionTruncationRight
+	truncDir := hfgo.FeatureExtractionTruncationRight
 	resp, err := client.FeatureExtract(
-		FeatureExtractionRequest{
+		hfgo.FeatureExtractionRequest{
 			Input: "The capital of France is Paris, a city on the Seine.",
-			Parameters: &FeatureExtractionParameters{
+			Parameters: &hfgo.FeatureExtractionParameters{
 				Normalize:           &normalize,
 				Truncate:            &truncate,
 				TruncationDirection: &truncDir,
@@ -122,14 +123,14 @@ func TestFeatureExtraction_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel("BAAI/bge-small-en-v1.5"),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel("BAAI/bge-small-en-v1.5"),
+		hfgo.WithContext(ctx),
 	)
 
 	resp, err := client.FeatureExtract(
-		FeatureExtractionRequest{
+		hfgo.FeatureExtractionRequest{
 			Input: "What is the capital of France?",
 		},
 	)
@@ -149,22 +150,22 @@ func TestFeatureExtraction_BatchWithParameters(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	normalize := true
 	truncate := true
-	truncDir := FeatureExtractionTruncationRight
+	truncDir := hfgo.FeatureExtractionTruncationRight
 	resp, err := client.FeatureExtractBatch(
-		FeatureExtractionBatchRequest{
+		hfgo.FeatureExtractionBatchRequest{
 			Inputs: []string{
 				"The weather is nice today.",
 				"I love programming in Go.",
 			},
-			Parameters: &FeatureExtractionParameters{
+			Parameters: &hfgo.FeatureExtractionParameters{
 				Normalize:           &normalize,
 				Truncate:            &truncate,
 				TruncationDirection: &truncDir,
@@ -192,14 +193,14 @@ func TestFeatureExtraction_BatchContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel("BAAI/bge-small-en-v1.5"),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel("BAAI/bge-small-en-v1.5"),
+		hfgo.WithContext(ctx),
 	)
 
 	resp, err := client.FeatureExtractBatch(
-		FeatureExtractionBatchRequest{
+		hfgo.FeatureExtractionBatchRequest{
 			Inputs: []string{"The weather is nice today.", "I love programming in Go."},
 		},
 	)

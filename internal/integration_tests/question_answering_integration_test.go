@@ -1,6 +1,6 @@
 //go:build integration
 
-package hfgo
+package integration_tests
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Kardbord/hfgo/v4"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,15 +23,15 @@ func TestQuestionAnswering_LiveAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	resp, err := client.AnswerQuestion(
-		QuestionAnsweringRequest{
-			Input: QuestionAnsweringInput{
+		hfgo.QuestionAnsweringRequest{
+			Input: hfgo.QuestionAnsweringInput{
 				Question: "What is the capital of France?",
 				Context:  "France is a country in Europe. Its capital is Paris. It is known for the Eiffel Tower.",
 			},
@@ -71,10 +72,10 @@ func TestQuestionAnswering_TopKResponseFormatQuirk(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	question := "What is the capital of France?"
@@ -83,8 +84,8 @@ func TestQuestionAnswering_TopKResponseFormatQuirk(t *testing.T) {
 	// Test 1: Without top_k (unset) - API returns bare object, SDK normalizes to slice
 	t.Run("without_topk_bare_object", func(t *testing.T) {
 		resp, err := client.AnswerQuestion(
-			QuestionAnsweringRequest{
-				Input: QuestionAnsweringInput{
+			hfgo.QuestionAnsweringRequest{
+				Input: hfgo.QuestionAnsweringInput{
 					Question: question,
 					Context:  context,
 				},
@@ -107,12 +108,12 @@ func TestQuestionAnswering_TopKResponseFormatQuirk(t *testing.T) {
 	t.Run("with_topk_1_bare_object", func(t *testing.T) {
 		topK := 1
 		resp, err := client.AnswerQuestion(
-			QuestionAnsweringRequest{
-				Input: QuestionAnsweringInput{
+			hfgo.QuestionAnsweringRequest{
+				Input: hfgo.QuestionAnsweringInput{
 					Question: question,
 					Context:  context,
 				},
-				Parameters: &QuestionAnsweringParameters{
+				Parameters: &hfgo.QuestionAnsweringParameters{
 					TopK: &topK,
 				},
 			},
@@ -134,12 +135,12 @@ func TestQuestionAnswering_TopKResponseFormatQuirk(t *testing.T) {
 	t.Run("with_topk_3_array", func(t *testing.T) {
 		topK := 3
 		resp, err := client.AnswerQuestion(
-			QuestionAnsweringRequest{
-				Input: QuestionAnsweringInput{
+			hfgo.QuestionAnsweringRequest{
+				Input: hfgo.QuestionAnsweringInput{
 					Question: question,
 					Context:  context,
 				},
-				Parameters: &QuestionAnsweringParameters{
+				Parameters: &hfgo.QuestionAnsweringParameters{
 					TopK: &topK,
 				},
 			},
@@ -176,20 +177,20 @@ func TestQuestionAnswering_WithParameters(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	maxAnswerLen := 5
 	resp, err := client.AnswerQuestion(
-		QuestionAnsweringRequest{
-			Input: QuestionAnsweringInput{
+		hfgo.QuestionAnsweringRequest{
+			Input: hfgo.QuestionAnsweringInput{
 				Question: "What is the capital of France?",
 				Context:  "France is a country in Europe. Its capital is Paris. It is known for the Eiffel Tower.",
 			},
-			Parameters: &QuestionAnsweringParameters{
+			Parameters: &hfgo.QuestionAnsweringParameters{
 				MaxAnswerLen: &maxAnswerLen,
 			},
 		},
@@ -213,15 +214,15 @@ func TestQuestionAnswering_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel("deepset/roberta-base-squad2"),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel("deepset/roberta-base-squad2"),
+		hfgo.WithContext(ctx),
 	)
 
 	resp, err := client.AnswerQuestion(
-		QuestionAnsweringRequest{
-			Input: QuestionAnsweringInput{
+		hfgo.QuestionAnsweringRequest{
+			Input: hfgo.QuestionAnsweringInput{
 				Question: "What is the capital of France?",
 				Context:  "France is a country in Europe.",
 			},

@@ -1,6 +1,6 @@
 //go:build integration
 
-package hfgo
+package integration_tests
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Kardbord/hfgo/v4"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,14 +24,14 @@ func TestTokenClassification_LiveAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	resp, err := client.ClassifyTokens(
-		TokenClassificationRequest{
+		hfgo.TokenClassificationRequest{
 			Input: "My name is Sarah and I live in London.",
 		},
 	)
@@ -68,27 +69,27 @@ func TestTokenClassification_WithAggregationStrategy(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	strategies := []string{
-		TokenClassificationAggregationNone,
-		TokenClassificationAggregationSimple,
-		TokenClassificationAggregationFirst,
-		TokenClassificationAggregationAverage,
-		TokenClassificationAggregationMax,
+		hfgo.TokenClassificationAggregationNone,
+		hfgo.TokenClassificationAggregationSimple,
+		hfgo.TokenClassificationAggregationFirst,
+		hfgo.TokenClassificationAggregationAverage,
+		hfgo.TokenClassificationAggregationMax,
 	}
 
 	for _, strategy := range strategies {
 		t.Run(strategy, func(t *testing.T) {
 			strat := strings.Clone(strategy)
 			resp, err := client.ClassifyTokens(
-				TokenClassificationRequest{
+				hfgo.TokenClassificationRequest{
 					Input: "My name is Sarah and I live in London.",
-					Parameters: &TokenClassificationParameters{
+					Parameters: &hfgo.TokenClassificationParameters{
 						AggregationStrategy: &strat,
 					},
 				},
@@ -103,7 +104,7 @@ func TestTokenClassification_WithAggregationStrategy(t *testing.T) {
 				require.GreaterOrEqual(t, entity.Score, 0.0, "score should be non-negative")
 				require.LessOrEqual(t, entity.Score, 1.0, "score should be at most 1.0")
 
-				if strategy == TokenClassificationAggregationNone {
+				if strategy == hfgo.TokenClassificationAggregationNone {
 					require.NotNil(t, entity.Entity, "entity field should be set for strategy 'none'")
 				} else {
 					require.NotNil(t, entity.EntityGroup, "entity_group field should be set for strategy %q", strategy)
@@ -126,10 +127,10 @@ func TestTokenClassification_BatchLiveAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	inputs := []string{
@@ -139,7 +140,7 @@ func TestTokenClassification_BatchLiveAPI(t *testing.T) {
 	}
 
 	resp, err := client.ClassifyTokensBatch(
-		TokenClassificationBatchRequest{
+		hfgo.TokenClassificationBatchRequest{
 			Inputs: inputs,
 		},
 	)
@@ -170,14 +171,14 @@ func TestTokenClassification_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel("dslim/bert-base-NER"),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel("dslim/bert-base-NER"),
+		hfgo.WithContext(ctx),
 	)
 
 	resp, err := client.ClassifyTokens(
-		TokenClassificationRequest{
+		hfgo.TokenClassificationRequest{
 			Input: "My name is Sarah and I live in London.",
 		},
 	)
@@ -195,10 +196,10 @@ func TestTokenClassification_VeryLargeBatch(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel("dslim/bert-base-NER"),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel("dslim/bert-base-NER"),
+		hfgo.WithContext(ctx),
 	)
 
 	inputs := []string{
@@ -215,7 +216,7 @@ func TestTokenClassification_VeryLargeBatch(t *testing.T) {
 	}
 
 	resp, err := client.ClassifyTokensBatch(
-		TokenClassificationBatchRequest{
+		hfgo.TokenClassificationBatchRequest{
 			Inputs: inputs,
 		},
 	)
@@ -230,7 +231,7 @@ func TestTokenClassification_VeryLargeBatch(t *testing.T) {
 }
 
 // entityLabel returns the entity label from either Entity or EntityGroup field.
-func entityLabel(e TokenClassification) string {
+func entityLabel(e hfgo.TokenClassification) string {
 	if e.EntityGroup != nil {
 		return *e.EntityGroup
 	}

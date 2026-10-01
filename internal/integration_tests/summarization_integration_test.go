@@ -1,6 +1,6 @@
 //go:build integration
 
-package hfgo
+package integration_tests
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Kardbord/hfgo/v4"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,10 +23,10 @@ func TestSummarization_LiveAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	const input = "The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building. " +
@@ -33,7 +34,7 @@ func TestSummarization_LiveAPI(t *testing.T) {
 		"Tower surpassed the Washington Monument to become the tallest man-made structure in the world."
 
 	resp, err := client.Summarize(
-		SummarizationRequest{
+		hfgo.SummarizationRequest{
 			Input: input,
 		},
 	)
@@ -55,10 +56,10 @@ func TestSummarization_BatchLiveAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	inputs := []string{
@@ -67,7 +68,7 @@ func TestSummarization_BatchLiveAPI(t *testing.T) {
 	}
 
 	resp, err := client.SummarizeBatch(
-		SummarizationBatchRequest{
+		hfgo.SummarizationBatchRequest{
 			Inputs: inputs,
 		},
 	)
@@ -93,20 +94,20 @@ func TestSummarization_WithParameters(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	cleanUp := true
-	truncation := SummarizationTruncationOnlyFirst
+	truncation := hfgo.SummarizationTruncationOnlyFirst
 	input := "The industrial revolution transformed agriculture, manufacturing, mining, and transport, " +
 		"leading to massive social and economic changes across the world."
 	resp, err := client.Summarize(
-		SummarizationRequest{
+		hfgo.SummarizationRequest{
 			Input: input,
-			Parameters: &SummarizationParameters{
+			Parameters: &hfgo.SummarizationParameters{
 				CleanUpTokenizationSpaces: &cleanUp,
 				Truncation:                &truncation,
 			},
@@ -129,14 +130,14 @@ func TestSummarization_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel("facebook/bart-large-cnn"),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel("facebook/bart-large-cnn"),
+		hfgo.WithContext(ctx),
 	)
 
 	resp, err := client.Summarize(
-		SummarizationRequest{
+		hfgo.SummarizationRequest{
 			Input: "Some text that should be summarized.",
 		},
 	)

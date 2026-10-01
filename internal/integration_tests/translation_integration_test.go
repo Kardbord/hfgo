@@ -1,6 +1,6 @@
 //go:build integration
 
-package hfgo
+package integration_tests
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Kardbord/hfgo/v4"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,14 +23,14 @@ func TestTranslation_LiveAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	resp, err := client.Translate(
-		TranslationRequest{
+		hfgo.TranslationRequest{
 			Input: "Hello, how are you doing today?",
 		},
 	)
@@ -51,14 +52,14 @@ func TestTranslation_BatchLiveAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	resp, err := client.TranslateBatch(
-		TranslationBatchRequest{
+		hfgo.TranslationBatchRequest{
 			Inputs: []string{
 				"Good morning, everyone.",
 				"See you tomorrow.",
@@ -87,18 +88,18 @@ func TestTranslation_WithParameters(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	cleanUp := true
-	truncation := TranslationTruncationOnlyFirst
+	truncation := hfgo.TranslationTruncationOnlyFirst
 	resp, err := client.Translate(
-		TranslationRequest{
+		hfgo.TranslationRequest{
 			Input: "The weather is lovely and sunny today.",
-			Parameters: &TranslationParameters{
+			Parameters: &hfgo.TranslationParameters{
 				CleanUpTokenizationSpaces: &cleanUp,
 				Truncation:                &truncation,
 			},
@@ -121,14 +122,14 @@ func TestTranslation_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel("google-t5/t5-small"),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel("google-t5/t5-small"),
+		hfgo.WithContext(ctx),
 	)
 
 	resp, err := client.Translate(
-		TranslationRequest{
+		hfgo.TranslationRequest{
 			Input: "Hello, how are you?",
 		},
 	)

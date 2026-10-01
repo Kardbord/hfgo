@@ -1,6 +1,6 @@
 //go:build integration
 
-package hfgo
+package integration_tests
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Kardbord/hfgo/v4"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,15 +23,15 @@ func TestTableQuestionAnswering_LiveAPI(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
 	resp, err := client.AnswerTableQuestion(
-		TableQuestionAnsweringRequest{
-			Input: TableQuestionAnsweringInput{
+		hfgo.TableQuestionAnsweringRequest{
+			Input: hfgo.TableQuestionAnsweringInput{
 				Question: "How old is Bob?",
 				Table: map[string][]string{
 					"Name": {"Alice", "Bob", "Carol"},
@@ -59,25 +60,25 @@ func TestTableQuestionAnswering_WithParameters(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel(model),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel(model),
+		hfgo.WithContext(ctx),
 	)
 
-	padding := TableQuestionAnsweringPaddingMaxLength
+	padding := hfgo.TableQuestionAnsweringPaddingMaxLength
 	sequential := false
 	truncation := true
 	resp, err := client.AnswerTableQuestion(
-		TableQuestionAnsweringRequest{
-			Input: TableQuestionAnsweringInput{
+		hfgo.TableQuestionAnsweringRequest{
+			Input: hfgo.TableQuestionAnsweringInput{
 				Question: "What is the most expensive product?",
 				Table: map[string][]string{
 					"Product": {"Laptop", "Phone", "Tablet"},
 					"Price":   {"1200", "800", "500"},
 				},
 			},
-			Parameters: &TableQuestionAnsweringParameters{
+			Parameters: &hfgo.TableQuestionAnsweringParameters{
 				Padding:    &padding,
 				Sequential: &sequential,
 				Truncation: &truncation,
@@ -100,15 +101,15 @@ func TestTableQuestionAnswering_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	client := NewClient(
-		WithToken(apiToken),
-		WithModel("google/tapas-base-finetuned-wtq"),
-		WithContext(ctx),
+	client := hfgo.NewClient(
+		hfgo.WithToken(apiToken),
+		hfgo.WithModel("google/tapas-base-finetuned-wtq"),
+		hfgo.WithContext(ctx),
 	)
 
 	_, err := client.AnswerTableQuestion(
-		TableQuestionAnsweringRequest{
-			Input: TableQuestionAnsweringInput{
+		hfgo.TableQuestionAnsweringRequest{
+			Input: hfgo.TableQuestionAnsweringInput{
 				Question: "How old is Bob?",
 				Table: map[string][]string{
 					"Name": {"Alice", "Bob", "Carol"},
