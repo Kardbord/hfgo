@@ -1,6 +1,9 @@
 package hfgo
 
-import "github.com/Kardbord/hfgo/v4/internal/dto"
+import (
+	"github.com/Kardbord/hfgo/v4/internal/chatstream"
+	"github.com/Kardbord/hfgo/v4/internal/dto"
+)
 
 //nolint:revive // type aliases forward docs from internal/dto
 type (
@@ -44,7 +47,7 @@ type (
 	ChatStreamFunction = dto.ChatStreamFunction
 )
 
-//nolint:revive // constants forward docs from internal/dto
+//nolint:revive // type aliases forward docs from internal/dto
 const (
 	MessageChunkTypeText         = dto.MessageChunkTypeText
 	MessageChunkTypeImageURL     = dto.MessageChunkTypeImageURL
@@ -55,3 +58,6 @@ const (
 	ToolChoiceModeNone           = dto.ToolChoiceModeNone
 	ToolChoiceModeRequired       = dto.ToolChoiceModeRequired
 )
+
+//nolint:revive // type aliases forward docs from internal/chatstream
+type ChatStream = chatstream.ChatStream
