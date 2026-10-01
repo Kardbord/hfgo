@@ -12,7 +12,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 )
 
-func TestRawService_Stream_Success(t *testing.T) {
+func TestRawClient_Stream_Success(t *testing.T) {
 	t.Parallel()
 
 	body := "data: {\"id\":\"1\"}\n\n" +
@@ -46,7 +46,7 @@ func TestRawService_Stream_Success(t *testing.T) {
 	}
 }
 
-func TestRawService_Stream_DoError(t *testing.T) {
+func TestRawClient_Stream_DoError(t *testing.T) {
 	t.Parallel()
 
 	mt := &testutils.MockTransport{Err: errors.New("boom")}
@@ -60,7 +60,7 @@ func TestRawService_Stream_DoError(t *testing.T) {
 	}
 }
 
-func TestRawService_StreamRaw_AllowsNon2xx(t *testing.T) {
+func TestRawClient_StreamRaw_AllowsNon2xx(t *testing.T) {
 	t.Parallel()
 
 	body := "data: hi\n\n"

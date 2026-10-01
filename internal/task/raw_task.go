@@ -11,28 +11,28 @@ import (
 	"github.com/Kardbord/hfgo/v4/internal/request"
 )
 
-// RawService sends raw HTTP requests using the configured request options.
+// RawClient sends raw HTTP requests using the configured request options.
 //
 // It is the deliberate exception to the rest of the SDK, where endpoints are
-// exposed as Client methods: RawService is the advanced escape hatch for
+// exposed as Client methods: RawClient is the advanced escape hatch for
 // endpoints the SDK does not model type-safely. It combines several axes
 // (byte-slice or io.Reader bodies, typed error handling or raw HTTP responses,
 // one-shot or SSE streaming) into eight methods, which is enough surface that
 // keeping it namespaced under Client.Raw() avoids cluttering the Client API.
 //
-// RawService is immutable and holds a snapshot of the client options.
-type RawService struct {
+// RawClient is immutable and holds a snapshot of the client options.
+type RawClient struct {
 	opts request.Options
 }
 
-// NewRawService builds a raw service with a snapshot of the provided options.
-func NewRawService(opts request.Options) RawService {
-	return RawService{opts: opts}
+// NewRawClient builds a RawClient with a snapshot of the provided options.
+func NewRawClient(opts request.Options) RawClient {
+	return RawClient{opts: opts}
 }
 
 // Do performs a raw HTTP request with a byte slice body and applies SDK error interpretation on non-2xx responses.
 // The caller must close resp.Body on success.
-func (r RawService) Do(
+func (r RawClient) Do(
 	requestBody []byte,
 	method string,
 	path string,
@@ -43,7 +43,7 @@ func (r RawService) Do(
 
 // DoRaw performs a raw HTTP request with a byte slice body without translating non-2xx responses into SDK errors.
 // The caller must close resp.Body on success.
-func (r RawService) DoRaw(
+func (r RawClient) DoRaw(
 	requestBody []byte,
 	method string,
 	path string,
@@ -54,7 +54,7 @@ func (r RawService) DoRaw(
 
 // DoReader performs a raw HTTP request with a streaming body and applies SDK error interpretation on non-2xx responses.
 // The caller must close resp.Body on success.
-func (r RawService) DoReader(
+func (r RawClient) DoReader(
 	requestBody io.Reader,
 	method string,
 	path string,
@@ -70,7 +70,7 @@ func (r RawService) DoReader(
 
 // DoRawReader performs a raw HTTP request with a streaming body without translating non-2xx responses into SDK errors.
 // The caller must close resp.Body on success.
-func (r RawService) DoRawReader(
+func (r RawClient) DoRawReader(
 	requestBody io.Reader,
 	method string,
 	path string,
@@ -86,7 +86,7 @@ func (r RawService) DoRawReader(
 
 // Stream performs a raw HTTP request and returns an SSE stream, applying SDK error interpretation on non-2xx responses.
 // Callers should Close the returned RawStream when finished to promptly release the HTTP connection and decoder goroutine.
-func (r RawService) Stream(
+func (r RawClient) Stream(
 	requestBody []byte,
 	method string,
 	path string,
@@ -97,7 +97,7 @@ func (r RawService) Stream(
 
 // StreamReader performs a raw HTTP request with a streaming body and returns an SSE stream with SDK error interpretation.
 // Callers should Close the returned RawStream when finished to promptly release the HTTP connection and decoder goroutine.
-func (r RawService) StreamReader(
+func (r RawClient) StreamReader(
 	requestBody io.Reader,
 	method string,
 	path string,
@@ -129,7 +129,7 @@ func (r RawService) StreamReader(
 // This function is probably only interesting to advanced users.
 // Only use this when you need to inspect the raw response; callers are responsible for interpreting HTTP errors themselves.
 // Callers should Close the returned RawStream when finished to promptly release the HTTP connection and decoder goroutine.
-func (r RawService) StreamRaw(
+func (r RawClient) StreamRaw(
 	requestBody []byte,
 	method string,
 	path string,
@@ -142,7 +142,7 @@ func (r RawService) StreamRaw(
 // This function is probably only interesting to advanced users.
 // Only use this when you need to inspect the raw response; callers are responsible for interpreting HTTP errors themselves.
 // Callers should Close the returned RawStream when finished to promptly release the HTTP connection and decoder goroutine.
-func (r RawService) StreamRawReader(
+func (r RawClient) StreamRawReader(
 	requestBody io.Reader,
 	method string,
 	path string,
@@ -170,7 +170,7 @@ func (r RawService) StreamRawReader(
 	return &RawStream{stream: raw}, nil
 }
 
-// RawStream exposes a raw SSE stream returned by RawService stream methods.
+// RawStream exposes a raw SSE stream returned by RawClient stream methods.
 type RawStream struct {
 	stream *request.RawStream
 }

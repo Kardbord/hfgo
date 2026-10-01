@@ -10,7 +10,7 @@ import (
 // This keeps client usage safe across goroutines and avoids surprises from mutable state.
 // If options include externally-owned pointers, callers must avoid mutating them after creation
 // or ensure their own synchronization.
-// RawService captures a snapshot of these options when created.
+// RawClient captures a snapshot of these options when created.
 type Client struct {
 	opts request.Options
 }
@@ -329,13 +329,13 @@ func (c Client) FeatureExtractBatch(
 
 // Raw returns the raw HTTP request service for this client. Unlike the other
 // endpoints, which are exposed directly as Client methods, the raw path remains
-// namespaced under RawService: it is the advanced escape hatch for endpoints the
+// namespaced under RawClient: it is the advanced escape hatch for endpoints the
 // SDK does not otherwise cover, and its several method variants are easier to
 // discover grouped together than splashed across the Client surface.
 //
-// RawService is immutable and captures a snapshot of the client options when
+// RawClient is immutable and captures a snapshot of the client options when
 // created; it is lightweight, so prefer calling Raw() per use rather than
 // retaining the value.
-func (c Client) Raw() RawService {
-	return task.NewRawService(c.opts)
+func (c Client) Raw() RawClient {
+	return task.NewRawClient(c.opts)
 }

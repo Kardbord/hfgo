@@ -33,7 +33,7 @@ The SDK follows a strict immutability pattern for concurrency safety:
     - `AnswerTableQuestion`: Table question answering
     - `FeatureExtract` / `FeatureExtractBatch`: Feature extraction (embeddings)
     - The former per-domain service types are unexported implementation details; callers interact only with the Client
-   - `Client.Raw()` returns the `RawService` escape hatch for arbitrary endpoints (see below); it is the deliberate exception to the flat-method design
+   - `Client.Raw()` returns the `RawClient` escape hatch for arbitrary endpoints (see below); it is the deliberate exception to the flat-method design
 
 3. **Per-Request Options**: Can override client defaults for single calls
    - Applied by value with defensive header copies
@@ -302,7 +302,7 @@ Represents a raw SSE event from the raw streaming methods (`Client.Raw().Stream*
 All inference endpoints are called directly on a `Client` value. Each method
 takes a request DTO and returns a typed response or stream; per-request options
 are passed as variadic `Option` values. The behavior below describes what the
-Client methods perform. The `RawService` exposed by `Client.Raw()` is the one
+Client methods perform. The `RawClient` exposed by `Client.Raw()` is the one
 exception and is documented separately.
 
 ### Chat
@@ -516,9 +516,9 @@ Batch feature extraction for multiple inputs.
 - Returns a list of embedding vectors (`[][]float64`), one per input, in input order
 - Callers should check the length of the response list before indexing
 
-### RawService (escape hatch)
+### RawClient (escape hatch)
 
-Created via `client.Raw()`. For raw HTTP requests without type-safe JSON handling. This is the only endpoint path exposed as a service rather than as flat Client methods; it is the advanced escape hatch for endpoints the SDK does not model, and its broader method matrix is easier to discover grouped here.
+Created via `client.Raw()`. For raw HTTP requests without type-safe JSON handling. This is the only endpoint path exposed as a sub-type rather than as flat Client methods; it is the advanced escape hatch for endpoints the SDK does not model, and its broader method matrix is easier to discover grouped here.
 
 #### Do(requestBody []byte, method, path string, opts ...Option) (*http.Response, error)
 Raw request with error interpretation on non-2xx responses.
