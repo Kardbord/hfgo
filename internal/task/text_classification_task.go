@@ -1,4 +1,4 @@
-package svc
+package task
 
 import (
 	"github.com/Kardbord/hfgo/v4/internal/dto"
@@ -6,26 +6,14 @@ import (
 	"github.com/Kardbord/hfgo/v4/providers"
 )
 
-// TextClassificationService implements text classification calls.
-type TextClassificationService struct {
-	opts request.Options
-}
-
-// NewTextClassificationService builds a text classification service.
-func NewTextClassificationService(opts request.Options) TextClassificationService {
-	return TextClassificationService{opts: opts}
-}
-
-// Classify sends a text classification request for a single input and
+// ClassifyText sends a text classification request for a single input and
 // unwraps the outer API array to return the flat classification list.
-func (s TextClassificationService) Classify(
+func ClassifyText(
+	opts request.Options,
 	req dto.TextClassificationRequest,
-	opts ...request.Option,
 ) ([]dto.TextClassification, error) {
-	optsOverride := s.opts.With(opts...)
-
 	resp, err := doJSONInference[dto.TextClassificationRequest, [][]dto.TextClassification](
-		optsOverride,
+		opts,
 		providers.TaskTextClassification,
 		req,
 	)
@@ -40,17 +28,15 @@ func (s TextClassificationService) Classify(
 	return resp[0], nil
 }
 
-// ClassifyBatch sends a text classification request for a batch of inputs
+// ClassifyTextBatch sends a text classification request for a batch of inputs
 // and returns classifications per input. When the API returns a flat list
 // for batch inputs it is reshaped into a per-input structure.
-func (s TextClassificationService) ClassifyBatch(
+func ClassifyTextBatch(
+	opts request.Options,
 	req dto.TextClassificationBatchRequest,
-	opts ...request.Option,
 ) ([][]dto.TextClassification, error) {
-	optsOverride := s.opts.With(opts...)
-
 	resp, err := doJSONInference[dto.TextClassificationBatchRequest, [][]dto.TextClassification](
-		optsOverride,
+		opts,
 		providers.TaskTextClassification,
 		req,
 	)

@@ -1,6 +1,6 @@
 //go:build !integration
 
-package svc
+package task
 
 import (
 	"testing"

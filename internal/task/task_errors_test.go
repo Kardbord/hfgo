@@ -1,4 +1,4 @@
-package svc_test
+package task_test
 
 import (
 	"net/http"

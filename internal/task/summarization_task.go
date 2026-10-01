@@ -1,4 +1,4 @@
-package svc
+package task
 
 import (
 	"github.com/Kardbord/hfgo/v4/internal/dto"
@@ -6,35 +6,22 @@ import (
 	"github.com/Kardbord/hfgo/v4/providers"
 )
 
-// SummarizationService implements summarization calls.
-type SummarizationService struct {
-	opts request.Options
-}
-
-// NewSummarizationService builds a summarization service.
-func NewSummarizationService(opts request.Options) SummarizationService {
-	return SummarizationService{opts: opts}
-}
-
 // Summarize sends a summarization request for a single input.
-func (s SummarizationService) Summarize(
-	req dto.SummarizationRequest,
-	opts ...request.Option,
-) ([]dto.Summarization, error) {
+func Summarize(opts request.Options, req dto.SummarizationRequest) ([]dto.Summarization, error) {
 	return doJSONInference[dto.SummarizationRequest, []dto.Summarization](
-		s.opts.With(opts...),
+		opts,
 		providers.TaskSummarization,
 		req,
 	)
 }
 
 // SummarizeBatch sends a summarization request for a batch of inputs.
-func (s SummarizationService) SummarizeBatch(
+func SummarizeBatch(
+	opts request.Options,
 	req dto.SummarizationBatchRequest,
-	opts ...request.Option,
 ) ([]dto.Summarization, error) {
 	return doJSONInference[dto.SummarizationBatchRequest, []dto.Summarization](
-		s.opts.With(opts...),
+		opts,
 		providers.TaskSummarization,
 		req,
 	)

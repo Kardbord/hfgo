@@ -2,7 +2,7 @@ package hfgo
 
 import (
 	"github.com/Kardbord/hfgo/v4/internal/request"
-	"github.com/Kardbord/hfgo/v4/internal/svc"
+	"github.com/Kardbord/hfgo/v4/internal/task"
 )
 
 // Client represents a HuggingFace API client with configured request options.
@@ -69,7 +69,7 @@ func NewClient(opts ...Option) Client {
 //
 //nolint:gocritic // hugeParam: Chat takes the request by value so the SDK never mutates the caller's payload
 func (c Client) Chat(req ChatRequest, opts ...Option) (ChatResponse, error) {
-	return svc.NewChatService(c.opts.With(opts...)).Complete(req)
+	return task.Chat(c.opts.With(opts...), req)
 }
 
 // ChatStream sends a chat completion request and returns a streaming response.
@@ -119,7 +119,7 @@ func (c Client) Chat(req ChatRequest, opts ...Option) (ChatResponse, error) {
 //
 //nolint:gocritic // hugeParam: ChatStream takes the request by value so the SDK never mutates the caller's payload
 func (c Client) ChatStream(req ChatRequest, opts ...Option) (*ChatStream, error) {
-	return svc.NewChatService(c.opts.With(opts...)).CompleteStream(req, opts...)
+	return task.StreamChat(c.opts.With(opts...), req)
 }
 
 // ClassifyText sends a text classification request and returns the text
@@ -130,7 +130,7 @@ func (c Client) ClassifyText(
 	req TextClassificationRequest,
 	opts ...Option,
 ) ([]TextClassification, error) {
-	return svc.NewTextClassificationService(c.opts.With(opts...)).Classify(req, opts...)
+	return task.ClassifyText(c.opts.With(opts...), req)
 }
 
 // ClassifyTextBatch sends a text classification request for a batch of inputs
@@ -144,7 +144,7 @@ func (c Client) ClassifyTextBatch(
 	req TextClassificationBatchRequest,
 	opts ...Option,
 ) ([][]TextClassification, error) {
-	return svc.NewTextClassificationService(c.opts.With(opts...)).ClassifyBatch(req, opts...)
+	return task.ClassifyTextBatch(c.opts.With(opts...), req)
 }
 
 // ClassifyTokens sends a token classification request and returns the token
@@ -155,7 +155,7 @@ func (c Client) ClassifyTokens(
 	req TokenClassificationRequest,
 	opts ...Option,
 ) ([]TokenClassification, error) {
-	return svc.NewTokenClassificationService(c.opts.With(opts...)).Classify(req, opts...)
+	return task.ClassifyTokens(c.opts.With(opts...), req)
 }
 
 // ClassifyTokensBatch sends a token classification request for a batch of inputs
@@ -169,7 +169,7 @@ func (c Client) ClassifyTokensBatch(
 	req TokenClassificationBatchRequest,
 	opts ...Option,
 ) ([][]TokenClassification, error) {
-	return svc.NewTokenClassificationService(c.opts.With(opts...)).ClassifyBatch(req, opts...)
+	return task.ClassifyTokensBatch(c.opts.With(opts...), req)
 }
 
 // AnswerQuestion sends a question answering request and returns the answers.
@@ -180,7 +180,7 @@ func (c Client) AnswerQuestion(
 	req QuestionAnsweringRequest,
 	opts ...Option,
 ) ([]QuestionAnswering, error) {
-	return svc.NewQuestionAnsweringService(c.opts.With(opts...)).Answer(req, opts...)
+	return task.AnswerQuestion(c.opts.With(opts...), req)
 }
 
 // ZeroShotClassifyText sends a zero-shot text classification request and
@@ -191,7 +191,7 @@ func (c Client) ZeroShotClassifyText(
 	req ZeroShotTextClassificationRequest,
 	opts ...Option,
 ) ([]ZeroShotTextClassification, error) {
-	return svc.NewZeroShotTextClassificationService(c.opts.With(opts...)).Classify(req, opts...)
+	return task.ZeroShotClassifyText(c.opts.With(opts...), req)
 }
 
 // ZeroShotClassifyTextBatch sends a zero-shot text classification request for
@@ -206,9 +206,7 @@ func (c Client) ZeroShotClassifyTextBatch(
 	req ZeroShotTextClassificationBatchRequest,
 	opts ...Option,
 ) ([][]ZeroShotTextClassification, error) {
-	return svc.NewZeroShotTextClassificationService(
-		c.opts.With(opts...),
-	).ClassifyBatch(req, opts...)
+	return task.ZeroShotClassifyTextBatch(c.opts.With(opts...), req)
 }
 
 // FillMask sends a fill mask request and returns the mask filling predictions
@@ -216,7 +214,7 @@ func (c Client) ZeroShotClassifyTextBatch(
 //
 // For multiple inputs, use FillMaskBatch.
 func (c Client) FillMask(req FillMaskRequest, opts ...Option) ([]FillMaskPrediction, error) {
-	return svc.NewFillMaskService(c.opts.With(opts...)).Fill(req, opts...)
+	return task.FillMask(c.opts.With(opts...), req)
 }
 
 // FillMaskBatch sends a fill mask request for a batch of inputs and returns a
@@ -230,7 +228,7 @@ func (c Client) FillMaskBatch(
 	req FillMaskBatchRequest,
 	opts ...Option,
 ) ([][]FillMaskPrediction, error) {
-	return svc.NewFillMaskService(c.opts.With(opts...)).FillBatch(req, opts...)
+	return task.FillMaskBatch(c.opts.With(opts...), req)
 }
 
 // Summarize sends a summarization request and returns the summarization output
@@ -241,7 +239,7 @@ func (c Client) FillMaskBatch(
 //
 // For multiple inputs, use SummarizeBatch.
 func (c Client) Summarize(req SummarizationRequest, opts ...Option) ([]Summarization, error) {
-	return svc.NewSummarizationService(c.opts.With(opts...)).Summarize(req, opts...)
+	return task.Summarize(c.opts.With(opts...), req)
 }
 
 // SummarizeBatch sends a summarization request for a batch of inputs and returns
@@ -256,7 +254,7 @@ func (c Client) SummarizeBatch(
 	req SummarizationBatchRequest,
 	opts ...Option,
 ) ([]Summarization, error) {
-	return svc.NewSummarizationService(c.opts.With(opts...)).SummarizeBatch(req, opts...)
+	return task.SummarizeBatch(c.opts.With(opts...), req)
 }
 
 // AnswerTableQuestion sends a table question answering request and returns the answer.
@@ -272,7 +270,7 @@ func (c Client) AnswerTableQuestion(
 	req TableQuestionAnsweringRequest,
 	opts ...Option,
 ) (TableQuestionAnswer, error) {
-	return svc.NewTableQuestionAnsweringService(c.opts.With(opts...)).Answer(req, opts...)
+	return task.AnswerTableQuestion(c.opts.With(opts...), req)
 }
 
 // Translate sends a translation request and returns the translation output
@@ -283,7 +281,7 @@ func (c Client) AnswerTableQuestion(
 //
 // For multiple inputs, use TranslateBatch.
 func (c Client) Translate(req TranslationRequest, opts ...Option) ([]Translation, error) {
-	return svc.NewTranslationService(c.opts.With(opts...)).Translate(req, opts...)
+	return task.Translate(c.opts.With(opts...), req)
 }
 
 // TranslateBatch sends a translation request for a batch of inputs and returns
@@ -298,7 +296,7 @@ func (c Client) TranslateBatch(
 	req TranslationBatchRequest,
 	opts ...Option,
 ) ([]Translation, error) {
-	return svc.NewTranslationService(c.opts.With(opts...)).TranslateBatch(req, opts...)
+	return task.TranslateBatch(c.opts.With(opts...), req)
 }
 
 // FeatureExtract sends a feature extraction request and returns the embedding
@@ -311,7 +309,7 @@ func (c Client) FeatureExtract(
 	req FeatureExtractionRequest,
 	opts ...Option,
 ) (FeatureExtraction, error) {
-	return svc.NewFeatureExtractionService(c.opts.With(opts...)).Extract(req, opts...)
+	return task.ExtractFeatures(c.opts.With(opts...), req)
 }
 
 // FeatureExtractBatch sends a feature extraction request for a batch of inputs
@@ -326,7 +324,7 @@ func (c Client) FeatureExtractBatch(
 	req FeatureExtractionBatchRequest,
 	opts ...Option,
 ) ([]FeatureExtraction, error) {
-	return svc.NewFeatureExtractionService(c.opts.With(opts...)).ExtractBatch(req, opts...)
+	return task.ExtractFeaturesBatch(c.opts.With(opts...), req)
 }
 
 // Raw returns the raw HTTP request service for this client. Unlike the other
@@ -339,5 +337,5 @@ func (c Client) FeatureExtractBatch(
 // created; it is lightweight, so prefer calling Raw() per use rather than
 // retaining the value.
 func (c Client) Raw() RawService {
-	return svc.NewRawService(c.opts)
+	return task.NewRawService(c.opts)
 }

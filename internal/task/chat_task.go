@@ -1,4 +1,4 @@
-package svc
+package task
 
 import (
 	"context"
@@ -12,29 +12,19 @@ import (
 	"github.com/Kardbord/hfgo/v4/providers"
 )
 
-// ChatService implements chat completion calls using the configured request options.
-type ChatService struct {
-	opts request.Options
-}
-
-// NewChatService builds a chat service with a snapshot of the provided options.
-func NewChatService(opts request.Options) ChatService {
-	return ChatService{opts: opts}
-}
-
 // resolveModel resolves the model with precedence and applies the provider suffix.
-// Model precedence: request > options > client.
+// Model precedence: request > options.
 // Provider suffix is appended only if the model doesn't already contain a provider
 // (indicated by ":") and the provider is not the default HuggingFace provider.
-func resolveModel(payload *dto.ChatRequest, optsOverride request.Options) {
+func resolveModel(payload *dto.ChatRequest, opts request.Options) {
 	if payload.Model == nil || *payload.Model == "" {
-		if optsOverride.Model != "" {
-			model := optsOverride.Model
+		if opts.Model != "" {
+			model := opts.Model
 			payload.Model = &model
 		}
 	}
 
-	payload.Model = applyProvider(payload.Model, optsOverride.Provider)
+	payload.Model = applyProvider(payload.Model, opts.Provider)
 }
 
 // applyProvider applies the provider to the model if the model
@@ -57,17 +47,10 @@ func applyProvider(model *string, provider providers.Provider) *string {
 	return model
 }
 
-// resolveChatOptions merges per-call options with client defaults and resolves
-// the model on the request payload. It returns the resolved options with the
-// model set so downstream dispatch (doJSONInference) can use it.
-func resolveChatOptions(
-	s ChatService,
-	req *dto.ChatRequest,
-	opts []request.Option,
-) (request.Options, error) {
-	optsOverride := s.opts.With(opts...)
-
-	resolveModel(req, optsOverride)
+// resolveChatOptions validates options and resolves the model on the request payload.
+// It returns the options with the model set so downstream dispatch can use it.
+func resolveChatOptions(opts request.Options, req *dto.ChatRequest) (request.Options, error) {
+	resolveModel(req, opts)
 
 	if req.Model == nil || *req.Model == "" {
 		return request.Options{}, &hferrors.SDKError{
@@ -77,7 +60,7 @@ func resolveChatOptions(
 		}
 	}
 
-	if optsOverride.Provider == nil {
+	if opts.Provider == nil {
 		return request.Options{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
 			Message: "provider must not be nil",
@@ -85,19 +68,16 @@ func resolveChatOptions(
 		}
 	}
 
-	optsOverride.Model = *req.Model
+	opts.Model = *req.Model
 
-	return optsOverride, nil
+	return opts, nil
 }
 
-// Complete sends a chat completion request and returns a chat completion response.
+// Chat sends a chat completion request and returns a chat completion response.
 //
-//nolint:gocritic // hugeParam: Complete takes the request by value so the SDK never mutates the caller's payload
-func (s ChatService) Complete(
-	req dto.ChatRequest,
-	opts ...request.Option,
-) (dto.ChatResponse, error) {
-	optsOverride, err := resolveChatOptions(s, &req, opts)
+//nolint:gocritic // hugeParam: Chat takes the request by value so the SDK never mutates the caller's payload
+func Chat(opts request.Options, req dto.ChatRequest) (dto.ChatResponse, error) {
+	optsOverride, err := resolveChatOptions(opts, &req)
 	if err != nil {
 		return dto.ChatResponse{}, err
 	}
@@ -117,14 +97,11 @@ func (s ChatService) Complete(
 	)
 }
 
-// CompleteStream sends a chat completion request and returns a streaming response.
+// StreamChat sends a chat completion request and returns a streaming response.
 //
-//nolint:gocritic // hugeParam: CompleteStream takes the request by value so the SDK never mutates the caller's payload
-func (s ChatService) CompleteStream(
-	req dto.ChatRequest,
-	opts ...request.Option,
-) (*ChatStream, error) {
-	optsOverride, err := resolveChatOptions(s, &req, opts)
+//nolint:gocritic // hugeParam: DoChatStream takes the request by value so the SDK never mutates the caller's payload
+func StreamChat(opts request.Options, req dto.ChatRequest) (*ChatStream, error) {
+	optsOverride, err := resolveChatOptions(opts, &req)
 	if err != nil {
 		return nil, err
 	}

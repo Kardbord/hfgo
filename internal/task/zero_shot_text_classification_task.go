@@ -1,4 +1,4 @@
-package svc
+package task
 
 import (
 	"fmt"
@@ -9,23 +9,11 @@ import (
 	"github.com/Kardbord/hfgo/v4/providers"
 )
 
-// ZeroShotTextClassificationService implements zero-shot text classification calls.
-type ZeroShotTextClassificationService struct {
-	opts request.Options
-}
-
-// NewZeroShotTextClassificationService builds a zero-shot classification service.
-func NewZeroShotTextClassificationService(opts request.Options) ZeroShotTextClassificationService {
-	return ZeroShotTextClassificationService{opts: opts}
-}
-
-// Classify sends a zero-shot classification request for a single input.
-func (s ZeroShotTextClassificationService) Classify(
+// ZeroShotClassifyText sends a zero-shot classification request for a single input.
+func ZeroShotClassifyText(
+	opts request.Options,
 	req dto.ZeroShotTextClassificationRequest,
-	opts ...request.Option,
 ) ([]dto.ZeroShotTextClassification, error) {
-	optsOverride := s.opts.With(opts...)
-
 	if req.Parameters == nil || len(req.Parameters.CandidateLabels) == 0 {
 		return nil, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
@@ -35,7 +23,7 @@ func (s ZeroShotTextClassificationService) Classify(
 	}
 
 	resp, err := doJSONInference[dto.ZeroShotTextClassificationRequest, []dto.ZeroShotTextClassification](
-		optsOverride,
+		opts,
 		providers.TaskZeroShotTextClassification,
 		req,
 	)
@@ -46,14 +34,12 @@ func (s ZeroShotTextClassificationService) Classify(
 	return resp, nil
 }
 
-// ClassifyBatch sends a zero-shot classification request for a batch of inputs
+// ZeroShotClassifyTextBatch sends a zero-shot classification request for a batch of inputs
 // and normalizes the batched response into a per-input structure.
-func (s ZeroShotTextClassificationService) ClassifyBatch(
+func ZeroShotClassifyTextBatch(
+	opts request.Options,
 	req dto.ZeroShotTextClassificationBatchRequest,
-	opts ...request.Option,
 ) ([][]dto.ZeroShotTextClassification, error) {
-	optsOverride := s.opts.With(opts...)
-
 	if req.Parameters == nil || len(req.Parameters.CandidateLabels) == 0 {
 		return nil, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
@@ -63,7 +49,7 @@ func (s ZeroShotTextClassificationService) ClassifyBatch(
 	}
 
 	resp, err := doJSONInference[dto.ZeroShotTextClassificationBatchRequest, []dto.ZeroShotTextClassificationBatched](
-		optsOverride,
+		opts,
 		providers.TaskZeroShotTextClassification,
 		req,
 	)
