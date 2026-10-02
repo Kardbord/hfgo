@@ -80,6 +80,31 @@ func Ptr[T any](v T) *T {
 
 See the [examples](./examples) directory for more.
 
+## Providers
+
+Requests are routed through a pluggable inference-provider layer (the
+[`providers`](./providers) package). The default
+[`HuggingFaceProvider`](https://pkg.go.dev/github.com/Kardbord/hfgo/v4/providers)
+speaks the HuggingFace wire format directly, so for most use cases nothing
+needs to be configured.
+
+- Use `hfgo.WithProvider(p)` to set an explicit provider on a client or a
+  single call, and `hfgo.WithDefaultProvider()` to use the default
+  HuggingFace provider.
+- On OpenAI-compatible endpoints (e.g. chat completions), a provider or
+  selection policy can be pinned by appending a suffix to the model string
+  (e.g. `model:sambanova`, `model:fastest`, `model:cheapest`,
+  `model:preferred`); otherwise the HF router selects the provider. See
+  https://huggingface.co/docs/inference-providers/main/en/index.
+
+```go
+client := hfgo.NewClient(
+	hfgo.WithToken(token),
+	hfgo.WithModel("deepseek-ai/DeepSeek-R1"),
+	hfgo.WithDefaultProvider(),
+)
+```
+
 ## Inference Tasks
 
 - [Chat](./examples/chat)

@@ -21,7 +21,7 @@ go vet ./...
 go test ./...
 
 # Run linters
-golangci-lint run ./...
+golangci-lint run --fix --disable godox ./...
 
 # Build
 go build ./...
@@ -59,7 +59,7 @@ NEVER commit unless explicitly requested.
 Prior to committing:
 
 - Ensure code is formatted (`gofmt -s -w .`)
-- Ensure all linters pass (`golangci-lint run ./...`)
+- Ensure all linters pass (`golangci-lint run --fix --disable godox ./...`)
 - Document all public functions with godoc comments
 - Ensure test coverage is maintained
 - Ensure all code documentation is up to date

@@ -10,6 +10,67 @@
 - **Goal**: Production-ready, follows best practices and idioms, maintains feature parity with upstream API
 - **Repository**: https://github.com/Kardbord/hfgo
 
+## Repository & Package Layout
+
+The repository is organized as a thin public root package backed by
+`internal/*` sub-packages and one public `providers` package. The root module
+is the canonical import path (`import "github.com/Kardbord/hfgo/v4"`); all
+public types are re-exported there, usually as type aliases that forward
+documentation from their defining sub-package.
+
+### Root Package (`package hfgo`)
+
+| File | Contents |
+|------|----------|
+| `client.go` | `Client`, `NewClient`, and every inference endpoint method |
+| `options.go` | `With*` option helpers |
+| `option.go` | `Option` type alias (`request.Option`) |
+| `errors.go` | Re-exports `APIError`, `SDKError`, `SDKErrorKind` and its constants |
+| `chat.go` | Re-exports all chat DTOs and `ChatStream` |
+| `raw.go` | Re-exports `RawClient`, `RawStream`, `RawEvent` |
+| `version.go` | `Version` constant and `UserAgent()` |
+| `{task}.go` | One file per task re-exporting that task's DTOs, e.g. `fill_mask.go`, `text_classification.go` |
+| `doc.go` | Package-level design notes |
+
+### `providers/` (public package)
+
+Defines the inference-provider abstraction: the `Provider` interface, the
+built-in `HuggingFaceProvider` with its embedded `DefaultCodec`, and the
+`Task` constants naming every supported inference task. This is the only
+non-`internal` package besides the root module.
+
+### `internal/` (implementation detail)
+
+None of these packages are part of the public API; their symbols are only
+reachable via root re-exports.
+
+| Package | Contents |
+|---------|----------|
+| `internal/dto` | All request/response Data Transfer Objects and their `MarshalJSON`/`UnmarshalJSON` validators |
+| `internal/task` | Package-level task functions (`Chat`, `StreamChat`, `ClassifyText`, …) plus the `RawClient`/`RawStream`/`RawEvent` types |
+| `internal/chatstream` | `ChatStream` and the `ToolCallAccumulator` assisting streaming tool-call metadata |
+| `internal/request` | Options struct, functional option type, HTTP plumbing, JSON decode helpers, and SSE parsing |
+| `internal/hferrors` | `APIError`, `SDKError`, and `SDKErrorKind` definitions |
+| `internal/sdkversion` | Version constant and User-Agent string |
+| `internal/testutils` | Shared test helpers (mock transports, trackers, pointers) |
+| `internal/integration_tests` | Live-API integration tests (tagged `integration`) |
+
+### Re-export Pattern
+
+Public types are defined once and re-exported at the root so downstream users
+only ever import from `github.com/Kardbord/hfgo/v4`:
+
+```go
+// internal/dto/feature_extraction.go defines the type.
+// root feature_extraction.go re-exports it:
+type FeatureExtraction = dto.FeatureExtraction
+```
+
+This indirection exists so the `providers` package can depend on the DTO types
+without creating an import cycle: DTOs live in `internal/dto` (which nothing in
+the provider layer must reach through the root module), while the public API
+surface stays flat.
+
 ## Core Architecture
 
 ### Client-Centric Design Pattern
@@ -83,6 +144,77 @@ go func() {
     // ...
 }()
 ```
+
+### Provider Abstraction
+
+The SDK routes requests and transforms wire formats through a pluggable
+provider layer, defined in the public `providers` package. The HuggingFace
+Inference API is the reference wire format, so the built-in provider is a
+no-op transform; third-party providers can implement the same interface to
+serve HF-format requests from their own endpoints.
+
+#### The `Provider` Interface
+
+```go
+type Provider interface {
+    Endpoint(task Task, model string) (string, error)
+    ProviderSuffix() string
+    EncodeRequest(task Task, hfBody []byte, hfContentType string) (
+        providerBody []byte, providerContentType string, err error,
+    )
+    DecodeResponse(task Task, providerBody []byte, providerContentType string) (
+        hfBody []byte, hfContentType string, err error,
+    )
+}
+```
+
+- `Endpoint` returns the API endpoint path for a task and model, or an error if
+  the model is invalid or the task is unsupported.
+- `ProviderSuffix` returns the routing suffix appended to model IDs on
+  OpenAI-compatible endpoints. An empty string (the HuggingFace provider)
+  appends nothing.
+- `EncodeRequest` / `DecodeResponse` transform between HF-spec and
+  provider-spec request/response bodies. Implementations must be safe for
+  concurrent use.
+
+#### Built-ins
+
+- **`HuggingFaceProvider`**: embeds `DefaultCodec` (identity transforms) and
+  appends no routing suffix. Construct via `NewHuggingFaceProvider()`.
+- **`DefaultCodec`**: identity codec passing request/response bodies through
+  unchanged. Embedded by `HuggingFaceProvider` and available for other
+  providers that speak the same wire format for a task.
+- **`providers.Task`**: string constants naming supported inference tasks
+  (e.g. `TaskChatCompletion`, `TaskTextClassification`,
+  `TaskFeatureExtraction`, `TaskTextToImage`, …).
+
+#### Provider Selection and Suffix Routing
+
+- On OpenAI-compatible endpoints (e.g. chat completions), a provider or
+  selection policy can be pinned by appending a suffix to the model string
+  (e.g. `model:sambanova`, `model:fastest`, `model:cheapest`,
+  `model:preferred`); a `HuggingFaceProvider`-like empty suffix means the HF
+  router selects the provider. See
+  https://huggingface.co/docs/inference-providers/main/en/index.
+- `WithProvider(p)` sets `Options.Provider`; `WithDefaultProvider()` sets
+  the default `HuggingFaceProvider`.
+
+#### Dispatch Flow
+
+`internal/task/invoke.go` implements the request lifecycle shared by every
+task function:
+
+1. `resolveModelDispatch` validates options (model set, provider non-nil) and
+   resolves the endpoint via `Provider.Endpoint`.
+2. `encodeRequest` marshals the typed request DTO to JSON, then applies
+   `Provider.EncodeRequest` to produce the wire body and `Content-Type`.
+3. `doJSONInference` / `doStreamingInference` send the request through the
+   `internal/request` layer, then convert the response back with
+   `Provider.DecodeResponse` before unmarshalling into the typed response DTO.
+   Streaming additionally applies the same transform per SSE `data` chunk.
+
+This keeps task functions (`internal/task`) agnostic to wire format: providers
+own endpoint construction and any request/response translation.
 
 ## Error Handling
 
@@ -178,6 +310,7 @@ response, err := client.Chat(
 - `WithProvider(provider Provider)`: Inference provider
   - On OpenAI-compatible endpoints (e.g. chat completions), a provider or selection policy can be pinned by appending a suffix to the model string (e.g. `model:sambanova`, `model:fastest`, `model:cheapest`, `model:preferred`); otherwise the HF router selects the provider
   - See https://huggingface.co/docs/inference-providers/main/en/index
+- `WithDefaultProvider()`: Sets the default HuggingFace provider (empty routing suffix)
 
 ### HTTP & Transport
 - `WithHTTPClientFactory(factory func() http.Client)`: Factory for HTTP clients
@@ -185,7 +318,7 @@ response, err := client.Chat(
   - Should return fresh client value
   - Avoid sharing mutable internals like Transport unless synchronized
   - Nil factory results in nil HTTP client
-- `WithDefaultHTTPClient()`: Restores default HTTP client
+- `WithDefaultHTTPClient()`: Sets default HTTP client
 - `WithUserAgentSuffix(suffix string)`: Appends suffix to SDK user agent
 
 ### Context & Timeouts
@@ -244,7 +377,8 @@ Validation:
 - Invalid response payloads surface as SDK validation errors
 
 ### ChatStream
-Wraps streaming chat completion response from `ChatStream()`.
+Wraps streaming chat completion response from `ChatStream()`. Defined in
+`internal/chatstream` together with `ToolCallAccumulator`.
 
 **Methods**:
 - `Recv(ctx context.Context) (ChatStreamResponse, error)`: Blocks until next chunk arrives
@@ -257,6 +391,7 @@ Wraps streaming chat completion response from `ChatStream()`.
 **Tool Call Metadata Merging**:
 - Automatically caches and merges tool call ID, type, and function name across streaming deltas
 - Ensures each delta includes complete tool call metadata
+- Implemented by `internal/chatstream.ToolCallAccumulator`
 
 ### ChatMessage
 Represents a message in conversation history.
@@ -518,7 +653,7 @@ Batch feature extraction for multiple inputs.
 
 ### RawClient (escape hatch)
 
-Created via `client.Raw()`. For raw HTTP requests without type-safe JSON handling. This is the only endpoint path exposed as a sub-type rather than as flat Client methods; it is the advanced escape hatch for endpoints the SDK does not model, and its broader method matrix is easier to discover grouped here.
+Created via `client.Raw()`. For raw HTTP requests without type-safe JSON handling. This is the only endpoint path exposed as a sub-type rather than as flat Client methods; it is the advanced escape hatch for endpoints the SDK does not model, and its broader method matrix is easier to discover grouped here. `RawClient`, `RawStream`, and `RawEvent` are defined in `internal/task` and re-exported at the root.
 
 #### Do(requestBody []byte, method, path string, opts ...Option) (*http.Response, error)
 Raw request with error interpretation on non-2xx responses.
@@ -546,9 +681,31 @@ Same as `StreamRaw`, but streams the request body from an `io.Reader`.
 
 ## Endpoints
 
+Endpoints are resolved by the configured provider (see
+[Provider Abstraction](#provider-abstraction)). The built-in
+`HuggingFaceProvider` resolves them as follows, relative to the base URL
+(default `https://router.huggingface.co`):
+
+### Model endpoints
+- **Path**: `hf-inference/models/{model}`
+- **Tasks**: text classification, zero-shot text classification, token
+  classification, question answering, table question answering, fill mask,
+  summarization, translation
+- **Method**: POST
+
+### Pipeline endpoints
+- **Path**: `hf-inference/models/{model}/pipeline/{task}`
+- **Tasks**: feature extraction, sentence similarity
+- **Method**: POST
+
 ### Chat Completions
+- **Path**: `v1/chat/completions`
 - **Method**: POST
 - **Methods**: `Client.Chat(...)` or `Client.ChatStream(...)`
+
+### Raw (escape hatch)
+- `Client.Raw()` accepts an arbitrary relative `path` for endpoints the SDK
+  does not model type-safely; the path is joined to the base URL.
 
 ## Quality Assurance
 

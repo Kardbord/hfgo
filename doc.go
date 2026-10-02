@@ -1,6 +1,12 @@
 // Package hfgo provides Go bindings for the Hugging Face Inference API.
 //
 // Design notes:
+//   - The public surface is defined in internal sub-packages and re-exported
+//     here by type alias. Internal packages (internal/dto, internal/task,
+//     internal/chatstream, internal/request, internal/hferrors,
+//     internal/sdkversion) are implementation details; import them only from
+//     within the module. The providers package is public and defines pluggable
+//     inference providers: wire-format encode/decode and endpoint resolution.
 //   - Clients are immutable; options are fixed at creation time, and each call snapshots them.
 //   - Clients are safe for concurrent use by default or when configured with immutable or synchronized dependencies.
 //   - Per-request options can override client defaults for a single call.

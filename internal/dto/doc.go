@@ -1,5 +1,6 @@
 // Package dto contains Data Transfer Objects for hfgo.
-// It is necessary to keep them here instead of the root
-// module to avoid import cycles in the huggingface providers
-// (hfp) package.
+// They live here instead of the root module so the public providers package
+// (same module) can reference DTO types without creating an import cycle.
+// The root module re-exports these types by alias so downstream users keep
+// importing from the root package.
 package dto

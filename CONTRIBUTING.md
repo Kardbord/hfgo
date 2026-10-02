@@ -109,6 +109,42 @@ go test -race -timeout 600s -v ./...
 go test -tags=integration -timeout 600s -v ./...
 ```
 
+## Repository Structure
+
+The repo is organized as a thin public root package backed by `internal/*`
+sub-packages. Public types are re-exported at the root, so downstream users
+only ever import from `github.com/Kardbord/hfgo/v4`.
+
+| Path | Purpose |
+|------|---------|
+| `client.go` | `Client`, `NewClient`, and every inference endpoint method |
+| `options.go` / `option.go` | `With*` option helpers and the `Option` alias |
+| `errors.go` | Re-exports `APIError`, `SDKError`, `SDKErrorKind` |
+| `chat.go`, `raw.go`, `{task}.go` | Root re-exports of chat DTOs, raw client, and per-task DTOs |
+| `providers/` | Public `Provider` interface, `HuggingFaceProvider`, `DefaultCodec`, `Task` constants |
+| `internal/dto/` | Data Transfer Objects and their JSON validation |
+| `internal/task/` | Package-level task functions, `RawClient`, `RawStream` |
+| `internal/chatstream/` | `ChatStream` and `ToolCallAccumulator` |
+| `internal/request/` | Options struct, HTTP plumbing, JSON helpers, SSE parsing |
+| `internal/hferrors/` | `APIError`, `SDKError`, `SDKErrorKind` |
+| `internal/sdkversion/` | Version constant and User-Agent string |
+| `internal/testutils/` | Shared test helpers (mock transports, trackers) |
+| `internal/integration_tests/` | Live-API integration tests |
+| `examples/` | Runnable examples, one folder per task |
+| `tools/bruno/` | Bruno collections for manual API testing |
+
+**Where to make changes**:
+
+- **Adding or modifying request/response types**: edit `internal/dto/*`, then
+  re-export new public types at the root (e.g. in `chat.go`, `raw.go`, or a
+  per-task file) so they remain importable from `github.com/Kardbord/hfgo/v4`.
+- **Adding or changing endpoint behavior**: edit the task function in
+  `internal/task/*` and the corresponding `Client` method in `client.go`.
+- **Provider or wire-format work**: edit `providers/*`.
+- **Tests**: unit tests live next to the code they exercise (e.g.
+  `internal/task/*_task_test.go`); integration tests live in
+  `internal/integration_tests/*_integration_test.go`.
+
 ## Pull Requests
 
 ### Before Creating a PR
@@ -249,14 +285,22 @@ func TestSomething(t *testing.T) {
 ```go
 //go:build integration
 
-package hfgo
+package integration_tests
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Kardbord/hfgo/v4"
+)
 
 func TestIntegration(t *testing.T) {
-    // Integration test code
+	// Integration test code; calls hfgo.Client directly against the live API
 }
 ```
+
+Integration tests live in `internal/integration_tests/` (package
+`integration_tests`) and end with the `_integration_test.go` suffix so the
+build tooling can discover them.
 
 ### Unit Tests
 
@@ -342,8 +386,13 @@ When making changes:
 
 ## Common Mistakes to Avoid
 
-1. **Mutating requests**: Don't modify requests passed to methods by
-   pointer after passing them
+1. **Mutating request data**: Requests are passed to client methods **by
+   value** and the SDK never mutates the caller's payload. However, the value
+   copy shares nested data (slices, maps, and pointed-to values) with the
+   caller, so treat the request and the data it references as **read-only
+   while a call is in flight**. For concurrent invocation, pass a defensive
+   copy per call, e.g. `client.Chat(req.Clone(), ...)`, or build a fresh
+   request per call.
 2. **Not closing streams**: Always call `Close()` on `ChatStream` or `RawStream`
 3. **Sharing mutable HTTP clients**: If injecting HTTP clients, ensure thread-safety
 4. **Breaking API contracts**: Changing function signatures is a breaking change
