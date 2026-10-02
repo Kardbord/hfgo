@@ -27,6 +27,7 @@ imported from within the module.
 | `hftypes` | `github.com/Kardbord/hfgo/v4/hftypes` | Request/response Data Transfer Objects for every task |
 | `hferrors` | `github.com/Kardbord/hfgo/v4/hferrors` | `APIError`, `SDKError`, and `SDKErrorKind` definitions |
 | `providers` | `github.com/Kardbord/hfgo/v4/providers` | `Provider` interface, `HuggingFaceProvider`, built-in codec |
+| `hfraw` | `github.com/Kardbord/hfgo/v4/hfraw` | Low-level `Client`/`Stream`/`Event` escape hatch for arbitrary HTTP/SSE |
 | `sdkversion` | `github.com/Kardbord/hfgo/v4/sdkversion` | `Version` constant and `UserAgent()` helper |
 
 ### `hfgo` (root package)
@@ -34,7 +35,6 @@ imported from within the module.
 | File | Contents |
 |------|----------|
 | `client.go` | `Client`, `NewClient`, and every inference endpoint method |
-| `raw.go` | `RawClient`, `RawStream`, `RawEvent` escape-hatch types |
 | `doc.go` | Package-level design notes |
 
 ### `hfopts`
@@ -51,6 +51,12 @@ imported from within the module.
 | `{task}.go` | One file per task defining that task's DTOs, e.g. `fill_mask.go`, `text_classification.go` |
 | `chat_request.go`, `chat_response.go`, `chat_streaming.go`, `chat_common.go` | Chat DTOs and `ChatStream` |
 | `clone.go` | Deep `Clone` method for every request DTO |
+
+### `hfraw` (public package)
+
+Provides the low-level `Client`, `Stream`, and `Event` escape hatch for raw
+HTTP and SSE access to endpoints the SDK does not model type-safely. Built on
+top of `internal/request` and `hfopts`; advanced callers import it explicitly.
 
 ### `providers/` (public package)
 
@@ -101,7 +107,7 @@ The SDK follows a strict immutability pattern for concurrency safety:
     - `AnswerTableQuestion`: Table question answering
     - `FeatureExtract` / `FeatureExtractBatch`: Feature extraction (embeddings)
     - Per-domain task functions in internal/task are unexported implementation details; callers interact only with the Client
-   - `Client.Raw()` returns the `RawClient` escape hatch for arbitrary endpoints (see below); it is the deliberate exception to the flat-method design
+   - The root package exposes only typed inference endpoints; raw HTTP/SSE access lives in the separate `hfraw` package (see below).
 
 3. **Per-Request Options**: Can override client defaults for single calls
    - Applied by value with defensive header copies
@@ -439,9 +445,9 @@ Response format specification. Known types:
 Configuration for streaming responses.
 
 - `IncludeUsage *bool`: Include token usage in stream
+### Event
 
-### RawEvent
-Represents a raw SSE event from the raw streaming methods (`Client.Raw().Stream*`).
+Represents an SSE event returned by `hfraw.Client` stream methods.
 
 - `Data []byte`: Event data payload
 - `Event string`: Event type identifier
@@ -453,8 +459,7 @@ Represents a raw SSE event from the raw streaming methods (`Client.Raw().Stream*
 All inference endpoints are called directly on a `Client` value. Each method
 takes a request DTO and returns a typed response or stream; per-request options
 are passed as variadic `hfopts.Option` values. The behavior below describes what the
-Client methods perform. The `RawClient` exposed by `Client.Raw()` is the one
-exception and is documented separately.
+Client methods perform. The low-level `hfraw.Client` escape hatch is documented separately.
 
 ### Chat
 
@@ -667,9 +672,9 @@ Batch feature extraction for multiple inputs.
 - Returns a list of embedding vectors (`[][]float64`), one per input, in input order
 - Callers should check the length of the response list before indexing
 
-### RawClient (escape hatch)
+### `hfraw.Client` (escape hatch)
 
-Created via `client.Raw()`. For raw HTTP requests without type-safe JSON handling. This is the only endpoint path exposed as a sub-type rather than as flat Client methods; it is the advanced escape hatch for endpoints the SDK does not model, and its broader method matrix is easier to discover grouped here. `RawClient`, `RawStream`, and `RawEvent` are defined in the root package (`raw.go`) and exposed through `Client.Raw()`.
+Created via `hfraw.NewClient(...)`. For raw HTTP requests without type-safe JSON handling. This is the advanced escape hatch for endpoints the SDK does not model. Its broader method matrix (`Do`/`DoRaw`/`DoReader`/`DoRawReader` and `Stream`/`StreamReader`/`StreamRaw`/`StreamRawReader`) is grouped under `hfraw.Client` rather than cluttering the root `Client` surface. `hfraw.Client`, `hfraw.Stream`, and `hfraw.Event` are defined in the `hfraw` package.
 
 #### Do(requestBody []byte, method, path string, opts ...hfopts.Option) (*http.Response, error)
 Raw request with error interpretation on non-2xx responses.
@@ -683,16 +688,16 @@ Same as `Do`, but streams the request body from an `io.Reader`.
 #### DoRawReader(requestBody io.Reader, method, path string, opts ...hfopts.Option) (*http.Response, error)
 Same as `DoRaw`, but streams the request body from an `io.Reader`.
 
-#### Stream(requestBody []byte, method, path string, opts ...hfopts.Option) (*RawStream, error)
+#### Stream(requestBody []byte, method, path string, opts ...hfopts.Option) (*hfraw.Stream, error)
 SSE stream with error interpretation.
 
-#### StreamReader(requestBody io.Reader, method, path string, opts ...hfopts.Option) (*RawStream, error)
+#### StreamReader(requestBody io.Reader, method, path string, opts ...hfopts.Option) (*hfraw.Stream, error)
 Same as `Stream`, but streams the request body from an `io.Reader`.
 
-#### StreamRaw(requestBody []byte, method, path string, opts ...hfopts.Option) (*RawStream, error)
+#### StreamRaw(requestBody []byte, method, path string, opts ...hfopts.Option) (*hfraw.Stream, error)
 SSE stream without error interpretation (allows non-2xx responses).
 
-#### StreamRawReader(requestBody io.Reader, method, path string, opts ...hfopts.Option) (*RawStream, error)
+#### StreamRawReader(requestBody io.Reader, method, path string, opts ...hfopts.Option) (*hfraw.Stream, error)
 Same as `StreamRaw`, but streams the request body from an `io.Reader`.
 
 ## Endpoints
@@ -720,8 +725,10 @@ Endpoints are resolved by the configured provider (see
 - **Methods**: `Client.Chat(...)` or `Client.ChatStream(...)`
 
 ### Raw (escape hatch)
-- `Client.Raw()` accepts an arbitrary relative `path` for endpoints the SDK
-  does not model type-safely; the path is joined to the base URL.
+
+- `hfraw.NewClient(...)` accepts the same options as `hfgo.NewClient` and
+  exposes arbitrary relative `path` endpoints not modeled by the SDK; the path
+  is joined to the base URL configured via `hfopts.WithBaseURL`.
 
 ## Quality Assurance
 
@@ -803,12 +810,12 @@ Request DTOs (e.g. `ChatRequest`) are passed to Client methods **by value**, and
 **Never**: share one mutable request object across goroutines and mutate it while calls are in flight — that is a data race the SDK cannot observe or prevent.
 
 ### 4. Streaming
-- Always call Close() on ChatStream or RawStream
+- Always call Close() on `hftypes.ChatStream` or `hfraw.Stream`
 - Prefer `defer stream.Close()` to ensure cleanup
 
 ### 5. Value Receivers vs Pointer Receivers
 - Use value receivers for immutable types (Client, ChatRequest, etc.)
-- Use pointer receivers for mutable types (ChatStream, RawStream, etc.)
+- Use pointer receivers for mutable types (`hftypes.ChatStream`, `hfraw.Stream`, etc.)
 
 ### 6. Generics
 - Leverage Go generics for type-safe request/response handling

@@ -1,4 +1,4 @@
-package hfgo
+package hfraw
 
 import (
 	"bytes"
@@ -13,57 +13,58 @@ import (
 	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
-// RawClient sends raw HTTP requests using the configured request options.
+// Client sends raw HTTP requests using the configured request options.
 //
 // It is the deliberate exception to the rest of the SDK, where endpoints are
-// exposed as Client methods: RawClient is the advanced escape hatch for
-// endpoints the SDK does not model type-safely. It combines several axes
-// (byte-slice or io.Reader bodies, typed error handling or raw HTTP responses,
-// one-shot or SSE streaming) into eight methods, which is enough surface that
-// keeping it namespaced under Client.Raw() avoids cluttering the Client API.
+// exposed as root Client methods: Client is the advanced escape hatch for
+// endpoints the SDK does not model type-safely. It combines byte-slice or
+// io.Reader bodies, typed error handling or raw HTTP responses, and one-shot
+// or SSE streaming into eight methods.
 //
-// RawClient is immutable and holds a snapshot of the client options.
-type RawClient struct {
+// Client is immutable and holds a snapshot of the provided options.
+type Client struct {
 	opts hfopts.Options
 }
 
-// newRawClient builds a RawClient with a snapshot of the provided options.
-func newRawClient(opts hfopts.Options) RawClient {
-	return RawClient{opts: opts}
+// NewClient builds a Client with a snapshot of the provided options.
+func NewClient(opts ...hfopts.Option) Client {
+	return Client{
+		opts: hfopts.NewOptions().With(opts...),
+	}
 }
 
 // Do performs a raw HTTP request with a byte slice body and applies SDK error interpretation on non-2xx responses.
 // The caller must close resp.Body on success.
-func (r RawClient) Do(
+func (c Client) Do(
 	requestBody []byte,
 	method string,
 	path string,
 	opts ...hfopts.Option,
 ) (*http.Response, error) {
-	return r.DoReader(bytes.NewReader(requestBody), method, path, opts...)
+	return c.DoReader(bytes.NewReader(requestBody), method, path, opts...)
 }
 
 // DoRaw performs a raw HTTP request with a byte slice body without translating non-2xx responses into SDK errors.
 // The caller must close resp.Body on success.
-func (r RawClient) DoRaw(
+func (c Client) DoRaw(
 	requestBody []byte,
 	method string,
 	path string,
 	opts ...hfopts.Option,
 ) (*http.Response, error) {
-	return r.DoRawReader(bytes.NewReader(requestBody), method, path, opts...)
+	return c.DoRawReader(bytes.NewReader(requestBody), method, path, opts...)
 }
 
 // DoReader performs a raw HTTP request with a streaming body and applies SDK error interpretation on non-2xx responses.
 // The caller must close resp.Body on success.
-func (r RawClient) DoReader(
+func (c Client) DoReader(
 	requestBody io.Reader,
 	method string,
 	path string,
 	opts ...hfopts.Option,
 ) (*http.Response, error) {
 	return request.Do(
-		r.opts.With(opts...),
+		c.opts.With(opts...),
 		method,
 		path,
 		requestBody,
@@ -72,14 +73,14 @@ func (r RawClient) DoReader(
 
 // DoRawReader performs a raw HTTP request with a streaming body without translating non-2xx responses into SDK errors.
 // The caller must close resp.Body on success.
-func (r RawClient) DoRawReader(
+func (c Client) DoRawReader(
 	requestBody io.Reader,
 	method string,
 	path string,
 	opts ...hfopts.Option,
 ) (*http.Response, error) {
 	return request.DoRaw(
-		r.opts.With(opts...),
+		c.opts.With(opts...),
 		method,
 		path,
 		requestBody,
@@ -87,26 +88,26 @@ func (r RawClient) DoRawReader(
 }
 
 // Stream performs a raw HTTP request and returns an SSE stream, applying SDK error interpretation on non-2xx responses.
-// Callers should close the returned RawStream when finished to promptly release the HTTP connection and decoder goroutine.
-func (r RawClient) Stream(
+// Callers should close the returned Stream when finished to promptly release the HTTP connection and decoder goroutine.
+func (c Client) Stream(
 	requestBody []byte,
 	method string,
 	path string,
 	opts ...hfopts.Option,
-) (*RawStream, error) {
-	return r.StreamReader(bytes.NewReader(requestBody), method, path, opts...)
+) (*Stream, error) {
+	return c.StreamReader(bytes.NewReader(requestBody), method, path, opts...)
 }
 
 // StreamReader performs a raw HTTP request with a streaming body and returns an SSE stream with SDK error interpretation.
-// Callers should close the returned RawStream when finished to promptly release the HTTP connection and decoder goroutine.
-func (r RawClient) StreamReader(
+// Callers should close the returned Stream when finished to promptly release the HTTP connection and decoder goroutine.
+func (c Client) StreamReader(
 	requestBody io.Reader,
 	method string,
 	path string,
 	opts ...hfopts.Option,
-) (*RawStream, error) {
+) (*Stream, error) {
 	resp, err := request.Do(
-		r.opts.With(opts...),
+		c.opts.With(opts...),
 		method,
 		path,
 		requestBody,
@@ -124,34 +125,34 @@ func (r RawClient) StreamReader(
 		return nil, err
 	}
 
-	return &RawStream{stream: raw}, nil
+	return &Stream{stream: raw}, nil
 }
 
 // StreamRaw performs a raw HTTP request and returns an SSE stream without translating non-2xx responses into SDK errors.
 // This function is probably only interesting to advanced users.
 // Only use this when you need to inspect the raw response; callers are responsible for interpreting HTTP errors themselves.
-// Callers should close the returned RawStream when finished to promptly release the HTTP connection and decoder goroutine.
-func (r RawClient) StreamRaw(
+// Callers should close the returned Stream when finished to promptly release the HTTP connection and decoder goroutine.
+func (c Client) StreamRaw(
 	requestBody []byte,
 	method string,
 	path string,
 	opts ...hfopts.Option,
-) (*RawStream, error) {
-	return r.StreamRawReader(bytes.NewReader(requestBody), method, path, opts...)
+) (*Stream, error) {
+	return c.StreamRawReader(bytes.NewReader(requestBody), method, path, opts...)
 }
 
 // StreamRawReader performs a raw HTTP request with a streaming body and returns an SSE stream without translating non-2xx responses into SDK errors.
 // This function is probably only interesting to advanced users.
 // Only use this when you need to inspect the raw response; callers are responsible for interpreting HTTP errors themselves.
-// Callers should close the returned RawStream when finished to promptly release the HTTP connection and decoder goroutine.
-func (r RawClient) StreamRawReader(
+// Callers should close the returned Stream when finished to promptly release the HTTP connection and decoder goroutine.
+func (c Client) StreamRawReader(
 	requestBody io.Reader,
 	method string,
 	path string,
 	opts ...hfopts.Option,
-) (*RawStream, error) {
+) (*Stream, error) {
 	resp, err := request.DoRaw(
-		r.opts.With(opts...),
+		c.opts.With(opts...),
 		method,
 		path,
 		requestBody,
@@ -169,20 +170,20 @@ func (r RawClient) StreamRawReader(
 		return nil, err
 	}
 
-	return &RawStream{stream: raw}, nil
+	return &Stream{stream: raw}, nil
 }
 
-// RawStream exposes a raw SSE stream returned by RawClient stream methods.
-type RawStream struct {
+// Stream exposes a raw SSE stream returned by Client stream methods.
+type Stream struct {
 	stream *request.RawStream
 }
 
 // Recv blocks until the next SSE event is available or the context is done.
-func (s *RawStream) Recv(ctx context.Context) (event RawEvent, err error) {
+func (s *Stream) Recv(ctx context.Context) (event Event, err error) {
 	if s.stream == nil {
 		return event, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindInternal,
-			Message: "raw stream is nil",
+			Message: "stream is nil",
 			Err:     nil,
 		}
 	}
@@ -192,7 +193,7 @@ func (s *RawStream) Recv(ctx context.Context) (event RawEvent, err error) {
 		return event, err
 	}
 
-	return RawEvent{
+	return Event{
 		Data:  append([]byte(nil), rawEvent.Data...),
 		Event: rawEvent.Event,
 		ID:    rawEvent.ID,
@@ -201,7 +202,7 @@ func (s *RawStream) Recv(ctx context.Context) (event RawEvent, err error) {
 }
 
 // Close releases the underlying stream resources.
-func (s *RawStream) Close() error {
+func (s *Stream) Close() error {
 	if s.stream == nil {
 		return nil
 	}
@@ -209,8 +210,8 @@ func (s *RawStream) Close() error {
 	return s.stream.Close()
 }
 
-// RawEvent mirrors the SSE fields returned by raw streams.
-type RawEvent struct {
+// Event mirrors the SSE fields returned by raw streams.
+type Event struct {
 	Data  []byte
 	Event string
 	ID    string

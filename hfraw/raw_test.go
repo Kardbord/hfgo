@@ -1,6 +1,6 @@
 //go:build !integration
 
-package hfgo_test
+package hfraw_test
 
 import (
 	"context"
@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hfraw"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 )
 
-func TestRawClient_Stream_Success(t *testing.T) {
+func TestClient_Stream_Success(t *testing.T) {
 	t.Parallel()
 
 	body := "data: {\"id\":\"1\"}\n\n" +
@@ -21,11 +21,13 @@ func TestRawClient_Stream_Success(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	client := hfgo.NewClient(
-		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+	client := hfraw.NewClient(
+		hfopts.WithHTTPClientFactory(
+			func() http.Client { return testutils.NewMockHTTPClient(mt) },
+		),
 	)
 
-	stream, err := client.Raw().Stream(nil, http.MethodGet, "/stream")
+	stream, err := client.Stream(nil, http.MethodGet, "/stream")
 	if err != nil {
 		t.Fatalf("Stream: %v", err)
 	}
@@ -47,32 +49,36 @@ func TestRawClient_Stream_Success(t *testing.T) {
 	}
 }
 
-func TestRawClient_Stream_DoError(t *testing.T) {
+func TestClient_Stream_DoError(t *testing.T) {
 	t.Parallel()
 
 	mt := &testutils.MockTransport{Err: errors.New("boom")}
-	client := hfgo.NewClient(
-		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+	client := hfraw.NewClient(
+		hfopts.WithHTTPClientFactory(
+			func() http.Client { return testutils.NewMockHTTPClient(mt) },
+		),
 	)
 
-	_, err := client.Raw().Stream(nil, http.MethodGet, "/stream")
+	_, err := client.Stream(nil, http.MethodGet, "/stream")
 	if err == nil {
 		t.Fatal("expected error")
 	}
 }
 
-func TestRawClient_StreamRaw_AllowsNon2xx(t *testing.T) {
+func TestClient_StreamRaw_AllowsNon2xx(t *testing.T) {
 	t.Parallel()
 
 	body := "data: hi\n\n"
 	mt := testutils.NewMockTransport(http.StatusUnauthorized, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	client := hfgo.NewClient(
-		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+	client := hfraw.NewClient(
+		hfopts.WithHTTPClientFactory(
+			func() http.Client { return testutils.NewMockHTTPClient(mt) },
+		),
 	)
 
-	stream, err := client.Raw().StreamRaw(nil, http.MethodGet, "/stream")
+	stream, err := client.StreamRaw(nil, http.MethodGet, "/stream")
 	if err != nil {
 		t.Fatalf("StreamRaw: %v", err)
 	}

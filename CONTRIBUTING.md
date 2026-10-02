@@ -114,12 +114,12 @@ go test -tags=integration -timeout 600s -v ./...
 The repo is organized as a Go module with a small public root package
 (`github.com/Kardbord/hfgo/v4`) and explicit public sub-packages for
 different concerns (`hfopts`, `hftypes`, `hferrors`, `providers`,
-`sdkversion`). Implementation details live under `internal/`.
+`sdkversion`, `hfraw`). Implementation details live under `internal/`.
 
 | Path | Purpose |
 |------|---------|
 | `client.go` | `Client`, `NewClient`, and every inference endpoint method |
-| `raw.go` | `RawClient`, `RawStream`, and `RawEvent` escape-hatch types |
+| `hfraw/` | Low-level `Client`/`Stream`/`Event` escape hatch for arbitrary HTTP/SSE |
 | `hfopts/` | `Options`, `Option`, and all `With*` option helpers |
 | `hftypes/` | Request/response DTOs for every task (chat, fill-mask, classification, etc.) |
 | `hferrors/` | `APIError`, `SDKError`, and `SDKErrorKind` |
@@ -394,7 +394,7 @@ When making changes:
    while a call is in flight**. For concurrent invocation, pass a defensive
    copy per call, e.g. `client.Chat(req.Clone(), ...)`, or build a fresh
    request per call.
-2. **Not closing streams**: Always call `Close()` on `ChatStream` or `RawStream`
+2. **Not closing streams**: Always call `Close()` on `ChatStream` or `hfraw.Stream`
 3. **Sharing mutable HTTP clients**: If injecting HTTP clients, ensure thread-safety
 4. **Breaking API contracts**: Changing function signatures is a breaking change
 5. **Ignoring context**: Always respect context cancellation and timeouts
