@@ -1,10 +1,11 @@
 //go:build !integration
 
-package hftypes
+package hftypes_test
 
 import (
 	"testing"
 
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -12,9 +13,9 @@ import (
 func TestZeroShotTextClassificationRequestClone_Deep(t *testing.T) {
 	t.Parallel()
 
-	req := ZeroShotTextClassificationRequest{
+	req := hftypes.ZeroShotTextClassificationRequest{
 		Input: "I love this product",
-		Parameters: &ZeroShotTextClassificationParameters{
+		Parameters: &hftypes.ZeroShotTextClassificationParameters{
 			CandidateLabels:    []string{"positive", "negative", "neutral"},
 			HypothesisTemplate: testutils.Ptr("This example is {}."),
 			MultiLabel:         testutils.Ptr(false),
@@ -39,9 +40,9 @@ func TestZeroShotTextClassificationRequestClone_Deep(t *testing.T) {
 func TestZeroShotTextClassificationBatchRequestClone_Deep(t *testing.T) {
 	t.Parallel()
 
-	req := ZeroShotTextClassificationBatchRequest{
+	req := hftypes.ZeroShotTextClassificationBatchRequest{
 		Inputs: []string{"text1", "text2"},
-		Parameters: &ZeroShotTextClassificationParameters{
+		Parameters: &hftypes.ZeroShotTextClassificationParameters{
 			CandidateLabels: []string{"positive", "negative"},
 			MultiLabel:      testutils.Ptr(false),
 		},
@@ -61,7 +62,7 @@ func TestZeroShotTextClassificationBatchRequestClone_Deep(t *testing.T) {
 func TestZeroShotTextClassificationParametersClone_Deep(t *testing.T) {
 	t.Parallel()
 
-	params := &ZeroShotTextClassificationParameters{
+	params := &hftypes.ZeroShotTextClassificationParameters{
 		CandidateLabels:    []string{"positive", "negative"},
 		HypothesisTemplate: testutils.Ptr("This example is {}."),
 		MultiLabel:         testutils.Ptr(true),
@@ -83,12 +84,12 @@ func TestZeroShotTextClassificationParametersClone_Deep(t *testing.T) {
 func TestZeroShotTextClassificationClone_Nil(t *testing.T) {
 	t.Parallel()
 
-	var r *ZeroShotTextClassificationRequest
+	var r *hftypes.ZeroShotTextClassificationRequest
 	require.Empty(t, r.Clone())
 
-	var b *ZeroShotTextClassificationBatchRequest
+	var b *hftypes.ZeroShotTextClassificationBatchRequest
 	require.Empty(t, b.Clone())
 
-	var p *ZeroShotTextClassificationParameters
+	var p *hftypes.ZeroShotTextClassificationParameters
 	require.Empty(t, p.Clone())
 }

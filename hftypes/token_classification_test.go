@@ -1,10 +1,11 @@
 //go:build !integration
 
-package hftypes
+package hftypes_test
 
 import (
 	"testing"
 
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -12,12 +13,12 @@ import (
 func TestTokenClassificationRequestClone_Deep(t *testing.T) {
 	t.Parallel()
 
-	req := TokenClassificationRequest{
+	req := hftypes.TokenClassificationRequest{
 		Input: "My name is Sarah and I live in London.",
-		Parameters: &TokenClassificationParameters{
+		Parameters: &hftypes.TokenClassificationParameters{
 			IgnoreLabels:        []string{"O", "MISC"},
 			Stride:              testutils.Ptr(5),
-			AggregationStrategy: testutils.Ptr(TokenClassificationAggregationSimple),
+			AggregationStrategy: testutils.Ptr(hftypes.TokenClassificationAggregationSimple),
 		},
 	}
 
@@ -25,28 +26,30 @@ func TestTokenClassificationRequestClone_Deep(t *testing.T) {
 
 	*cloned.Parameters.Stride = 10
 	cloned.Parameters.IgnoreLabels[0] = "PER"
-	*cloned.Parameters.AggregationStrategy = TokenClassificationAggregationMax
+	*cloned.Parameters.AggregationStrategy = hftypes.TokenClassificationAggregationMax
 	cloned.Input = "changed"
 
 	require.Equal(t, "My name is Sarah and I live in London.", req.Input)
 	require.Equal(t, 5, *req.Parameters.Stride)
 	require.Equal(t, []string{"O", "MISC"}, req.Parameters.IgnoreLabels)
-	require.Equal(t, TokenClassificationAggregationSimple, *req.Parameters.AggregationStrategy)
+	require.Equal(t, hftypes.TokenClassificationAggregationSimple,
+		*req.Parameters.AggregationStrategy)
 	require.Equal(t, "changed", cloned.Input)
 	require.Equal(t, 10, *cloned.Parameters.Stride)
 	require.Equal(t, "PER", cloned.Parameters.IgnoreLabels[0])
-	require.Equal(t, TokenClassificationAggregationMax, *cloned.Parameters.AggregationStrategy)
+	require.Equal(t, hftypes.TokenClassificationAggregationMax,
+		*cloned.Parameters.AggregationStrategy)
 }
 
 func TestTokenClassificationBatchRequestClone_Deep(t *testing.T) {
 	t.Parallel()
 
-	req := TokenClassificationBatchRequest{
+	req := hftypes.TokenClassificationBatchRequest{
 		Inputs: []string{
 			"My name is Sarah and I live in London.",
 			"I work at Google in New York.",
 		},
-		Parameters: &TokenClassificationParameters{
+		Parameters: &hftypes.TokenClassificationParameters{
 			IgnoreLabels: []string{"O"},
 			Stride:       testutils.Ptr(3),
 		},
@@ -72,35 +75,35 @@ func TestTokenClassificationBatchRequestClone_Deep(t *testing.T) {
 func TestTokenClassificationParametersClone_Deep(t *testing.T) {
 	t.Parallel()
 
-	params := &TokenClassificationParameters{
+	params := &hftypes.TokenClassificationParameters{
 		IgnoreLabels:        []string{"O", "MISC"},
 		Stride:              testutils.Ptr(5),
-		AggregationStrategy: testutils.Ptr(TokenClassificationAggregationFirst),
+		AggregationStrategy: testutils.Ptr(hftypes.TokenClassificationAggregationFirst),
 	}
 
 	cloned := params.Clone()
 
 	*cloned.Stride = 10
 	cloned.IgnoreLabels[0] = "PER"
-	*cloned.AggregationStrategy = TokenClassificationAggregationAverage
+	*cloned.AggregationStrategy = hftypes.TokenClassificationAggregationAverage
 
 	require.Equal(t, 5, *params.Stride)
 	require.Equal(t, []string{"O", "MISC"}, params.IgnoreLabels)
-	require.Equal(t, TokenClassificationAggregationFirst, *params.AggregationStrategy)
+	require.Equal(t, hftypes.TokenClassificationAggregationFirst, *params.AggregationStrategy)
 	require.Equal(t, 10, *cloned.Stride)
 	require.Equal(t, "PER", cloned.IgnoreLabels[0])
-	require.Equal(t, TokenClassificationAggregationAverage, *cloned.AggregationStrategy)
+	require.Equal(t, hftypes.TokenClassificationAggregationAverage, *cloned.AggregationStrategy)
 }
 
 func TestTokenClassificationClone_Nil(t *testing.T) {
 	t.Parallel()
 
-	var r *TokenClassificationRequest
+	var r *hftypes.TokenClassificationRequest
 	require.Empty(t, r.Clone())
 
-	var b *TokenClassificationBatchRequest
+	var b *hftypes.TokenClassificationBatchRequest
 	require.Empty(t, b.Clone())
 
-	var p *TokenClassificationParameters
+	var p *hftypes.TokenClassificationParameters
 	require.Empty(t, p.Clone())
 }

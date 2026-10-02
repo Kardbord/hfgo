@@ -1,10 +1,11 @@
 //go:build !integration
 
-package hftypes
+package hftypes_test
 
 import (
 	"testing"
 
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -12,9 +13,9 @@ import (
 func TestFillMaskRequestClone_Deep(t *testing.T) {
 	t.Parallel()
 
-	req := FillMaskRequest{
+	req := hftypes.FillMaskRequest{
 		Input: "The capital of France is [MASK].",
-		Parameters: &FillMaskParameters{
+		Parameters: &hftypes.FillMaskParameters{
 			TopK:    testutils.Ptr(3),
 			Targets: []string{"Paris", "Lyon"},
 		},
@@ -36,9 +37,9 @@ func TestFillMaskRequestClone_Deep(t *testing.T) {
 func TestFillMaskBatchRequestClone_Deep(t *testing.T) {
 	t.Parallel()
 
-	req := FillMaskBatchRequest{
+	req := hftypes.FillMaskBatchRequest{
 		Inputs: []string{"I [MASK] my dog.", "She is [MASK]."},
-		Parameters: &FillMaskParameters{
+		Parameters: &hftypes.FillMaskParameters{
 			TopK: testutils.Ptr(2),
 		},
 	}
@@ -57,7 +58,7 @@ func TestFillMaskBatchRequestClone_Deep(t *testing.T) {
 func TestFillMaskParametersClone_Deep(t *testing.T) {
 	t.Parallel()
 
-	params := &FillMaskParameters{
+	params := &hftypes.FillMaskParameters{
 		TopK:    testutils.Ptr(3),
 		Targets: []string{"Paris", "Lyon"},
 	}
@@ -76,12 +77,12 @@ func TestFillMaskParametersClone_Deep(t *testing.T) {
 func TestFillMaskClone_Nil(t *testing.T) {
 	t.Parallel()
 
-	var r *FillMaskRequest
+	var r *hftypes.FillMaskRequest
 	require.Empty(t, r.Clone())
 
-	var b *FillMaskBatchRequest
+	var b *hftypes.FillMaskBatchRequest
 	require.Empty(t, b.Clone())
 
-	var p *FillMaskParameters
+	var p *hftypes.FillMaskParameters
 	require.Empty(t, p.Clone())
 }

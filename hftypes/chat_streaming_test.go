@@ -1,11 +1,12 @@
 //go:build !integration
 
-package hftypes
+package hftypes_test
 
 import (
 	"encoding/json"
 	"testing"
 
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -32,7 +33,7 @@ func TestChatStreamDelta_UnmarshalValidation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			var got ChatStreamDelta
+			var got hftypes.ChatStreamDelta
 			err := json.Unmarshal([]byte(tc.unmarshal), &got)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -73,7 +74,7 @@ func TestChatStreamDelta_UnmarshalSuccess(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			var got ChatStreamDelta
+			var got hftypes.ChatStreamDelta
 			require.NoError(t, json.Unmarshal([]byte(tc.unmarshal), &got))
 			if tc.wantRole != nil {
 				if got.Role == nil || *got.Role != *tc.wantRole {
@@ -141,7 +142,7 @@ func TestChatStreamToolCall_UnmarshalPartial(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			var out ChatStreamToolCall
+			var out hftypes.ChatStreamToolCall
 			err := json.Unmarshal(tc.data, &out)
 			require.NoError(t, err)
 		})
@@ -154,7 +155,7 @@ func TestChatStreamToolCall_UnmarshalSuccess(t *testing.T) {
 	data := []byte(
 		`{"id":"id","type":"function","index":0,"function":{"name":"fn","arguments":"{}"}}`,
 	)
-	var got ChatStreamToolCall
+	var got hftypes.ChatStreamToolCall
 	require.NoError(t, json.Unmarshal(data, &got))
 	if got.ID != "id" || got.Type != "function" || got.Index != 0 || got.Function.Name != "fn" {
 		t.Fatalf("unexpected value: %+v", got)
@@ -167,7 +168,7 @@ func TestChatStreamResponse_UnmarshalSuccess(t *testing.T) {
 	data := []byte(
 		`{"id":"id","created":1,"model":"m","system_fingerprint":"s","choices":[{"delta":{"role":"assistant"},"index":0}]}`,
 	)
-	var got ChatStreamResponse
+	var got hftypes.ChatStreamResponse
 	require.NoError(t, json.Unmarshal(data, &got))
 	if got.ID != "id" || len(got.Choices) != 1 {
 		t.Fatalf("unexpected response: %+v", got)
@@ -181,7 +182,7 @@ func TestChatStreamFunction_UnmarshalSuccess(t *testing.T) {
 	t.Parallel()
 
 	data := []byte(`{"name":"fn","arguments":"{}"}`)
-	var got ChatStreamFunction
+	var got hftypes.ChatStreamFunction
 	require.NoError(t, json.Unmarshal(data, &got))
 	if got.Name != "fn" || got.Arguments != "{}" {
 		t.Fatalf("unexpected stream function: %+v", got)
@@ -192,7 +193,7 @@ func TestChatStreamChoice_UnmarshalSuccess(t *testing.T) {
 	t.Parallel()
 
 	data := []byte(`{"delta":{"role":"assistant"},"index":0}`)
-	var got ChatStreamChoice
+	var got hftypes.ChatStreamChoice
 	require.NoError(t, json.Unmarshal(data, &got))
 	if got.Index != 0 || got.Delta.Role == nil || *got.Delta.Role != "assistant" {
 		t.Fatalf("unexpected stream choice: %+v", got)
@@ -202,7 +203,7 @@ func TestChatStreamChoice_UnmarshalSuccess(t *testing.T) {
 func TestToolCallAccumulator_Merge(t *testing.T) {
 	t.Parallel()
 
-	acc := ToolCallAccumulator{}
+	acc := hftypes.ToolCallAccumulator{}
 
 	// Initial update should store and return provided values.
 	id, typ, name := acc.Merge(0, 0, "call_1", "function", "fn")
@@ -236,7 +237,7 @@ func TestToolCallAccumulator_Merge(t *testing.T) {
 func TestToolCallAccumulator_MergeWithoutMetadata(t *testing.T) {
 	t.Parallel()
 
-	acc := ToolCallAccumulator{}
+	acc := hftypes.ToolCallAccumulator{}
 
 	id, typ, name := acc.Merge(0, 0, "", "", "")
 	if id != "" || typ != "" || name != "" {

@@ -1,10 +1,11 @@
 //go:build !integration
 
-package hftypes
+package hftypes_test
 
 import (
 	"testing"
 
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -12,28 +13,28 @@ import (
 func TestTranslationRequestClone_NestedIndependence(t *testing.T) {
 	t.Parallel()
 
-	origParams := TranslationParameters{
+	origParams := hftypes.TranslationParameters{
 		CleanUpTokenizationSpaces: testutils.Ptr(false),
 		SrcLang:                   testutils.Ptr("en"),
 		TgtLang:                   testutils.Ptr("fr"),
-		Truncation:                testutils.Ptr(TranslationTruncationLongestFirst),
+		Truncation:                testutils.Ptr(hftypes.TranslationTruncationLongestFirst),
 		GenerateParameters:        map[string]any{"max_new_tokens": 5},
 	}
-	single := TranslationRequest{Input: "a", Parameters: &origParams}
-	batch := TranslationBatchRequest{Inputs: []string{"a", "b"}, Parameters: &origParams}
+	single := hftypes.TranslationRequest{Input: "a", Parameters: &origParams}
+	batch := hftypes.TranslationBatchRequest{Inputs: []string{"a", "b"}, Parameters: &origParams}
 
 	singleCloned := single.Clone()
 	batchCloned := batch.Clone()
 
-	*singleCloned.Parameters.Truncation = TranslationTruncationOnlyFirst
+	*singleCloned.Parameters.Truncation = hftypes.TranslationTruncationOnlyFirst
 	*singleCloned.Parameters.SrcLang = "de"
 	*singleCloned.Parameters.TgtLang = "es"
 	singleCloned.Parameters.GenerateParameters["max_new_tokens"] = 99
 	*singleCloned.Parameters.CleanUpTokenizationSpaces = true
 	batchCloned.Inputs[0] = "zzz"
-	*batchCloned.Parameters.Truncation = TranslationTruncationDoNotTruncate
+	*batchCloned.Parameters.Truncation = hftypes.TranslationTruncationDoNotTruncate
 
-	require.Equal(t, TranslationTruncationLongestFirst, *origParams.Truncation)
+	require.Equal(t, hftypes.TranslationTruncationLongestFirst, *origParams.Truncation)
 	require.Equal(t, "a", single.Input)
 	require.Equal(t, []string{"a", "b"}, batch.Inputs)
 	require.False(t, *origParams.CleanUpTokenizationSpaces)
@@ -43,12 +44,12 @@ func TestTranslationRequestClone_NestedIndependence(t *testing.T) {
 func TestTranslationRequestClone_Nil(t *testing.T) {
 	t.Parallel()
 
-	var r *TranslationRequest
+	var r *hftypes.TranslationRequest
 	require.Empty(t, r.Clone())
 
-	var b *TranslationBatchRequest
+	var b *hftypes.TranslationBatchRequest
 	require.Empty(t, b.Clone())
 
-	var p *TranslationParameters
+	var p *hftypes.TranslationParameters
 	require.Empty(t, p.Clone())
 }

@@ -1,12 +1,13 @@
 //go:build !integration
 
-package hftypes
+package hftypes_test
 
 import (
 	"encoding/json"
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,7 +38,7 @@ func TestChatCompletionMessage_UnmarshalValidation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			var got ChatCompletionMessage
+			var got hftypes.ChatCompletionMessage
 			err := json.Unmarshal([]byte(tc.unmarshal), &got)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -92,7 +93,7 @@ func TestChatToolCallOutput_Validation(t *testing.T) {
 	}
 
 	runToolCallDecodeTests(t, cases, func(data []byte) error {
-		var out ChatToolCallOutput
+		var out hftypes.ChatToolCallOutput
 
 		return json.Unmarshal(data, &out)
 	})
@@ -102,7 +103,7 @@ func TestChatToolCallOutput_UnmarshalSuccess(t *testing.T) {
 	t.Parallel()
 
 	data := []byte(`{"id":"id","type":"function","function":{"name":"fn","arguments":"{}"}}`)
-	var got ChatToolCallOutput
+	var got hftypes.ChatToolCallOutput
 	require.NoError(t, json.Unmarshal(data, &got))
 	if got.ID != "id" || got.Type != "function" || got.Function.Name != "fn" ||
 		got.Function.Arguments != "{}" {
@@ -132,7 +133,7 @@ func TestChatResponse_UnmarshalTypeValidation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			var got ChatResponse
+			var got hftypes.ChatResponse
 			err := json.Unmarshal([]byte(tc.unmarshal), &got)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -150,7 +151,7 @@ func TestChatResponse_UnmarshalSuccess(t *testing.T) {
 	data := []byte(
 		`{"id":"id","created":1,"model":"m","system_fingerprint":"s","choices":[{"finish_reason":"stop","index":0,"message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`,
 	)
-	var got ChatResponse
+	var got hftypes.ChatResponse
 	require.NoError(t, json.Unmarshal(data, &got))
 	if got.ID != "id" || got.Model != "m" || len(got.Choices) != 1 {
 		t.Fatalf("unexpected response: %+v", got)
@@ -166,7 +167,7 @@ func TestChatLogProbs_UnmarshalSuccess(t *testing.T) {
 	data := []byte(
 		`{"content":[{"token":"t","logprob":0.1,"top_logprobs":[{"token":"t","logprob":0.1}]}]}`,
 	)
-	var got ChatLogProbs
+	var got hftypes.ChatLogProbs
 	require.NoError(t, json.Unmarshal(data, &got))
 	if len(got.Content) != 1 || got.Content[0].Token != "t" {
 		t.Fatalf("unexpected logprobs: %+v", got)
@@ -177,7 +178,7 @@ func TestChatUsage_UnmarshalSuccess(t *testing.T) {
 	t.Parallel()
 
 	data := []byte(`{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}`)
-	var got ChatUsage
+	var got hftypes.ChatUsage
 	require.NoError(t, json.Unmarshal(data, &got))
 	if got.PromptTokens != 1 || got.CompletionTokens != 2 || got.TotalTokens != 3 {
 		t.Fatalf("unexpected usage: %+v", got)
@@ -188,7 +189,7 @@ func TestChatFunctionCall_UnmarshalSuccess(t *testing.T) {
 	t.Parallel()
 
 	data := []byte(`{"name":"fn","arguments":"{}"}`)
-	var got ChatFunctionCall
+	var got hftypes.ChatFunctionCall
 	require.NoError(t, json.Unmarshal(data, &got))
 	if got.Name != "fn" || got.Arguments != "{}" {
 		t.Fatalf("unexpected function call: %+v", got)
@@ -201,7 +202,7 @@ func TestChatChoice_UnmarshalSuccess(t *testing.T) {
 	data := []byte(
 		`{"finish_reason":"stop","index":0,"message":{"role":"assistant","content":"hi"}}`,
 	)
-	var got ChatChoice
+	var got hftypes.ChatChoice
 	require.NoError(t, json.Unmarshal(data, &got))
 	if got.FinishReason != "stop" || got.Message.Content == nil || *got.Message.Content != "hi" {
 		t.Fatalf("unexpected choice: %+v", got)

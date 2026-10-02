@@ -1,10 +1,11 @@
 //go:build !integration
 
-package hftypes
+package hftypes_test
 
 import (
 	"testing"
 
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -12,12 +13,12 @@ import (
 func TestQuestionAnsweringRequestClone_Deep(t *testing.T) {
 	t.Parallel()
 
-	req := QuestionAnsweringRequest{
-		Input: QuestionAnsweringInput{
+	req := hftypes.QuestionAnsweringRequest{
+		Input: hftypes.QuestionAnsweringInput{
 			Question: "What is the capital of France?",
 			Context:  "France is a country in Europe. Its capital is Paris.",
 		},
-		Parameters: &QuestionAnsweringParameters{
+		Parameters: &hftypes.QuestionAnsweringParameters{
 			TopK:                   testutils.Ptr(3),
 			DocStride:              testutils.Ptr(128),
 			MaxAnswerLen:           testutils.Ptr(50),
@@ -45,7 +46,7 @@ func TestQuestionAnsweringRequestClone_Deep(t *testing.T) {
 func TestQuestionAnsweringParametersClone_Deep(t *testing.T) {
 	t.Parallel()
 
-	params := &QuestionAnsweringParameters{
+	params := &hftypes.QuestionAnsweringParameters{
 		TopK:                   testutils.Ptr(3),
 		DocStride:              testutils.Ptr(128),
 		MaxAnswerLen:           testutils.Ptr(50),
@@ -84,9 +85,9 @@ func TestQuestionAnsweringParametersClone_Deep(t *testing.T) {
 func TestQuestionAnsweringClone_Nil(t *testing.T) {
 	t.Parallel()
 
-	var r *QuestionAnsweringRequest
+	var r *hftypes.QuestionAnsweringRequest
 	require.Empty(t, r.Clone())
 
-	var p *QuestionAnsweringParameters
+	var p *hftypes.QuestionAnsweringParameters
 	require.Empty(t, p.Clone())
 }

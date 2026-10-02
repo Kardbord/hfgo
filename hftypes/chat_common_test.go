@@ -1,12 +1,13 @@
 //go:build !integration
 
-package hftypes
+package hftypes_test
 
 import (
 	"encoding/json"
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -56,15 +57,15 @@ func TestChatFunctionCall_Validation(t *testing.T) {
 
 	cases := []struct {
 		name  string
-		value ChatFunctionCall
+		value hftypes.ChatFunctionCall
 	}{
 		{
 			name:  "missing name",
-			value: ChatFunctionCall{Arguments: "{}"},
+			value: hftypes.ChatFunctionCall{Arguments: "{}"},
 		},
 		{
 			name:  "missing arguments",
-			value: ChatFunctionCall{Name: "fn"},
+			value: hftypes.ChatFunctionCall{Name: "fn"},
 		},
 	}
 
@@ -76,7 +77,7 @@ func TestChatFunctionCall_Validation(t *testing.T) {
 		})
 	}
 
-	var got ChatFunctionCall
+	var got hftypes.ChatFunctionCall
 	err := json.Unmarshal([]byte(`{"name":"fn","arguments":""}`), &got)
 	require.Error(t, err)
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindValidation)
@@ -85,7 +86,7 @@ func TestChatFunctionCall_Validation(t *testing.T) {
 func TestChatFunctionCallClone_Deep(t *testing.T) {
 	t.Parallel()
 
-	fc := &ChatFunctionCall{
+	fc := &hftypes.ChatFunctionCall{
 		Name:        "fn",
 		Arguments:   "{}",
 		Description: testutils.Ptr("does things"),
@@ -107,6 +108,6 @@ func TestChatFunctionCallClone_Deep(t *testing.T) {
 func TestChatFunctionCallClone_Nil(t *testing.T) {
 	t.Parallel()
 
-	var f *ChatFunctionCall
+	var f *hftypes.ChatFunctionCall
 	require.Empty(t, f.Clone())
 }

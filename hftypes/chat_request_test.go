@@ -1,12 +1,13 @@
 //go:build !integration
 
-package hftypes
+package hftypes_test
 
 import (
 	"encoding/json"
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -19,35 +20,40 @@ func TestChatMessageContent_Marshal(t *testing.T) {
 
 	cases := []struct {
 		name        string
-		value       ChatMessageContent
+		value       hftypes.ChatMessageContent
 		wantJSON    string
 		wantErr     bool
 		wantErrKind hferrors.SDKErrorKind
 	}{
 		{
 			name:     "text",
-			value:    ChatMessageContent{Text: &text},
+			value:    hftypes.ChatMessageContent{Text: &text},
 			wantJSON: `"hello"`,
 		},
 		{
 			name:     "empty",
-			value:    ChatMessageContent{},
+			value:    hftypes.ChatMessageContent{},
 			wantJSON: `null`,
 		},
 		{
 			name: "chunks",
-			value: ChatMessageContent{
-				Chunks: []ChatMessageChunk{
-					{Type: MessageChunkTypeImageURL, ImageURL: &ChatImageURL{URL: imgURL}},
+			value: hftypes.ChatMessageContent{
+				Chunks: []hftypes.ChatMessageChunk{
+					{
+						Type:     hftypes.MessageChunkTypeImageURL,
+						ImageURL: &hftypes.ChatImageURL{URL: imgURL},
+					},
 				},
 			},
 			wantJSON: `[{"image_url":{"url":"https://example.com/image.png"},"type":"image_url"}]`,
 		},
 		{
 			name: "both",
-			value: ChatMessageContent{
-				Text:   &text,
-				Chunks: []ChatMessageChunk{{Type: MessageChunkTypeText, Text: &text}},
+			value: hftypes.ChatMessageContent{
+				Text: &text,
+				Chunks: []hftypes.ChatMessageChunk{
+					{Type: hftypes.MessageChunkTypeText, Text: &text},
+				},
 			},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
@@ -78,61 +84,61 @@ func TestChatMessageChunk_Validation(t *testing.T) {
 
 	cases := []struct {
 		name        string
-		value       ChatMessageChunk
+		value       hftypes.ChatMessageChunk
 		wantErr     bool
 		wantErrKind hferrors.SDKErrorKind
 	}{
 		{
 			name:  "text",
-			value: ChatMessageChunk{Type: MessageChunkTypeText, Text: &text},
+			value: hftypes.ChatMessageChunk{Type: hftypes.MessageChunkTypeText, Text: &text},
 		},
 		{
 			name: "image_url",
-			value: ChatMessageChunk{
-				Type:     MessageChunkTypeImageURL,
-				ImageURL: &ChatImageURL{URL: "x"},
+			value: hftypes.ChatMessageChunk{
+				Type:     hftypes.MessageChunkTypeImageURL,
+				ImageURL: &hftypes.ChatImageURL{URL: "x"},
 			},
 		},
 		{
 			name:        "missing text",
-			value:       ChatMessageChunk{Type: MessageChunkTypeText},
+			value:       hftypes.ChatMessageChunk{Type: hftypes.MessageChunkTypeText},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
 		{
 			name:        "missing image",
-			value:       ChatMessageChunk{Type: MessageChunkTypeImageURL},
+			value:       hftypes.ChatMessageChunk{Type: hftypes.MessageChunkTypeImageURL},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
 		{
 			name:        "missing type",
-			value:       ChatMessageChunk{},
+			value:       hftypes.ChatMessageChunk{},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
 		{
 			name:        "invalid type",
-			value:       ChatMessageChunk{Type: MessageChunkType("other")},
+			value:       hftypes.ChatMessageChunk{Type: hftypes.MessageChunkType("other")},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
 		{
 			name: "text with image_url",
-			value: ChatMessageChunk{
-				Type:     MessageChunkTypeText,
+			value: hftypes.ChatMessageChunk{
+				Type:     hftypes.MessageChunkTypeText,
 				Text:     &text,
-				ImageURL: &ChatImageURL{URL: "x"},
+				ImageURL: &hftypes.ChatImageURL{URL: "x"},
 			},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
 		{
 			name: "image_url with text",
-			value: ChatMessageChunk{
-				Type:     MessageChunkTypeImageURL,
+			value: hftypes.ChatMessageChunk{
+				Type:     hftypes.MessageChunkTypeImageURL,
 				Text:     &text,
-				ImageURL: &ChatImageURL{URL: "x"},
+				ImageURL: &hftypes.ChatImageURL{URL: "x"},
 			},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
@@ -156,7 +162,7 @@ func TestChatMessageChunk_Validation(t *testing.T) {
 func TestChatImageURL_Validation(t *testing.T) {
 	t.Parallel()
 
-	_, err := json.Marshal(ChatImageURL{})
+	_, err := json.Marshal(hftypes.ChatImageURL{})
 	require.Error(t, err)
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
@@ -168,32 +174,35 @@ func TestChatMessage_Validation(t *testing.T) {
 
 	cases := []struct {
 		name        string
-		value       ChatMessage
+		value       hftypes.ChatMessage
 		wantErr     bool
 		wantErrKind hferrors.SDKErrorKind
 	}{
 		{
-			name:  "content",
-			value: ChatMessage{Role: "user", Content: ChatMessageContent{Text: &text}},
+			name: "content",
+			value: hftypes.ChatMessage{
+				Role:    "user",
+				Content: hftypes.ChatMessageContent{Text: &text},
+			},
 		},
 		{
 			name: "tool_calls",
-			value: ChatMessage{Role: "assistant", ToolCalls: []ChatToolCall{{
+			value: hftypes.ChatMessage{Role: "assistant", ToolCalls: []hftypes.ChatToolCall{{
 				ID:       "id",
 				Type:     "function",
-				Function: ChatFunctionCall{Name: "do", Arguments: "{}"},
+				Function: hftypes.ChatFunctionCall{Name: "do", Arguments: "{}"},
 			}}},
 		},
 		{
 			name: "both",
-			value: ChatMessage{
+			value: hftypes.ChatMessage{
 				Role:    "assistant",
-				Content: ChatMessageContent{Text: &text},
-				ToolCalls: []ChatToolCall{
+				Content: hftypes.ChatMessageContent{Text: &text},
+				ToolCalls: []hftypes.ChatToolCall{
 					{
 						ID:       "id",
 						Type:     "function",
-						Function: ChatFunctionCall{Name: "do", Arguments: "{}"},
+						Function: hftypes.ChatFunctionCall{Name: "do", Arguments: "{}"},
 					},
 				},
 			},
@@ -202,13 +211,13 @@ func TestChatMessage_Validation(t *testing.T) {
 		},
 		{
 			name:        "neither",
-			value:       ChatMessage{Role: "assistant"},
+			value:       hftypes.ChatMessage{Role: "assistant"},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
 		{
 			name:        "missing role",
-			value:       ChatMessage{Content: ChatMessageContent{Text: &text}},
+			value:       hftypes.ChatMessage{Content: hftypes.ChatMessageContent{Text: &text}},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
@@ -231,7 +240,7 @@ func TestChatMessage_Validation(t *testing.T) {
 func TestChatRequestClone_Deep_Scalars(t *testing.T) {
 	t.Parallel()
 
-	req := &ChatRequest{
+	req := &hftypes.ChatRequest{
 		Model:            testutils.Ptr("m"),
 		FrequencyPenalty: testutils.Ptr(0.5),
 		LogProbs:         testutils.Ptr(true),
@@ -278,41 +287,41 @@ func TestChatRequestClone_Deep_Scalars(t *testing.T) {
 func TestChatRequestClone_Deep_Nested(t *testing.T) {
 	t.Parallel()
 
-	req := &ChatRequest{
-		Messages: []ChatMessage{
-			{Role: "assistant", ToolCalls: []ChatToolCall{
+	req := &hftypes.ChatRequest{
+		Messages: []hftypes.ChatMessage{
+			{Role: "assistant", ToolCalls: []hftypes.ChatToolCall{
 				{
 					ID:   "id1",
 					Type: "function",
-					Function: ChatFunctionCall{
+					Function: hftypes.ChatFunctionCall{
 						Name:        "fn",
 						Arguments:   "{}",
 						Description: testutils.Ptr("desc"),
 					},
 				},
 			}},
-			{Role: "user", Content: ChatMessageContent{Chunks: []ChatMessageChunk{
+			{Role: "user", Content: hftypes.ChatMessageContent{Chunks: []hftypes.ChatMessageChunk{
 				{
-					Type:     MessageChunkTypeImageURL,
-					ImageURL: &ChatImageURL{URL: "https://example.com/img.png"},
+					Type:     hftypes.MessageChunkTypeImageURL,
+					ImageURL: &hftypes.ChatImageURL{URL: "https://example.com/img.png"},
 				},
-				{Type: MessageChunkTypeText, Text: testutils.Ptr("hi")},
+				{Type: hftypes.MessageChunkTypeText, Text: testutils.Ptr("hi")},
 			}}},
 		},
-		ResponseFormat: &ChatResponseFormat{
-			Type: ResponseFormatTypeJSONSchema,
-			JSONSchema: &ChatJSONSchemaConfig{
+		ResponseFormat: &hftypes.ChatResponseFormat{
+			Type: hftypes.ResponseFormatTypeJSONSchema,
+			JSONSchema: &hftypes.ChatJSONSchemaConfig{
 				Name:        "n",
 				Description: testutils.Ptr("d"),
 				Strict:      testutils.Ptr(true),
 			},
 		},
-		StreamOptions: &ChatStreamOptions{IncludeUsage: testutils.Ptr(true)},
-		ToolChoice:    &ChatToolChoice{Function: &ChatFunctionName{Name: "fn"}},
-		Tools: []ChatTool{
+		StreamOptions: &hftypes.ChatStreamOptions{IncludeUsage: testutils.Ptr(true)},
+		ToolChoice:    &hftypes.ChatToolChoice{Function: &hftypes.ChatFunctionName{Name: "fn"}},
+		Tools: []hftypes.ChatTool{
 			{
 				Type: "function",
-				Function: ChatFunctionDefinition{
+				Function: hftypes.ChatFunctionDefinition{
 					Name:        "f",
 					Description: testutils.Ptr("desc"),
 					Parameters:  json.RawMessage(`{"type":"object"}`),
@@ -344,20 +353,26 @@ func TestChatRequestClone_Deep_JSONSchema(t *testing.T) {
 	t.Parallel()
 
 	schema := json.RawMessage(`{"type":"object"}`)
-	req := &ChatRequest{
+	req := &hftypes.ChatRequest{
 		Model: testutils.Ptr("m"),
-		Messages: []ChatMessage{
-			{Role: "user", Content: ChatMessageContent{Text: testutils.Ptr("hello")}},
+		Messages: []hftypes.ChatMessage{
+			{Role: "user", Content: hftypes.ChatMessageContent{Text: testutils.Ptr("hello")}},
 		},
 		Stop: []string{"x"},
-		Tools: []ChatTool{
-			{Type: "function", Function: ChatFunctionDefinition{Name: "f", Parameters: schema}},
+		Tools: []hftypes.ChatTool{
+			{
+				Type: "function",
+				Function: hftypes.ChatFunctionDefinition{
+					Name:       "f",
+					Parameters: schema,
+				},
+			},
 		},
-		ResponseFormat: &ChatResponseFormat{
-			Type:       ResponseFormatTypeJSONSchema,
-			JSONSchema: &ChatJSONSchemaConfig{Name: "n", Schema: schema},
+		ResponseFormat: &hftypes.ChatResponseFormat{
+			Type:       hftypes.ResponseFormatTypeJSONSchema,
+			JSONSchema: &hftypes.ChatJSONSchemaConfig{Name: "n", Schema: schema},
 		},
-		ToolChoice: &ChatToolChoice{Mode: testutils.Ptr(ToolChoiceModeAuto)},
+		ToolChoice: &hftypes.ChatToolChoice{Mode: testutils.Ptr(hftypes.ToolChoiceModeAuto)},
 	}
 
 	cloned := req.Clone()
@@ -367,56 +382,56 @@ func TestChatRequestClone_Deep_JSONSchema(t *testing.T) {
 	cloned.Stop[0] = "y"
 	cloned.Tools[0].Function.Parameters = json.RawMessage(`{"type":"object"}zzz`)
 	cloned.ResponseFormat.JSONSchema.Schema = json.RawMessage(`{"type":"object"}xxx`)
-	*cloned.ToolChoice.Mode = ToolChoiceModeNone
+	*cloned.ToolChoice.Mode = hftypes.ToolChoiceModeNone
 
 	require.Equal(t, "hello", *req.Messages[0].Content.Text)
 	require.Equal(t, "user", req.Messages[0].Role)
 	require.Equal(t, []string{"x"}, req.Stop)
 	require.JSONEq(t, `{"type":"object"}`, string(req.Tools[0].Function.Parameters))
 	require.JSONEq(t, `{"type":"object"}`, string(req.ResponseFormat.JSONSchema.Schema))
-	require.Equal(t, ToolChoiceModeAuto, *req.ToolChoice.Mode)
+	require.Equal(t, hftypes.ToolChoiceModeAuto, *req.ToolChoice.Mode)
 }
 
 func TestChatRequestClone_Nil(t *testing.T) {
 	t.Parallel()
 
-	var req *ChatRequest
+	var req *hftypes.ChatRequest
 	require.Empty(t, req.Clone())
 
-	var m *ChatMessage
+	var m *hftypes.ChatMessage
 	require.Empty(t, m.Clone())
 
-	var c *ChatMessageContent
+	var c *hftypes.ChatMessageContent
 	require.Empty(t, c.Clone())
 
-	var chunk *ChatMessageChunk
+	var chunk *hftypes.ChatMessageChunk
 	require.Empty(t, chunk.Clone())
 
-	var u *ChatImageURL
+	var u *hftypes.ChatImageURL
 	require.Empty(t, u.Clone())
 
-	var tc *ChatToolCall
+	var tc *hftypes.ChatToolCall
 	require.Empty(t, tc.Clone())
 
-	var fd *ChatFunctionDefinition
+	var fd *hftypes.ChatFunctionDefinition
 	require.Empty(t, fd.Clone())
 
-	var rf *ChatResponseFormat
+	var rf *hftypes.ChatResponseFormat
 	require.Empty(t, rf.Clone())
 
-	var cfg *ChatJSONSchemaConfig
+	var cfg *hftypes.ChatJSONSchemaConfig
 	require.Empty(t, cfg.Clone())
 
-	var so *ChatStreamOptions
+	var so *hftypes.ChatStreamOptions
 	require.Empty(t, so.Clone())
 
-	var tool *ChatTool
+	var tool *hftypes.ChatTool
 	require.Empty(t, tool.Clone())
 
-	var choice *ChatToolChoice
+	var choice *hftypes.ChatToolChoice
 	require.Empty(t, choice.Clone())
 
-	var name *ChatFunctionName
+	var name *hftypes.ChatFunctionName
 	require.Empty(t, name.Clone())
 }
 
@@ -426,15 +441,18 @@ func TestChatRequest_MarshalSuccess(t *testing.T) {
 	text := "hi"
 	imgURL := "https://example.com/image.png"
 	model := "model"
-	req := ChatRequest{
+	req := hftypes.ChatRequest{
 		Model: &model,
-		Messages: []ChatMessage{
-			{Role: "user", Content: ChatMessageContent{Text: &text}},
+		Messages: []hftypes.ChatMessage{
+			{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
 			{
 				Role: "user",
-				Content: ChatMessageContent{
-					Chunks: []ChatMessageChunk{
-						{Type: MessageChunkTypeImageURL, ImageURL: &ChatImageURL{URL: imgURL}},
+				Content: hftypes.ChatMessageContent{
+					Chunks: []hftypes.ChatMessageChunk{
+						{
+							Type:     hftypes.MessageChunkTypeImageURL,
+							ImageURL: &hftypes.ChatImageURL{URL: imgURL},
+						},
 					},
 				},
 			},
@@ -477,7 +495,7 @@ func TestChatRequest_MarshalSuccess(t *testing.T) {
 	if !ok {
 		t.Fatalf("unexpected chunk: %#v", chunks[0])
 	}
-	if chunk["type"] != string(MessageChunkTypeImageURL) {
+	if chunk["type"] != string(hftypes.MessageChunkTypeImageURL) {
 		t.Fatalf("unexpected chunk type: %#v", chunk["type"])
 	}
 	imageURL, ok := chunk["image_url"].(map[string]any)
@@ -494,15 +512,15 @@ func TestChatRequest_MarshalValidation(t *testing.T) {
 
 	cases := []*struct {
 		name        string
-		value       ChatRequest
+		value       hftypes.ChatRequest
 		wantErr     bool
 		wantErrKind hferrors.SDKErrorKind
 	}{
 		{
 			name: "missing model",
-			value: ChatRequest{
-				Messages: []ChatMessage{
-					{Role: "user", Content: ChatMessageContent{Text: &text}},
+			value: hftypes.ChatRequest{
+				Messages: []hftypes.ChatMessage{
+					{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
 				},
 			},
 			wantErr:     true,
@@ -510,10 +528,10 @@ func TestChatRequest_MarshalValidation(t *testing.T) {
 		},
 		{
 			name: "empty model",
-			value: ChatRequest{
+			value: hftypes.ChatRequest{
 				Model: testutils.Ptr(""),
-				Messages: []ChatMessage{
-					{Role: "user", Content: ChatMessageContent{Text: &text}},
+				Messages: []hftypes.ChatMessage{
+					{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
 				},
 			},
 			wantErr:     true,
@@ -521,7 +539,7 @@ func TestChatRequest_MarshalValidation(t *testing.T) {
 		},
 		{
 			name: "missing messages",
-			value: ChatRequest{
+			value: hftypes.ChatRequest{
 				Model: &model,
 			},
 			wantErr:     true,
@@ -529,10 +547,10 @@ func TestChatRequest_MarshalValidation(t *testing.T) {
 		},
 		{
 			name: "valid request",
-			value: ChatRequest{
+			value: hftypes.ChatRequest{
 				Model: &model,
-				Messages: []ChatMessage{
-					{Role: "user", Content: ChatMessageContent{Text: &text}},
+				Messages: []hftypes.ChatMessage{
+					{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
 				},
 			},
 			wantErr: false,
@@ -555,39 +573,42 @@ func TestChatRequest_MarshalValidation(t *testing.T) {
 func TestChatToolChoice_Marshal(t *testing.T) {
 	t.Parallel()
 
-	mode := ToolChoiceMode("provider-mode")
+	mode := hftypes.ToolChoiceMode("provider-mode")
 
 	cases := []struct {
 		name        string
-		value       ChatToolChoice
+		value       hftypes.ChatToolChoice
 		wantJSON    string
 		wantErr     bool
 		wantErrKind hferrors.SDKErrorKind
 	}{
 		{
 			name:     "mode",
-			value:    ChatToolChoice{Mode: &mode},
+			value:    hftypes.ChatToolChoice{Mode: &mode},
 			wantJSON: `"provider-mode"`,
 		},
 		{
 			name:     "null",
-			value:    ChatToolChoice{},
+			value:    hftypes.ChatToolChoice{},
 			wantJSON: `null`,
 		},
 		{
 			name:     "function",
-			value:    ChatToolChoice{Function: &ChatFunctionName{Name: "do"}},
+			value:    hftypes.ChatToolChoice{Function: &hftypes.ChatFunctionName{Name: "do"}},
 			wantJSON: `{"function":{"name":"do"}}`,
 		},
 		{
-			name:        "both",
-			value:       ChatToolChoice{Mode: &mode, Function: &ChatFunctionName{Name: "do"}},
+			name: "both",
+			value: hftypes.ChatToolChoice{
+				Mode:     &mode,
+				Function: &hftypes.ChatFunctionName{Name: "do"},
+			},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
 		{
 			name:        "empty mode",
-			value:       ChatToolChoice{Mode: testutils.Ptr(ToolChoiceMode(""))},
+			value:       hftypes.ChatToolChoice{Mode: testutils.Ptr(hftypes.ToolChoiceMode(""))},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
@@ -613,77 +634,77 @@ func TestChatToolChoice_Marshal(t *testing.T) {
 func TestChatResponseFormat(t *testing.T) {
 	t.Parallel()
 
-	providerType := ResponseFormatType("provider-format")
+	providerType := hftypes.ResponseFormatType("provider-format")
 
 	cases := []struct {
 		name        string
-		value       ChatResponseFormat
+		value       hftypes.ChatResponseFormat
 		wantErr     bool
 		wantErrKind hferrors.SDKErrorKind
 	}{
 		{
 			name: "json_schema",
-			value: ChatResponseFormat{
-				Type:       ResponseFormatTypeJSONSchema,
-				JSONSchema: &ChatJSONSchemaConfig{Name: "n"},
+			value: hftypes.ChatResponseFormat{
+				Type:       hftypes.ResponseFormatTypeJSONSchema,
+				JSONSchema: &hftypes.ChatJSONSchemaConfig{Name: "n"},
 			},
 		},
 		{
 			name:  "provider type",
-			value: ChatResponseFormat{Type: providerType},
+			value: hftypes.ChatResponseFormat{Type: providerType},
 		},
 		{
 			name:  "text",
-			value: ChatResponseFormat{Type: ResponseFormatTypeText},
+			value: hftypes.ChatResponseFormat{Type: hftypes.ResponseFormatTypeText},
 		},
 		{
 			name:  "json_object",
-			value: ChatResponseFormat{Type: ResponseFormatTypeJSONObject},
+			value: hftypes.ChatResponseFormat{Type: hftypes.ResponseFormatTypeJSONObject},
 		},
 		{
 			name:        "json_schema missing",
-			value:       ChatResponseFormat{Type: ResponseFormatTypeJSONSchema},
+			value:       hftypes.ChatResponseFormat{Type: hftypes.ResponseFormatTypeJSONSchema},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
 		{
 			name: "other with json_schema",
-			value: ChatResponseFormat{
+			value: hftypes.ChatResponseFormat{
 				Type:       providerType,
-				JSONSchema: &ChatJSONSchemaConfig{Name: "n"},
+				JSONSchema: &hftypes.ChatJSONSchemaConfig{Name: "n"},
 			},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
 		{
 			name: "text with json_schema",
-			value: ChatResponseFormat{
-				Type:       ResponseFormatTypeText,
-				JSONSchema: &ChatJSONSchemaConfig{Name: "n"},
+			value: hftypes.ChatResponseFormat{
+				Type:       hftypes.ResponseFormatTypeText,
+				JSONSchema: &hftypes.ChatJSONSchemaConfig{Name: "n"},
 			},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
 		{
 			name: "json_object with json_schema",
-			value: ChatResponseFormat{
-				Type:       ResponseFormatTypeJSONObject,
-				JSONSchema: &ChatJSONSchemaConfig{Name: "n"},
+			value: hftypes.ChatResponseFormat{
+				Type:       hftypes.ResponseFormatTypeJSONObject,
+				JSONSchema: &hftypes.ChatJSONSchemaConfig{Name: "n"},
 			},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
 		{
 			name:        "empty type",
-			value:       ChatResponseFormat{},
+			value:       hftypes.ChatResponseFormat{},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
 		{
 			name: "json_schema empty name",
-			value: ChatResponseFormat{
-				Type:       ResponseFormatTypeJSONSchema,
-				JSONSchema: &ChatJSONSchemaConfig{Name: ""},
+			value: hftypes.ChatResponseFormat{
+				Type:       hftypes.ResponseFormatTypeJSONSchema,
+				JSONSchema: &hftypes.ChatJSONSchemaConfig{Name: ""},
 			},
 		},
 	}
@@ -705,7 +726,7 @@ func TestChatResponseFormat(t *testing.T) {
 func TestChatFunctionDefinition_Validation(t *testing.T) {
 	t.Parallel()
 
-	_, err := json.Marshal(ChatFunctionDefinition{})
+	_, err := json.Marshal(hftypes.ChatFunctionDefinition{})
 	require.Error(t, err)
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
@@ -715,19 +736,19 @@ func TestChatFunctionName_MarshalValidation(t *testing.T) {
 
 	cases := []struct {
 		name        string
-		value       ChatFunctionName
+		value       hftypes.ChatFunctionName
 		wantJSON    string
 		wantErr     bool
 		wantErrKind hferrors.SDKErrorKind
 	}{
 		{
 			name:     "success",
-			value:    ChatFunctionName{Name: "fn"},
+			value:    hftypes.ChatFunctionName{Name: "fn"},
 			wantJSON: `{"name":"fn"}`,
 		},
 		{
 			name:        "missing name",
-			value:       ChatFunctionName{},
+			value:       hftypes.ChatFunctionName{},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
@@ -751,8 +772,8 @@ func TestChatFunctionName_MarshalValidation(t *testing.T) {
 func TestChatTool_MarshalTypeMissing(t *testing.T) {
 	t.Parallel()
 
-	value := ChatTool{
-		Function: ChatFunctionDefinition{Name: "fn"},
+	value := hftypes.ChatTool{
+		Function: hftypes.ChatFunctionDefinition{Name: "fn"},
 	}
 	_, err := json.Marshal(value)
 	require.Error(t, err)
@@ -765,35 +786,35 @@ func TestChatToolCall_MarshalValidation(t *testing.T) {
 	cases := []toolCallMarshalCase{
 		{
 			name: "missing type",
-			value: ChatToolCall{
+			value: hftypes.ChatToolCall{
 				ID:       "id",
-				Function: ChatFunctionCall{Name: "fn", Arguments: "{}"},
+				Function: hftypes.ChatFunctionCall{Name: "fn", Arguments: "{}"},
 			},
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
 		{
 			name: "missing id",
-			value: ChatToolCall{
+			value: hftypes.ChatToolCall{
 				Type:     "function",
-				Function: ChatFunctionCall{Name: "fn", Arguments: "{}"},
+				Function: hftypes.ChatFunctionCall{Name: "fn", Arguments: "{}"},
 			},
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},
 		{
 			name: "missing function name",
-			value: ChatToolCall{
+			value: hftypes.ChatToolCall{
 				ID:       "id",
 				Type:     "function",
-				Function: ChatFunctionCall{Arguments: "{}"},
+				Function: hftypes.ChatFunctionCall{Arguments: "{}"},
 			},
 			wantErrKind: hferrors.SDKErrorKindValidation,
 		},
 		{
 			name: "missing function arguments",
-			value: ChatToolCall{
+			value: hftypes.ChatToolCall{
 				ID:       "id",
 				Type:     "function",
-				Function: ChatFunctionCall{Name: "fn"},
+				Function: hftypes.ChatFunctionCall{Name: "fn"},
 			},
 			wantErrKind: hferrors.SDKErrorKindValidation,
 		},
