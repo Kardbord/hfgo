@@ -1,4 +1,4 @@
-package providers
+package hfproviders
 
 import (
 	"github.com/Kardbord/hfgo/v4/hferrors"

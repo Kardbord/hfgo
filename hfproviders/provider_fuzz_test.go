@@ -1,6 +1,6 @@
 //go:build !integration
 
-package providers
+package hfproviders
 
 import (
 	"testing"

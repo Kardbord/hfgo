@@ -1,4 +1,4 @@
-package providers
+package hfproviders
 
 // DefaultCodec is an identity codec that passes request and response bodies
 // through unchanged. It is the baseline wire format used by the HuggingFace

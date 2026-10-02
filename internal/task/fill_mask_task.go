@@ -2,8 +2,8 @@ package task
 
 import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // FillMask sends a fill mask request for a single input and returns the predictions.
@@ -13,7 +13,7 @@ func FillMask(
 ) ([]hftypes.FillMaskPrediction, error) {
 	return doJSONInference[hftypes.FillMaskRequest, []hftypes.FillMaskPrediction](
 		opts,
-		providers.TaskFillMask,
+		hfproviders.TaskFillMask,
 		req,
 	)
 }
@@ -25,7 +25,7 @@ func FillMaskBatch(
 ) ([][]hftypes.FillMaskPrediction, error) {
 	return doJSONInference[hftypes.FillMaskBatchRequest, [][]hftypes.FillMaskPrediction](
 		opts,
-		providers.TaskFillMask,
+		hfproviders.TaskFillMask,
 		req,
 	)
 }

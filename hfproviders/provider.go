@@ -1,5 +1,5 @@
-// Package providers defines the Provider interface and built-in provider implementations.
-package providers
+// Package hfproviders defines the Provider interface and built-in provider implementations.
+package hfproviders
 
 // Provider knows how to construct API endpoints and transform between HF-spec
 // and provider-spec wire formats for a given task and model. Implementations

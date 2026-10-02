@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/internal/utils"
-	"github.com/Kardbord/hfgo/v4/providers"
 	"github.com/Kardbord/hfgo/v4/sdkversion"
 )
 
@@ -36,7 +36,7 @@ type Options struct {
 	Model   string
 	// Provider is the inference provider used for endpoint resolution and
 	// wire-format transforms. Defaults to HuggingFaceProvider.
-	Provider providers.Provider
+	Provider hfproviders.Provider
 	// UserAgent is the User-Agent header value sent with requests.
 	UserAgent string
 	// Headers are custom headers added to every request.
@@ -59,7 +59,7 @@ func NewOptions() Options {
 		BaseURL:              DefaultBaseURL,
 		Token:                DefaultToken,
 		Model:                DefaultModel,
-		Provider:             providers.NewHuggingFaceProvider(),
+		Provider:             hfproviders.NewHuggingFaceProvider(),
 		UserAgent:            sdkversion.UserAgent(),
 		Headers:              nil,
 		HTTPClient:           &defaultClient,
@@ -191,7 +191,7 @@ func WithModel(model string) Option {
 // WithProvider sets the inference provider used for endpoint resolution and
 // wire-format transforms. Passing nil results in a configuration error when
 // the options are validated or used.
-func WithProvider(provider providers.Provider) Option {
+func WithProvider(provider hfproviders.Provider) Option {
 	return func(cfg *Options) {
 		cfg.Provider = provider
 	}
@@ -200,7 +200,7 @@ func WithProvider(provider providers.Provider) Option {
 // WithDefaultProvider sets the default HuggingFace provider.
 func WithDefaultProvider() Option {
 	return func(cfg *Options) {
-		cfg.Provider = providers.NewHuggingFaceProvider()
+		cfg.Provider = hfproviders.NewHuggingFaceProvider()
 	}
 }
 

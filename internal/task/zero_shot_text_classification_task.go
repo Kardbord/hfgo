@@ -5,8 +5,8 @@ import (
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // ZeroShotClassifyText sends a zero-shot classification request for a single input.
@@ -24,7 +24,7 @@ func ZeroShotClassifyText(
 
 	resp, err := doJSONInference[hftypes.ZeroShotTextClassificationRequest, []hftypes.ZeroShotTextClassification](
 		opts,
-		providers.TaskZeroShotTextClassification,
+		hfproviders.TaskZeroShotTextClassification,
 		req,
 	)
 	if err != nil {
@@ -50,7 +50,7 @@ func ZeroShotClassifyTextBatch(
 
 	resp, err := doJSONInference[hftypes.ZeroShotTextClassificationBatchRequest, []hftypes.ZeroShotTextClassificationBatched](
 		opts,
-		providers.TaskZeroShotTextClassification,
+		hfproviders.TaskZeroShotTextClassification,
 		req,
 	)
 	if err != nil {

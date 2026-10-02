@@ -6,8 +6,8 @@ import (
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/internal/request"
-	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 const errProviderMustNotBeNil = "provider must not be nil"
@@ -16,12 +16,12 @@ const errProviderMustNotBeNil = "provider must not be nil"
 // for doJSONInference and doStreamingInference.
 type modelDispatchConfig struct {
 	opts     hfopts.Options
-	task     providers.Task
+	task     hfproviders.Task
 	endpoint string
 }
 
 // resolveModelDispatch validates options and resolves the endpoint.
-func resolveModelDispatch(opts hfopts.Options, task providers.Task) (modelDispatchConfig, error) {
+func resolveModelDispatch(opts hfopts.Options, task hfproviders.Task) (modelDispatchConfig, error) {
 	var cfg modelDispatchConfig
 
 	if opts.Model == "" {
@@ -84,7 +84,7 @@ func encodeRequest[Req any](
 // sending and to the response after receiving.
 func doJSONInference[Req, Resp any](
 	opts hfopts.Options,
-	task providers.Task,
+	task hfproviders.Task,
 	req Req,
 ) (Resp, error) {
 	var zero Resp
@@ -141,7 +141,7 @@ func doJSONInference[Req, Resp any](
 //nolint:unused // Entry point for future binary task calls.
 func doRawInference(
 	opts hfopts.Options,
-	task providers.Task,
+	task hfproviders.Task,
 	body []byte,
 	contentType string,
 	accept string, // expected response Content-Type (e.g. "image/png")
@@ -184,7 +184,7 @@ func doRawInference(
 // of decoded SSE events, applying provider wire-format transforms.
 func doStreamingInference[Req, T any](
 	opts hfopts.Options,
-	task providers.Task,
+	task hfproviders.Task,
 	req Req,
 ) (*request.JSONStream[T], error) {
 	cfg, err := resolveModelDispatch(opts, task)

@@ -2,8 +2,8 @@ package task
 
 import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // ClassifyText sends a text classification request for a single input and
@@ -14,7 +14,7 @@ func ClassifyText(
 ) ([]hftypes.TextClassification, error) {
 	resp, err := doJSONInference[hftypes.TextClassificationRequest, [][]hftypes.TextClassification](
 		opts,
-		providers.TaskTextClassification,
+		hfproviders.TaskTextClassification,
 		req,
 	)
 	if err != nil {
@@ -37,7 +37,7 @@ func ClassifyTextBatch(
 ) ([][]hftypes.TextClassification, error) {
 	resp, err := doJSONInference[hftypes.TextClassificationBatchRequest, [][]hftypes.TextClassification](
 		opts,
-		providers.TaskTextClassification,
+		hfproviders.TaskTextClassification,
 		req,
 	)
 	if err != nil {

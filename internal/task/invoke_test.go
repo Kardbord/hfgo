@@ -11,20 +11,20 @@ import (
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
-	"github.com/Kardbord/hfgo/v4/providers"
 	"github.com/stretchr/testify/require"
 )
 
 type transformProvider struct {
-	providers.DefaultCodec
+	hfproviders.DefaultCodec
 
-	encodeFunc func(task providers.Task, body []byte, ct string) ([]byte, string, error)
-	decodeFunc func(task providers.Task, body []byte, ct string) ([]byte, string, error)
+	encodeFunc func(task hfproviders.Task, body []byte, ct string) ([]byte, string, error)
+	decodeFunc func(task hfproviders.Task, body []byte, ct string) ([]byte, string, error)
 	suffix     string
 }
 
-func (p transformProvider) Endpoint(_ providers.Task, _ string) (string, error) {
+func (p transformProvider) Endpoint(_ hfproviders.Task, _ string) (string, error) {
 	return "/test-endpoint", nil
 }
 
@@ -33,7 +33,7 @@ func (p transformProvider) ProviderSuffix() string {
 }
 
 func (p transformProvider) EncodeRequest(
-	task providers.Task, body []byte, ct string,
+	task hfproviders.Task, body []byte, ct string,
 ) (providerBody []byte, providerContentType string, err error) {
 	if p.encodeFunc != nil {
 		return p.encodeFunc(task, body, ct)
@@ -43,7 +43,7 @@ func (p transformProvider) EncodeRequest(
 }
 
 func (p transformProvider) DecodeResponse(
-	task providers.Task, body []byte, ct string,
+	task hfproviders.Task, body []byte, ct string,
 ) (hfBody []byte, hfContentType string, err error) {
 	if p.decodeFunc != nil {
 		return p.decodeFunc(task, body, ct)
@@ -73,7 +73,7 @@ func TestDoJSONInference_Success(t *testing.T) {
 
 	result, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
@@ -99,12 +99,12 @@ func TestDoJSONInference_ProviderTransformsRequestAndResponse(t *testing.T) {
 	decodeCalled := false
 
 	p := transformProvider{
-		encodeFunc: func(_ providers.Task, body []byte, ct string) ([]byte, string, error) {
+		encodeFunc: func(_ hfproviders.Task, body []byte, ct string) ([]byte, string, error) {
 			encodeCalled = true
 
 			return append([]byte(wrappedPrefix), append(body, wrappedSuffix...)...), ct, nil
 		},
-		decodeFunc: func(_ providers.Task, body []byte, ct string) ([]byte, string, error) {
+		decodeFunc: func(_ hfproviders.Task, body []byte, ct string) ([]byte, string, error) {
 			decodeCalled = true
 			// Unwrap: strip {"hfgo_inner": prefix and } suffix
 			if len(body) > len(wrappedPrefix)+len(wrappedSuffix) {
@@ -125,7 +125,7 @@ func TestDoJSONInference_ProviderTransformsRequestAndResponse(t *testing.T) {
 
 	result, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
@@ -139,7 +139,7 @@ func TestDoJSONInference_EncodeErrorPropagated(t *testing.T) {
 
 	encodeErr := errors.New("encode failed")
 	p := transformProvider{
-		encodeFunc: func(_ providers.Task, _ []byte, ct string) ([]byte, string, error) {
+		encodeFunc: func(_ hfproviders.Task, _ []byte, ct string) ([]byte, string, error) {
 			return nil, ct, encodeErr
 		},
 	}
@@ -152,7 +152,7 @@ func TestDoJSONInference_EncodeErrorPropagated(t *testing.T) {
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.ErrorIs(t, err, encodeErr)
@@ -164,7 +164,7 @@ func TestDoJSONInference_DecodeErrorPropagated(t *testing.T) {
 	decodeErr := errors.New("decode failed")
 	mt := testutils.NewJSONMockTransport(http.StatusOK, `{"generated_text":"hello"}`, nil)
 	p := transformProvider{
-		decodeFunc: func(_ providers.Task, _ []byte, ct string) ([]byte, string, error) {
+		decodeFunc: func(_ hfproviders.Task, _ []byte, ct string) ([]byte, string, error) {
 			return nil, ct, decodeErr
 		},
 	}
@@ -177,7 +177,7 @@ func TestDoJSONInference_DecodeErrorPropagated(t *testing.T) {
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.ErrorIs(t, err, decodeErr)
@@ -195,7 +195,7 @@ func TestDoJSONInference_204NoContent(t *testing.T) {
 
 	result, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
@@ -214,7 +214,7 @@ func TestDoJSONInference_205ResetContent(t *testing.T) {
 
 	result, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
@@ -233,7 +233,7 @@ func TestDoJSONInference_EmptyResponseBody(t *testing.T) {
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.Error(t, err)
@@ -252,7 +252,7 @@ func TestDoJSONInference_InvalidJSONResponse(t *testing.T) {
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.Error(t, err)
@@ -272,7 +272,7 @@ func TestDoJSONInference_NonJSONResponseContentType(t *testing.T) {
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.Error(t, err)
@@ -290,7 +290,7 @@ func TestDoJSONInference_NoModel(t *testing.T) {
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.Error(t, err)
@@ -308,7 +308,7 @@ func TestDoJSONInference_NilProvider(t *testing.T) {
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.Error(t, err)
@@ -328,7 +328,7 @@ func TestDoJSONInference_ContentTypeValidation(t *testing.T) {
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.Error(t, err)
@@ -351,7 +351,7 @@ func TestDoJSONInference_ModelWithExistingSuffixPassedThrough(t *testing.T) {
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
@@ -367,7 +367,7 @@ type suffixProvider struct {
 	transformProvider
 }
 
-func (p suffixProvider) Endpoint(_ providers.Task, model string) (string, error) {
+func (p suffixProvider) Endpoint(_ hfproviders.Task, model string) (string, error) {
 	return "/test-endpoint/" + model, nil
 }
 
@@ -386,7 +386,7 @@ func TestDoStreamingInference_Success(t *testing.T) {
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
@@ -412,7 +412,7 @@ func TestDoStreamingInference_ProviderTransformsPerEvent(t *testing.T) {
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
 	p := transformProvider{
-		decodeFunc: func(_ providers.Task, body []byte, ct string) ([]byte, string, error) {
+		decodeFunc: func(_ hfproviders.Task, body []byte, ct string) ([]byte, string, error) {
 			if len(body) > len(wrappedPrefix)+len(wrappedSuffix) {
 				inner := body[len(wrappedPrefix) : len(body)-len(wrappedSuffix)]
 
@@ -431,7 +431,7 @@ func TestDoStreamingInference_ProviderTransformsPerEvent(t *testing.T) {
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
@@ -451,7 +451,7 @@ func TestDoStreamingInference_DecodeErrorPropagated(t *testing.T) {
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
 	p := transformProvider{
-		decodeFunc: func(_ providers.Task, _ []byte, ct string) ([]byte, string, error) {
+		decodeFunc: func(_ hfproviders.Task, _ []byte, ct string) ([]byte, string, error) {
 			return nil, ct, decodeErr
 		},
 	}
@@ -464,7 +464,7 @@ func TestDoStreamingInference_DecodeErrorPropagated(t *testing.T) {
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
@@ -486,7 +486,7 @@ func TestDoStreamingInference_NonEventStreamContentType(t *testing.T) {
 
 	_, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		providers.TaskTextGeneration,
+		hfproviders.TaskTextGeneration,
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.Error(t, err)

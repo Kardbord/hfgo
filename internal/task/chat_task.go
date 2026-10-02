@@ -6,8 +6,8 @@ import (
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // resolveModel resolves the model with precedence and applies the provider suffix.
@@ -27,7 +27,7 @@ func resolveModel(payload *hftypes.ChatRequest, opts hfopts.Options) {
 
 // applyProvider applies the provider to the model if the model
 // doesn't already contain a provider (indicated by ":").
-func applyProvider(model *string, provider providers.Provider) *string {
+func applyProvider(model *string, provider hfproviders.Provider) *string {
 	if model == nil || *model == "" || provider == nil {
 		return model
 	}
@@ -90,7 +90,7 @@ func Chat(opts hfopts.Options, req hftypes.ChatRequest) (hftypes.ChatResponse, e
 
 	return doJSONInference[hftypes.ChatRequest, hftypes.ChatResponse](
 		optsOverride,
-		providers.TaskChatCompletion,
+		hfproviders.TaskChatCompletion,
 		req,
 	)
 }
@@ -109,7 +109,7 @@ func StreamChat(opts hfopts.Options, req hftypes.ChatRequest) (*hftypes.ChatStre
 
 	streamResp, err := doStreamingInference[hftypes.ChatRequest, hftypes.ChatStreamResponse](
 		optsOverride,
-		providers.TaskChatCompletion,
+		hfproviders.TaskChatCompletion,
 		req,
 	)
 	if err != nil {

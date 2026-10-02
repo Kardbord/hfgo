@@ -6,19 +6,19 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
-	"github.com/Kardbord/hfgo/v4/providers"
 	"github.com/stretchr/testify/require"
 )
 
 type mockProvider struct {
-	providers.DefaultCodec
+	hfproviders.DefaultCodec
 
 	name string
 }
 
-func (p mockProvider) Endpoint(_ providers.Task, _ string) (string, error) {
+func (p mockProvider) Endpoint(_ hfproviders.Task, _ string) (string, error) {
 	return "", nil
 }
 
@@ -40,7 +40,7 @@ func TestApplyProvider(t *testing.T) {
 
 	t.Run("ignores provider with empty suffix", func(t *testing.T) {
 		model := testutils.Ptr("mistral-7b")
-		got := applyProvider(model, providers.HuggingFaceProvider{})
+		got := applyProvider(model, hfproviders.HuggingFaceProvider{})
 		require.NotNil(t, got)
 		require.Equal(t, "mistral-7b", *got)
 	})

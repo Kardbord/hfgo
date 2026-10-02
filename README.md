@@ -85,8 +85,8 @@ See the [examples](./examples) directory for more.
 ## Providers
 
 Requests are routed through a pluggable inference-provider layer (the
-[`providers`](./providers) package). The default
-[`HuggingFaceProvider`](https://pkg.go.dev/github.com/Kardbord/hfgo/v4/providers)
+[`hfproviders`](./hfproviders) package). The default
+[`HuggingFaceProvider`](https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfproviders)
 speaks the HuggingFace wire format directly, so for most use cases nothing
 needs to be configured.
 

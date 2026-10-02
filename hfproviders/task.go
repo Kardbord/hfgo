@@ -1,4 +1,4 @@
-package providers
+package hfproviders
 
 // Task identifies an inference task type.
 type Task string

@@ -2,8 +2,8 @@ package task
 
 import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // AnswerQuestion sends a question answering request and returns the answers.
@@ -16,14 +16,14 @@ func AnswerQuestion(
 	if req.Parameters != nil && req.Parameters.TopK != nil && *req.Parameters.TopK > 1 {
 		return doJSONInference[hftypes.QuestionAnsweringRequest, []hftypes.QuestionAnswering](
 			opts,
-			providers.TaskQuestionAnswering,
+			hfproviders.TaskQuestionAnswering,
 			req,
 		)
 	}
 
 	single, err := doJSONInference[hftypes.QuestionAnsweringRequest, hftypes.QuestionAnswering](
 		opts,
-		providers.TaskQuestionAnswering,
+		hfproviders.TaskQuestionAnswering,
 		req,
 	)
 	if err != nil {

@@ -2,8 +2,8 @@ package task
 
 import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // Summarize sends a summarization request for a single input.
@@ -13,7 +13,7 @@ func Summarize(
 ) ([]hftypes.Summarization, error) {
 	return doJSONInference[hftypes.SummarizationRequest, []hftypes.Summarization](
 		opts,
-		providers.TaskSummarization,
+		hfproviders.TaskSummarization,
 		req,
 	)
 }
@@ -25,7 +25,7 @@ func SummarizeBatch(
 ) ([]hftypes.Summarization, error) {
 	return doJSONInference[hftypes.SummarizationBatchRequest, []hftypes.Summarization](
 		opts,
-		providers.TaskSummarization,
+		hfproviders.TaskSummarization,
 		req,
 	)
 }

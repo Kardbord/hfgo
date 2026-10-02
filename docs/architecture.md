@@ -14,7 +14,7 @@
 
 The repository is organized as a multi-package Go module. The public surface
 consists of the root `hfgo` package plus the explicit public sub-packages
-`hftypes`, `hfopts`, `hferrors`, `providers`, and `sdkversion`. Internal
+`hftypes`, `hfopts`, `hferrors`, `hfproviders`, and `sdkversion`. Internal
 packages under `internal/` are implementation details and should only be
 imported from within the module.
 
@@ -26,7 +26,7 @@ imported from within the module.
 | `hfopts` | `github.com/Kardbord/hfgo/v4/hfopts` | `Options`, `Option`, and all `With*` option helpers |
 | `hftypes` | `github.com/Kardbord/hfgo/v4/hftypes` | Request/response Data Transfer Objects for every task |
 | `hferrors` | `github.com/Kardbord/hfgo/v4/hferrors` | `APIError`, `SDKError`, and `SDKErrorKind` definitions |
-| `providers` | `github.com/Kardbord/hfgo/v4/providers` | `Provider` interface, `HuggingFaceProvider`, built-in codec |
+| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, `HuggingFaceProvider`, built-in codec |
 | `hfraw` | `github.com/Kardbord/hfgo/v4/hfraw` | Low-level `Client`/`Stream`/`Event` escape hatch for arbitrary HTTP/SSE |
 | `sdkversion` | `github.com/Kardbord/hfgo/v4/sdkversion` | `Version` constant and `UserAgent()` helper |
 
@@ -58,7 +58,7 @@ Provides the low-level `Client`, `Stream`, and `Event` escape hatch for raw
 HTTP and SSE access to endpoints the SDK does not model type-safely. Built on
 top of `internal/request` and `hfopts`; advanced callers import it explicitly.
 
-### `providers/` (public package)
+### `hfproviders/` (public package)
 
 Defines the inference-provider abstraction: the `Provider` interface, the
 built-in `HuggingFaceProvider` with its embedded `DefaultCodec`, and the
@@ -79,9 +79,9 @@ None of these packages are part of the public API.
 
 ### Re-export Pattern
 
-DTOs are defined once in the public `hftypes` package. The `providers`
+DTOs are defined once in the public `hftypes` package. The `hfproviders`
 package can import them directly without creating an import cycle, and the
-root `hfgo` package consumes both `hftypes` and `providers` to expose the
+root `hfgo` package consumes both `hftypes` and `hfproviders` to expose the
 type-safe Client API.
 
 ## Core Architecture
@@ -161,7 +161,7 @@ go func() {
 ### Provider Abstraction
 
 The SDK routes requests and transforms wire formats through a pluggable
-provider layer, defined in the public `providers` package. The HuggingFace
+provider layer, defined in the public `hfproviders` package. The HuggingFace
 Inference API is the reference wire format, so the built-in provider is a
 no-op transform; third-party providers can implement the same interface to
 serve HF-format requests from their own endpoints.
@@ -197,7 +197,7 @@ type Provider interface {
 - **`DefaultCodec`**: identity codec passing request/response bodies through
   unchanged. Embedded by `HuggingFaceProvider` and available for other
   providers that speak the same wire format for a task.
-- **`providers.Task`**: string constants naming supported inference tasks
+- **`hfproviders.Task`**: string constants naming supported inference tasks
   (e.g. `TaskChatCompletion`, `TaskTextClassification`,
   `TaskFeatureExtraction`, `TaskTextToImage`, …).
 
@@ -329,7 +329,7 @@ response, err := client.Chat(
 - `hfopts.WithBaseURL(url string)`: Base URL for API requests (no query params/fragments)
 - `hfopts.WithToken(token string)`: Bearer authentication token
 - `hfopts.WithModel(model string)`: Model identifier for requests
-- `hfopts.WithProvider(provider Provider)`: Inference provider
+- `hfopts.WithProvider(provider hfproviders.Provider)`: Inference provider
   - On OpenAI-compatible endpoints (e.g. chat completions), a provider or selection policy can be pinned by appending a suffix to the model string (e.g. `model:sambanova`, `model:fastest`, `model:cheapest`, `model:preferred`); otherwise the HF router selects the provider
   - See https://huggingface.co/docs/inference-providers/main/en/index
 - `hfopts.WithDefaultProvider()`: Sets the default HuggingFace provider (empty routing suffix)

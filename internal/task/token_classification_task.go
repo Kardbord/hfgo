@@ -2,8 +2,8 @@ package task
 
 import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // ClassifyTokens sends a token classification request for a single input.
@@ -13,7 +13,7 @@ func ClassifyTokens(
 ) ([]hftypes.TokenClassification, error) {
 	return doJSONInference[hftypes.TokenClassificationRequest, []hftypes.TokenClassification](
 		opts,
-		providers.TaskTokenClassification,
+		hfproviders.TaskTokenClassification,
 		req,
 	)
 }
@@ -25,7 +25,7 @@ func ClassifyTokensBatch(
 ) ([][]hftypes.TokenClassification, error) {
 	return doJSONInference[hftypes.TokenClassificationBatchRequest, [][]hftypes.TokenClassification](
 		opts,
-		providers.TaskTokenClassification,
+		hfproviders.TaskTokenClassification,
 		req,
 	)
 }

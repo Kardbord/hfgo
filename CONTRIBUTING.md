@@ -113,7 +113,7 @@ go test -tags=integration -timeout 600s -v ./...
 
 The repo is organized as a Go module with a small public root package
 (`github.com/Kardbord/hfgo/v4`) and explicit public sub-packages for
-different concerns (`hfopts`, `hftypes`, `hferrors`, `providers`,
+different concerns (`hfopts`, `hftypes`, `hferrors`, `hfproviders`,
 `sdkversion`, `hfraw`). Implementation details live under `internal/`.
 
 | Path | Purpose |
@@ -123,7 +123,7 @@ different concerns (`hfopts`, `hftypes`, `hferrors`, `providers`,
 | `hfopts/` | `Options`, `Option`, and all `With*` option helpers |
 | `hftypes/` | Request/response DTOs for every task (chat, fill-mask, classification, etc.) |
 | `hferrors/` | `APIError`, `SDKError`, and `SDKErrorKind` |
-| `providers/` | Public `Provider` interface, `HuggingFaceProvider`, `DefaultCodec`, `Task` constants |
+| `hfproviders/` | Public `Provider` interface, `HuggingFaceProvider`, `DefaultCodec`, `Task` constants |
 | `sdkversion/` | `Version` constant and `UserAgent()` helper |
 | `internal/task/` | Package-level task functions (`Chat`, `ClassifyText`, ...) |
 | `internal/chatstream/` | `ChatStream` and `ToolCallAccumulator` |
@@ -141,7 +141,7 @@ different concerns (`hfopts`, `hftypes`, `hferrors`, `providers`,
   the root package.
 - **Adding or changing endpoint behavior**: edit the task function in
   `internal/task/*` and the corresponding `Client` method in `client.go`.
-- **Provider or wire-format work**: edit `providers/*`.
+- **Provider or wire-format work**: edit `hfproviders/*`.
 - **Tests**: unit tests live next to the code they exercise (e.g.
   `internal/task/*_task_test.go`); integration tests live in
   `internal/integration_tests/*_integration_test.go`.

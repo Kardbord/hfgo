@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
-	"github.com/Kardbord/hfgo/v4/providers"
 	"github.com/Kardbord/hfgo/v4/sdkversion"
 )
 
@@ -59,7 +59,7 @@ func TestOptions_With(t *testing.T) {
 			options: []Option{
 				WithToken("token123"),
 				WithModel("llama-3"),
-				WithProvider(providers.HuggingFaceProvider{}),
+				WithProvider(hfproviders.HuggingFaceProvider{}),
 				WithUserAgent("myapp/1.2.3"),
 			},
 			validate: func(t *testing.T, _ Options, updated Options) {
@@ -70,7 +70,7 @@ func TestOptions_With(t *testing.T) {
 				if updated.Model != "llama-3" {
 					t.Errorf("expected Model 'llama-3', got %q", updated.Model)
 				}
-				defaultProvider := providers.HuggingFaceProvider{}
+				defaultProvider := hfproviders.HuggingFaceProvider{}
 				if updated.Provider != defaultProvider {
 					t.Errorf("expected Provider %v, got %v", defaultProvider, updated.Provider)
 				}
@@ -180,7 +180,7 @@ func TestOptions_WithHelpers(t *testing.T) {
 		WithBaseURL("https://example.com"),
 		WithToken("token"),
 		WithModel("model"),
-		WithProvider(providers.HuggingFaceProvider{}),
+		WithProvider(hfproviders.HuggingFaceProvider{}),
 		WithContext(ctx),
 		WithDefaultHTTPClient(),
 		WithMaxResponseBodyBytes(42),
@@ -198,7 +198,7 @@ func TestOptions_WithHelpers(t *testing.T) {
 	if opts.Model != "model" {
 		t.Errorf("expected Model to be set, got %q", opts.Model)
 	}
-	defaultProvider := providers.HuggingFaceProvider{}
+	defaultProvider := hfproviders.HuggingFaceProvider{}
 	if opts.Provider != defaultProvider {
 		t.Errorf("expected Provider %v, got %v", defaultProvider, opts.Provider)
 	}
@@ -284,7 +284,7 @@ func TestOptions_DefensiveHeaderClone(t *testing.T) {
 		{
 			name: "WithProvider",
 			apply: func(opts Options) Options {
-				return opts.With(WithProvider(providers.HuggingFaceProvider{}))
+				return opts.With(WithProvider(hfproviders.HuggingFaceProvider{}))
 			},
 		},
 		{
