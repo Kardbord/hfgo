@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTextClassificationService_Classify_SingleInput(t *testing.T) {
+func TestClassifyText_SingleInput(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(
@@ -39,7 +39,7 @@ func TestTextClassificationService_Classify_SingleInput(t *testing.T) {
 	require.InEpsilon(t, 0.95, result[0].Score, 0.001)
 }
 
-func TestTextClassificationService_Classify_WithParameters(t *testing.T) {
+func TestClassifyText_WithParameters(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(
@@ -71,7 +71,7 @@ func TestTextClassificationService_Classify_WithParameters(t *testing.T) {
 	require.InEpsilon(t, float64(2), params["top_k"], 0.001)
 }
 
-func TestTextClassificationService_Classify_Errors(t *testing.T) {
+func TestClassifyText_Errors(t *testing.T) {
 	t.Parallel()
 
 	runErrorCases(t,
@@ -101,7 +101,7 @@ func TestTextClassificationService_Classify_Errors(t *testing.T) {
 	)
 }
 
-func TestTextClassificationService_ClassifyBatch_ResponseVariations(t *testing.T) {
+func TestClassifyTextBatch_ResponseVariations(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -205,7 +205,7 @@ func TestTextClassificationService_ClassifyBatch_ResponseVariations(t *testing.T
 	}
 }
 
-func TestTextClassificationService_ClassifyBatch_NoModel(t *testing.T) {
+func TestClassifyTextBatch_NoModel(t *testing.T) {
 	t.Parallel()
 
 	// NOTE: The API documentation indicates that this should return an JSON array of
@@ -232,7 +232,7 @@ func TestTextClassificationService_ClassifyBatch_NoModel(t *testing.T) {
 	require.Nil(t, mt.LastRequest)
 }
 
-func TestTextClassificationService_ClassifyBatch_ModelFromOptions(t *testing.T) {
+func TestClassifyTextBatch_ModelFromOptions(t *testing.T) {
 	t.Parallel()
 
 	// NOTE: The API documentation indicates that this should return an JSON array of

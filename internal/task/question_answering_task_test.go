@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestQuestionAnsweringService_AnswerQuestion_ResponseDecoding(t *testing.T) {
+func TestAnswerQuestion_ResponseDecoding(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -130,7 +130,7 @@ func TestQuestionAnsweringService_AnswerQuestion_ResponseDecoding(t *testing.T) 
 	}
 }
 
-func TestQuestionAnsweringService_AnswerQuestion_WithParameters(t *testing.T) {
+func TestAnswerQuestion_WithParameters(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(
@@ -170,7 +170,7 @@ func TestQuestionAnsweringService_AnswerQuestion_WithParameters(t *testing.T) {
 	require.Equal(t, true, params["handle_impossible_answer"])
 }
 
-func TestQuestionAnsweringService_AnswerQuestion_Errors(t *testing.T) {
+func TestAnswerQuestion_Errors(t *testing.T) {
 	t.Parallel()
 
 	runErrorCases(t,
@@ -211,7 +211,7 @@ func TestQuestionAnsweringService_AnswerQuestion_Errors(t *testing.T) {
 	)
 }
 
-func TestQuestionAnsweringService_AnswerQuestion_ModelFromOptions(t *testing.T) {
+func TestAnswerQuestion_ModelFromOptions(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(

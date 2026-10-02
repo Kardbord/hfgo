@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFillMaskService_FillMask_ResponseDecoding(t *testing.T) {
+func TestFillMask_ResponseDecoding(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -105,7 +105,7 @@ func TestFillMaskService_FillMask_ResponseDecoding(t *testing.T) {
 	}
 }
 
-func TestFillMaskService_FillMask_WithParameters(t *testing.T) {
+func TestFillMask_WithParameters(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(
@@ -145,7 +145,7 @@ func TestFillMaskService_FillMask_WithParameters(t *testing.T) {
 	require.Equal(t, "fast", targets[2])
 }
 
-func TestFillMaskService_FillMask_Errors(t *testing.T) {
+func TestFillMask_Errors(t *testing.T) {
 	t.Parallel()
 
 	runErrorCases(t,
@@ -183,7 +183,7 @@ func TestFillMaskService_FillMask_Errors(t *testing.T) {
 	)
 }
 
-func TestFillMaskService_FillMaskBatch_ResponseDecoding(t *testing.T) {
+func TestFillMaskBatch_ResponseDecoding(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -288,7 +288,7 @@ func TestFillMaskService_FillMaskBatch_ResponseDecoding(t *testing.T) {
 	}
 }
 
-func TestFillMaskService_FillMaskBatch_Errors(t *testing.T) {
+func TestFillMaskBatch_Errors(t *testing.T) {
 	t.Parallel()
 
 	runErrorCases(t,
@@ -327,7 +327,7 @@ func TestFillMaskService_FillMaskBatch_Errors(t *testing.T) {
 }
 
 //nolint:dupl // batch model-from-options test is structurally similar across domains
-func TestFillMaskService_FillMaskBatch_ModelFromOptions(t *testing.T) {
+func TestFillMaskBatch_ModelFromOptions(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(

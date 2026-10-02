@@ -345,7 +345,7 @@ func TestDoJSONInference_ModelWithExistingSuffixPassedThrough(t *testing.T) {
 
 	require.NotNil(t, mt.LastRequest)
 	// The model "mistral-7b" should have the suffix "sambanova" appended
-	// by the service layer before reaching doJSONInference.
+	// by resolveModelDispatch before reaching doJSONInference.
 	require.Contains(t, mt.LastRequest.URL.Path, "mistral-7b:sambanova")
 }
 

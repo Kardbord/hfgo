@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFeatureExtractionService_Extract_ResponseDecoding(t *testing.T) {
+func TestExtractFeatures_ResponseDecoding(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -152,7 +152,7 @@ func featureExtractionParameterCases() []struct {
 	}
 }
 
-func TestFeatureExtractionService_Extract_ParameterSerialization(t *testing.T) {
+func TestExtractFeatures_ParameterSerialization(t *testing.T) {
 	t.Parallel()
 
 	for i := range featureExtractionParameterCases() {
@@ -192,7 +192,7 @@ func TestFeatureExtractionService_Extract_ParameterSerialization(t *testing.T) {
 	}
 }
 
-func TestFeatureExtractionService_Extract_Errors(t *testing.T) {
+func TestExtractFeatures_Errors(t *testing.T) {
 	t.Parallel()
 
 	runErrorCases(t,
@@ -230,7 +230,7 @@ func TestFeatureExtractionService_Extract_Errors(t *testing.T) {
 	)
 }
 
-func TestFeatureExtractionService_ExtractBatch_ResponseDecoding(t *testing.T) {
+func TestExtractFeaturesBatch_ResponseDecoding(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -315,7 +315,7 @@ func TestFeatureExtractionService_ExtractBatch_ResponseDecoding(t *testing.T) {
 	}
 }
 
-func TestFeatureExtractionService_ExtractBatch_Errors(t *testing.T) {
+func TestExtractFeaturesBatch_Errors(t *testing.T) {
 	t.Parallel()
 
 	runErrorCases(t,
@@ -353,7 +353,7 @@ func TestFeatureExtractionService_ExtractBatch_Errors(t *testing.T) {
 	)
 }
 
-func TestFeatureExtractionService_ExtractBatch_ParameterSerialization(t *testing.T) {
+func TestExtractFeaturesBatch_ParameterSerialization(t *testing.T) {
 	t.Parallel()
 
 	for i := range featureExtractionParameterCases() {
@@ -395,7 +395,7 @@ func TestFeatureExtractionService_ExtractBatch_ParameterSerialization(t *testing
 	}
 }
 
-func TestFeatureExtractionService_ExtractBatch_NoModel(t *testing.T) {
+func TestExtractFeaturesBatch_NoModel(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(
@@ -418,7 +418,7 @@ func TestFeatureExtractionService_ExtractBatch_NoModel(t *testing.T) {
 	require.Nil(t, mt.LastRequest)
 }
 
-func TestFeatureExtractionService_ExtractBatch_ModelFromOptions(t *testing.T) {
+func TestExtractFeaturesBatch_ModelFromOptions(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(

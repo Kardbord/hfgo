@@ -6,6 +6,6 @@ import (
 	"testing"
 )
 
-func TestTranslationService(t *testing.T) {
+func TestTranslate(t *testing.T) {
 	t.Parallel()
 }

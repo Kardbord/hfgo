@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestTokenClassificationService_ClassifyTokens_ResponseDecoding(t *testing.T) {
+func TestClassifyTokens_ResponseDecoding(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -116,7 +116,7 @@ func TestTokenClassificationService_ClassifyTokens_ResponseDecoding(t *testing.T
 	}
 }
 
-func TestTokenClassificationService_ClassifyTokens_WithParameters(t *testing.T) {
+func TestClassifyTokens_WithParameters(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(
@@ -154,7 +154,7 @@ func TestTokenClassificationService_ClassifyTokens_WithParameters(t *testing.T) 
 	require.Equal(t, "O", ignoreLabels[0])
 }
 
-func TestTokenClassificationService_ClassifyTokens_Errors(t *testing.T) {
+func TestClassifyTokens_Errors(t *testing.T) {
 	t.Parallel()
 
 	runErrorCases(t,
@@ -192,7 +192,7 @@ func TestTokenClassificationService_ClassifyTokens_Errors(t *testing.T) {
 	)
 }
 
-func TestTokenClassificationService_ClassifyTokensBatch_ResponseDecoding(t *testing.T) {
+func TestClassifyTokensBatch_ResponseDecoding(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -322,7 +322,7 @@ func TestTokenClassificationService_ClassifyTokensBatch_ResponseDecoding(t *test
 	}
 }
 
-func TestTokenClassificationService_ClassifyTokensBatch_Errors(t *testing.T) {
+func TestClassifyTokensBatch_Errors(t *testing.T) {
 	t.Parallel()
 
 	runErrorCases(t,
@@ -361,7 +361,7 @@ func TestTokenClassificationService_ClassifyTokensBatch_Errors(t *testing.T) {
 }
 
 //nolint:dupl // batch model-from-options test is structurally similar across domains
-func TestTokenClassificationService_ClassifyTokensBatch_ModelFromOptions(t *testing.T) {
+func TestClassifyTokensBatch_ModelFromOptions(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(

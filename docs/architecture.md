@@ -32,7 +32,7 @@ The SDK follows a strict immutability pattern for concurrency safety:
     - `Translate` / `TranslateBatch`: Translation
     - `AnswerTableQuestion`: Table question answering
     - `FeatureExtract` / `FeatureExtractBatch`: Feature extraction (embeddings)
-    - The former per-domain service types are unexported implementation details; callers interact only with the Client
+    - Per-domain task functions in internal/task are unexported implementation details; callers interact only with the Client
    - `Client.Raw()` returns the `RawClient` escape hatch for arbitrary endpoints (see below); it is the deliberate exception to the flat-method design
 
 3. **Per-Request Options**: Can override client defaults for single calls

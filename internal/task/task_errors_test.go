@@ -10,8 +10,8 @@ import (
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 )
 
-// errorCase describes a single expected-error scenario for a service call.
-// It is shared by the per-service error-table tests.
+// errorCase describes a single expected-error scenario for a task function call.
+// It is shared by the per-task error-table tests.
 type errorCase struct {
 	// name is the subtest name.
 	name string
@@ -38,8 +38,8 @@ type errorCase struct {
 //   - it is of the expected type (SDKError kind or APIError status), and
 //   - SDK configuration errors make no request.
 //
-// run issues a single service call with the given options and returns its
-// result. Keeping the table loop here avoids duplicating it across services.
+// run issues a single task function call with the given options and returns its
+// result. Keeping the table loop here avoids duplicating it across task functions.
 func runErrorCases[Res any](
 	t *testing.T,
 	cases []errorCase,

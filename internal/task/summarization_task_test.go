@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSummarizationService_Summarize_ResponseVariations(t *testing.T) {
+func TestSummarize_ResponseVariations(t *testing.T) {
 	t.Parallel()
 
 	runSingleResponseVariations(
@@ -49,7 +49,7 @@ func TestSummarizationService_Summarize_ResponseVariations(t *testing.T) {
 	)
 }
 
-func TestSummarizationService_Summarize_ParameterSerialization(t *testing.T) {
+func TestSummarize_ParameterSerialization(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -160,7 +160,7 @@ func TestSummarizationService_Summarize_ParameterSerialization(t *testing.T) {
 	}
 }
 
-func TestSummarizationService_Summarize_Errors(t *testing.T) {
+func TestSummarize_Errors(t *testing.T) {
 	t.Parallel()
 
 	runErrorCases(t,
@@ -190,7 +190,7 @@ func TestSummarizationService_Summarize_Errors(t *testing.T) {
 	)
 }
 
-func TestSummarizationService_SummarizeBatch_ResponseVariations(t *testing.T) {
+func TestSummarizeBatch_ResponseVariations(t *testing.T) {
 	t.Parallel()
 
 	runBatchResponseVariations(
@@ -227,7 +227,7 @@ func TestSummarizationService_SummarizeBatch_ResponseVariations(t *testing.T) {
 	)
 }
 
-func TestSummarizationService_SummarizeBatch_Errors(t *testing.T) {
+func TestSummarizeBatch_Errors(t *testing.T) {
 	t.Parallel()
 
 	runErrorCases(t,
@@ -257,7 +257,7 @@ func TestSummarizationService_SummarizeBatch_Errors(t *testing.T) {
 	)
 }
 
-func TestSummarizationService_SummarizeBatch_ModelFromOptions(t *testing.T) {
+func TestSummarizeBatch_ModelFromOptions(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(

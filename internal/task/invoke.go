@@ -137,7 +137,7 @@ func doJSONInference[Req, Resp any](
 // applying provider wire-format transforms. It is the entry point for tasks
 // with non-JSON request or response bodies (e.g. text-to-image, image-classification).
 //
-//nolint:unused // Entry point for future binary task services.
+//nolint:unused // Entry point for future binary task calls.
 func doRawInference(
 	opts request.Options,
 	task providers.Task,

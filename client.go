@@ -327,11 +327,11 @@ func (c Client) FeatureExtractBatch(
 	return task.ExtractFeaturesBatch(c.opts.With(opts...), req)
 }
 
-// Raw returns the raw HTTP request service for this client. Unlike the other
-// endpoints, which are exposed directly as Client methods, the raw path remains
-// namespaced under RawClient: it is the advanced escape hatch for endpoints the
-// SDK does not otherwise cover, and its several method variants are easier to
-// discover grouped together than splashed across the Client surface.
+// Raw returns a RawClient. Unlike the other endpoints, which are exposed directly
+// as Client methods, the raw path remains namespaced under RawClient: it is the
+// advanced escape hatch for endpoints the SDK does not otherwise cover, and its
+// several method variants are easier to discover grouped together than splashed
+// across the Client surface.
 //
 // RawClient is immutable and captures a snapshot of the client options when
 // created; it is lightweight, so prefer calling Raw() per use rather than

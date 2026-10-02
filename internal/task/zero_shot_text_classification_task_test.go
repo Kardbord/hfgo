@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestZeroShotTextClassificationService_Classify_SingleInput(t *testing.T) {
+func TestZeroShotClassifyText_SingleInput(t *testing.T) {
 	t.Parallel()
 
 	const zeroShotSingleClassificationResponseBody = `[{"label":"positive","score":0.95}]`
@@ -44,7 +44,7 @@ func TestZeroShotTextClassificationService_Classify_SingleInput(t *testing.T) {
 	require.InEpsilon(t, 0.95, result[0].Score, 0.001)
 }
 
-func TestZeroShotTextClassificationService_Classify_CandidateLabelValidation(t *testing.T) {
+func TestZeroShotClassifyText_CandidateLabelValidation(t *testing.T) {
 	t.Parallel()
 
 	const zeroShotSingleClassificationResponseBody = `[{"label":"positive","score":0.95}]`
@@ -100,7 +100,7 @@ func TestZeroShotTextClassificationService_Classify_CandidateLabelValidation(t *
 	}
 }
 
-func TestZeroShotTextClassificationService_Classify_Errors(t *testing.T) {
+func TestZeroShotClassifyText_Errors(t *testing.T) {
 	t.Parallel()
 
 	runErrorCases(t,
@@ -134,7 +134,7 @@ func TestZeroShotTextClassificationService_Classify_Errors(t *testing.T) {
 	)
 }
 
-func TestZeroShotTextClassificationService_ClassifyBatch_InputVariations(t *testing.T) {
+func TestZeroShotClassifyTextBatch_InputVariations(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -217,7 +217,7 @@ func TestZeroShotTextClassificationService_ClassifyBatch_InputVariations(t *test
 	}
 }
 
-func TestZeroShotTextClassificationService_ClassifyBatch_CandidateLabelValidation(t *testing.T) {
+func TestZeroShotClassifyTextBatch_CandidateLabelValidation(t *testing.T) {
 	t.Parallel()
 
 	const zeroShotBatchClassificationResponseBody = `[{"Sequence":"text1","Labels":["positive","negative","neutral"],"Scores":[0.95,0.03,0.02]}]`
@@ -273,7 +273,7 @@ func TestZeroShotTextClassificationService_ClassifyBatch_CandidateLabelValidatio
 	}
 }
 
-func TestZeroShotTextClassificationService_ClassifyBatch_Errors(t *testing.T) {
+func TestZeroShotClassifyTextBatch_Errors(t *testing.T) {
 	t.Parallel()
 
 	runErrorCases(t,
@@ -307,7 +307,7 @@ func TestZeroShotTextClassificationService_ClassifyBatch_Errors(t *testing.T) {
 	)
 }
 
-func TestZeroShotTextClassificationService_ClassifyBatch_ModelFromOptions(t *testing.T) {
+func TestZeroShotClassifyTextBatch_ModelFromOptions(t *testing.T) {
 	t.Parallel()
 
 	const zeroShotBatchSingleTestTextResponseBody = `[{"Sequence":"test text","Labels":["positive","negative","neutral"],"Scores":[0.95,0.03,0.02]}]`

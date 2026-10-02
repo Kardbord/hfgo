@@ -336,7 +336,7 @@ The SDK prioritizes **concurrency safety**:
 
 When making changes:
 
-- Don't introduce mutable state in clients or services
+- Don't introduce mutable state in clients
 - Test with `go test -race` to catch race conditions
 - Document concurrency guarantees in comments
 
