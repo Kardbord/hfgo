@@ -12,9 +12,9 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfgoversion"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
-	"github.com/Kardbord/hfgo/v4/sdkversion"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,11 +62,11 @@ func TestDo(t *testing.T) {
 				if got := req.Header.Get("X-Test"); got != "yes" {
 					t.Errorf("unexpected X-Test header: %q", got)
 				}
-				if got := req.Header.Get("User-Agent"); got != sdkversion.UserAgent() {
+				if got := req.Header.Get("User-Agent"); got != hfgoversion.UserAgent() {
 					t.Errorf(
 						"unexpected User-Agent header: %q, want %q",
 						got,
-						sdkversion.UserAgent(),
+						hfgoversion.UserAgent(),
 					)
 				}
 			},

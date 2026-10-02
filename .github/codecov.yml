@@ -13,5 +13,5 @@ coverage:
 ignore:
   - "examples/**"
   - "internal/testutils/**"
-  - "sdkversion/**"
+  - "hfgoversion/**"
   - "version.go"

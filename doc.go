@@ -6,7 +6,7 @@
 //   - hftypes: request, response, and parameter DTOs for inference tasks.
 //   - hferrors: typed SDK and API errors.
 //   - hfproviders: pluggable inference hfproviders; wire-format encode/decode and endpoint resolution.
-//   - sdkversion: runtime version information.
+//   - hfgoversion: runtime version information.
 //   - hfraw: low-level raw HTTP/SSE escape hatch for advanced use cases.
 //
 // Design notes:

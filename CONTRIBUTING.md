@@ -114,7 +114,7 @@ go test -tags=integration -timeout 600s -v ./...
 The repo is organized as a Go module with a small public root package
 (`github.com/Kardbord/hfgo/v4`) and explicit public sub-packages for
 different concerns (`hfopts`, `hftypes`, `hferrors`, `hfproviders`,
-`sdkversion`, `hfraw`). Implementation details live under `internal/`.
+`hfgoversion`, `hfraw`). Implementation details live under `internal/`.
 
 | Path | Purpose |
 |------|---------|
@@ -124,7 +124,7 @@ different concerns (`hfopts`, `hftypes`, `hferrors`, `hfproviders`,
 | `hftypes/` | Request/response DTOs for every task (chat, fill-mask, classification, etc.) |
 | `hferrors/` | `APIError`, `SDKError`, and `SDKErrorKind` |
 | `hfproviders/` | Public `Provider` interface, `HuggingFaceProvider`, `DefaultCodec`, `Task` constants |
-| `sdkversion/` | `Version` constant and `UserAgent()` helper |
+| `hfgoversion/` | `Version` constant and `UserAgent()` helper |
 | `internal/task/` | Package-level task functions (`Chat`, `ClassifyText`, ...) |
 | `internal/chatstream/` | `ChatStream` and `ToolCallAccumulator` |
 | `internal/request/` | HTTP plumbing, JSON helpers, SSE parsing |
@@ -211,7 +211,7 @@ description, including release candidate (RC) workflow.
 1. **PR is merged to `main`** with a conventional commit title.
 2. **release-please analyzes commits** since the last release.
 3. **Draft release PR is created** with:
-   - Updated version in `sdkversion/version.go`
+   - Updated version in `hfgoversion/version.go`
    - Updated `.github/.release-please-manifest.json`
    - Auto-generated changelog
 4. **Maintainer reviews and merges the release PR**.

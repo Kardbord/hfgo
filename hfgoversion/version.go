@@ -1,4 +1,4 @@
-package sdkversion
+package hfgoversion
 
 import "fmt"
 

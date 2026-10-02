@@ -14,7 +14,7 @@
 
 The repository is organized as a multi-package Go module. The public surface
 consists of the root `hfgo` package plus the explicit public sub-packages
-`hftypes`, `hfopts`, `hferrors`, `hfproviders`, and `sdkversion`. Internal
+`hftypes`, `hfopts`, `hferrors`, `hfproviders`, and `hfgoversion`. Internal
 packages under `internal/` are implementation details and should only be
 imported from within the module.
 
@@ -28,7 +28,7 @@ imported from within the module.
 | `hferrors` | `github.com/Kardbord/hfgo/v4/hferrors` | `APIError`, `SDKError`, and `SDKErrorKind` definitions |
 | `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, `HuggingFaceProvider`, built-in codec |
 | `hfraw` | `github.com/Kardbord/hfgo/v4/hfraw` | Low-level `Client`/`Stream`/`Event` escape hatch for arbitrary HTTP/SSE |
-| `sdkversion` | `github.com/Kardbord/hfgo/v4/sdkversion` | `Version` constant and `UserAgent()` helper |
+| `hfgoversion` | `github.com/Kardbord/hfgo/v4/hfgoversion` | `Version` constant and `UserAgent()` helper |
 
 ### `hfgo` (root package)
 

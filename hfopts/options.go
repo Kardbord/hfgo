@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfgoversion"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/internal/utils"
-	"github.com/Kardbord/hfgo/v4/sdkversion"
 )
 
 const (
@@ -60,7 +60,7 @@ func NewOptions() Options {
 		Token:                DefaultToken,
 		Model:                DefaultModel,
 		Provider:             hfproviders.NewHuggingFaceProvider(),
-		UserAgent:            sdkversion.UserAgent(),
+		UserAgent:            hfgoversion.UserAgent(),
 		Headers:              nil,
 		HTTPClient:           &defaultClient,
 		MaxResponseBodyBytes: DefaultMaxResponseBodyBytes,
@@ -222,7 +222,7 @@ func WithUserAgentSuffix(suffix string) Option {
 		}
 		base := cfg.UserAgent
 		if base == "" {
-			base = sdkversion.UserAgent()
+			base = hfgoversion.UserAgent()
 		}
 		cfg.UserAgent = strings.TrimSpace(base + " " + suffix)
 	}

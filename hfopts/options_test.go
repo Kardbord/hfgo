@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfgoversion"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
-	"github.com/Kardbord/hfgo/v4/sdkversion"
 )
 
 func TestOptions_With(t *testing.T) {
@@ -88,7 +88,7 @@ func TestOptions_With(t *testing.T) {
 			},
 			validate: func(t *testing.T, _ Options, updated Options) {
 				t.Helper()
-				want := sdkversion.UserAgent() + " custom/1.0"
+				want := hfgoversion.UserAgent() + " custom/1.0"
 				if updated.UserAgent != want {
 					t.Errorf("expected UserAgent %q, got %q", want, updated.UserAgent)
 				}
@@ -217,7 +217,7 @@ func TestWithUserAgentSuffix(t *testing.T) {
 	t.Parallel()
 
 	opts := NewOptions().With(WithUserAgentSuffix("custom/1.0"))
-	want := sdkversion.UserAgent() + " custom/1.0"
+	want := hfgoversion.UserAgent() + " custom/1.0"
 	if opts.UserAgent != want {
 		t.Errorf("expected UserAgent %q, got %q", want, opts.UserAgent)
 	}
@@ -228,7 +228,7 @@ func TestWithUserAgentSuffix_Empty(t *testing.T) {
 
 	t.Run("default user agent unchanged", func(t *testing.T) {
 		opts := NewOptions().With(WithUserAgentSuffix(""))
-		want := sdkversion.UserAgent()
+		want := hfgoversion.UserAgent()
 		if opts.UserAgent != want {
 			t.Errorf("expected UserAgent %q, got %q", want, opts.UserAgent)
 		}
@@ -455,10 +455,10 @@ func TestNewOptions(t *testing.T) {
 			name: "has default UserAgent",
 			validate: func(t *testing.T, opts Options) {
 				t.Helper()
-				if opts.UserAgent != sdkversion.UserAgent() {
+				if opts.UserAgent != hfgoversion.UserAgent() {
 					t.Errorf(
 						"expected UserAgent %q, got %q",
-						sdkversion.UserAgent(),
+						hfgoversion.UserAgent(),
 						opts.UserAgent,
 					)
 				}
