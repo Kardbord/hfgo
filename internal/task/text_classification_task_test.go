@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4"
-	"github.com/Kardbord/hfgo/v4/internal/dto"
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
-	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -23,11 +23,11 @@ func TestClassifyText_SingleInput(t *testing.T) {
 		nil,
 	)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
-		hfgo.WithModel("test-model"),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
 	)
 
-	req := dto.TextClassificationRequest{
+	req := hftypes.TextClassificationRequest{
 		Input: "test text",
 	}
 
@@ -48,14 +48,14 @@ func TestClassifyText_WithParameters(t *testing.T) {
 		nil,
 	)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
-		hfgo.WithModel("test-model"),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
 	)
 
 	topK := 2
-	req := dto.TextClassificationRequest{
+	req := hftypes.TextClassificationRequest{
 		Input: "test text",
-		Parameters: &dto.TextClassificationParameters{
+		Parameters: &hftypes.TextClassificationParameters{
 			TopK: &topK,
 		},
 	}
@@ -93,8 +93,8 @@ func TestClassifyText_Errors(t *testing.T) {
 				description:  "API error for nonexistent model",
 			},
 		},
-		func(opts ...request.Option) ([]dto.TextClassification, error) {
-			return hfgo.NewClient(opts...).ClassifyText(dto.TextClassificationRequest{
+		func(opts ...hfopts.Option) ([]hftypes.TextClassification, error) {
+			return hfgo.NewClient(opts...).ClassifyText(hftypes.TextClassificationRequest{
 				Input: "test text",
 			})
 		},
@@ -170,17 +170,17 @@ func TestClassifyTextBatch_ResponseVariations(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mt := testutils.NewJSONMockTransport(http.StatusOK, tc.responseBody, nil)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("test-model"),
+				hfopts.WithModel("test-model"),
 			)
 
-			req := dto.TextClassificationBatchRequest{
+			req := hftypes.TextClassificationBatchRequest{
 				Inputs: tc.inputs,
 			}
 			if tc.topK != nil {
-				req.Parameters = &dto.TextClassificationParameters{
+				req.Parameters = &hftypes.TextClassificationParameters{
 					TopK: tc.topK,
 				}
 			}
@@ -209,17 +209,17 @@ func TestClassifyTextBatch_NoModel(t *testing.T) {
 	t.Parallel()
 
 	// NOTE: The API documentation indicates that this should return an JSON array of
-	// dto.TextClassification objects, but in reality it returns an array of arrays, where
+	// hftypes.TextClassification objects, but in reality it returns an array of arrays, where
 	// the outer array contains only a single entry (the inner array), and the inner array
-	// contains a list of dto.TextClassification objects.
+	// contains a list of hftypes.TextClassification objects.
 	const batchTextClassificationResponseBody = `[[{"label":"positive","score":0.95}]]`
 
 	mt := testutils.NewJSONMockTransport(http.StatusOK, batchTextClassificationResponseBody, nil)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	req := dto.TextClassificationBatchRequest{
+	req := hftypes.TextClassificationBatchRequest{
 		Inputs: []string{"test text"},
 	}
 
@@ -236,21 +236,21 @@ func TestClassifyTextBatch_ModelFromOptions(t *testing.T) {
 	t.Parallel()
 
 	// NOTE: The API documentation indicates that this should return an JSON array of
-	// dto.TextClassification objects, but in reality it returns an array of arrays, where
+	// hftypes.TextClassification objects, but in reality it returns an array of arrays, where
 	// the outer array contains only a single entry (the inner array), and the inner array
-	// contains a list of dto.TextClassification objects.
+	// contains a list of hftypes.TextClassification objects.
 	const batchTextClassificationResponseBody = `[[{"label":"positive","score":0.95}]]`
 
 	mt := testutils.NewJSONMockTransport(http.StatusOK, batchTextClassificationResponseBody, nil)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	req := dto.TextClassificationBatchRequest{
+	req := hftypes.TextClassificationBatchRequest{
 		Inputs: []string{"test text"},
 	}
 
-	result, err := client.ClassifyTextBatch(req, hfgo.WithModel("override-model"))
+	result, err := client.ClassifyTextBatch(req, hfopts.WithModel("override-model"))
 	require.NoError(t, err)
 	require.NotNil(t, result)
 

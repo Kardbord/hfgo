@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 func main() {
@@ -16,8 +18,8 @@ func main() {
 	}
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(token),
-		hfgo.WithModel("dslim/bert-base-NER"),
+		hfopts.WithToken(token),
+		hfopts.WithModel("dslim/bert-base-NER"),
 	)
 
 	inputs := []string{
@@ -31,7 +33,7 @@ func main() {
 	fmt.Println("...")
 
 	results, err := client.ClassifyTokensBatch(
-		hfgo.TokenClassificationBatchRequest{
+		hftypes.TokenClassificationBatchRequest{
 			Inputs: inputs,
 		},
 	)

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,9 +26,9 @@ func TestSummarization_LiveAPI(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	const input = "The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building. " +
@@ -34,7 +36,7 @@ func TestSummarization_LiveAPI(t *testing.T) {
 		"Tower surpassed the Washington Monument to become the tallest man-made structure in the world."
 
 	resp, err := client.Summarize(
-		hfgo.SummarizationRequest{
+		hftypes.SummarizationRequest{
 			Input: input,
 		},
 	)
@@ -57,9 +59,9 @@ func TestSummarization_BatchLiveAPI(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	inputs := []string{
@@ -68,7 +70,7 @@ func TestSummarization_BatchLiveAPI(t *testing.T) {
 	}
 
 	resp, err := client.SummarizeBatch(
-		hfgo.SummarizationBatchRequest{
+		hftypes.SummarizationBatchRequest{
 			Inputs: inputs,
 		},
 	)
@@ -95,19 +97,19 @@ func TestSummarization_WithParameters(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	cleanUp := true
-	truncation := hfgo.SummarizationTruncationOnlyFirst
+	truncation := hftypes.SummarizationTruncationOnlyFirst
 	input := "The industrial revolution transformed agriculture, manufacturing, mining, and transport, " +
 		"leading to massive social and economic changes across the world."
 	resp, err := client.Summarize(
-		hfgo.SummarizationRequest{
+		hftypes.SummarizationRequest{
 			Input: input,
-			Parameters: &hfgo.SummarizationParameters{
+			Parameters: &hftypes.SummarizationParameters{
 				CleanUpTokenizationSpaces: &cleanUp,
 				Truncation:                &truncation,
 			},
@@ -131,13 +133,13 @@ func TestSummarization_ContextCancellation(t *testing.T) {
 	cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel("facebook/bart-large-cnn"),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel("facebook/bart-large-cnn"),
+		hfopts.WithContext(ctx),
 	)
 
 	resp, err := client.Summarize(
-		hfgo.SummarizationRequest{
+		hftypes.SummarizationRequest{
 			Input: "Some text that should be summarized.",
 		},
 	)

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,13 +26,13 @@ func TestTranslation_LiveAPI(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	resp, err := client.Translate(
-		hfgo.TranslationRequest{
+		hftypes.TranslationRequest{
 			Input: "Hello, how are you doing today?",
 		},
 	)
@@ -53,13 +55,13 @@ func TestTranslation_BatchLiveAPI(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	resp, err := client.TranslateBatch(
-		hfgo.TranslationBatchRequest{
+		hftypes.TranslationBatchRequest{
 			Inputs: []string{
 				"Good morning, everyone.",
 				"See you tomorrow.",
@@ -89,17 +91,17 @@ func TestTranslation_WithParameters(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	cleanUp := true
-	truncation := hfgo.TranslationTruncationOnlyFirst
+	truncation := hftypes.TranslationTruncationOnlyFirst
 	resp, err := client.Translate(
-		hfgo.TranslationRequest{
+		hftypes.TranslationRequest{
 			Input: "The weather is lovely and sunny today.",
-			Parameters: &hfgo.TranslationParameters{
+			Parameters: &hftypes.TranslationParameters{
 				CleanUpTokenizationSpaces: &cleanUp,
 				Truncation:                &truncation,
 			},
@@ -123,13 +125,13 @@ func TestTranslation_ContextCancellation(t *testing.T) {
 	cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel("google-t5/t5-small"),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel("google-t5/t5-small"),
+		hfopts.WithContext(ctx),
 	)
 
 	resp, err := client.Translate(
-		hfgo.TranslationRequest{
+		hftypes.TranslationRequest{
 			Input: "Hello, how are you?",
 		},
 	)

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,13 +26,13 @@ func TestFeatureExtraction_LiveAPI(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	resp, err := client.FeatureExtract(
-		hfgo.FeatureExtractionRequest{
+		hftypes.FeatureExtractionRequest{
 			Input: "What is the capital of France?",
 		},
 	)
@@ -52,9 +54,9 @@ func TestFeatureExtraction_BatchLiveAPI(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	inputs := []string{
@@ -63,7 +65,7 @@ func TestFeatureExtraction_BatchLiveAPI(t *testing.T) {
 	}
 
 	resp, err := client.FeatureExtractBatch(
-		hfgo.FeatureExtractionBatchRequest{
+		hftypes.FeatureExtractionBatchRequest{
 			Inputs: inputs,
 		},
 	)
@@ -90,18 +92,18 @@ func TestFeatureExtraction_WithParameters(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	normalize := true
 	truncate := true
-	truncDir := hfgo.FeatureExtractionTruncationRight
+	truncDir := hftypes.FeatureExtractionTruncationRight
 	resp, err := client.FeatureExtract(
-		hfgo.FeatureExtractionRequest{
+		hftypes.FeatureExtractionRequest{
 			Input: "The capital of France is Paris, a city on the Seine.",
-			Parameters: &hfgo.FeatureExtractionParameters{
+			Parameters: &hftypes.FeatureExtractionParameters{
 				Normalize:           &normalize,
 				Truncate:            &truncate,
 				TruncationDirection: &truncDir,
@@ -124,13 +126,13 @@ func TestFeatureExtraction_ContextCancellation(t *testing.T) {
 	cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel("BAAI/bge-small-en-v1.5"),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel("BAAI/bge-small-en-v1.5"),
+		hfopts.WithContext(ctx),
 	)
 
 	resp, err := client.FeatureExtract(
-		hfgo.FeatureExtractionRequest{
+		hftypes.FeatureExtractionRequest{
 			Input: "What is the capital of France?",
 		},
 	)
@@ -151,21 +153,21 @@ func TestFeatureExtraction_BatchWithParameters(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	normalize := true
 	truncate := true
-	truncDir := hfgo.FeatureExtractionTruncationRight
+	truncDir := hftypes.FeatureExtractionTruncationRight
 	resp, err := client.FeatureExtractBatch(
-		hfgo.FeatureExtractionBatchRequest{
+		hftypes.FeatureExtractionBatchRequest{
 			Inputs: []string{
 				"The weather is nice today.",
 				"I love programming in Go.",
 			},
-			Parameters: &hfgo.FeatureExtractionParameters{
+			Parameters: &hftypes.FeatureExtractionParameters{
 				Normalize:           &normalize,
 				Truncate:            &truncate,
 				TruncationDirection: &truncDir,
@@ -194,13 +196,13 @@ func TestFeatureExtraction_BatchContextCancellation(t *testing.T) {
 	cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel("BAAI/bge-small-en-v1.5"),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel("BAAI/bge-small-en-v1.5"),
+		hfopts.WithContext(ctx),
 	)
 
 	resp, err := client.FeatureExtractBatch(
-		hfgo.FeatureExtractionBatchRequest{
+		hftypes.FeatureExtractionBatchRequest{
 			Inputs: []string{"The weather is nice today.", "I love programming in Go."},
 		},
 	)

@@ -12,64 +12,71 @@
 
 ## Repository & Package Layout
 
-The repository is organized as a thin public root package backed by
-`internal/*` sub-packages and one public `providers` package. The root module
-is the canonical import path (`import "github.com/Kardbord/hfgo/v4"`); all
-public types are re-exported there, usually as type aliases that forward
-documentation from their defining sub-package.
+The repository is organized as a multi-package Go module. The public surface
+consists of the root `hfgo` package plus the explicit public sub-packages
+`hftypes`, `hfopts`, `hferrors`, `providers`, and `sdkversion`. Internal
+packages under `internal/` are implementation details and should only be
+imported from within the module.
 
-### Root Package (`package hfgo`)
+### Public Packages
+
+| Package | Import path | Contents |
+|---------|-------------|----------|
+| `hfgo` | `github.com/Kardbord/hfgo/v4` | `Client`, `NewClient`, and every inference endpoint method |
+| `hfopts` | `github.com/Kardbord/hfgo/v4/hfopts` | `Options`, `Option`, and all `With*` option helpers |
+| `hftypes` | `github.com/Kardbord/hfgo/v4/hftypes` | Request/response Data Transfer Objects for every task |
+| `hferrors` | `github.com/Kardbord/hfgo/v4/hferrors` | `APIError`, `SDKError`, and `SDKErrorKind` definitions |
+| `providers` | `github.com/Kardbord/hfgo/v4/providers` | `Provider` interface, `HuggingFaceProvider`, built-in codec |
+| `sdkversion` | `github.com/Kardbord/hfgo/v4/sdkversion` | `Version` constant and `UserAgent()` helper |
+
+### `hfgo` (root package)
 
 | File | Contents |
 |------|----------|
 | `client.go` | `Client`, `NewClient`, and every inference endpoint method |
-| `options.go` | `With*` option helpers |
-| `option.go` | `Option` type alias (`request.Option`) |
-| `errors.go` | Re-exports `APIError`, `SDKError`, `SDKErrorKind` and its constants |
-| `chat.go` | Re-exports all chat DTOs and `ChatStream` |
-| `raw.go` | Re-exports `RawClient`, `RawStream`, `RawEvent` |
-| `version.go` | `Version` constant and `UserAgent()` |
-| `{task}.go` | One file per task re-exporting that task's DTOs, e.g. `fill_mask.go`, `text_classification.go` |
+| `raw.go` | `RawClient`, `RawStream`, `RawEvent` escape-hatch types |
 | `doc.go` | Package-level design notes |
+
+### `hfopts`
+
+| File | Contents |
+|------|----------|
+| `options.go` | `Options`, `Option`, all `With*` helpers, and `Validate` |
+| `doc.go` | Package documentation |
+
+### `hftypes`
+
+| File | Contents |
+|------|----------|
+| `{task}.go` | One file per task defining that task's DTOs, e.g. `fill_mask.go`, `text_classification.go` |
+| `chat_request.go`, `chat_response.go`, `chat_streaming.go`, `chat_common.go` | Chat DTOs and `ChatStream` |
+| `clone.go` | Deep `Clone` method for every request DTO |
 
 ### `providers/` (public package)
 
 Defines the inference-provider abstraction: the `Provider` interface, the
 built-in `HuggingFaceProvider` with its embedded `DefaultCodec`, and the
-`Task` constants naming every supported inference task. This is the only
-non-`internal` package besides the root module.
+`Task` constants naming every supported inference task.
 
 ### `internal/` (implementation detail)
 
-None of these packages are part of the public API; their symbols are only
-reachable via root re-exports.
+None of these packages are part of the public API.
 
 | Package | Contents |
 |---------|----------|
-| `internal/dto` | All request/response Data Transfer Objects and their `MarshalJSON`/`UnmarshalJSON` validators |
-| `internal/task` | Package-level task functions (`Chat`, `StreamChat`, `ClassifyText`, …) plus the `RawClient`/`RawStream`/`RawEvent` types |
-| `internal/chatstream` | `ChatStream` and the `ToolCallAccumulator` assisting streaming tool-call metadata |
-| `internal/request` | Options struct, functional option type, HTTP plumbing, JSON decode helpers, and SSE parsing |
-| `internal/hferrors` | `APIError`, `SDKError`, and `SDKErrorKind` definitions |
-| `internal/sdkversion` | Version constant and User-Agent string |
+| `internal/task` | Package-level task functions (`Chat`, `StreamChat`, `ClassifyText`, …) |
+| `internal/chatstream` | `ChatStream` implementation and the `ToolCallAccumulator` helper |
+| `internal/request` | HTTP plumbing, JSON decode helpers, and SSE parsing |
+| `internal/utils` | Shared helpers used by `hfopts`, `internal/request`, and internal packages |
 | `internal/testutils` | Shared test helpers (mock transports, trackers, pointers) |
 | `internal/integration_tests` | Live-API integration tests (tagged `integration`) |
 
 ### Re-export Pattern
 
-Public types are defined once and re-exported at the root so downstream users
-only ever import from `github.com/Kardbord/hfgo/v4`:
-
-```go
-// internal/dto/feature_extraction.go defines the type.
-// root feature_extraction.go re-exports it:
-type FeatureExtraction = dto.FeatureExtraction
-```
-
-This indirection exists so the `providers` package can depend on the DTO types
-without creating an import cycle: DTOs live in `internal/dto` (which nothing in
-the provider layer must reach through the root module), while the public API
-surface stays flat.
+DTOs are defined once in the public `hftypes` package. The `providers`
+package can import them directly without creating an import cycle, and the
+root `hfgo` package consumes both `hftypes` and `providers` to expose the
+type-safe Client API.
 
 ## Core Architecture
 
@@ -119,7 +126,7 @@ This SDK is **safe for concurrent use out of the box**. No explicit synchronizat
 **Concurrency Guarantees**:
 - **Clients**: Fully concurrent-safe as immutable value types
 - **Client method calls**: Each call snapshots the client's options, so per-request overrides and concurrent calls never interfere
-- **Shared HTTP clients**: If you inject an HTTP client via `WithHTTPClientFactory()`, ensure it's either thread-safe by design or properly synchronized externally
+- **Shared HTTP clients**: If you inject an HTTP client via `hfopts.WithHTTPClientFactory()`, ensure it's either thread-safe by design or properly synchronized externally
 
 **How It Works**:
 The SDK achieves concurrency safety through immutability:
@@ -130,7 +137,7 @@ The SDK achieves concurrency safety through immutability:
 **Example**:
 ```go
 // Safe: Single immutable client used by multiple goroutines
-client := NewClient(WithToken(token), WithModel("mistral-7b"))
+client := hfgo.NewClient(hfopts.WithToken(token), hfopts.WithModel("mistral-7b"))
 
 // Each goroutine passes its OWN defensive copy of the request, so the shared
 // template is only ever read — never mutated while another call is in flight.
@@ -196,7 +203,7 @@ type Provider interface {
   `model:preferred`); a `HuggingFaceProvider`-like empty suffix means the HF
   router selects the provider. See
   https://huggingface.co/docs/inference-providers/main/en/index.
-- `WithProvider(p)` sets `Options.Provider`; `WithDefaultProvider()` sets
+- `hfopts.WithProvider(p)` sets `Options.Provider`; `hfopts.WithDefaultProvider()` sets
   the default `HuggingFaceProvider`.
 
 #### Dispatch Flow
@@ -219,7 +226,7 @@ own endpoint construction and any request/response translation.
 ## Error Handling
 
 ### APIError
-Represents errors returned by the HuggingFace API. Available at `github.com/Kardbord/hfgo/v4.APIError`.
+Represents errors returned by the HuggingFace API. Available at `github.com/Kardbord/hfgo/v4/hferrors.APIError`.
 
 **Fields**:
 - `StatusCode`: HTTP status code
@@ -237,7 +244,7 @@ Represents errors returned by the HuggingFace API. Available at `github.com/Kard
 
 **Type Assertion Pattern**:
 ```go
-if apiErr, ok := err.(*hfgo.APIError); ok {
+if apiErr, ok := err.(*hferrors.APIError); ok {
     if apiErr.IsAuthenticationError() {
         // Handle auth error
     }
@@ -246,7 +253,7 @@ if apiErr, ok := err.(*hfgo.APIError); ok {
 
 ### SDKError
 Represents client-side SDK errors that occur before API response or during response unmarshaling.
-Available at `github.com/Kardbord/hfgo/v4.SDKError`.
+Available at `github.com/Kardbord/hfgo/v4/hferrors.SDKError`.
 
 **Fields**:
 - `Kind`: Error category (SDKErrorKind)
@@ -262,79 +269,88 @@ Available at `github.com/Kardbord/hfgo/v4.SDKError`.
 
 **Type Assertion Pattern**:
 ```go
-if sdkErr, ok := err.(*hfgo.SDKError); ok {
+if sdkErr, ok := err.(*hferrors.SDKError); ok {
     fmt.Printf("Kind %s: %s\n", sdkErr.Kind, sdkErr.Message)
 }
 ```
 
 ## Configuration Options
 
-All options are functions that return `hfgo.Option`. Applied to clients and per-request.
+All options are functions that receive an `hfopts.Options` value and are
+collected as `hfopts.Option`. They are applied to clients at construction
+time and can be overridden per-request:
+
+```go
+client := hfgo.NewClient(hfopts.WithToken(token), hfopts.WithModel("mistral-7b"))
+
+// Per-request override
+resp, err := client.Chat(req, hfopts.WithModel("request-model"))
+```
 ### Option Precedence
 
 When an option can be specified at multiple levels (client-level, request-level, or in request structures), the following precedence applies (highest to lowest):
 
 1. **Request Structure Fields** (if applicable): Values set directly in request structures (e.g., `ChatRequest.Model`)
-2. **Request-Level Options**: Options passed to individual method calls (e.g., `Chat(req, WithModel("..."))`)
-3. **Client-Level Options**: Options set when creating the Client (e.g., `NewClient(WithModel("..."))`)
+2. **Request-Level Options**: Options passed to individual method calls (e.g., `client.Chat(req, hfopts.WithModel("..."))`)
+3. **Client-Level Options**: Options set when creating the Client (e.g., `hfgo.NewClient(hfopts.WithModel("..."))`)
 
 This precedence ensures that more specific (request-level) configurations always override more general (client-level) configurations.
 
 **Example**:
 ```go
 // Client-level Model: "default-model"
-client := NewClient(WithModel("default-model"))
+client := hfgo.NewClient(hfopts.WithModel("default-model"))
 
 // Request-level override: "request-model"
 response, err := client.Chat(
-    ChatRequest{Messages: msgs},
-    WithModel("request-model"),
+    hftypes.ChatRequest{Messages: msgs},
+    hfopts.WithModel("request-model"),
 )
 // Result: Uses "request-model"
 
 // Request structure field: "structure-model"
 response, err := client.Chat(
-    ChatRequest{
+    hftypes.ChatRequest{
         Model: ptr("structure-model"),
         Messages: msgs,
     },
-    WithModel("request-model"),
+    hfopts.WithModel("request-model"),
 )
 // Result: Uses "structure-model" (highest precedence)
 ```
 
 ### Core Options
-- `WithBaseURL(url string)`: Base URL for API requests (no query params/fragments)
-- `WithToken(token string)`: Bearer authentication token
-- `WithModel(model string)`: Model identifier for requests
-- `WithProvider(provider Provider)`: Inference provider
+- `hfopts.WithBaseURL(url string)`: Base URL for API requests (no query params/fragments)
+- `hfopts.WithToken(token string)`: Bearer authentication token
+- `hfopts.WithModel(model string)`: Model identifier for requests
+- `hfopts.WithProvider(provider Provider)`: Inference provider
   - On OpenAI-compatible endpoints (e.g. chat completions), a provider or selection policy can be pinned by appending a suffix to the model string (e.g. `model:sambanova`, `model:fastest`, `model:cheapest`, `model:preferred`); otherwise the HF router selects the provider
   - See https://huggingface.co/docs/inference-providers/main/en/index
-- `WithDefaultProvider()`: Sets the default HuggingFace provider (empty routing suffix)
+- `hfopts.WithDefaultProvider()`: Sets the default HuggingFace provider (empty routing suffix)
 
 ### HTTP & Transport
-- `WithHTTPClientFactory(factory func() http.Client)`: Factory for HTTP clients
+- `hfopts.WithHTTPClientFactory(factory func() http.Client)`: Factory for HTTP clients
   - Invoked when options are applied
   - Should return fresh client value
   - Avoid sharing mutable internals like Transport unless synchronized
   - Nil factory results in nil HTTP client
-- `WithDefaultHTTPClient()`: Sets default HTTP client
-- `WithUserAgentSuffix(suffix string)`: Appends suffix to SDK user agent
+- `hfopts.WithDefaultHTTPClient()`: Sets default HTTP client
+- `hfopts.WithUserAgentSuffix(suffix string)`: Appends suffix to SDK user agent
 
 ### Context & Timeouts
-- `WithContext(ctx context.Context)`: Context for cancellation and timeouts
+- `hfopts.WithContext(ctx context.Context)`: Context for cancellation and timeouts
   - Nil context falls back to context.Background()
 
 ### Response Handling
-- `WithMaxResponseBodyBytes(n int64)`: Max bytes read from response body
+- `hfopts.WithMaxResponseBodyBytes(n int64)`: Max bytes read from response body
   - Values <= 0 fall back to default
 
 ### Headers
-- `WithHeaders(h http.Header)`: Custom headers applied to all requests
+- `hfopts.WithHeaders(h http.Header)`: Custom headers applied to all requests
   - Overrides existing values for matching keys
   - Per-request headers can still override
-- `WithHeader(key, value string)`: Single header applied to all requests
-- `WithDefaultHeader(key, value string)`: Header only if missing or empty
+- `hfopts.WithHeader(key, value string)`: Single header applied to all requests
+- `hfopts.WithDefaultHeader(key, value string)`: Header only if missing or empty
 
 ## Core Types
 
@@ -436,13 +452,13 @@ Represents a raw SSE event from the raw streaming methods (`Client.Raw().Stream*
 
 All inference endpoints are called directly on a `Client` value. Each method
 takes a request DTO and returns a typed response or stream; per-request options
-are passed as variadic `Option` values. The behavior below describes what the
+are passed as variadic `hfopts.Option` values. The behavior below describes what the
 Client methods perform. The `RawClient` exposed by `Client.Raw()` is the one
 exception and is documented separately.
 
 ### Chat
 
-#### Chat(req ChatRequest, opts ...Option) (ChatResponse, error)
+#### Chat(req ChatRequest, opts ...hfopts.Option) (ChatResponse, error)
 Non-streaming chat completion.
 
 **Concurrency and request mutation**:
@@ -469,7 +485,7 @@ Provider selection is otherwise delegated to the HF router. To select a provider
 - Returns `ChatResponse` with all choices and usage stats
 - Returns `SDKError` (kind: Configuration) for invalid requests
 
-#### ChatStream(req ChatRequest, opts ...Option) (*ChatStream, error)
+#### ChatStream(req ChatRequest, opts ...hfopts.Option) (*ChatStream, error)
 Streaming chat completion using SSE.
 
 **Concurrency and request mutation**:
@@ -488,7 +504,7 @@ Streaming chat completion using SSE.
 
 ### Text Classification
 
-#### ClassifyText(req TextClassificationRequest, opts ...Option) ([]TextClassification, error)
+#### ClassifyText(req TextClassificationRequest, opts ...hfopts.Option) ([]TextClassification, error)
 Single text classification.
 
 **Behavior**:
@@ -496,7 +512,7 @@ Single text classification.
 - Returns flat array of classifications for the single input
 - Automatically unwraps the response to get the single input result
 
-#### ClassifyTextBatch(req TextClassificationBatchRequest, opts ...Option) ([][]TextClassification, error)
+#### ClassifyTextBatch(req TextClassificationBatchRequest, opts ...hfopts.Option) ([][]TextClassification, error)
 Batch text classification for multiple inputs.
 
 **API Response Format Normalization**:
@@ -508,7 +524,7 @@ This inconsistency is handled transparently by the `normalizeTextClassificationR
 
 ### Question Answering
 
-#### AnswerQuestion(req QuestionAnsweringRequest, opts ...Option) ([]QuestionAnswering, error)
+#### AnswerQuestion(req QuestionAnsweringRequest, opts ...hfopts.Option) ([]QuestionAnswering, error)
 Question answering over a context passage.
 
 **Behavior**:
@@ -520,7 +536,7 @@ Question answering over a context passage.
 
 ### Token Classification
 
-#### ClassifyTokens(req TokenClassificationRequest, opts ...Option) ([]TokenClassification, error)
+#### ClassifyTokens(req TokenClassificationRequest, opts ...hfopts.Option) ([]TokenClassification, error)
 Single input token classification (named entity recognition).
 
 **Behavior**:
@@ -530,7 +546,7 @@ Single input token classification (named entity recognition).
 - Each entity includes its label, score, word text, and character span (start/end)
 - When aggregation_strategy is "none", the `Entity` field is populated; otherwise `EntityGroup` is populated
 
-#### ClassifyTokensBatch(req TokenClassificationBatchRequest, opts ...Option) ([][]TokenClassification, error)
+#### ClassifyTokensBatch(req TokenClassificationBatchRequest, opts ...hfopts.Option) ([][]TokenClassification, error)
 Batch token classification for multiple inputs.
 
 **Behavior**:
@@ -541,7 +557,7 @@ Batch token classification for multiple inputs.
 
 ### Zero-Shot Text Classification
 
-#### ZeroShotClassifyText(req ZeroShotTextClassificationRequest, opts ...Option) ([]ZeroShotTextClassification, error)
+#### ZeroShotClassifyText(req ZeroShotTextClassificationRequest, opts ...hfopts.Option) ([]ZeroShotTextClassification, error)
 Single input zero-shot text classification.
 
 **Behavior**:
@@ -550,7 +566,7 @@ Single input zero-shot text classification.
 - Applies per-request options
 - Returns flat array of classifications for the single input, ordered by score (descending)
 
-#### ZeroShotClassifyTextBatch(req ZeroShotTextClassificationBatchRequest, opts ...Option) ([][]ZeroShotTextClassification, error)
+#### ZeroShotClassifyTextBatch(req ZeroShotTextClassificationBatchRequest, opts ...hfopts.Option) ([][]ZeroShotTextClassification, error)
 Batch zero-shot text classification for multiple inputs.
 
 **API Response Normalization**:
@@ -558,7 +574,7 @@ The HuggingFace API returns batched zero-shot results in a different format than
 
 ### Fill Mask
 
-#### FillMask(req FillMaskRequest, opts ...Option) ([]FillMaskPrediction, error)
+#### FillMask(req FillMaskRequest, opts ...hfopts.Option) ([]FillMaskPrediction, error)
 Single input mask filling.
 
 **Behavior**:
@@ -566,7 +582,7 @@ Single input mask filling.
 - Validates that a model is configured
 - Returns ranked mask filling predictions for the single input
 
-#### FillMaskBatch(req FillMaskBatchRequest, opts ...Option) ([][]FillMaskPrediction, error)
+#### FillMaskBatch(req FillMaskBatchRequest, opts ...hfopts.Option) ([][]FillMaskPrediction, error)
 Batch mask filling for multiple inputs.
 
 **Behavior**:
@@ -577,7 +593,7 @@ Batch mask filling for multiple inputs.
 
 ### Summarization
 
-#### Summarize(req SummarizationRequest, opts ...Option) ([]Summarization, error)
+#### Summarize(req SummarizationRequest, opts ...hfopts.Option) ([]Summarization, error)
 Single text summarization.
 
 **Behavior**:
@@ -585,7 +601,7 @@ Single text summarization.
 - Validates that a model is configured
 - Returns a flat list of `Summarization` outputs for the single input
 
-#### SummarizeBatch(req SummarizationBatchRequest, opts ...Option) ([]Summarization, error)
+#### SummarizeBatch(req SummarizationBatchRequest, opts ...hfopts.Option) ([]Summarization, error)
 Batch text summarization for multiple inputs.
 
 **Behavior**:
@@ -595,7 +611,7 @@ Batch text summarization for multiple inputs.
 
 ### Translation
 
-#### Translate(req TranslationRequest, opts ...Option) ([]Translation, error)
+#### Translate(req TranslationRequest, opts ...hfopts.Option) ([]Translation, error)
 Single text translation.
 
 **Behavior**:
@@ -603,7 +619,7 @@ Single text translation.
 - Validates that a model is configured
 - Returns a flat list of `Translation` outputs for the single input
 
-#### TranslateBatch(req TranslationBatchRequest, opts ...Option) ([]Translation, error)
+#### TranslateBatch(req TranslationBatchRequest, opts ...hfopts.Option) ([]Translation, error)
 Batch text translation for multiple inputs.
 
 **Behavior**:
@@ -613,7 +629,7 @@ Batch text translation for multiple inputs.
 
 ### Table Question Answering
 
-#### AnswerTableQuestion(req TableQuestionAnsweringRequest, opts ...Option) (TableQuestionAnswer, error)
+#### AnswerTableQuestion(req TableQuestionAnsweringRequest, opts ...hfopts.Option) (TableQuestionAnswer, error)
 Question answering over tabular data.
 
 **Behavior**:
@@ -627,7 +643,7 @@ The HuggingFace API returns a bare JSON object for table question answering, not
 
 ### Feature Extraction
 
-#### FeatureExtract(req FeatureExtractionRequest, opts ...Option) (FeatureExtraction, error)
+#### FeatureExtract(req FeatureExtractionRequest, opts ...hfopts.Option) (FeatureExtraction, error)
 Single input feature extraction (embeddings).
 
 **Behavior**:
@@ -642,7 +658,7 @@ Single input feature extraction (embeddings).
 - `truncate` (bool): Whether to truncate input to model's max length
 - `truncation_direction` ("left" | "right"): Direction to truncate from
 
-#### FeatureExtractBatch(req FeatureExtractionBatchRequest, opts ...Option) ([]FeatureExtraction, error)
+#### FeatureExtractBatch(req FeatureExtractionBatchRequest, opts ...hfopts.Option) ([]FeatureExtraction, error)
 Batch feature extraction for multiple inputs.
 
 **Behavior**:
@@ -653,30 +669,30 @@ Batch feature extraction for multiple inputs.
 
 ### RawClient (escape hatch)
 
-Created via `client.Raw()`. For raw HTTP requests without type-safe JSON handling. This is the only endpoint path exposed as a sub-type rather than as flat Client methods; it is the advanced escape hatch for endpoints the SDK does not model, and its broader method matrix is easier to discover grouped here. `RawClient`, `RawStream`, and `RawEvent` are defined in `internal/task` and re-exported at the root.
+Created via `client.Raw()`. For raw HTTP requests without type-safe JSON handling. This is the only endpoint path exposed as a sub-type rather than as flat Client methods; it is the advanced escape hatch for endpoints the SDK does not model, and its broader method matrix is easier to discover grouped here. `RawClient`, `RawStream`, and `RawEvent` are defined in the root package (`raw.go`) and exposed through `Client.Raw()`.
 
-#### Do(requestBody []byte, method, path string, opts ...Option) (*http.Response, error)
+#### Do(requestBody []byte, method, path string, opts ...hfopts.Option) (*http.Response, error)
 Raw request with error interpretation on non-2xx responses.
 
-#### DoRaw(requestBody []byte, method, path string, opts ...Option) (*http.Response, error)
+#### DoRaw(requestBody []byte, method, path string, opts ...hfopts.Option) (*http.Response, error)
 Raw request without error interpretation (allows non-2xx responses).
 
-#### DoReader(requestBody io.Reader, method, path string, opts ...Option) (*http.Response, error)
+#### DoReader(requestBody io.Reader, method, path string, opts ...hfopts.Option) (*http.Response, error)
 Same as `Do`, but streams the request body from an `io.Reader`.
 
-#### DoRawReader(requestBody io.Reader, method, path string, opts ...Option) (*http.Response, error)
+#### DoRawReader(requestBody io.Reader, method, path string, opts ...hfopts.Option) (*http.Response, error)
 Same as `DoRaw`, but streams the request body from an `io.Reader`.
 
-#### Stream(requestBody []byte, method, path string, opts ...Option) (*RawStream, error)
+#### Stream(requestBody []byte, method, path string, opts ...hfopts.Option) (*RawStream, error)
 SSE stream with error interpretation.
 
-#### StreamReader(requestBody io.Reader, method, path string, opts ...Option) (*RawStream, error)
+#### StreamReader(requestBody io.Reader, method, path string, opts ...hfopts.Option) (*RawStream, error)
 Same as `Stream`, but streams the request body from an `io.Reader`.
 
-#### StreamRaw(requestBody []byte, method, path string, opts ...Option) (*RawStream, error)
+#### StreamRaw(requestBody []byte, method, path string, opts ...hfopts.Option) (*RawStream, error)
 SSE stream without error interpretation (allows non-2xx responses).
 
-#### StreamRawReader(requestBody io.Reader, method, path string, opts ...Option) (*RawStream, error)
+#### StreamRawReader(requestBody io.Reader, method, path string, opts ...hfopts.Option) (*RawStream, error)
 Same as `StreamRaw`, but streams the request body from an `io.Reader`.
 
 ## Endpoints

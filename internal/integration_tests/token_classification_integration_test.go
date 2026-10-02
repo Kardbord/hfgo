@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,13 +27,13 @@ func TestTokenClassification_LiveAPI(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	resp, err := client.ClassifyTokens(
-		hfgo.TokenClassificationRequest{
+		hftypes.TokenClassificationRequest{
 			Input: "My name is Sarah and I live in London.",
 		},
 	)
@@ -70,26 +72,26 @@ func TestTokenClassification_WithAggregationStrategy(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	strategies := []string{
-		hfgo.TokenClassificationAggregationNone,
-		hfgo.TokenClassificationAggregationSimple,
-		hfgo.TokenClassificationAggregationFirst,
-		hfgo.TokenClassificationAggregationAverage,
-		hfgo.TokenClassificationAggregationMax,
+		hftypes.TokenClassificationAggregationNone,
+		hftypes.TokenClassificationAggregationSimple,
+		hftypes.TokenClassificationAggregationFirst,
+		hftypes.TokenClassificationAggregationAverage,
+		hftypes.TokenClassificationAggregationMax,
 	}
 
 	for _, strategy := range strategies {
 		t.Run(strategy, func(t *testing.T) {
 			strat := strings.Clone(strategy)
 			resp, err := client.ClassifyTokens(
-				hfgo.TokenClassificationRequest{
+				hftypes.TokenClassificationRequest{
 					Input: "My name is Sarah and I live in London.",
-					Parameters: &hfgo.TokenClassificationParameters{
+					Parameters: &hftypes.TokenClassificationParameters{
 						AggregationStrategy: &strat,
 					},
 				},
@@ -104,7 +106,7 @@ func TestTokenClassification_WithAggregationStrategy(t *testing.T) {
 				require.GreaterOrEqual(t, entity.Score, 0.0, "score should be non-negative")
 				require.LessOrEqual(t, entity.Score, 1.0, "score should be at most 1.0")
 
-				if strategy == hfgo.TokenClassificationAggregationNone {
+				if strategy == hftypes.TokenClassificationAggregationNone {
 					require.NotNil(t, entity.Entity, "entity field should be set for strategy 'none'")
 				} else {
 					require.NotNil(t, entity.EntityGroup, "entity_group field should be set for strategy %q", strategy)
@@ -128,9 +130,9 @@ func TestTokenClassification_BatchLiveAPI(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	inputs := []string{
@@ -140,7 +142,7 @@ func TestTokenClassification_BatchLiveAPI(t *testing.T) {
 	}
 
 	resp, err := client.ClassifyTokensBatch(
-		hfgo.TokenClassificationBatchRequest{
+		hftypes.TokenClassificationBatchRequest{
 			Inputs: inputs,
 		},
 	)
@@ -172,13 +174,13 @@ func TestTokenClassification_ContextCancellation(t *testing.T) {
 	cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel("dslim/bert-base-NER"),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel("dslim/bert-base-NER"),
+		hfopts.WithContext(ctx),
 	)
 
 	resp, err := client.ClassifyTokens(
-		hfgo.TokenClassificationRequest{
+		hftypes.TokenClassificationRequest{
 			Input: "My name is Sarah and I live in London.",
 		},
 	)
@@ -197,9 +199,9 @@ func TestTokenClassification_VeryLargeBatch(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel("dslim/bert-base-NER"),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel("dslim/bert-base-NER"),
+		hfopts.WithContext(ctx),
 	)
 
 	inputs := []string{
@@ -216,7 +218,7 @@ func TestTokenClassification_VeryLargeBatch(t *testing.T) {
 	}
 
 	resp, err := client.ClassifyTokensBatch(
-		hfgo.TokenClassificationBatchRequest{
+		hftypes.TokenClassificationBatchRequest{
 			Inputs: inputs,
 		},
 	)
@@ -231,7 +233,7 @@ func TestTokenClassification_VeryLargeBatch(t *testing.T) {
 }
 
 // entityLabel returns the entity label from either Entity or EntityGroup field.
-func entityLabel(e hfgo.TokenClassification) string {
+func entityLabel(e hftypes.TokenClassification) string {
 	if e.EntityGroup != nil {
 		return *e.EntityGroup
 	}

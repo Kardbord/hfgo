@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
 // Do performs an HTTP request with the provided options and returns the response.
@@ -17,7 +19,7 @@ import (
 // For HTTP status codes >= 400, it returns an *hferrors.APIError.
 // The caller must close resp.Body on success.
 func Do(
-	opts Options,
+	opts hfopts.Options,
 	method string,
 	path string,
 	body io.Reader,
@@ -45,7 +47,7 @@ func Do(
 // without translating non-2xx status codes into SDK errors.
 // The caller must close resp.Body on success.
 func DoRaw(
-	opts Options,
+	opts hfopts.Options,
 	method string,
 	path string,
 	body io.Reader,
@@ -62,7 +64,11 @@ func DoRaw(
 	return executeRequest(opts.HTTPClient, req)
 }
 
-func buildHTTPRequest(opts Options, method, path string, body io.Reader) (*http.Request, error) {
+func buildHTTPRequest(
+	opts hfopts.Options,
+	method, path string,
+	body io.Reader,
+) (*http.Request, error) {
 	ctx := opts.Context()
 
 	reqURL, err := joinURL(opts.BaseURL, path)
@@ -94,7 +100,7 @@ func buildHTTPRequest(opts Options, method, path string, body io.Reader) (*http.
 	if opts.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+opts.Token)
 	}
-	req.Header = overrideHeaders(req.Header, opts.Headers)
+	req.Header = utils.OverrideHeaders(req.Header, opts.Headers)
 
 	return req, nil
 }
@@ -180,7 +186,7 @@ func joinURL(baseURL, path string) (string, error) {
 // It is a convenience wrapper around Do that converts the byte slice to an io.Reader.
 // The caller must close resp.Body on success.
 func DoBytes(
-	opts Options,
+	opts hfopts.Options,
 	method string,
 	path string,
 	data []byte,
@@ -193,7 +199,7 @@ func DoBytes(
 // It is a convenience wrapper around DoRaw that converts the byte slice to an io.Reader.
 // The caller must close resp.Body on success.
 func DoBytesRaw(
-	opts Options,
+	opts hfopts.Options,
 	method string,
 	path string,
 	data []byte,
@@ -202,7 +208,7 @@ func DoBytesRaw(
 }
 
 // ReadResponseBody reads the response body up to maxBytes and returns an error
-// if the body is larger. If maxBytes is <= 0, DefaultMaxResponseBodyBytes is used.
+// if the body is larger. If maxBytes is <= 0, hfopts.DefaultMaxResponseBodyBytes is used.
 // The caller is still responsible for closing resp.Body.
 func ReadResponseBody(resp *http.Response, maxBytes int64) ([]byte, error) {
 	bodyBytes, truncated, err := readResponseBodyTruncated(resp.Body, maxBytes)
@@ -235,7 +241,7 @@ func readResponseBodyTruncated(
 	maxBytes int64,
 ) (body []byte, truncated bool, err error) {
 	if maxBytes <= 0 {
-		maxBytes = DefaultMaxResponseBodyBytes
+		maxBytes = hfopts.DefaultMaxResponseBodyBytes
 	}
 	// LimitReader doesn't error on overflow; it just stops at the limit and returns EOF.
 	// Read one extra byte so we can detect truncation by checking len(b) > maxBytes.

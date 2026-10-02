@@ -8,7 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -20,8 +21,11 @@ func TestJSONStream_InvalidChunk(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) })
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client {
+			return testutils.NewMockHTTPClient(mt)
+		}),
+	)
 
 	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
 	require.NoError(t, err)
@@ -43,8 +47,11 @@ func TestJSONStream_RecvNilContext(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) })
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client {
+			return testutils.NewMockHTTPClient(mt)
+		}),
+	)
 
 	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
 	require.NoError(t, err)
@@ -68,8 +75,11 @@ func TestJSONStream_SSECloseCancelsRead(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, "event: ping\n\n", nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) })
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client {
+			return testutils.NewMockHTTPClient(mt)
+		}),
+	)
 
 	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
 	require.NoError(t, err)

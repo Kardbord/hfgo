@@ -1,18 +1,18 @@
 package task
 
 import (
-	"github.com/Kardbord/hfgo/v4/internal/dto"
-	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // ClassifyText sends a text classification request for a single input and
 // unwraps the outer API array to return the flat classification list.
 func ClassifyText(
-	opts request.Options,
-	req dto.TextClassificationRequest,
-) ([]dto.TextClassification, error) {
-	resp, err := doJSONInference[dto.TextClassificationRequest, [][]dto.TextClassification](
+	opts hfopts.Options,
+	req hftypes.TextClassificationRequest,
+) ([]hftypes.TextClassification, error) {
+	resp, err := doJSONInference[hftypes.TextClassificationRequest, [][]hftypes.TextClassification](
 		opts,
 		providers.TaskTextClassification,
 		req,
@@ -32,10 +32,10 @@ func ClassifyText(
 // and returns classifications per input. When the API returns a flat list
 // for batch inputs it is reshaped into a per-input structure.
 func ClassifyTextBatch(
-	opts request.Options,
-	req dto.TextClassificationBatchRequest,
-) ([][]dto.TextClassification, error) {
-	resp, err := doJSONInference[dto.TextClassificationBatchRequest, [][]dto.TextClassification](
+	opts hfopts.Options,
+	req hftypes.TextClassificationBatchRequest,
+) ([][]hftypes.TextClassification, error) {
+	resp, err := doJSONInference[hftypes.TextClassificationBatchRequest, [][]hftypes.TextClassification](
 		opts,
 		providers.TaskTextClassification,
 		req,
@@ -52,13 +52,13 @@ func ClassifyTextBatch(
 }
 
 func normalizeTextClassificationResponse(
-	resp [][]dto.TextClassification,
+	resp [][]hftypes.TextClassification,
 	numInputs int,
-) [][]dto.TextClassification {
+) [][]hftypes.TextClassification {
 	if numInputs > 1 && len(resp) == 1 && len(resp[0]) == numInputs {
-		reshaped := make([][]dto.TextClassification, numInputs)
+		reshaped := make([][]hftypes.TextClassification, numInputs)
 		for i := range numInputs {
-			reshaped[i] = []dto.TextClassification{resp[0][i]}
+			reshaped[i] = []hftypes.TextClassification{resp[0][i]}
 		}
 
 		return reshaped

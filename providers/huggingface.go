@@ -1,7 +1,7 @@
 package providers
 
 import (
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
+	"github.com/Kardbord/hfgo/v4/hferrors"
 )
 
 // HuggingFaceProvider implements Provider for the HuggingFace inference API.

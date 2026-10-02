@@ -3,17 +3,17 @@ package task
 import (
 	"fmt"
 
-	"github.com/Kardbord/hfgo/v4/internal/dto"
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
-	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // ZeroShotClassifyText sends a zero-shot classification request for a single input.
 func ZeroShotClassifyText(
-	opts request.Options,
-	req dto.ZeroShotTextClassificationRequest,
-) ([]dto.ZeroShotTextClassification, error) {
+	opts hfopts.Options,
+	req hftypes.ZeroShotTextClassificationRequest,
+) ([]hftypes.ZeroShotTextClassification, error) {
 	if req.Parameters == nil || len(req.Parameters.CandidateLabels) == 0 {
 		return nil, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
@@ -22,7 +22,7 @@ func ZeroShotClassifyText(
 		}
 	}
 
-	resp, err := doJSONInference[dto.ZeroShotTextClassificationRequest, []dto.ZeroShotTextClassification](
+	resp, err := doJSONInference[hftypes.ZeroShotTextClassificationRequest, []hftypes.ZeroShotTextClassification](
 		opts,
 		providers.TaskZeroShotTextClassification,
 		req,
@@ -37,9 +37,9 @@ func ZeroShotClassifyText(
 // ZeroShotClassifyTextBatch sends a zero-shot classification request for a batch of inputs
 // and normalizes the batched response into a per-input structure.
 func ZeroShotClassifyTextBatch(
-	opts request.Options,
-	req dto.ZeroShotTextClassificationBatchRequest,
-) ([][]dto.ZeroShotTextClassification, error) {
+	opts hfopts.Options,
+	req hftypes.ZeroShotTextClassificationBatchRequest,
+) ([][]hftypes.ZeroShotTextClassification, error) {
 	if req.Parameters == nil || len(req.Parameters.CandidateLabels) == 0 {
 		return nil, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
@@ -48,7 +48,7 @@ func ZeroShotClassifyTextBatch(
 		}
 	}
 
-	resp, err := doJSONInference[dto.ZeroShotTextClassificationBatchRequest, []dto.ZeroShotTextClassificationBatched](
+	resp, err := doJSONInference[hftypes.ZeroShotTextClassificationBatchRequest, []hftypes.ZeroShotTextClassificationBatched](
 		opts,
 		providers.TaskZeroShotTextClassification,
 		req,
@@ -61,9 +61,9 @@ func ZeroShotClassifyTextBatch(
 }
 
 func normalizeResponse(
-	resp []dto.ZeroShotTextClassificationBatched,
+	resp []hftypes.ZeroShotTextClassificationBatched,
 	inputs []string,
-) ([][]dto.ZeroShotTextClassification, error) {
+) ([][]hftypes.ZeroShotTextClassification, error) {
 	if len(resp) != len(inputs) {
 		return nil, &hferrors.SDKError{
 			Kind: hferrors.SDKErrorKindSerialization,
@@ -76,7 +76,7 @@ func normalizeResponse(
 		}
 	}
 
-	result := make([][]dto.ZeroShotTextClassification, len(resp))
+	result := make([][]hftypes.ZeroShotTextClassification, len(resp))
 
 	for idx, item := range resp {
 		if item.Sequence != inputs[idx] {
@@ -105,9 +105,9 @@ func normalizeResponse(
 			}
 		}
 
-		classifications := make([]dto.ZeroShotTextClassification, len(item.Labels))
+		classifications := make([]hftypes.ZeroShotTextClassification, len(item.Labels))
 		for j := range item.Labels {
-			classifications[j] = dto.ZeroShotTextClassification{
+			classifications[j] = hftypes.ZeroShotTextClassification{
 				Label: item.Labels[j],
 				Score: item.Scores[j],
 			}

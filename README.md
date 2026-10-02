@@ -36,6 +36,8 @@ import (
 	"os"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 func main() {
@@ -45,15 +47,15 @@ func main() {
 	}
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(token),
-		hfgo.WithModel("deepseek-ai/DeepSeek-R1"),
+		hfopts.WithToken(token),
+		hfopts.WithModel("deepseek-ai/DeepSeek-R1"),
 	)
 
-	request := hfgo.ChatRequest{
-		Messages: []hfgo.ChatMessage{
+	request := hftypes.ChatRequest{
+		Messages: []hftypes.ChatMessage{
 			{
 				Role: "user",
-				Content: hfgo.ChatMessageContent{
+				Content: hftypes.ChatMessageContent{
 					Text: Ptr("Hello! What is the capital of France?"),
 				},
 			},
@@ -88,8 +90,8 @@ Requests are routed through a pluggable inference-provider layer (the
 speaks the HuggingFace wire format directly, so for most use cases nothing
 needs to be configured.
 
-- Use `hfgo.WithProvider(p)` to set an explicit provider on a client or a
-  single call, and `hfgo.WithDefaultProvider()` to use the default
+- Use `hfopts.WithProvider(p)` to set an explicit provider on a client or a
+  single call, and `hfopts.WithDefaultProvider()` to use the default
   HuggingFace provider.
 - On OpenAI-compatible endpoints (e.g. chat completions), a provider or
   selection policy can be pinned by appending a suffix to the model string
@@ -99,9 +101,9 @@ needs to be configured.
 
 ```go
 client := hfgo.NewClient(
-	hfgo.WithToken(token),
-	hfgo.WithModel("deepseek-ai/DeepSeek-R1"),
-	hfgo.WithDefaultProvider(),
+	hfopts.WithToken(token),
+	hfopts.WithModel("deepseek-ai/DeepSeek-R1"),
+	hfopts.WithDefaultProvider(),
 )
 ```
 

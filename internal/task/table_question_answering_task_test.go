@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4"
-	"github.com/Kardbord/hfgo/v4/internal/dto"
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
-	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -58,14 +58,14 @@ func TestAnswerTableQuestion_ResponseDecoding(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mt := testutils.NewJSONMockTransport(http.StatusOK, tc.responseBody, nil)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("test-model"),
+				hfopts.WithModel("test-model"),
 			)
 
-			req := dto.TableQuestionAnsweringRequest{
-				Input: dto.TableQuestionAnsweringInput{
+			req := hftypes.TableQuestionAnsweringRequest{
+				Input: hftypes.TableQuestionAnsweringInput{
 					Question: "How old is Bob?",
 					Table: map[string][]string{
 						"Name": {"Alice", "Bob", "Carol"},
@@ -98,22 +98,22 @@ func TestAnswerTableQuestion_WithParameters(t *testing.T) {
 		nil,
 	)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
-		hfgo.WithModel("test-model"),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
 	)
 
-	padding := dto.TableQuestionAnsweringPaddingMaxLength
+	padding := hftypes.TableQuestionAnsweringPaddingMaxLength
 	sequential := false
 	truncation := true
-	req := dto.TableQuestionAnsweringRequest{
-		Input: dto.TableQuestionAnsweringInput{
+	req := hftypes.TableQuestionAnsweringRequest{
+		Input: hftypes.TableQuestionAnsweringInput{
 			Question: "How old is Bob?",
 			Table: map[string][]string{
 				"Name": {"Alice", "Bob", "Carol"},
 				"Age":  {"25", "30", "35"},
 			},
 		},
-		Parameters: &dto.TableQuestionAnsweringParameters{
+		Parameters: &hftypes.TableQuestionAnsweringParameters{
 			Padding:    &padding,
 			Sequential: &sequential,
 			Truncation: &truncation,
@@ -162,16 +162,17 @@ func TestAnswerTableQuestion_Errors(t *testing.T) {
 				description:  "API error for model not yet loaded",
 			},
 		},
-		func(opts ...request.Option) (dto.TableQuestionAnswer, error) {
-			return hfgo.NewClient(opts...).AnswerTableQuestion(dto.TableQuestionAnsweringRequest{
-				Input: dto.TableQuestionAnsweringInput{
-					Question: "How old is Bob?",
-					Table: map[string][]string{
-						"Name": {"Alice", "Bob", "Carol"},
-						"Age":  {"25", "30", "35"},
+		func(opts ...hfopts.Option) (hftypes.TableQuestionAnswer, error) {
+			return hfgo.NewClient(opts...).
+				AnswerTableQuestion(hftypes.TableQuestionAnsweringRequest{
+					Input: hftypes.TableQuestionAnsweringInput{
+						Question: "How old is Bob?",
+						Table: map[string][]string{
+							"Name": {"Alice", "Bob", "Carol"},
+							"Age":  {"25", "30", "35"},
+						},
 					},
-				},
-			})
+				})
 		},
 	)
 }
@@ -185,11 +186,11 @@ func TestAnswerTableQuestion_ModelFromOptions(t *testing.T) {
 		nil,
 	)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	req := dto.TableQuestionAnsweringRequest{
-		Input: dto.TableQuestionAnsweringInput{
+	req := hftypes.TableQuestionAnsweringRequest{
+		Input: hftypes.TableQuestionAnsweringInput{
 			Question: "How old is Bob?",
 			Table: map[string][]string{
 				"Name": {"Alice", "Bob", "Carol"},
@@ -198,7 +199,7 @@ func TestAnswerTableQuestion_ModelFromOptions(t *testing.T) {
 		},
 	}
 
-	result, err := client.AnswerTableQuestion(req, hfgo.WithModel("override-model"))
+	result, err := client.AnswerTableQuestion(req, hfopts.WithModel("override-model"))
 	require.NoError(t, err)
 	require.NotNil(t, result)
 

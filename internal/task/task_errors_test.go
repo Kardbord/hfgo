@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
-	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 )
 
@@ -43,7 +43,7 @@ type errorCase struct {
 func runErrorCases[Res any](
 	t *testing.T,
 	cases []errorCase,
-	run func(opts ...request.Option) (Res, error),
+	run func(opts ...hfopts.Option) (Res, error),
 ) {
 	t.Helper()
 
@@ -51,13 +51,13 @@ func runErrorCases[Res any](
 		tc := cases[i]
 		t.Run(tc.name, func(t *testing.T) {
 			mt := testutils.NewJSONMockTransport(tc.statusCode, tc.responseBody, nil)
-			opts := []request.Option{
-				request.WithHTTPClientFactory(func() http.Client {
+			opts := []hfopts.Option{
+				hfopts.WithHTTPClientFactory(func() http.Client {
 					return testutils.NewMockHTTPClient(mt)
 				}),
 			}
 			if tc.withModel {
-				opts = append(opts, request.WithModel("nonexistent-model"))
+				opts = append(opts, hfopts.WithModel("nonexistent-model"))
 			}
 
 			result, err := run(opts...)

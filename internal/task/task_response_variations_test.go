@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -47,10 +48,10 @@ func runSingleResponseVariations[Req, Res any](
 		t.Run(tc.name, func(t *testing.T) {
 			mt := testutils.NewJSONMockTransport(http.StatusOK, tc.responseBody, nil)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("test-model"),
+				hfopts.WithModel("test-model"),
 			)
 
 			result, err := call(client, buildReq())
@@ -99,10 +100,10 @@ func runBatchResponseVariations[Req, Res any](
 		t.Run(tc.name, func(t *testing.T) {
 			mt := testutils.NewJSONMockTransport(http.StatusOK, tc.responseBody, nil)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("test-model"),
+				hfopts.WithModel("test-model"),
 			)
 
 			result, err := call(client, buildReq())

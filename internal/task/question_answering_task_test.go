@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4"
-	"github.com/Kardbord/hfgo/v4/internal/dto"
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
-	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -97,20 +97,20 @@ func TestAnswerQuestion_ResponseDecoding(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mt := testutils.NewJSONMockTransport(http.StatusOK, tc.responseBody, nil)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("test-model"),
+				hfopts.WithModel("test-model"),
 			)
 
-			req := dto.QuestionAnsweringRequest{
-				Input: dto.QuestionAnsweringInput{
+			req := hftypes.QuestionAnsweringRequest{
+				Input: hftypes.QuestionAnsweringInput{
 					Question: "What is the capital of France?",
 					Context:  "France is a country in Europe. Its capital is Paris.",
 				},
 			}
 			if tc.topK != nil {
-				req.Parameters = &dto.QuestionAnsweringParameters{
+				req.Parameters = &hftypes.QuestionAnsweringParameters{
 					TopK: tc.topK,
 				}
 			}
@@ -139,19 +139,19 @@ func TestAnswerQuestion_WithParameters(t *testing.T) {
 		nil,
 	)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
-		hfgo.WithModel("test-model"),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
 	)
 
 	topK := 5
 	maxAnswerLen := 10
 	handleImpossible := true
-	req := dto.QuestionAnsweringRequest{
-		Input: dto.QuestionAnsweringInput{
+	req := hftypes.QuestionAnsweringRequest{
+		Input: hftypes.QuestionAnsweringInput{
 			Question: "What is the capital of France?",
 			Context:  "France is a country in Europe. Its capital is Paris.",
 		},
-		Parameters: &dto.QuestionAnsweringParameters{
+		Parameters: &hftypes.QuestionAnsweringParameters{
 			TopK:                   &topK,
 			MaxAnswerLen:           &maxAnswerLen,
 			HandleImpossibleAnswer: &handleImpossible,
@@ -200,9 +200,9 @@ func TestAnswerQuestion_Errors(t *testing.T) {
 				description:  "API error for model not yet loaded",
 			},
 		},
-		func(opts ...request.Option) ([]dto.QuestionAnswering, error) {
-			return hfgo.NewClient(opts...).AnswerQuestion(dto.QuestionAnsweringRequest{
-				Input: dto.QuestionAnsweringInput{
+		func(opts ...hfopts.Option) ([]hftypes.QuestionAnswering, error) {
+			return hfgo.NewClient(opts...).AnswerQuestion(hftypes.QuestionAnsweringRequest{
+				Input: hftypes.QuestionAnsweringInput{
 					Question: "What is the capital of France?",
 					Context:  "France is a country in Europe.",
 				},
@@ -220,17 +220,17 @@ func TestAnswerQuestion_ModelFromOptions(t *testing.T) {
 		nil,
 	)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	req := dto.QuestionAnsweringRequest{
-		Input: dto.QuestionAnsweringInput{
+	req := hftypes.QuestionAnsweringRequest{
+		Input: hftypes.QuestionAnsweringInput{
 			Question: "What is the capital of France?",
 			Context:  "France is a country in Europe. Its capital is Paris.",
 		},
 	}
 
-	result, err := client.AnswerQuestion(req, hfgo.WithModel("override-model"))
+	result, err := client.AnswerQuestion(req, hfopts.WithModel("override-model"))
 	require.NoError(t, err)
 	require.NotNil(t, result)
 

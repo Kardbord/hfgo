@@ -6,6 +6,8 @@ import (
 	"os"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 // This example demonstrates how to use the client for basic (non-streaming)
@@ -18,16 +20,16 @@ func main() {
 
 	// Create a new client with your API token and desired model
 	client := hfgo.NewClient(
-		hfgo.WithToken(token),
-		hfgo.WithModel("deepseek-ai/DeepSeek-R1"),
+		hfopts.WithToken(token),
+		hfopts.WithModel("deepseek-ai/DeepSeek-R1"),
 	)
 
 	// Create a chat request with a simple message
-	request := hfgo.ChatRequest{
-		Messages: []hfgo.ChatMessage{
+	request := hftypes.ChatRequest{
+		Messages: []hftypes.ChatMessage{
 			{
 				Role: "user",
-				Content: hfgo.ChatMessageContent{
+				Content: hftypes.ChatMessageContent{
 					Text: Ptr("Hello! What is the capital of France?"),
 				},
 			},

@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,14 +26,14 @@ func TestTableQuestionAnswering_LiveAPI(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	resp, err := client.AnswerTableQuestion(
-		hfgo.TableQuestionAnsweringRequest{
-			Input: hfgo.TableQuestionAnsweringInput{
+		hftypes.TableQuestionAnsweringRequest{
+			Input: hftypes.TableQuestionAnsweringInput{
 				Question: "How old is Bob?",
 				Table: map[string][]string{
 					"Name": {"Alice", "Bob", "Carol"},
@@ -61,24 +63,24 @@ func TestTableQuestionAnswering_WithParameters(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
-	padding := hfgo.TableQuestionAnsweringPaddingMaxLength
+	padding := hftypes.TableQuestionAnsweringPaddingMaxLength
 	sequential := false
 	truncation := true
 	resp, err := client.AnswerTableQuestion(
-		hfgo.TableQuestionAnsweringRequest{
-			Input: hfgo.TableQuestionAnsweringInput{
+		hftypes.TableQuestionAnsweringRequest{
+			Input: hftypes.TableQuestionAnsweringInput{
 				Question: "What is the most expensive product?",
 				Table: map[string][]string{
 					"Product": {"Laptop", "Phone", "Tablet"},
 					"Price":   {"1200", "800", "500"},
 				},
 			},
-			Parameters: &hfgo.TableQuestionAnsweringParameters{
+			Parameters: &hftypes.TableQuestionAnsweringParameters{
 				Padding:    &padding,
 				Sequential: &sequential,
 				Truncation: &truncation,
@@ -102,14 +104,14 @@ func TestTableQuestionAnswering_ContextCancellation(t *testing.T) {
 	cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel("google/tapas-base-finetuned-wtq"),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel("google/tapas-base-finetuned-wtq"),
+		hfopts.WithContext(ctx),
 	)
 
 	_, err := client.AnswerTableQuestion(
-		hfgo.TableQuestionAnsweringRequest{
-			Input: hfgo.TableQuestionAnsweringInput{
+		hftypes.TableQuestionAnsweringRequest{
+			Input: hftypes.TableQuestionAnsweringInput{
 				Question: "How old is Bob?",
 				Table: map[string][]string{
 					"Name": {"Alice", "Bob", "Carol"},

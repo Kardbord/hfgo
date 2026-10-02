@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/internal/request"
 	"github.com/Kardbord/hfgo/v4/providers"
 )
@@ -14,13 +15,13 @@ const errProviderMustNotBeNil = "provider must not be nil"
 // modelDispatchConfig holds the common validation and dispatch parameters
 // for doJSONInference and doStreamingInference.
 type modelDispatchConfig struct {
-	opts     request.Options
+	opts     hfopts.Options
 	task     providers.Task
 	endpoint string
 }
 
 // resolveModelDispatch validates options and resolves the endpoint.
-func resolveModelDispatch(opts request.Options, task providers.Task) (modelDispatchConfig, error) {
+func resolveModelDispatch(opts hfopts.Options, task providers.Task) (modelDispatchConfig, error) {
 	var cfg modelDispatchConfig
 
 	if opts.Model == "" {
@@ -82,7 +83,7 @@ func encodeRequest[Req any](
 // It applies the provider's wire-format transform to the request before
 // sending and to the response after receiving.
 func doJSONInference[Req, Resp any](
-	opts request.Options,
+	opts hfopts.Options,
 	task providers.Task,
 	req Req,
 ) (Resp, error) {
@@ -98,8 +99,8 @@ func doJSONInference[Req, Resp any](
 		return zero, err
 	}
 
-	cfg.opts = cfg.opts.WithDefaultHeader("Content-Type", ct)
-	cfg.opts = cfg.opts.WithDefaultHeader("Accept", "application/json")
+	cfg.opts = cfg.opts.With(hfopts.WithDefaultHeader("Content-Type", ct))
+	cfg.opts = cfg.opts.With(hfopts.WithDefaultHeader("Accept", "application/json"))
 
 	if err := request.ValidateJSONRequestContentType(cfg.opts.Headers); err != nil {
 		return zero, err
@@ -139,7 +140,7 @@ func doJSONInference[Req, Resp any](
 //
 //nolint:unused // Entry point for future binary task calls.
 func doRawInference(
-	opts request.Options,
+	opts hfopts.Options,
 	task providers.Task,
 	body []byte,
 	contentType string,
@@ -155,8 +156,8 @@ func doRawInference(
 		return nil, "", err
 	}
 
-	cfg.opts = cfg.opts.WithDefaultHeader("Content-Type", ct)
-	cfg.opts = cfg.opts.WithDefaultHeader("Accept", accept)
+	cfg.opts = cfg.opts.With(hfopts.WithDefaultHeader("Content-Type", ct))
+	cfg.opts = cfg.opts.With(hfopts.WithDefaultHeader("Accept", accept))
 
 	//nolint:bodyclose // DrainAndCloseBody closes the body.
 	httpResp, err := request.DoBytes(cfg.opts, http.MethodPost, cfg.endpoint, providerBody)
@@ -182,7 +183,7 @@ func doRawInference(
 // doStreamingInference sends a typed request and returns a JSON stream
 // of decoded SSE events, applying provider wire-format transforms.
 func doStreamingInference[Req, T any](
-	opts request.Options,
+	opts hfopts.Options,
 	task providers.Task,
 	req Req,
 ) (*request.JSONStream[T], error) {
@@ -196,8 +197,8 @@ func doStreamingInference[Req, T any](
 		return nil, err
 	}
 
-	cfg.opts = cfg.opts.WithDefaultHeader("Content-Type", ct)
-	cfg.opts = cfg.opts.WithDefaultHeader("Accept", "text/event-stream")
+	cfg.opts = cfg.opts.With(hfopts.WithDefaultHeader("Content-Type", ct))
+	cfg.opts = cfg.opts.With(hfopts.WithDefaultHeader("Accept", "text/event-stream"))
 
 	//nolint:bodyclose // Body ownership transferred to RawStream.
 	httpResp, err := request.DoBytes(cfg.opts, http.MethodPost, cfg.endpoint, providerBody)

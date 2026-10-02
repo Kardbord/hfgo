@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,18 +27,18 @@ func TestZeroShotTextClassification_LiveAPI(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	const text = "This product is excellent and I love it!"
 	candidateLabels := []string{"positive", "negative", "neutral"}
 
 	resp, err := client.ZeroShotClassifyText(
-		hfgo.ZeroShotTextClassificationRequest{
+		hftypes.ZeroShotTextClassificationRequest{
 			Input: text,
-			Parameters: &hfgo.ZeroShotTextClassificationParameters{
+			Parameters: &hftypes.ZeroShotTextClassificationParameters{
 				CandidateLabels: candidateLabels,
 			},
 		},
@@ -60,9 +62,9 @@ func TestZeroShotTextClassification_BatchLiveAPI(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	inputs := []string{
@@ -74,9 +76,9 @@ func TestZeroShotTextClassification_BatchLiveAPI(t *testing.T) {
 	candidateLabels := []string{"positive", "negative", "neutral"}
 
 	resp, err := client.ZeroShotClassifyTextBatch(
-		hfgo.ZeroShotTextClassificationBatchRequest{
+		hftypes.ZeroShotTextClassificationBatchRequest{
 			Inputs: inputs,
-			Parameters: &hfgo.ZeroShotTextClassificationParameters{
+			Parameters: &hftypes.ZeroShotTextClassificationParameters{
 				CandidateLabels: candidateLabels,
 			},
 		},
@@ -110,18 +112,18 @@ func TestZeroShotTextClassification_WithHypothesisTemplate(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	candidateLabels := []string{"positive", "negative"}
 	hypothesisTemplate := "This example is {}."
 
 	resp, err := client.ZeroShotClassifyText(
-		hfgo.ZeroShotTextClassificationRequest{
+		hftypes.ZeroShotTextClassificationRequest{
 			Input: "I love this product!",
-			Parameters: &hfgo.ZeroShotTextClassificationParameters{
+			Parameters: &hftypes.ZeroShotTextClassificationParameters{
 				CandidateLabels:    candidateLabels,
 				HypothesisTemplate: &hypothesisTemplate,
 			},
@@ -146,18 +148,18 @@ func TestZeroShotTextClassification_WithMultiLabel(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	candidateLabels := []string{"positive", "negative", "neutral"}
 	multiLabel := true
 
 	resp, err := client.ZeroShotClassifyText(
-		hfgo.ZeroShotTextClassificationRequest{
+		hftypes.ZeroShotTextClassificationRequest{
 			Input: "This product is great and I love it!",
-			Parameters: &hfgo.ZeroShotTextClassificationParameters{
+			Parameters: &hftypes.ZeroShotTextClassificationParameters{
 				CandidateLabels: candidateLabels,
 				MultiLabel:      &multiLabel,
 			},
@@ -179,9 +181,9 @@ func TestZeroShotTextClassification_VeryLargeBatch(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel("facebook/bart-large-mnli"),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel("facebook/bart-large-mnli"),
+		hfopts.WithContext(ctx),
 	)
 
 	// Create a batch of 10 inputs
@@ -205,9 +207,9 @@ func TestZeroShotTextClassification_VeryLargeBatch(t *testing.T) {
 	candidateLabels := []string{"positive", "negative", "neutral"}
 
 	resp, err := client.ZeroShotClassifyTextBatch(
-		hfgo.ZeroShotTextClassificationBatchRequest{
+		hftypes.ZeroShotTextClassificationBatchRequest{
 			Inputs: inputs,
-			Parameters: &hfgo.ZeroShotTextClassificationParameters{
+			Parameters: &hftypes.ZeroShotTextClassificationParameters{
 				CandidateLabels: candidateLabels,
 			},
 		},
@@ -233,9 +235,9 @@ func TestZeroShotTextClassification_MultipleCandidateLabels(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel("facebook/bart-large-mnli"),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel("facebook/bart-large-mnli"),
+		hfopts.WithContext(ctx),
 	)
 
 	// More comprehensive set of candidate labels
@@ -249,9 +251,9 @@ func TestZeroShotTextClassification_MultipleCandidateLabels(t *testing.T) {
 	}
 
 	resp, err := client.ZeroShotClassifyText(
-		hfgo.ZeroShotTextClassificationRequest{
+		hftypes.ZeroShotTextClassificationRequest{
 			Input: "I absolutely love this product! It exceeded all my expectations!",
-			Parameters: &hfgo.ZeroShotTextClassificationParameters{
+			Parameters: &hftypes.ZeroShotTextClassificationParameters{
 				CandidateLabels: candidateLabels,
 			},
 		},

@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4"
-	"github.com/Kardbord/hfgo/v4/internal/dto"
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
-	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -57,13 +57,13 @@ func TestExtractFeatures_ResponseDecoding(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mt := testutils.NewJSONMockTransport(http.StatusOK, tc.responseBody, nil)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("test-model"),
+				hfopts.WithModel("test-model"),
 			)
 
-			result, err := client.FeatureExtract(dto.FeatureExtractionRequest{
+			result, err := client.FeatureExtract(hftypes.FeatureExtractionRequest{
 				Input: "What is the capital of France?",
 			})
 			require.NoError(t, err, tc.description)
@@ -81,13 +81,13 @@ func TestExtractFeatures_ResponseDecoding(t *testing.T) {
 
 func featureExtractionParameterCases() []struct {
 	name        string
-	params      *dto.FeatureExtractionParameters
+	params      *hftypes.FeatureExtractionParameters
 	want        map[string]any
 	description string
 } {
 	return []struct {
 		name        string
-		params      *dto.FeatureExtractionParameters
+		params      *hftypes.FeatureExtractionParameters
 		want        map[string]any
 		description string
 	}{
@@ -97,56 +97,56 @@ func featureExtractionParameterCases() []struct {
 		},
 		{
 			name:   "normalize true",
-			params: &dto.FeatureExtractionParameters{Normalize: testutils.Ptr(true)},
+			params: &hftypes.FeatureExtractionParameters{Normalize: testutils.Ptr(true)},
 			want:   map[string]any{"normalize": true},
 		},
 		{
 			name:   "normalize false",
-			params: &dto.FeatureExtractionParameters{Normalize: testutils.Ptr(false)},
+			params: &hftypes.FeatureExtractionParameters{Normalize: testutils.Ptr(false)},
 			want:   map[string]any{"normalize": false},
 		},
 		{
 			name:   "prompt_name",
-			params: &dto.FeatureExtractionParameters{PromptName: testutils.Ptr("query")},
+			params: &hftypes.FeatureExtractionParameters{PromptName: testutils.Ptr("query")},
 			want:   map[string]any{"prompt_name": "query"},
 		},
 		{
 			name:   "truncate true",
-			params: &dto.FeatureExtractionParameters{Truncate: testutils.Ptr(true)},
+			params: &hftypes.FeatureExtractionParameters{Truncate: testutils.Ptr(true)},
 			want:   map[string]any{"truncate": true},
 		},
 		{
 			name:   "truncate false",
-			params: &dto.FeatureExtractionParameters{Truncate: testutils.Ptr(false)},
+			params: &hftypes.FeatureExtractionParameters{Truncate: testutils.Ptr(false)},
 			want:   map[string]any{"truncate": false},
 		},
 		{
 			name: "truncation_direction left",
-			params: &dto.FeatureExtractionParameters{
-				TruncationDirection: testutils.Ptr(hfgo.FeatureExtractionTruncationLeft),
+			params: &hftypes.FeatureExtractionParameters{
+				TruncationDirection: testutils.Ptr(hftypes.FeatureExtractionTruncationLeft),
 			},
-			want: map[string]any{"truncation_direction": hfgo.FeatureExtractionTruncationLeft},
+			want: map[string]any{"truncation_direction": hftypes.FeatureExtractionTruncationLeft},
 		},
 		{
 			name: "truncation_direction right",
-			params: &dto.FeatureExtractionParameters{
-				TruncationDirection: testutils.Ptr(hfgo.FeatureExtractionTruncationRight),
+			params: &hftypes.FeatureExtractionParameters{
+				TruncationDirection: testutils.Ptr(hftypes.FeatureExtractionTruncationRight),
 			},
-			want: map[string]any{"truncation_direction": hfgo.FeatureExtractionTruncationRight},
+			want: map[string]any{"truncation_direction": hftypes.FeatureExtractionTruncationRight},
 		},
 		{
 			name: "all parameters",
-			params: &dto.FeatureExtractionParameters{
+			params: &hftypes.FeatureExtractionParameters{
 				Normalize:           testutils.Ptr(true),
 				PromptName:          testutils.Ptr("query"),
 				Truncate:            testutils.Ptr(true),
-				TruncationDirection: testutils.Ptr(hfgo.FeatureExtractionTruncationRight),
+				TruncationDirection: testutils.Ptr(hftypes.FeatureExtractionTruncationRight),
 			},
 			want: map[string]any{
 				"normalize":            true,
 				"prompt_name":          "query",
 				"truncate":             true,
-				"truncation_direction": hfgo.FeatureExtractionTruncationRight,
+				"truncation_direction": hftypes.FeatureExtractionTruncationRight,
 			},
 		},
 	}
@@ -164,13 +164,13 @@ func TestExtractFeatures_ParameterSerialization(t *testing.T) {
 				nil,
 			)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("test-model"),
+				hfopts.WithModel("test-model"),
 			)
 
-			req := dto.FeatureExtractionRequest{Input: "test input"}
+			req := hftypes.FeatureExtractionRequest{Input: "test input"}
 			if tc.params != nil {
 				req.Parameters = tc.params
 			}
@@ -222,8 +222,8 @@ func TestExtractFeatures_Errors(t *testing.T) {
 				description:  "API error for model not yet loaded",
 			},
 		},
-		func(opts ...request.Option) (hfgo.FeatureExtraction, error) {
-			return hfgo.NewClient(opts...).FeatureExtract(dto.FeatureExtractionRequest{
+		func(opts ...hfopts.Option) (hftypes.FeatureExtraction, error) {
+			return hfgo.NewClient(opts...).FeatureExtract(hftypes.FeatureExtractionRequest{
 				Input: "What is the capital of France?",
 			})
 		},
@@ -292,13 +292,13 @@ func TestExtractFeaturesBatch_ResponseDecoding(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mt := testutils.NewJSONMockTransport(http.StatusOK, tc.responseBody, nil)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("test-model"),
+				hfopts.WithModel("test-model"),
 			)
 
-			result, err := client.FeatureExtractBatch(dto.FeatureExtractionBatchRequest{
+			result, err := client.FeatureExtractBatch(hftypes.FeatureExtractionBatchRequest{
 				Inputs: tc.inputs,
 			})
 			require.NoError(t, err, tc.description)
@@ -345,10 +345,11 @@ func TestExtractFeaturesBatch_Errors(t *testing.T) {
 				description:  "API error for model not yet loaded",
 			},
 		},
-		func(opts ...request.Option) ([]hfgo.FeatureExtraction, error) {
-			return hfgo.NewClient(opts...).FeatureExtractBatch(dto.FeatureExtractionBatchRequest{
-				Inputs: []string{"hello", "world"},
-			})
+		func(opts ...hfopts.Option) ([]hftypes.FeatureExtraction, error) {
+			return hfgo.NewClient(opts...).
+				FeatureExtractBatch(hftypes.FeatureExtractionBatchRequest{
+					Inputs: []string{"hello", "world"},
+				})
 		},
 	)
 }
@@ -365,13 +366,13 @@ func TestExtractFeaturesBatch_ParameterSerialization(t *testing.T) {
 				nil,
 			)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("test-model"),
+				hfopts.WithModel("test-model"),
 			)
 
-			req := dto.FeatureExtractionBatchRequest{
+			req := hftypes.FeatureExtractionBatchRequest{
 				Inputs: []string{"test input"},
 			}
 			if tc.params != nil {
@@ -404,10 +405,10 @@ func TestExtractFeaturesBatch_NoModel(t *testing.T) {
 		nil,
 	)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	result, err := client.FeatureExtractBatch(dto.FeatureExtractionBatchRequest{
+	result, err := client.FeatureExtractBatch(hftypes.FeatureExtractionBatchRequest{
 		Inputs: []string{"hello"},
 	})
 	require.Error(t, err)
@@ -427,12 +428,12 @@ func TestExtractFeaturesBatch_ModelFromOptions(t *testing.T) {
 		nil,
 	)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	result, err := client.FeatureExtractBatch(dto.FeatureExtractionBatchRequest{
+	result, err := client.FeatureExtractBatch(hftypes.FeatureExtractionBatchRequest{
 		Inputs: []string{"hello"},
-	}, hfgo.WithModel("override-model"))
+	}, hfopts.WithModel("override-model"))
 	require.NoError(t, err)
 	require.NotNil(t, result)
 

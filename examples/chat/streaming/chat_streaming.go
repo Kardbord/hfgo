@@ -9,6 +9,8 @@ import (
 	"os"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 // This example demonstrates how to use the client for streaming chat completions.
@@ -22,22 +24,22 @@ func main() {
 
 	// Create a new client with your API token and model
 	client := hfgo.NewClient(
-		hfgo.WithToken(token),
-		hfgo.WithModel("deepseek-ai/DeepSeek-R1"),
+		hfopts.WithToken(token),
+		hfopts.WithModel("deepseek-ai/DeepSeek-R1"),
 	)
 
 	// Create a chat request for streaming
 	prompt := "Tell me a short joke about programming."
-	request := hfgo.ChatRequest{
-		Messages: []hfgo.ChatMessage{
+	request := hftypes.ChatRequest{
+		Messages: []hftypes.ChatMessage{
 			{
 				Role: "user",
-				Content: hfgo.ChatMessageContent{
+				Content: hftypes.ChatMessageContent{
 					Text: &prompt,
 				},
 			},
 		},
-		StreamOptions: &hfgo.ChatStreamOptions{
+		StreamOptions: &hftypes.ChatStreamOptions{
 			IncludeUsage: Ptr(false),
 		},
 		MaxTokens: Ptr(1024),
@@ -47,7 +49,7 @@ func main() {
 	ctx := context.Background()
 
 	// Send the streaming request
-	stream, err := client.ChatStream(request, hfgo.WithContext(ctx))
+	stream, err := client.ChatStream(request, hfopts.WithContext(ctx))
 	if err != nil {
 		log.Fatalf("Failed to start streaming chat request: %v", err)
 	}

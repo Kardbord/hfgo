@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4"
-	"github.com/Kardbord/hfgo/v4/internal/dto"
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
-	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -78,13 +78,13 @@ func TestClassifyTokens_ResponseDecoding(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mt := testutils.NewJSONMockTransport(http.StatusOK, tc.responseBody, nil)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("test-model"),
+				hfopts.WithModel("test-model"),
 			)
 
-			req := dto.TokenClassificationRequest{
+			req := hftypes.TokenClassificationRequest{
 				Input: "My name is Sarah and I live in London.",
 			}
 
@@ -125,16 +125,16 @@ func TestClassifyTokens_WithParameters(t *testing.T) {
 		nil,
 	)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
-		hfgo.WithModel("test-model"),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
 	)
 
-	req := dto.TokenClassificationRequest{
+	req := hftypes.TokenClassificationRequest{
 		Input: "My name is Sarah and I live in London.",
-		Parameters: &dto.TokenClassificationParameters{
+		Parameters: &hftypes.TokenClassificationParameters{
 			IgnoreLabels:        []string{"O"},
 			Stride:              testutils.Ptr(5),
-			AggregationStrategy: testutils.Ptr(dto.TokenClassificationAggregationSimple),
+			AggregationStrategy: testutils.Ptr(hftypes.TokenClassificationAggregationSimple),
 		},
 	}
 
@@ -184,8 +184,8 @@ func TestClassifyTokens_Errors(t *testing.T) {
 				description:  "API error for model not yet loaded",
 			},
 		},
-		func(opts ...request.Option) ([]dto.TokenClassification, error) {
-			return hfgo.NewClient(opts...).ClassifyTokens(dto.TokenClassificationRequest{
+		func(opts ...hfopts.Option) ([]hftypes.TokenClassification, error) {
+			return hfgo.NewClient(opts...).ClassifyTokens(hftypes.TokenClassificationRequest{
 				Input: "My name is Sarah and I live in London.",
 			})
 		},
@@ -285,13 +285,13 @@ func TestClassifyTokensBatch_ResponseDecoding(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mt := testutils.NewJSONMockTransport(http.StatusOK, tc.responseBody, nil)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("test-model"),
+				hfopts.WithModel("test-model"),
 			)
 
-			req := dto.TokenClassificationBatchRequest{
+			req := hftypes.TokenClassificationBatchRequest{
 				Inputs: tc.inputs,
 			}
 
@@ -352,10 +352,11 @@ func TestClassifyTokensBatch_Errors(t *testing.T) {
 				description:  "API error for model not yet loaded",
 			},
 		},
-		func(opts ...request.Option) ([][]dto.TokenClassification, error) {
-			return hfgo.NewClient(opts...).ClassifyTokensBatch(dto.TokenClassificationBatchRequest{
-				Inputs: []string{"My name is Sarah and I live in London."},
-			})
+		func(opts ...hfopts.Option) ([][]hftypes.TokenClassification, error) {
+			return hfgo.NewClient(opts...).
+				ClassifyTokensBatch(hftypes.TokenClassificationBatchRequest{
+					Inputs: []string{"My name is Sarah and I live in London."},
+				})
 		},
 	)
 }
@@ -370,14 +371,14 @@ func TestClassifyTokensBatch_ModelFromOptions(t *testing.T) {
 		nil,
 	)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	req := dto.TokenClassificationBatchRequest{
+	req := hftypes.TokenClassificationBatchRequest{
 		Inputs: []string{"My name is Sarah."},
 	}
 
-	result, err := client.ClassifyTokensBatch(req, hfgo.WithModel("override-model"))
+	result, err := client.ClassifyTokensBatch(req, hfopts.WithModel("override-model"))
 	require.NoError(t, err)
 	require.NotNil(t, result)
 

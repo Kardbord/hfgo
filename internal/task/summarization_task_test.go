@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4"
-	"github.com/Kardbord/hfgo/v4/internal/dto"
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
-	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -41,11 +41,11 @@ func TestSummarize_ResponseVariations(t *testing.T) {
 				description:  "multiple summaries in one response pass through",
 			},
 		},
-		func() dto.SummarizationRequest { return dto.SummarizationRequest{Input: "Some long text."} },
-		func(c hfgo.Client, req dto.SummarizationRequest) ([]dto.Summarization, error) {
+		func() hftypes.SummarizationRequest { return hftypes.SummarizationRequest{Input: "Some long text."} },
+		func(c hfgo.Client, req hftypes.SummarizationRequest) ([]hftypes.Summarization, error) {
 			return c.Summarize(req)
 		},
-		func(s dto.Summarization) string { return s.SummaryText },
+		func(s hftypes.Summarization) string { return s.SummaryText },
 	)
 }
 
@@ -72,26 +72,26 @@ func TestSummarize_ParameterSerialization(t *testing.T) {
 		},
 		{
 			name:        "truncation do_not_truncate",
-			truncation:  testutils.Ptr(dto.SummarizationTruncationDoNotTruncate),
-			want:        map[string]any{"truncation": dto.SummarizationTruncationDoNotTruncate},
+			truncation:  testutils.Ptr(hftypes.SummarizationTruncationDoNotTruncate),
+			want:        map[string]any{"truncation": hftypes.SummarizationTruncationDoNotTruncate},
 			description: "do_not_truncate constant serializes correctly",
 		},
 		{
 			name:        "truncation longest_first",
-			truncation:  testutils.Ptr(dto.SummarizationTruncationLongestFirst),
-			want:        map[string]any{"truncation": dto.SummarizationTruncationLongestFirst},
+			truncation:  testutils.Ptr(hftypes.SummarizationTruncationLongestFirst),
+			want:        map[string]any{"truncation": hftypes.SummarizationTruncationLongestFirst},
 			description: "longest_first constant serializes correctly",
 		},
 		{
 			name:        "truncation only_first",
-			truncation:  testutils.Ptr(dto.SummarizationTruncationOnlyFirst),
-			want:        map[string]any{"truncation": dto.SummarizationTruncationOnlyFirst},
+			truncation:  testutils.Ptr(hftypes.SummarizationTruncationOnlyFirst),
+			want:        map[string]any{"truncation": hftypes.SummarizationTruncationOnlyFirst},
 			description: "only_first constant serializes correctly",
 		},
 		{
 			name:        "truncation only_second",
-			truncation:  testutils.Ptr(dto.SummarizationTruncationOnlySecond),
-			want:        map[string]any{"truncation": dto.SummarizationTruncationOnlySecond},
+			truncation:  testutils.Ptr(hftypes.SummarizationTruncationOnlySecond),
+			want:        map[string]any{"truncation": hftypes.SummarizationTruncationOnlySecond},
 			description: "only_second constant serializes correctly",
 		},
 		{
@@ -108,11 +108,11 @@ func TestSummarize_ParameterSerialization(t *testing.T) {
 		{
 			name:       "all parameters",
 			cleanUp:    testutils.Ptr(true),
-			truncation: testutils.Ptr(dto.SummarizationTruncationOnlyFirst),
+			truncation: testutils.Ptr(hftypes.SummarizationTruncationOnlyFirst),
 			generate:   map[string]any{"max_new_tokens": 60},
 			want: map[string]any{
 				"clean_up_tokenization_spaces": true,
-				"truncation":                   dto.SummarizationTruncationOnlyFirst,
+				"truncation":                   hftypes.SummarizationTruncationOnlyFirst,
 				"generate_parameters":          map[string]any{"max_new_tokens": float64(60)},
 			},
 			description: "all parameters serialize together",
@@ -128,15 +128,15 @@ func TestSummarize_ParameterSerialization(t *testing.T) {
 				nil,
 			)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("test-model"),
+				hfopts.WithModel("test-model"),
 			)
 
-			req := dto.SummarizationRequest{Input: "Some long text."}
+			req := hftypes.SummarizationRequest{Input: "Some long text."}
 			if tc.cleanUp != nil || tc.truncation != nil || tc.generate != nil {
-				req.Parameters = &dto.SummarizationParameters{
+				req.Parameters = &hftypes.SummarizationParameters{
 					CleanUpTokenizationSpaces: tc.cleanUp,
 					Truncation:                tc.truncation,
 					GenerateParameters:        tc.generate,
@@ -182,8 +182,8 @@ func TestSummarize_Errors(t *testing.T) {
 				description:  "API error for nonexistent model",
 			},
 		},
-		func(opts ...request.Option) ([]dto.Summarization, error) {
-			return hfgo.NewClient(opts...).Summarize(dto.SummarizationRequest{
+		func(opts ...hfopts.Option) ([]hftypes.Summarization, error) {
+			return hfgo.NewClient(opts...).Summarize(hftypes.SummarizationRequest{
 				Input: "Some long text that should be summarized.",
 			})
 		},
@@ -215,15 +215,15 @@ func TestSummarizeBatch_ResponseVariations(t *testing.T) {
 				description:  "empty response passes through as an empty list",
 			},
 		},
-		func() dto.SummarizationBatchRequest {
-			return dto.SummarizationBatchRequest{
+		func() hftypes.SummarizationBatchRequest {
+			return hftypes.SummarizationBatchRequest{
 				Inputs: []string{"Long text one.", "Long text two."},
 			}
 		},
-		func(c hfgo.Client, req dto.SummarizationBatchRequest) ([]dto.Summarization, error) {
+		func(c hfgo.Client, req hftypes.SummarizationBatchRequest) ([]hftypes.Summarization, error) {
 			return c.SummarizeBatch(req)
 		},
-		func(s dto.Summarization) string { return s.SummaryText },
+		func(s hftypes.Summarization) string { return s.SummaryText },
 	)
 }
 
@@ -249,8 +249,8 @@ func TestSummarizeBatch_Errors(t *testing.T) {
 				description:  "API error for nonexistent model",
 			},
 		},
-		func(opts ...request.Option) ([]dto.Summarization, error) {
-			return hfgo.NewClient(opts...).SummarizeBatch(dto.SummarizationBatchRequest{
+		func(opts ...hfopts.Option) ([]hftypes.Summarization, error) {
+			return hfgo.NewClient(opts...).SummarizeBatch(hftypes.SummarizationBatchRequest{
 				Inputs: []string{"Long text one."},
 			})
 		},
@@ -266,12 +266,12 @@ func TestSummarizeBatch_ModelFromOptions(t *testing.T) {
 		nil,
 	)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	result, err := client.SummarizeBatch(dto.SummarizationBatchRequest{
+	result, err := client.SummarizeBatch(hftypes.SummarizationBatchRequest{
 		Inputs: []string{"Long text one."},
-	}, hfgo.WithModel("override-model"))
+	}, hfopts.WithModel("override-model"))
 	require.NoError(t, err)
 	require.NotNil(t, result)
 

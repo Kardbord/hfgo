@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -28,18 +30,18 @@ func TestChatCompletion_LiveAPI(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	const text = "Say hello in one sentence."
 	resp, err := client.Chat(
-		hfgo.ChatRequest{
-			Messages: []hfgo.ChatMessage{
+		hftypes.ChatRequest{
+			Messages: []hftypes.ChatMessage{
 				{
 					Role: "user",
-					Content: hfgo.ChatMessageContent{
+					Content: hftypes.ChatMessageContent{
 						Text: testutils.Ptr(text),
 					},
 				},
@@ -83,18 +85,18 @@ func TestChatCompletion_StreamingLiveAPI(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	text := "Say hello in one sentence."
 	stream, err := client.ChatStream(
-		hfgo.ChatRequest{
-			Messages: []hfgo.ChatMessage{
+		hftypes.ChatRequest{
+			Messages: []hftypes.ChatMessage{
 				{
 					Role: "user",
-					Content: hfgo.ChatMessageContent{
+					Content: hftypes.ChatMessageContent{
 						Text: &text,
 					},
 				},
@@ -144,32 +146,32 @@ func TestChatCompletion_MultiMessageLiveAPI(t *testing.T) {
 	defer cancel()
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(apiToken),
-		hfgo.WithModel(model),
-		hfgo.WithContext(ctx),
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
 	)
 
 	text1 := "What is 2+2?"
 	text2 := "What is the answer multiplied by 3?"
 
 	resp, err := client.Chat(
-		hfgo.ChatRequest{
-			Messages: []hfgo.ChatMessage{
+		hftypes.ChatRequest{
+			Messages: []hftypes.ChatMessage{
 				{
 					Role: "user",
-					Content: hfgo.ChatMessageContent{
+					Content: hftypes.ChatMessageContent{
 						Text: &text1,
 					},
 				},
 				{
 					Role: "assistant",
-					Content: hfgo.ChatMessageContent{
+					Content: hftypes.ChatMessageContent{
 						Text: testutils.Ptr("2+2 equals 4"),
 					},
 				},
 				{
 					Role: "user",
-					Content: hfgo.ChatMessageContent{
+					Content: hftypes.ChatMessageContent{
 						Text: &text2,
 					},
 				},

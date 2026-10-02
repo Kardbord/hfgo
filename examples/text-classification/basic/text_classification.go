@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 func main() {
@@ -17,8 +19,8 @@ func main() {
 
 	// Create a new client with your API token and desired model
 	client := hfgo.NewClient(
-		hfgo.WithToken(token),
-		hfgo.WithModel("ProsusAI/finbert"),
+		hfopts.WithToken(token),
+		hfopts.WithModel("ProsusAI/finbert"),
 	)
 
 	input := "This was a masterpiece. Not completely faithful to the books, but enthralling from beginning to end. Might be my favorite of the three."
@@ -29,9 +31,9 @@ func main() {
 
 	// Make the classification request
 	classifications, err := client.ClassifyText(
-		hfgo.TextClassificationRequest{
+		hftypes.TextClassificationRequest{
 			Input: input,
-			Parameters: &hfgo.TextClassificationParameters{
+			Parameters: &hftypes.TextClassificationParameters{
 				TopK: Ptr(2),
 			},
 		},

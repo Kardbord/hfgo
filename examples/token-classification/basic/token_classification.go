@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 func main() {
@@ -16,8 +18,8 @@ func main() {
 	}
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(token),
-		hfgo.WithModel("dslim/bert-base-NER"),
+		hfopts.WithToken(token),
+		hfopts.WithModel("dslim/bert-base-NER"),
 	)
 
 	input := "My name is Sarah and I live in London."
@@ -27,7 +29,7 @@ func main() {
 	fmt.Println("...")
 
 	entities, err := client.ClassifyTokens(
-		hfgo.TokenClassificationRequest{
+		hftypes.TokenClassificationRequest{
 			Input: input,
 		},
 	)

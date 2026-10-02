@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 const Model = "deepseek-ai/DeepSeek-R1"
@@ -27,7 +29,7 @@ func main() {
 type ChatClient struct {
 	hfClient hfgo.Client
 	scanner  *bufio.Scanner
-	history  []hfgo.ChatMessage
+	history  []hftypes.ChatMessage
 }
 
 func NewChatClient(sysPrompt string) ChatClient {
@@ -39,16 +41,16 @@ func NewChatClient(sysPrompt string) ChatClient {
 
 	chatClient := ChatClient{
 		hfClient: hfgo.NewClient(
-			hfgo.WithToken(token),
-			hfgo.WithModel(Model),
+			hfopts.WithToken(token),
+			hfopts.WithModel(Model),
 		),
 		scanner: bufio.NewScanner(os.Stdin),
-		history: make([]hfgo.ChatMessage, 1, 20),
+		history: make([]hftypes.ChatMessage, 1, 20),
 	}
 
-	chatClient.history[0] = hfgo.ChatMessage{
+	chatClient.history[0] = hftypes.ChatMessage{
 		Role: "system",
-		Content: hfgo.ChatMessageContent{
+		Content: hftypes.ChatMessageContent{
 			Text: &sysPrompt,
 		},
 	}
@@ -60,7 +62,7 @@ func (chatClient *ChatClient) Chat() error {
 	fmt.Println("Welcome to this chat bot example! Press Ctrl+d at any time to exit.")
 	fmt.Println("Initializing...")
 	stream, err := chatClient.hfClient.ChatStream(
-		hfgo.ChatRequest{
+		hftypes.ChatRequest{
 			Messages: chatClient.history, // Initialize with the system prompt given to NewChatClient
 		},
 	)
@@ -105,23 +107,23 @@ func (chatClient *ChatClient) Chat() error {
 	return chatClient.scanner.Err()
 }
 
-func (chatClient *ChatClient) prompt(input string) (*hfgo.ChatStream, error) {
-	chatClient.history = append(chatClient.history, hfgo.ChatMessage{
+func (chatClient *ChatClient) prompt(input string) (*hftypes.ChatStream, error) {
+	chatClient.history = append(chatClient.history, hftypes.ChatMessage{
 		Role: "user",
-		Content: hfgo.ChatMessageContent{
+		Content: hftypes.ChatMessageContent{
 			Text: &input,
 		},
 	})
 
 	return chatClient.hfClient.ChatStream(
-		hfgo.ChatRequest{
+		hftypes.ChatRequest{
 			Messages: chatClient.history,
 		},
-		hfgo.WithContext(context.Background()),
+		hfopts.WithContext(context.Background()),
 	)
 }
 
-func (chatClient *ChatClient) recv(stream *hfgo.ChatStream) error {
+func (chatClient *ChatClient) recv(stream *hftypes.ChatStream) error {
 	response := strings.Builder{}
 	for {
 		chunk, err := stream.Recv(context.Background())
@@ -141,9 +143,9 @@ func (chatClient *ChatClient) recv(stream *hfgo.ChatStream) error {
 		fmt.Print(chunkContent)
 	}
 
-	chatClient.history = append(chatClient.history, hfgo.ChatMessage{
+	chatClient.history = append(chatClient.history, hftypes.ChatMessage{
 		Role: "assistant",
-		Content: hfgo.ChatMessageContent{
+		Content: hftypes.ChatMessageContent{
 			Text: Ptr(response.String()),
 		},
 	})

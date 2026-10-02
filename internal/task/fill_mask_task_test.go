@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4"
-	"github.com/Kardbord/hfgo/v4/internal/dto"
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
-	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -72,13 +72,13 @@ func TestFillMask_ResponseDecoding(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mt := testutils.NewJSONMockTransport(tc.statusCode, tc.responseBody, nil)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("test-model"),
+				hfopts.WithModel("test-model"),
 			)
 
-			req := dto.FillMaskRequest{
+			req := hftypes.FillMaskRequest{
 				Input: "The capital of France is [MASK].",
 			}
 
@@ -114,14 +114,14 @@ func TestFillMask_WithParameters(t *testing.T) {
 		nil,
 	)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
-		hfgo.WithModel("test-model"),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
 	)
 
 	topK := 5
-	req := dto.FillMaskRequest{
+	req := hftypes.FillMaskRequest{
 		Input: "The quick brown fox jumps over the [MASK] dog.",
-		Parameters: &dto.FillMaskParameters{
+		Parameters: &hftypes.FillMaskParameters{
 			TopK:    &topK,
 			Targets: []string{"lazy", "smart", "fast"},
 		},
@@ -175,8 +175,8 @@ func TestFillMask_Errors(t *testing.T) {
 				description:  "API error for model not yet loaded",
 			},
 		},
-		func(opts ...request.Option) ([]dto.FillMaskPrediction, error) {
-			return hfgo.NewClient(opts...).FillMask(dto.FillMaskRequest{
+		func(opts ...hfopts.Option) ([]hftypes.FillMaskPrediction, error) {
+			return hfgo.NewClient(opts...).FillMask(hftypes.FillMaskRequest{
 				Input: "The capital of France is [MASK].",
 			})
 		},
@@ -262,13 +262,13 @@ func TestFillMaskBatch_ResponseDecoding(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mt := testutils.NewJSONMockTransport(http.StatusOK, tc.responseBody, nil)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("test-model"),
+				hfopts.WithModel("test-model"),
 			)
 
-			req := dto.FillMaskBatchRequest{
+			req := hftypes.FillMaskBatchRequest{
 				Inputs: tc.inputs,
 			}
 
@@ -318,8 +318,8 @@ func TestFillMaskBatch_Errors(t *testing.T) {
 				description:  "API error for model not yet loaded",
 			},
 		},
-		func(opts ...request.Option) ([][]dto.FillMaskPrediction, error) {
-			return hfgo.NewClient(opts...).FillMaskBatch(dto.FillMaskBatchRequest{
+		func(opts ...hfopts.Option) ([][]hftypes.FillMaskPrediction, error) {
+			return hfgo.NewClient(opts...).FillMaskBatch(hftypes.FillMaskBatchRequest{
 				Inputs: []string{"I [MASK] my dog everyday."},
 			})
 		},
@@ -336,14 +336,14 @@ func TestFillMaskBatch_ModelFromOptions(t *testing.T) {
 		nil,
 	)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	req := dto.FillMaskBatchRequest{
+	req := hftypes.FillMaskBatchRequest{
 		Inputs: []string{"I [MASK] my dog everyday."},
 	}
 
-	result, err := client.FillMaskBatch(req, hfgo.WithModel("override-model"))
+	result, err := client.FillMaskBatch(req, hfopts.WithModel("override-model"))
 	require.NoError(t, err)
 	require.NotNil(t, result)
 

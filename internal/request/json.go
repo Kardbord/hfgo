@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
+	"github.com/Kardbord/hfgo/v4/hferrors"
 )
 
 const (
@@ -140,19 +140,6 @@ func (s *JSONStream[T]) Close() error {
 	}
 
 	return s.raw.Close()
-}
-
-// ensureHeader returns a copy of headers with a default value set when missing or empty.
-func ensureHeader(h http.Header, key, value string) http.Header {
-	out := cloneHeader(h)
-	if out == nil {
-		out = make(http.Header, 1)
-	}
-	if v := out.Get(key); v == "" {
-		out.Set(key, value)
-	}
-
-	return out
 }
 
 // ValidateJSONRequestContentType validates that Content-Type is application/json when provided.

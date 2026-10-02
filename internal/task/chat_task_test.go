@@ -5,8 +5,8 @@ package task
 import (
 	"testing"
 
-	"github.com/Kardbord/hfgo/v4/internal/dto"
-	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/Kardbord/hfgo/v4/providers"
 	"github.com/stretchr/testify/require"
@@ -55,15 +55,15 @@ func TestResolveModel(t *testing.T) {
 	t.Parallel()
 
 	t.Run("uses request model when provided", func(t *testing.T) {
-		payload := &dto.ChatRequest{Model: testutils.Ptr("request-model")}
-		resolveModel(payload, request.NewOptions().WithModel("client-model"))
+		payload := &hftypes.ChatRequest{Model: testutils.Ptr("request-model")}
+		resolveModel(payload, hfopts.NewOptions().With(hfopts.WithModel("client-model")))
 		require.NotNil(t, payload.Model)
 		require.Equal(t, "request-model", *payload.Model)
 	})
 
 	t.Run("uses options model when request model is nil", func(t *testing.T) {
-		payload := &dto.ChatRequest{}
-		resolveModel(payload, request.NewOptions().WithModel("opts-model"))
+		payload := &hftypes.ChatRequest{}
+		resolveModel(payload, hfopts.NewOptions().With(hfopts.WithModel("opts-model")))
 		require.NotNil(t, payload.Model)
 		require.Equal(t, "opts-model", *payload.Model)
 	})

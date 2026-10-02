@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 func main() {
@@ -17,8 +19,8 @@ func main() {
 
 	// Create a new client with your API token and desired model
 	client := hfgo.NewClient(
-		hfgo.WithToken(token),
-		hfgo.WithModel("google-t5/t5-small"),
+		hfopts.WithToken(token),
+		hfopts.WithModel("google-t5/t5-small"),
 	)
 
 	inputs := []string{
@@ -32,7 +34,7 @@ func main() {
 
 	// Make the batched translation request
 	translations, err := client.TranslateBatch(
-		hfgo.TranslationBatchRequest{
+		hftypes.TranslationBatchRequest{
 			Inputs: inputs,
 		},
 	)

@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4"
-	"github.com/Kardbord/hfgo/v4/internal/dto"
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
-	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -24,14 +24,14 @@ func TestZeroShotClassifyText_SingleInput(t *testing.T) {
 		nil,
 	)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
-		hfgo.WithModel("test-model"),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
 	)
 
 	candidateLabels := []string{"positive", "negative", "neutral"}
-	req := dto.ZeroShotTextClassificationRequest{
+	req := hftypes.ZeroShotTextClassificationRequest{
 		Input: "This is a great product!",
-		Parameters: &dto.ZeroShotTextClassificationParameters{
+		Parameters: &hftypes.ZeroShotTextClassificationParameters{
 			CandidateLabels: candidateLabels,
 		},
 	}
@@ -51,14 +51,14 @@ func TestZeroShotClassifyText_CandidateLabelValidation(t *testing.T) {
 
 	cases := []struct {
 		name        string
-		req         dto.ZeroShotTextClassificationRequest
+		req         hftypes.ZeroShotTextClassificationRequest
 		description string
 	}{
 		{
 			name: "no candidate labels",
-			req: dto.ZeroShotTextClassificationRequest{
+			req: hftypes.ZeroShotTextClassificationRequest{
 				Input: "test text",
-				Parameters: &dto.ZeroShotTextClassificationParameters{
+				Parameters: &hftypes.ZeroShotTextClassificationParameters{
 					CandidateLabels: []string{},
 				},
 			},
@@ -66,7 +66,7 @@ func TestZeroShotClassifyText_CandidateLabelValidation(t *testing.T) {
 		},
 		{
 			name: "no parameters",
-			req: dto.ZeroShotTextClassificationRequest{
+			req: hftypes.ZeroShotTextClassificationRequest{
 				Input: "test text",
 			},
 			description: "SDK error when parameters are missing",
@@ -82,10 +82,10 @@ func TestZeroShotClassifyText_CandidateLabelValidation(t *testing.T) {
 				nil,
 			)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("nonexistent-model"),
+				hfopts.WithModel("nonexistent-model"),
 			)
 
 			result, err := client.ZeroShotClassifyText(tc.req)
@@ -122,11 +122,11 @@ func TestZeroShotClassifyText_Errors(t *testing.T) {
 				description:  "API error for nonexistent model",
 			},
 		},
-		func(opts ...request.Option) ([]dto.ZeroShotTextClassification, error) {
+		func(opts ...hfopts.Option) ([]hftypes.ZeroShotTextClassification, error) {
 			return hfgo.NewClient(opts...).
-				ZeroShotClassifyText(dto.ZeroShotTextClassificationRequest{
+				ZeroShotClassifyText(hftypes.ZeroShotTextClassificationRequest{
 					Input: "test text",
-					Parameters: &dto.ZeroShotTextClassificationParameters{
+					Parameters: &hftypes.ZeroShotTextClassificationParameters{
 						CandidateLabels: []string{"positive", "negative"},
 					},
 				})
@@ -183,16 +183,16 @@ func TestZeroShotClassifyTextBatch_InputVariations(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mt := testutils.NewJSONMockTransport(http.StatusOK, tc.responseBody, nil)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("test-model"),
+				hfopts.WithModel("test-model"),
 			)
 
 			candidateLabels := []string{"positive", "negative", "neutral"}
-			req := dto.ZeroShotTextClassificationBatchRequest{
+			req := hftypes.ZeroShotTextClassificationBatchRequest{
 				Inputs: tc.inputs,
-				Parameters: &dto.ZeroShotTextClassificationParameters{
+				Parameters: &hftypes.ZeroShotTextClassificationParameters{
 					CandidateLabels: candidateLabels,
 				},
 			}
@@ -224,14 +224,14 @@ func TestZeroShotClassifyTextBatch_CandidateLabelValidation(t *testing.T) {
 
 	cases := []struct {
 		name        string
-		req         dto.ZeroShotTextClassificationBatchRequest
+		req         hftypes.ZeroShotTextClassificationBatchRequest
 		description string
 	}{
 		{
 			name: "no candidate labels",
-			req: dto.ZeroShotTextClassificationBatchRequest{
+			req: hftypes.ZeroShotTextClassificationBatchRequest{
 				Inputs: []string{"test text"},
-				Parameters: &dto.ZeroShotTextClassificationParameters{
+				Parameters: &hftypes.ZeroShotTextClassificationParameters{
 					CandidateLabels: []string{},
 				},
 			},
@@ -239,7 +239,7 @@ func TestZeroShotClassifyTextBatch_CandidateLabelValidation(t *testing.T) {
 		},
 		{
 			name: "no parameters",
-			req: dto.ZeroShotTextClassificationBatchRequest{
+			req: hftypes.ZeroShotTextClassificationBatchRequest{
 				Inputs: []string{"test text"},
 			},
 			description: "SDK error when parameters are missing",
@@ -255,10 +255,10 @@ func TestZeroShotClassifyTextBatch_CandidateLabelValidation(t *testing.T) {
 				nil,
 			)
 			client := hfgo.NewClient(
-				hfgo.WithHTTPClientFactory(
+				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },
 				),
-				hfgo.WithModel("nonexistent-model"),
+				hfopts.WithModel("nonexistent-model"),
 			)
 
 			result, err := client.ZeroShotClassifyTextBatch(tc.req)
@@ -295,11 +295,11 @@ func TestZeroShotClassifyTextBatch_Errors(t *testing.T) {
 				description:  "API error for nonexistent model",
 			},
 		},
-		func(opts ...request.Option) ([][]dto.ZeroShotTextClassification, error) {
+		func(opts ...hfopts.Option) ([][]hftypes.ZeroShotTextClassification, error) {
 			return hfgo.NewClient(
-				opts...).ZeroShotClassifyTextBatch(dto.ZeroShotTextClassificationBatchRequest{
+				opts...).ZeroShotClassifyTextBatch(hftypes.ZeroShotTextClassificationBatchRequest{
 				Inputs: []string{"test text"},
-				Parameters: &dto.ZeroShotTextClassificationParameters{
+				Parameters: &hftypes.ZeroShotTextClassificationParameters{
 					CandidateLabels: []string{"positive", "negative"},
 				},
 			})
@@ -318,18 +318,18 @@ func TestZeroShotClassifyTextBatch_ModelFromOptions(t *testing.T) {
 		nil,
 	)
 	client := hfgo.NewClient(
-		hfgo.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
 	candidateLabels := []string{"positive", "negative"}
-	req := dto.ZeroShotTextClassificationBatchRequest{
+	req := hftypes.ZeroShotTextClassificationBatchRequest{
 		Inputs: []string{"test text"},
-		Parameters: &dto.ZeroShotTextClassificationParameters{
+		Parameters: &hftypes.ZeroShotTextClassificationParameters{
 			CandidateLabels: candidateLabels,
 		},
 	}
 
-	result, err := client.ZeroShotClassifyTextBatch(req, hfgo.WithModel("override-model"))
+	result, err := client.ZeroShotClassifyTextBatch(req, hfopts.WithModel("override-model"))
 	require.NoError(t, err)
 	require.NotNil(t, result)
 

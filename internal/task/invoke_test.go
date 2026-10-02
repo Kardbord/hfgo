@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
-	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/Kardbord/hfgo/v4/providers"
 	"github.com/stretchr/testify/require"
@@ -65,10 +65,11 @@ func TestDoJSONInference_Success(t *testing.T) {
 
 	respBody := `{"generated_text":"hello world"}`
 	mt := testutils.NewJSONMockTransport(http.StatusOK, respBody, nil)
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-		WithModel("test-model").
-		WithProvider(transformProvider{})
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(transformProvider{}),
+	)
 
 	result, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -116,10 +117,11 @@ func TestDoJSONInference_ProviderTransformsRequestAndResponse(t *testing.T) {
 		},
 	}
 
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-		WithModel("test-model").
-		WithProvider(p)
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(p),
+	)
 
 	result, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -142,10 +144,11 @@ func TestDoJSONInference_EncodeErrorPropagated(t *testing.T) {
 		},
 	}
 
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(nil) }).
-		WithModel("test-model").
-		WithProvider(p)
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(nil) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(p),
+	)
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -166,10 +169,11 @@ func TestDoJSONInference_DecodeErrorPropagated(t *testing.T) {
 		},
 	}
 
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-		WithModel("test-model").
-		WithProvider(p)
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(p),
+	)
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -183,10 +187,11 @@ func TestDoJSONInference_204NoContent(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewMockTransport(http.StatusNoContent, "", nil)
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-		WithModel("test-model").
-		WithProvider(transformProvider{})
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(transformProvider{}),
+	)
 
 	result, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -201,10 +206,11 @@ func TestDoJSONInference_205ResetContent(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewMockTransport(http.StatusResetContent, "", nil)
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-		WithModel("test-model").
-		WithProvider(transformProvider{})
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(transformProvider{}),
+	)
 
 	result, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -219,10 +225,11 @@ func TestDoJSONInference_EmptyResponseBody(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(http.StatusOK, "", nil)
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-		WithModel("test-model").
-		WithProvider(transformProvider{})
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(transformProvider{}),
+	)
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -237,10 +244,11 @@ func TestDoJSONInference_InvalidJSONResponse(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(http.StatusOK, `not json`, nil)
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-		WithModel("test-model").
-		WithProvider(transformProvider{})
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(transformProvider{}),
+	)
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -256,10 +264,11 @@ func TestDoJSONInference_NonJSONResponseContentType(t *testing.T) {
 
 	mt := testutils.NewMockTransport(http.StatusOK, `{"generated_text":"hi"}`, nil)
 	mt.Response.Header.Set("Content-Type", "text/plain")
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-		WithModel("test-model").
-		WithProvider(transformProvider{})
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(transformProvider{}),
+	)
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -274,9 +283,10 @@ func TestDoJSONInference_NoModel(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(http.StatusOK, `{"generated_text":"hi"}`, nil)
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-		WithProvider(transformProvider{})
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithProvider(transformProvider{}),
+	)
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -291,9 +301,10 @@ func TestDoJSONInference_NoModel(t *testing.T) {
 func TestDoJSONInference_NilProvider(t *testing.T) {
 	t.Parallel()
 
-	opts := request.NewOptions().
-		WithModel("test-model").
-		WithProvider(nil)
+	opts := hfopts.NewOptions().With(
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(nil),
+	)
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -308,11 +319,12 @@ func TestDoJSONInference_ContentTypeValidation(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(http.StatusOK, `{"generated_text":"hi"}`, nil)
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-		WithModel("test-model").
-		WithProvider(transformProvider{}).
-		WithHeader("Content-Type", "text/plain")
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(transformProvider{}),
+		hfopts.WithHeader("Content-Type", "text/plain"),
+	)
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -331,10 +343,11 @@ func TestDoJSONInference_ModelWithExistingSuffixPassedThrough(t *testing.T) {
 		transformProvider: transformProvider{},
 	}
 	mt := testutils.NewJSONMockTransport(http.StatusOK, respBody, nil)
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-		WithModel("mistral-7b:sambanova").
-		WithProvider(p)
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("mistral-7b:sambanova"),
+		hfopts.WithProvider(p),
+	)
 
 	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -365,10 +378,11 @@ func TestDoStreamingInference_Success(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-		WithModel("test-model").
-		WithProvider(transformProvider{})
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(transformProvider{}),
+	)
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -409,10 +423,11 @@ func TestDoStreamingInference_ProviderTransformsPerEvent(t *testing.T) {
 		},
 	}
 
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-		WithModel("test-model").
-		WithProvider(p)
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(p),
+	)
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -441,10 +456,11 @@ func TestDoStreamingInference_DecodeErrorPropagated(t *testing.T) {
 		},
 	}
 
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-		WithModel("test-model").
-		WithProvider(p)
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(p),
+	)
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
@@ -462,10 +478,11 @@ func TestDoStreamingInference_NonEventStreamContentType(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(http.StatusOK, `{"generated_text":"hi"}`, nil)
-	opts := request.NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-		WithModel("test-model").
-		WithProvider(transformProvider{})
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(transformProvider{}),
+	)
 
 	_, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
 		opts,

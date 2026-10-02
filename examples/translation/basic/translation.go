@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 func main() {
@@ -17,8 +19,8 @@ func main() {
 
 	// Create a new client with your API token and desired model
 	client := hfgo.NewClient(
-		hfgo.WithToken(token),
-		hfgo.WithModel("google-t5/t5-small"),
+		hfopts.WithToken(token),
+		hfopts.WithModel("google-t5/t5-small"),
 	)
 
 	input := "Hello, how are you doing today?"
@@ -29,7 +31,7 @@ func main() {
 
 	// Make the translation request with source and target languages
 	translations, err := client.Translate(
-		hfgo.TranslationRequest{
+		hftypes.TranslationRequest{
 			Input: input,
 		},
 	)

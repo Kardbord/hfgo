@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 func main() {
@@ -16,8 +18,8 @@ func main() {
 	}
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(token),
-		hfgo.WithModel("deepset/roberta-base-squad2"),
+		hfopts.WithToken(token),
+		hfopts.WithModel("deepset/roberta-base-squad2"),
 	)
 
 	question := "What is the capital of France?"
@@ -30,12 +32,12 @@ func main() {
 	topK := 3
 	maxAnswerLen := 10
 	answers, err := client.AnswerQuestion(
-		hfgo.QuestionAnsweringRequest{
-			Input: hfgo.QuestionAnsweringInput{
+		hftypes.QuestionAnsweringRequest{
+			Input: hftypes.QuestionAnsweringInput{
 				Question: question,
 				Context:  context,
 			},
-			Parameters: &hfgo.QuestionAnsweringParameters{
+			Parameters: &hftypes.QuestionAnsweringParameters{
 				TopK:         &topK,
 				MaxAnswerLen: &maxAnswerLen,
 			},

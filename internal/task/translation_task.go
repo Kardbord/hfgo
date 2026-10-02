@@ -1,14 +1,17 @@
 package task
 
 import (
-	"github.com/Kardbord/hfgo/v4/internal/dto"
-	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/providers"
 )
 
 // Translate sends a translation request for a single input.
-func Translate(opts request.Options, req dto.TranslationRequest) ([]dto.Translation, error) {
-	return doJSONInference[dto.TranslationRequest, []dto.Translation](
+func Translate(
+	opts hfopts.Options,
+	req hftypes.TranslationRequest,
+) ([]hftypes.Translation, error) {
+	return doJSONInference[hftypes.TranslationRequest, []hftypes.Translation](
 		opts,
 		providers.TaskTranslation,
 		req,
@@ -17,10 +20,10 @@ func Translate(opts request.Options, req dto.TranslationRequest) ([]dto.Translat
 
 // TranslateBatch sends a translation request for a batch of inputs.
 func TranslateBatch(
-	opts request.Options,
-	req dto.TranslationBatchRequest,
-) ([]dto.Translation, error) {
-	return doJSONInference[dto.TranslationBatchRequest, []dto.Translation](
+	opts hfopts.Options,
+	req hftypes.TranslationBatchRequest,
+) ([]hftypes.Translation, error) {
+	return doJSONInference[hftypes.TranslationBatchRequest, []hftypes.Translation](
 		opts,
 		providers.TaskTranslation,
 		req,
