@@ -106,26 +106,7 @@ func (c Client) StreamReader(
 	path string,
 	opts ...hfopts.Option,
 ) (*Stream, error) {
-	resp, err := request.Do(
-		c.opts.With(opts...),
-		method,
-		path,
-		requestBody,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	ctx := utils.NormalizeContext(resp.Request.Context())
-
-	raw, err := request.StreamRaw(ctx, resp.Body)
-	if err != nil {
-		_ = resp.Body.Close()
-
-		return nil, err
-	}
-
-	return &Stream{stream: raw}, nil
+	return c.doStream(requestBody, method, path, opts, false)
 }
 
 // StreamRaw performs a raw HTTP request and returns an SSE stream without translating non-2xx responses into SDK errors.
@@ -151,26 +132,50 @@ func (c Client) StreamRawReader(
 	path string,
 	opts ...hfopts.Option,
 ) (*Stream, error) {
-	resp, err := request.DoRaw(
-		c.opts.With(opts...),
-		method,
-		path,
-		requestBody,
-	)
+	return c.doStream(requestBody, method, path, opts, true)
+}
+
+// doStream performs the underlying HTTP request and SSE stream setup,
+// selecting between SDK-error-translating (Do) and raw (DoRaw) execution.
+func (c Client) doStream(
+	requestBody io.Reader,
+	method string,
+	path string,
+	opts []hfopts.Option,
+	raw bool,
+) (*Stream, error) {
+	var resp *http.Response
+	var err error
+
+	if raw {
+		resp, err = request.DoRaw(
+			c.opts.With(opts...),
+			method,
+			path,
+			requestBody,
+		)
+	} else {
+		resp, err = request.Do(
+			c.opts.With(opts...),
+			method,
+			path,
+			requestBody,
+		)
+	}
 	if err != nil {
 		return nil, err
 	}
 
 	ctx := utils.NormalizeContext(resp.Request.Context())
 
-	raw, err := request.StreamRaw(ctx, resp.Body)
+	rawStream, err := request.StreamRaw(ctx, resp.Body)
 	if err != nil {
 		_ = resp.Body.Close()
 
 		return nil, err
 	}
 
-	return &Stream{stream: raw}, nil
+	return &Stream{stream: rawStream}, nil
 }
 
 // Stream exposes a raw SSE stream returned by Client stream methods.
