@@ -1,6 +1,8 @@
 // Package hfproviders defines the Provider interface and built-in provider implementations.
 package hfproviders
 
+import "github.com/Kardbord/hfgo/v4/hftypes"
+
 // Provider knows how to construct API endpoints and transform between HF-spec
 // and provider-spec wire formats for a given task and model. Implementations
 // must be safe for concurrent use.
@@ -13,23 +15,72 @@ type Provider interface {
 	// for routing in OpenAI-compatible endpoints. An empty string means
 	// no suffix is appended (e.g. for the default HuggingFace provider).
 	ProviderSuffix() string
-
-	// EncodeRequest transforms an HF-format request body into a provider-format
-	// request body. hfContentType is the Content-Type of the HF-format body
-	// (e.g. "application/json", "image/png"). For JSON tasks, hfBody is the
-	// JSON serialization of the SDK's exported request type for the task;
-	// for binary tasks it is the raw body. Returns the transformed body and
-	// the Content-Type to use when sending to the provider.
-	EncodeRequest(task Task, hfBody []byte, hfContentType string) (
-		providerBody []byte, providerContentType string, err error,
-	)
-
-	// DecodeResponse transforms a provider-format response body into an
-	// HF-format response body. providerContentType is the Content-Type of the
-	// provider's response. The returned body must match the shape expected by
-	// the SDK's exported response type for the task. Returns the transformed
-	// body and the Content-Type of the transformed body.
-	DecodeResponse(task Task, providerBody []byte, providerContentType string) (
-		hfBody []byte, hfContentType string, err error,
-	)
 }
+
+// Codec knows how to transform canonical Hugging Face request types and provider wire types,
+// as well as provider response wire types and canonical Hugging Face response types.
+type Codec[Req, Resp any] interface {
+	// Encode transforms a canonical Hugging Face request type into its provider-format
+	// wire type.
+	Encode(req Req) (providerBody []byte, providerContentType string, err error)
+
+	// Decode transforms a provider wire type response into its canonical Hugging Face
+	// response type.
+	Decode(resp []byte, providerContentType string) (Resp, error)
+}
+
+type (
+	// ChatCodec is the Codec for the Chat task.
+	ChatCodec = Codec[hftypes.ChatRequest, hftypes.ChatResponse]
+
+	// ChatStreamCodec is the Codec for the ChatStream task.
+	ChatStreamCodec = Codec[hftypes.ChatRequest, hftypes.ChatStreamResponse]
+
+	// FeatureExtractionBatchCodec is the Codec for the FeatureExtractBatch task.
+	FeatureExtractionBatchCodec = Codec[hftypes.FeatureExtractionBatchRequest, []hftypes.FeatureExtraction]
+
+	// FeatureExtractionCodec is the Codec for the FeatureExtract task.
+	FeatureExtractionCodec = Codec[hftypes.FeatureExtractionRequest, hftypes.FeatureExtraction]
+
+	// FillMaskBatchCodec is the Codec for the FillMaskBatch task.
+	FillMaskBatchCodec = Codec[hftypes.FillMaskBatchRequest, [][]hftypes.FillMaskPrediction]
+
+	// FillMaskCodec is the Codec for the FillMask task.
+	FillMaskCodec = Codec[hftypes.FillMaskRequest, []hftypes.FillMaskPrediction]
+
+	// QuestionAnsweringCodec is the Codec for the AnswerQuestion task.
+	QuestionAnsweringCodec = Codec[hftypes.QuestionAnsweringRequest, []hftypes.QuestionAnswering]
+
+	// SummarizationBatchCodec is the Codec for the SummarizeBatch task.
+	SummarizationBatchCodec = Codec[hftypes.SummarizationBatchRequest, []hftypes.Summarization]
+
+	// SummarizationCodec is the Codec for the Summarize task.
+	SummarizationCodec = Codec[hftypes.SummarizationRequest, []hftypes.Summarization]
+
+	// TableQuestionAnsweringCodec is the Codec for the AnswerTableQuestion task.
+	TableQuestionAnsweringCodec = Codec[hftypes.TableQuestionAnsweringRequest, hftypes.TableQuestionAnswer]
+
+	// TextClassificationBatchCodec is the Codec for the ClassifyTextBatch task.
+	TextClassificationBatchCodec = Codec[hftypes.TextClassificationBatchRequest, [][]hftypes.TextClassification]
+
+	// TextClassificationCodec is the Codec for the ClassifyText task.
+	TextClassificationCodec = Codec[hftypes.TextClassificationRequest, []hftypes.TextClassification]
+
+	// TokenClassificationBatchCodec is the Codec for the ClassifyTokensBatch task.
+	TokenClassificationBatchCodec = Codec[hftypes.TokenClassificationBatchRequest, [][]hftypes.TokenClassification]
+
+	// TokenClassificationCodec is the Codec for the ClassifyTokens task.
+	TokenClassificationCodec = Codec[hftypes.TokenClassificationRequest, []hftypes.TokenClassification]
+
+	// TranslationBatchCodec is the Codec for the TranslateBatch task.
+	TranslationBatchCodec = Codec[hftypes.TranslationBatchRequest, []hftypes.Translation]
+
+	// TranslationCodec is the Codec for the Translate task.
+	TranslationCodec = Codec[hftypes.TranslationRequest, []hftypes.Translation]
+
+	// ZeroShotTextClassificationBatchCodec is the Codec for the ZeroShotClassifyTextBatch task.
+	ZeroShotTextClassificationBatchCodec = Codec[hftypes.ZeroShotTextClassificationBatchRequest, [][]hftypes.ZeroShotTextClassification]
+
+	// ZeroShotTextClassificationCodec is the Codec for the ZeroShotClassifyText task.
+	ZeroShotTextClassificationCodec = Codec[hftypes.ZeroShotTextClassificationRequest, []hftypes.ZeroShotTextClassification]
+)
