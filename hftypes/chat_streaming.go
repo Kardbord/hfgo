@@ -171,7 +171,7 @@ func NewChatStream(stream chatstreamer) *ChatStream {
 
 // Recv blocks until the next streaming chunk arrives or the context is done.
 func (c *ChatStream) Recv(ctx context.Context) (ChatStreamResponse, error) {
-	if c.stream == nil {
+	if c == nil || c.stream == nil {
 		return ChatStreamResponse{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindInternal,
 			Message: "chat stream is nil",
