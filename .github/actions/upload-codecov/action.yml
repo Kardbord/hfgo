@@ -1,8 +1,7 @@
----
 name: Upload coverage to Codecov
 description: >
-  Upload coverage, test results, and test artifacts to Codecov via OIDC. Keeps
-  the pinned codecov actions and their common configuration in one place.
+  Upload coverage, test results, and test artifacts to Codecov via OIDC. Keeps the pinned codecov actions and their common configuration in one place.
+
 inputs:
   flags:
     description: Codecov flags, e.g. 'unit,ubuntu' or 'integration'.
@@ -22,7 +21,6 @@ runs:
         disable_search: true
         fail_ci_if_error: false
         use_oidc: true
-
     - name: Upload test results to Codecov
       uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
       with:
@@ -33,9 +31,8 @@ runs:
         fail_ci_if_error: false
         use_oidc: true
         report_type: test_results
-
     - name: Upload test artifacts
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0 # v7.0.1
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: ${{ inputs.artifact-name }}
         path: |
