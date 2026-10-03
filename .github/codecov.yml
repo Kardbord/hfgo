@@ -1,4 +1,3 @@
----
 coverage:
   status:
     project:
@@ -9,9 +8,7 @@ coverage:
       default:
         target: auto
         threshold: 0.5%
-
 ignore:
   - "examples/**"
   - "internal/testutils/**"
   - "hfgoversion/**"
-  - "version.go"
