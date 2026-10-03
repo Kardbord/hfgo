@@ -31,11 +31,11 @@ jobs:
       - name: Run fuzz tests
         run: |
           set -e
-          FUZZ_TIME="${{ github.event_name == 'schedule' && '30s' || '5s' }}"
+          FUZZ_TIME="${{ github.event_name == 'schedule' && '30s' || '10s' }}"
           find . -name '*_fuzz_test.go' -exec dirname {} \; | sort -u | while read -r dir; do
             pkg=$(go list -f '{{.ImportPath}}' "$dir" 2>/dev/null)
             [ -z "$pkg" ] && continue
             go test -list '^Fuzz' "$pkg" 2>/dev/null | grep '^Fuzz' | while read -r target; do
-              go test -run=^$ -fuzz="^${target}$" -fuzztime="$FUZZ_TIME" -timeout=60s -count=1 "$pkg"
+              go test -run=^$ -fuzz="^${target}$" -fuzztime="$FUZZ_TIME" -timeout=120s -count=1 "$pkg"
             done
           done

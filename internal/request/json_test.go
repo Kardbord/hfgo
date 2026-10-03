@@ -4,551 +4,15 @@ package request
 
 import (
 	"context"
-	"errors"
-	"io"
 	"net/http"
-	"strings"
 	"testing"
+	"time"
 
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
-
-func TestDoJSON(t *testing.T) {
-	t.Parallel()
-
-	type req struct {
-		Inputs string `json:"inputs"`
-	}
-	type resp struct {
-		GeneratedText string `json:"generated_text"`
-	}
-
-	type testCase struct {
-		name              string
-		setupOpts         func() Options
-		method            string
-		path              string
-		reqBody           req
-		wantErr           bool
-		wantResp          *resp
-		validateErr       func(t *testing.T, err error)
-		validateReq       func(t *testing.T, req *http.Request)
-		validateTransport func(t *testing.T, mt *testutils.MockTransport)
-	}
-
-	tests := []testCase{
-		{
-			name: "successful request",
-			setupOpts: func() Options {
-				return NewOptions().WithHTTPClientFactory(func() http.Client {
-					return testutils.NewMockHTTPClient(
-						testutils.NewJSONMockTransport(
-							http.StatusOK,
-							`{"generated_text":"hello"}`,
-							nil,
-						),
-					)
-				})
-			},
-			method:  http.MethodPost,
-			path:    "/chat",
-			reqBody: req{Inputs: "hi"},
-			wantErr: false,
-			wantResp: &resp{
-				GeneratedText: "hello",
-			},
-		},
-		{
-			name: "401 error status",
-			setupOpts: func() Options {
-				return NewOptions().WithHTTPClientFactory(func() http.Client {
-					return testutils.NewMockHTTPClient(
-						testutils.NewMockTransport(http.StatusUnauthorized, `unauthorized`, nil),
-					)
-				})
-			},
-			method:  http.MethodGet,
-			path:    "/fail",
-			reqBody: req{},
-			wantErr: true,
-			validateErr: func(t *testing.T, err error) {
-				t.Helper()
-				apiErr := testutils.AssertAPIErrorStatus(t, err, http.StatusUnauthorized)
-				if !apiErr.IsAuthenticationError() {
-					t.Error("expected IsAuthenticationError() to return true")
-				}
-			},
-		},
-		{
-			name: "500 error status",
-			setupOpts: func() Options {
-				return NewOptions().WithHTTPClientFactory(func() http.Client {
-					return testutils.NewMockHTTPClient(
-						testutils.NewMockTransport(
-							http.StatusInternalServerError,
-							`internal server error`,
-							nil,
-						),
-					)
-				})
-			},
-			method:  http.MethodGet,
-			path:    "/fail",
-			reqBody: req{},
-			wantErr: true,
-			validateErr: func(t *testing.T, err error) {
-				t.Helper()
-				apiErr := testutils.AssertAPIErrorStatus(t, err, http.StatusInternalServerError)
-				if !apiErr.IsServerError() {
-					t.Error("expected IsServerError() to return true")
-				}
-			},
-		},
-		{
-			name: "transport error",
-			setupOpts: func() Options {
-				mt := &testutils.MockTransport{
-					Err: errors.New("network down"),
-				}
-
-				return NewOptions().WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) })
-			},
-			method:  http.MethodGet,
-			path:    "/test",
-			reqBody: req{},
-			wantErr: true,
-			validateErr: func(t *testing.T, err error) {
-				t.Helper()
-				require.Error(t, err)
-				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindTransport)
-			},
-		},
-		{
-			name: "invalid JSON response",
-			setupOpts: func() Options {
-				return NewOptions().WithHTTPClientFactory(func() http.Client {
-					return testutils.NewMockHTTPClient(
-						testutils.NewJSONMockTransport(http.StatusOK, `{not valid json}`, nil),
-					)
-				})
-			},
-			method:  http.MethodGet,
-			path:    "/test",
-			reqBody: req{},
-			wantErr: true,
-			validateErr: func(t *testing.T, err error) {
-				t.Helper()
-				require.Error(t, err)
-				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-			},
-		},
-		{
-			name: "empty response body",
-			setupOpts: func() Options {
-				return NewOptions().WithHTTPClientFactory(func() http.Client {
-					return testutils.NewMockHTTPClient(
-						testutils.NewJSONMockTransport(http.StatusOK, ``, nil),
-					)
-				})
-			},
-			method:  http.MethodGet,
-			path:    "/test",
-			reqBody: req{},
-			wantErr: true,
-			validateErr: func(t *testing.T, err error) {
-				t.Helper()
-				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-			},
-		},
-		{
-			name: "response body too large",
-			setupOpts: func() Options {
-				large := `{"generated_text":"` + strings.Repeat(
-					"a",
-					int(DefaultMaxResponseBodyBytes),
-				) + `"}`
-
-				return NewOptions().WithHTTPClientFactory(func() http.Client {
-					return testutils.NewMockHTTPClient(
-						testutils.NewJSONMockTransport(http.StatusOK, large, nil),
-					)
-				})
-			},
-			method:  http.MethodGet,
-			path:    "/test",
-			reqBody: req{},
-			wantErr: true,
-			validateErr: func(t *testing.T, err error) {
-				t.Helper()
-				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
-			},
-		},
-		{
-			name: "custom response limit allows larger body",
-			setupOpts: func() Options {
-				large := `{"generated_text":"` + strings.Repeat(
-					"a",
-					int(DefaultMaxResponseBodyBytes),
-				) + `"}`
-
-				return NewOptions().WithHTTPClientFactory(func() http.Client {
-					return testutils.NewMockHTTPClient(
-						testutils.NewJSONMockTransport(http.StatusOK, large, nil),
-					)
-				}).WithMaxResponseBodyBytes(DefaultMaxResponseBodyBytes + 64)
-			},
-			method:  http.MethodGet,
-			path:    "/test",
-			reqBody: req{},
-			wantErr: false,
-			wantResp: &resp{
-				GeneratedText: strings.Repeat("a", int(DefaultMaxResponseBodyBytes)),
-			},
-		},
-		{
-			name: "sets Content-Type header",
-			setupOpts: func() Options {
-				return NewOptions().WithHTTPClientFactory(func() http.Client {
-					return testutils.NewMockHTTPClient(
-						testutils.NewJSONMockTransport(http.StatusOK, `{}`, nil),
-					)
-				})
-			},
-			method:  http.MethodPost,
-			path:    "/test",
-			reqBody: req{},
-			wantErr: false,
-			validateReq: func(t *testing.T, req *http.Request) {
-				t.Helper()
-				if got := req.Header.Get("Content-Type"); got != "application/json" {
-					t.Errorf("expected Content-Type 'application/json', got %q", got)
-				}
-			},
-		},
-		{
-			name: "rejects non-JSON Content-Type override",
-			setupOpts: func() Options {
-				opts := NewOptions().WithHeader("Content-Type", "text/plain")
-
-				return opts.WithHTTPClientFactory(func() http.Client {
-					return testutils.NewMockHTTPClient(
-						testutils.NewJSONMockTransport(http.StatusOK, `{}`, nil),
-					)
-				})
-			},
-			method:  http.MethodPost,
-			path:    "/test",
-			reqBody: req{},
-			wantErr: true,
-			validateErr: func(t *testing.T, err error) {
-				t.Helper()
-				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
-			},
-		},
-		{
-			name: "fills empty Content-Type override",
-			setupOpts: func() Options {
-				opts := NewOptions().WithHeader("Content-Type", "")
-
-				return opts.WithHTTPClientFactory(func() http.Client {
-					return testutils.NewMockHTTPClient(
-						testutils.NewJSONMockTransport(http.StatusOK, `{}`, nil),
-					)
-				})
-			},
-			method:  http.MethodPost,
-			path:    "/test",
-			reqBody: req{},
-			wantErr: false,
-			validateReq: func(t *testing.T, req *http.Request) {
-				t.Helper()
-				if got := req.Header.Get("Content-Type"); got != "application/json" {
-					t.Errorf("expected Content-Type 'application/json', got %q", got)
-				}
-			},
-		},
-		{
-			name: "returns zero value on error",
-			setupOpts: func() Options {
-				return NewOptions().WithHTTPClientFactory(func() http.Client {
-					return testutils.NewMockHTTPClient(
-						testutils.NewMockTransport(http.StatusInternalServerError, `boom`, nil),
-					)
-				})
-			},
-			method:   http.MethodGet,
-			path:     "/test",
-			reqBody:  req{},
-			wantErr:  true,
-			wantResp: &resp{}, // zero value
-		},
-		{
-			name: "sets Accept header",
-			setupOpts: func() Options {
-				return NewOptions().WithHTTPClientFactory(func() http.Client {
-					return testutils.NewMockHTTPClient(
-						testutils.NewJSONMockTransport(http.StatusOK, `{}`, nil),
-					)
-				})
-			},
-			method:  http.MethodPost,
-			path:    "/test",
-			reqBody: req{},
-			wantErr: false,
-			validateReq: func(t *testing.T, req *http.Request) {
-				t.Helper()
-				if got := req.Header.Get("Accept"); got != "application/json" {
-					t.Errorf("expected Accept 'application/json', got %q", got)
-				}
-			},
-		},
-		{
-			name: "allows missing response Content-Type",
-			setupOpts: func() Options {
-				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
-
-				return NewOptions().WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) })
-			},
-			method:   http.MethodGet,
-			path:     "/test",
-			reqBody:  req{},
-			wantErr:  false,
-			wantResp: &resp{},
-		},
-		{
-			name: "errors on non-JSON response Content-Type",
-			setupOpts: func() Options {
-				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
-				mt.Response.Header.Set("Content-Type", "text/plain")
-
-				return NewOptions().WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) })
-			},
-			method:  http.MethodGet,
-			path:    "/test",
-			reqBody: req{},
-			wantErr: true,
-			validateErr: func(t *testing.T, err error) {
-				t.Helper()
-				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-			},
-		},
-		{
-			name: "errors on invalid response Content-Type syntax",
-			setupOpts: func() Options {
-				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
-				mt.Response.Header.Set("Content-Type", "application/json; charset")
-
-				return NewOptions().WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) })
-			},
-			method:  http.MethodGet,
-			path:    "/test",
-			reqBody: req{},
-			wantErr: true,
-			validateErr: func(t *testing.T, err error) {
-				t.Helper()
-				var sdkErr *hferrors.SDKError
-				if !errors.As(err, &sdkErr) {
-					t.Fatalf("expected SDKError, got %T", err)
-				}
-				if sdkErr.Kind != hferrors.SDKErrorKindSerialization {
-					t.Errorf("expected serialization SDKError, got %q", sdkErr.Kind)
-				}
-			},
-		},
-		{
-			name: "accepts +json response Content-Type",
-			setupOpts: func() Options {
-				mt := testutils.NewMockTransport(http.StatusOK, `{"generated_text":"hello"}`, nil)
-				mt.Response.Header.Set("Content-Type", "application/problem+json")
-
-				return NewOptions().WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) })
-			},
-			method:  http.MethodGet,
-			path:    "/test",
-			reqBody: req{},
-			wantErr: false,
-			wantResp: &resp{
-				GeneratedText: "hello",
-			},
-		},
-		{
-			name: "returns zero value on 204 No Content",
-			setupOpts: func() Options {
-				return NewOptions().WithHTTPClientFactory(func() http.Client {
-					return testutils.NewMockHTTPClient(
-						testutils.NewMockTransport(http.StatusNoContent, ``, nil),
-					)
-				})
-			},
-			method:   http.MethodGet,
-			path:     "/test",
-			reqBody:  req{},
-			wantErr:  false,
-			wantResp: &resp{},
-		},
-		{
-			name: "returns zero value on 205 Reset Content",
-			setupOpts: func() Options {
-				return NewOptions().WithHTTPClientFactory(func() http.Client {
-					return testutils.NewMockHTTPClient(
-						testutils.NewMockTransport(http.StatusResetContent, ``, nil),
-					)
-				})
-			},
-			method:   http.MethodGet,
-			path:     "/test",
-			reqBody:  req{},
-			wantErr:  false,
-			wantResp: &resp{},
-		},
-		{
-			name: "drains response on size error",
-			setupOpts: func() Options {
-				data := strings.Repeat("a", 16)
-				tracker := &testutils.ReadTracker{Data: []byte(data)}
-				mt := &testutils.MockTransport{
-					Response: &http.Response{
-						StatusCode: http.StatusOK,
-						Body:       tracker,
-						Header:     make(http.Header),
-					},
-				}
-				mt.Response.Header.Set("Content-Type", "application/json")
-
-				return NewOptions().WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }).
-					WithMaxResponseBodyBytes(4)
-			},
-			method:  http.MethodGet,
-			path:    "/test",
-			reqBody: req{},
-			wantErr: true,
-			validateTransport: func(t *testing.T, mt *testutils.MockTransport) {
-				t.Helper()
-				tracker, ok := mt.Response.Body.(*testutils.ReadTracker)
-				if !ok {
-					t.Fatal("expected readTracker body")
-				}
-				if tracker.ReadBytes != len(tracker.Data) {
-					t.Fatalf(
-						"expected body to be drained, read %d bytes, want %d",
-						tracker.ReadBytes,
-						len(tracker.Data),
-					)
-				}
-				if !tracker.Closed {
-					t.Fatal("expected response body to be closed")
-				}
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			opts := tt.setupOpts()
-
-			out, err := DoJSON[req, resp](
-				opts,
-				tt.method,
-				tt.path,
-				tt.reqBody,
-			)
-
-			// Check error expectation
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("DoJSON() error = %v, wantErr %v", err, tt.wantErr)
-			}
-
-			// Validate error if custom validation provided
-			if err != nil && tt.validateErr != nil {
-				tt.validateErr(t, err)
-			}
-
-			// Validate response if expected
-			if tt.wantResp != nil {
-				if out != *tt.wantResp {
-					t.Errorf("DoJSON() response = %+v, want %+v", out, *tt.wantResp)
-				}
-			}
-
-			// Validate request if custom validation provided
-			if tt.validateReq != nil {
-				if opts.HTTPClient == nil {
-					t.Fatal("expected http client")
-				}
-				if mt, ok := opts.HTTPClient.Transport.(*testutils.MockTransport); ok &&
-					mt.LastRequest != nil {
-					tt.validateReq(t, mt.LastRequest)
-				}
-			}
-
-			if tt.validateTransport != nil {
-				if opts.HTTPClient == nil {
-					t.Fatal("expected http client")
-				}
-				if mt, ok := opts.HTTPClient.Transport.(*testutils.MockTransport); ok {
-					tt.validateTransport(t, mt)
-				}
-			}
-		})
-	}
-}
-
-func TestDoJSONStream_Success(t *testing.T) {
-	t.Parallel()
-
-	type req struct {
-		Prompt string `json:"prompt"`
-	}
-	type chunk struct {
-		Text string `json:"text"`
-	}
-
-	body := "data: {\"text\":\"hello\"}\n\n" +
-		"data: {\"text\":\"world\"}\n\n" +
-		"data: [DONE]\n\n"
-
-	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
-	mt.Response.Header.Set("Content-Type", "text/event-stream")
-
-	opts := NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) })
-
-	stream, err := DoJSONStream[req, chunk](opts, http.MethodPost, "/stream", req{Prompt: "hi"})
-	require.NoError(t, err)
-	defer func() { _ = stream.Close() }()
-
-	first, err := stream.Recv(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, "hello", first.Text)
-
-	second, err := stream.Recv(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, "world", second.Text)
-
-	_, err = stream.Recv(context.Background())
-	require.ErrorIs(t, err, io.EOF)
-
-	if got := mt.LastRequest.Header.Get("Accept"); got != "text/event-stream" {
-		t.Fatalf("expected Accept header text/event-stream, got %q", got)
-	}
-	if got := mt.LastRequest.Header.Get("Content-Type"); got != "application/json" {
-		t.Fatalf("expected Content-Type application/json, got %q", got)
-	}
-}
-
-func TestDoJSONStream_InvalidContentType(t *testing.T) {
-	t.Parallel()
-
-	mt := testutils.NewJSONMockTransport(http.StatusOK, "{}", nil)
-	opts := NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) })
-
-	stream, err := DoJSONStream[struct{}, struct{}](opts, http.MethodGet, "/stream", struct{}{})
-	require.Nil(t, stream)
-	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-}
 
 func TestJSONStream_InvalidChunk(t *testing.T) {
 	t.Parallel()
@@ -557,29 +21,23 @@ func TestJSONStream_InvalidChunk(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) })
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client {
+			return testutils.NewMockHTTPClient(mt)
+		}),
+	)
 
-	stream, err := DoJSONStream[struct{}, struct{}](opts, http.MethodPost, "/stream", struct{}{})
+	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
 	require.NoError(t, err)
+	require.NoError(t, ValidateEventStreamResponseContentType(resp.Header))
+
+	raw, err := StreamRaw(opts.Context(), resp.Body)
+	require.NoError(t, err)
+	stream := NewJSONStream[struct{}](raw, nil)
 	defer func() { _ = stream.Close() }()
 
 	_, err = stream.Recv(context.Background())
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-}
-
-func TestDoJSONStream_APIError(t *testing.T) {
-	t.Parallel()
-
-	mt := testutils.NewMockTransport(http.StatusUnauthorized, "unauthorized", nil)
-	mt.Response.Header.Set("Content-Type", "text/event-stream")
-
-	opts := NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) })
-
-	stream, err := DoJSONStream[struct{}, struct{}](opts, http.MethodPost, "/stream", struct{}{})
-	require.Nil(t, stream)
-	testutils.AssertAPIErrorStatus(t, err, http.StatusUnauthorized)
 }
 
 func TestJSONStream_RecvNilContext(t *testing.T) {
@@ -589,13 +47,21 @@ func TestJSONStream_RecvNilContext(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := NewOptions().
-		WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) })
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client {
+			return testutils.NewMockHTTPClient(mt)
+		}),
+	)
 
-	stream, err := DoJSONStream[struct{}, struct {
-		Text string `json:"text"`
-	}](opts, http.MethodPost, "/stream", struct{}{})
+	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
 	require.NoError(t, err)
+	require.NoError(t, ValidateEventStreamResponseContentType(resp.Header))
+
+	raw, err := StreamRaw(opts.Context(), resp.Body)
+	require.NoError(t, err)
+	stream := NewJSONStream[struct {
+		Text string `json:"text"`
+	}](raw, nil)
 	defer func() { _ = stream.Close() }()
 
 	chunk, err := stream.Recv(testutils.NilContext())
@@ -603,59 +69,34 @@ func TestJSONStream_RecvNilContext(t *testing.T) {
 	require.Equal(t, "hello", chunk.Text)
 }
 
-func TestDoJSON_MarshalError(t *testing.T) {
+func TestJSONStream_SSECloseCancelsRead(t *testing.T) {
 	t.Parallel()
 
-	// This test is separate because it uses an unmarshalable type
-	opts := NewOptions()
+	mt := testutils.NewMockTransport(http.StatusOK, "event: ping\n\n", nil)
+	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	// Channels cannot be marshaled to JSON
-	type badReq struct {
-		C chan int `json:"c"`
-	}
-
-	_, err := DoJSON[badReq, struct{}](
-		opts,
-		http.MethodPost,
-		"/test",
-		badReq{C: make(chan int)},
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client {
+			return testutils.NewMockHTTPClient(mt)
+		}),
 	)
 
-	if err == nil {
-		t.Fatal("expected marshal error, got nil")
-	}
-	var sdkErr *hferrors.SDKError
-	if !errors.As(err, &sdkErr) {
-		t.Fatalf("expected SDKError, got %T", err)
-	}
-	if sdkErr.Kind != hferrors.SDKErrorKindSerialization {
-		t.Fatalf("expected serialization SDKError, got %q", sdkErr.Kind)
-	}
-}
+	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
+	require.NoError(t, err)
+	require.NoError(t, ValidateEventStreamResponseContentType(resp.Header))
 
-type configurationReq struct{}
+	raw, err := StreamRaw(opts.Context(), resp.Body)
+	require.NoError(t, err)
 
-func (configurationReq) MarshalJSON() ([]byte, error) {
-	return nil, &hferrors.SDKError{
-		Kind:    hferrors.SDKErrorKindConfiguration,
-		Message: "invalid payload",
-	}
-}
+	stream := NewJSONStream[struct{}](raw, nil)
 
-func TestDoJSON_MarshalConfigurationError(t *testing.T) {
-	t.Parallel()
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		if err := stream.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 
-	opts := NewOptions()
-
-	_, err := DoJSON[configurationReq, struct{}](
-		opts,
-		http.MethodPost,
-		"/test",
-		configurationReq{},
-	)
-
-	if err == nil {
-		t.Fatal("expected marshal error, got nil")
-	}
-	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+	_, err = stream.Recv(context.Background())
+	require.Error(t, err)
 }

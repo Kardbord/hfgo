@@ -53,7 +53,7 @@ PR title and body are load-bearing for version calculation and changelog
 generation, and should not be manually edited.
 
 release-please automatically updates the `Version` const in
-`internal/sdkversion/version.go` via the `go` release-type's version-file
+`hfgoversion/version.go` via the `go` release-type's version-file
 updater.
 
 The workflow sets both the `config-file` and `manifest-file` action inputs
@@ -97,7 +97,7 @@ The workflow selects the **stable** config/manifest pair.
 2. PR titles follow Conventional Commits (enforced by `pr-title-check.yml`).
 3. release-please analyzes commits since the last stable release.
 4. A **draft release PR** is created/updated on `main` with:
-   - Updated version in `internal/sdkversion/version.go`
+   - Updated version in `hfgoversion/version.go`
    - Updated `.github/.release-please-manifest.json`
    - Auto-generated changelog
 5. A maintainer reviews and merges the release PR when ready.
@@ -172,7 +172,7 @@ formal release.
    }
    ```
 
-1. Update `internal/sdkversion/version.go` with the starting RC version:
+1. Update `hfgoversion/version.go` with the starting RC version:
 
    ```go
    const Version = "X.Y.Z-rc0"

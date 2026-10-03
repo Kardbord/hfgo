@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 func main() {
@@ -17,15 +19,15 @@ func main() {
 
 	// Create a new client with your API token and desired model
 	client := hfgo.NewClient(
-		hfgo.WithToken(token),
-		hfgo.WithModel("facebook/bart-large-cnn"),
+		hfopts.WithToken(token),
+		hfopts.WithModel("facebook/bart-large-cnn"),
 	)
 
 	input := "The industrial revolution transformed agriculture, manufacturing, mining, and transport, " +
 		"leading to massive social and economic changes across the world."
 
 	cleanUp := true
-	truncation := hfgo.SummarizationTruncationOnlyFirst
+	truncation := hftypes.SummarizationTruncationOnlyFirst
 
 	fmt.Println("Summarizing input:")
 	PrintJSON(input)
@@ -33,9 +35,9 @@ func main() {
 
 	// Make the summarization request with custom parameters
 	summaries, err := client.Summarize(
-		hfgo.SummarizationRequest{
+		hftypes.SummarizationRequest{
 			Input: input,
-			Parameters: &hfgo.SummarizationParameters{
+			Parameters: &hftypes.SummarizationParameters{
 				CleanUpTokenizationSpaces: &cleanUp,
 				Truncation:                &truncation,
 			},

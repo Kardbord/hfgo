@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 func main() {
@@ -17,8 +19,8 @@ func main() {
 
 	// Create a new client with your API token and desired model
 	client := hfgo.NewClient(
-		hfgo.WithToken(token),
-		hfgo.WithModel("facebook/bart-large-mnli"),
+		hfopts.WithToken(token),
+		hfopts.WithModel("facebook/bart-large-mnli"),
 	)
 
 	inputs := []string{
@@ -39,9 +41,9 @@ func main() {
 
 	// Make the classification request
 	classifications, err := client.ZeroShotClassifyTextBatch(
-		hfgo.ZeroShotTextClassificationBatchRequest{
+		hftypes.ZeroShotTextClassificationBatchRequest{
 			Inputs: inputs,
-			Parameters: &hfgo.ZeroShotTextClassificationParameters{
+			Parameters: &hftypes.ZeroShotTextClassificationParameters{
 				CandidateLabels: candidates,
 				MultiLabel:      Ptr(false),
 			},

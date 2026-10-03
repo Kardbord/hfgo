@@ -11,7 +11,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
 // RawEvent represents a single parsed SSE event payload.
@@ -62,7 +63,7 @@ func StreamRaw(ctx context.Context, body io.ReadCloser) (*RawStream, error) {
 		}
 	}
 
-	ctx, cancel := context.WithCancel(NormalizeContext(ctx))
+	ctx, cancel := context.WithCancel(utils.NormalizeContext(ctx))
 
 	// Buffered with size 1 so the decoder goroutine can enqueue a single event or
 	// error without blocking, while still applying backpressure once the caller
@@ -85,7 +86,7 @@ func StreamRaw(ctx context.Context, body io.ReadCloser) (*RawStream, error) {
 // Recv blocks until the next event is available, the provided context is canceled,
 // or the stream ends. It returns io.EOF when no more events remain.
 func (s *RawStream) Recv(ctx context.Context) (event RawEvent, err error) {
-	ctx = NormalizeContext(ctx)
+	ctx = utils.NormalizeContext(ctx)
 
 	for {
 		select {

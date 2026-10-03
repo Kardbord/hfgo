@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
+	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 )
 

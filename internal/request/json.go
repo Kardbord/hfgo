@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
+	"github.com/Kardbord/hfgo/v4/hferrors"
 )
 
 const (
@@ -67,101 +67,7 @@ func UnmarshalJSONResponse[T any](body []byte, target *T) error {
 	return nil
 }
 
-// DoJSON performs an HTTP request with a JSON request body and expects a JSON response.
-// It marshals the request body to JSON, sends the request, and unmarshals the response
-// into the specified response type. The function uses Go generics to provide type-safe
-// request and response handling.
-//
-// Type parameters:
-//   - TReq: The type of the request body
-//   - TResp: The type of the response body
-//
-// Returns an error if JSON marshaling/unmarshaling fails or the HTTP request fails.
-// For HTTP errors, Do returns an *errors.APIError which includes the status code,
-// response body, and other metadata.
-//
-//nolint:bodyclose // DrainAndCloseBody closes the response body.
-func DoJSON[TReq any, TResp any](
-	opts Options,
-	method string,
-	path string,
-	reqBody TReq,
-) (resp TResp, err error) {
-	buf, err := marshalJSONRequestBody(reqBody)
-	if err != nil {
-		return resp, err
-	}
-
-	opts, err = prepareJSONOptions(opts, mimeApplicationJSON)
-	if err != nil {
-		return resp, err
-	}
-
-	httpResp, err := DoBytes(opts, method, path, buf)
-	if err != nil {
-		return resp, err
-	}
-	defer DrainAndCloseBody(httpResp.Body)
-
-	body, err := DecodeHTTPResponse(httpResp, opts.MaxResponseBodyBytes)
-	if err != nil {
-		return resp, err
-	}
-	if body == nil {
-		return resp, nil // 204/205
-	}
-
-	err = UnmarshalJSONResponse(body, &resp)
-
-	return resp, err
-}
-
-// DoJSONStream performs an HTTP request with a JSON body and returns a streaming JSON response.
-// The response body must be a Server-Sent Events (SSE) stream where each data chunk contains JSON.
-// Callers are responsible for closing the returned stream to release resources.
-func DoJSONStream[TReq any, TResp any](
-	opts Options,
-	method string,
-	path string,
-	reqBody TReq,
-) (*JSONStream[TResp], error) {
-	buf, err := marshalJSONRequestBody(reqBody)
-	if err != nil {
-		return nil, err
-	}
-
-	opts, err = prepareJSONOptions(opts, mimeEventStream)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := DoBytes(
-		opts,
-		method,
-		path,
-		buf,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := ValidateEventStreamResponseContentType(resp.Header); err != nil {
-		_ = resp.Body.Close()
-
-		return nil, err
-	}
-
-	raw, err := StreamRaw(opts.Context(), resp.Body)
-	if err != nil {
-		_ = resp.Body.Close()
-
-		return nil, err
-	}
-
-	return NewJSONStream[TResp](raw, nil), nil
-}
-
-// JSONStream consumes JSON SSE events produced by DoJSONStream.
+// JSONStream consumes JSON SSE events.
 type JSONStream[T any] struct {
 	raw *RawStream
 	// decode is an optional transform applied to each data chunk before
@@ -234,19 +140,6 @@ func (s *JSONStream[T]) Close() error {
 	}
 
 	return s.raw.Close()
-}
-
-// ensureHeader returns a copy of headers with a default value set when missing or empty.
-func ensureHeader(h http.Header, key, value string) http.Header {
-	out := cloneHeader(h)
-	if out == nil {
-		out = make(http.Header, 1)
-	}
-	if v := out.Get(key); v == "" {
-		out.Set(key, value)
-	}
-
-	return out
 }
 
 // ValidateJSONRequestContentType validates that Content-Type is application/json when provided.
@@ -326,36 +219,6 @@ func ValidateEventStreamResponseContentType(headers http.Header) error {
 	}
 
 	return nil
-}
-
-// marshalJSONRequestBody serializes the payload and normalizes errors to SDK errors.
-func marshalJSONRequestBody(payload any) ([]byte, error) {
-	buf, err := json.Marshal(payload)
-	if err != nil {
-		var sdkErr *hferrors.SDKError
-		if errors.As(err, &sdkErr) {
-			return nil, sdkErr
-		}
-
-		return nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "failed to marshal request body",
-			Err:     err,
-		}
-	}
-
-	return buf, nil
-}
-
-// prepareJSONOptions sets standard headers and validates Content-Type for JSON requests.
-func prepareJSONOptions(opts Options, accept string) (Options, error) {
-	opts = opts.WithDefaultHeader("Content-Type", mimeApplicationJSON)
-	opts = opts.WithDefaultHeader("Accept", accept)
-	if err := ValidateJSONRequestContentType(opts.Headers); err != nil {
-		return Options{}, err
-	}
-
-	return opts, nil
 }
 
 // isJSONMediaType reports whether the media type is JSON or a +json subtype.

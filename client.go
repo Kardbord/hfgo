@@ -1,7 +1,9 @@
 package hfgo
 
 import (
-	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/task"
 )
 
 // Client represents a HuggingFace API client with configured request options.
@@ -9,17 +11,16 @@ import (
 // This keeps client usage safe across goroutines and avoids surprises from mutable state.
 // If options include externally-owned pointers, callers must avoid mutating them after creation
 // or ensure their own synchronization.
-// RawService captures a snapshot of these options when created.
 type Client struct {
-	opts request.Options
+	opts hfopts.Options
 }
 
 // NewClient creates a new Client instance with the provided request options.
 // If no options are provided, default options will be used.
 // Clients are immutable; to change options, create a new Client to keep calls deterministic.
-func NewClient(opts ...Option) Client {
+func NewClient(opts ...hfopts.Option) Client {
 	return Client{
-		opts: request.NewOptions().With(opts...),
+		opts: hfopts.NewOptions().With(opts...),
 	}
 }
 
@@ -52,7 +53,7 @@ func NewClient(opts ...Option) Client {
 //
 // For example:
 //   - Model="mistral-7b", Provider=HuggingFaceProvider → "mistral-7b"
-//   - Model="mistral-7b", Provider=mockProvider("sambanova") → "mistral-7b:sambanova"
+//   - Model="mistral-7b", Provider=SomeProvider → "mistral-7b:someprovider"
 //   - Model="mistral-7b:sambanova", Provider=HuggingFaceProvider → "mistral-7b:sambanova" (Provider ignored)
 //
 // Provider selection is otherwise delegated to the HF router. To select a
@@ -67,8 +68,8 @@ func NewClient(opts ...Option) Client {
 //   - Returns a configuration error if *req.Stream is true; use ChatStream for streaming.
 //
 //nolint:gocritic // hugeParam: Chat takes the request by value so the SDK never mutates the caller's payload
-func (c Client) Chat(req ChatRequest, opts ...Option) (ChatResponse, error) {
-	return newChatService(c.opts).complete(req, opts...)
+func (c Client) Chat(req hftypes.ChatRequest, opts ...hfopts.Option) (hftypes.ChatResponse, error) {
+	return task.Chat(c.opts.With(opts...), req)
 }
 
 // ChatStream sends a chat completion request and returns a streaming response.
@@ -102,7 +103,7 @@ func (c Client) Chat(req ChatRequest, opts ...Option) (ChatResponse, error) {
 //
 // For example:
 //   - Model="mistral-7b", Provider=HuggingFaceProvider → "mistral-7b"
-//   - Model="mistral-7b", Provider=mockProvider("sambanova") → "mistral-7b:sambanova"
+//   - Model="mistral-7b", Provider=SomeProvider → "mistral-7b:someprovider"
 //   - Model="mistral-7b:sambanova", Provider=HuggingFaceProvider → "mistral-7b:sambanova" (Provider ignored)
 //
 // Provider selection is otherwise delegated to the HF router. To select a
@@ -117,8 +118,11 @@ func (c Client) Chat(req ChatRequest, opts ...Option) (ChatResponse, error) {
 //   - Always sends the request with streaming enabled.
 //
 //nolint:gocritic // hugeParam: ChatStream takes the request by value so the SDK never mutates the caller's payload
-func (c Client) ChatStream(req ChatRequest, opts ...Option) (*ChatStream, error) {
-	return newChatService(c.opts).completeStream(req, opts...)
+func (c Client) ChatStream(
+	req hftypes.ChatRequest,
+	opts ...hfopts.Option,
+) (*hftypes.ChatStream, error) {
+	return task.StreamChat(c.opts.With(opts...), req)
 }
 
 // ClassifyText sends a text classification request and returns the text
@@ -126,10 +130,10 @@ func (c Client) ChatStream(req ChatRequest, opts ...Option) (*ChatStream, error)
 //
 // For multiple classification inputs, use ClassifyTextBatch.
 func (c Client) ClassifyText(
-	req TextClassificationRequest,
-	opts ...Option,
-) ([]TextClassification, error) {
-	return newTextClassificationService(c.opts).classify(req, opts...)
+	req hftypes.TextClassificationRequest,
+	opts ...hfopts.Option,
+) ([]hftypes.TextClassification, error) {
+	return task.ClassifyText(c.opts.With(opts...), req)
 }
 
 // ClassifyTextBatch sends a text classification request for a batch of inputs
@@ -140,10 +144,10 @@ func (c Client) ClassifyText(
 //
 // Callers should check the length of the response list before indexing.
 func (c Client) ClassifyTextBatch(
-	req TextClassificationBatchRequest,
-	opts ...Option,
-) ([][]TextClassification, error) {
-	return newTextClassificationService(c.opts).classifyBatch(req, opts...)
+	req hftypes.TextClassificationBatchRequest,
+	opts ...hfopts.Option,
+) ([][]hftypes.TextClassification, error) {
+	return task.ClassifyTextBatch(c.opts.With(opts...), req)
 }
 
 // ClassifyTokens sends a token classification request and returns the token
@@ -151,10 +155,10 @@ func (c Client) ClassifyTextBatch(
 //
 // For multiple inputs, use ClassifyTokensBatch.
 func (c Client) ClassifyTokens(
-	req TokenClassificationRequest,
-	opts ...Option,
-) ([]TokenClassification, error) {
-	return newTokenClassificationService(c.opts).classify(req, opts...)
+	req hftypes.TokenClassificationRequest,
+	opts ...hfopts.Option,
+) ([]hftypes.TokenClassification, error) {
+	return task.ClassifyTokens(c.opts.With(opts...), req)
 }
 
 // ClassifyTokensBatch sends a token classification request for a batch of inputs
@@ -165,10 +169,10 @@ func (c Client) ClassifyTokens(
 //
 // Callers should check the length of the response list before indexing.
 func (c Client) ClassifyTokensBatch(
-	req TokenClassificationBatchRequest,
-	opts ...Option,
-) ([][]TokenClassification, error) {
-	return newTokenClassificationService(c.opts).classifyBatch(req, opts...)
+	req hftypes.TokenClassificationBatchRequest,
+	opts ...hfopts.Option,
+) ([][]hftypes.TokenClassification, error) {
+	return task.ClassifyTokensBatch(c.opts.With(opts...), req)
 }
 
 // AnswerQuestion sends a question answering request and returns the answers.
@@ -176,10 +180,10 @@ func (c Client) ClassifyTokensBatch(
 // The request must include both a question and a context. The model will
 // identify the answer to the question within the provided context.
 func (c Client) AnswerQuestion(
-	req QuestionAnsweringRequest,
-	opts ...Option,
-) ([]QuestionAnswering, error) {
-	return newQuestionAnsweringService(c.opts).answer(req, opts...)
+	req hftypes.QuestionAnsweringRequest,
+	opts ...hfopts.Option,
+) ([]hftypes.QuestionAnswering, error) {
+	return task.AnswerQuestion(c.opts.With(opts...), req)
 }
 
 // ZeroShotClassifyText sends a zero-shot text classification request and
@@ -187,10 +191,10 @@ func (c Client) AnswerQuestion(
 //
 // For multiple inputs, use ZeroShotClassifyTextBatch.
 func (c Client) ZeroShotClassifyText(
-	req ZeroShotTextClassificationRequest,
-	opts ...Option,
-) ([]ZeroShotTextClassification, error) {
-	return newZeroShotTextClassificationService(c.opts).classify(req, opts...)
+	req hftypes.ZeroShotTextClassificationRequest,
+	opts ...hfopts.Option,
+) ([]hftypes.ZeroShotTextClassification, error) {
+	return task.ZeroShotClassifyText(c.opts.With(opts...), req)
 }
 
 // ZeroShotClassifyTextBatch sends a zero-shot text classification request for
@@ -202,18 +206,21 @@ func (c Client) ZeroShotClassifyText(
 //
 // Callers should check the length of the response list before indexing.
 func (c Client) ZeroShotClassifyTextBatch(
-	req ZeroShotTextClassificationBatchRequest,
-	opts ...Option,
-) ([][]ZeroShotTextClassification, error) {
-	return newZeroShotTextClassificationService(c.opts).classifyBatch(req, opts...)
+	req hftypes.ZeroShotTextClassificationBatchRequest,
+	opts ...hfopts.Option,
+) ([][]hftypes.ZeroShotTextClassification, error) {
+	return task.ZeroShotClassifyTextBatch(c.opts.With(opts...), req)
 }
 
 // FillMask sends a fill mask request and returns the mask filling predictions
 // for a single input.
 //
 // For multiple inputs, use FillMaskBatch.
-func (c Client) FillMask(req FillMaskRequest, opts ...Option) ([]FillMaskPrediction, error) {
-	return newFillMaskService(c.opts).fill(req, opts...)
+func (c Client) FillMask(
+	req hftypes.FillMaskRequest,
+	opts ...hfopts.Option,
+) ([]hftypes.FillMaskPrediction, error) {
+	return task.FillMask(c.opts.With(opts...), req)
 }
 
 // FillMaskBatch sends a fill mask request for a batch of inputs and returns a
@@ -224,10 +231,10 @@ func (c Client) FillMask(req FillMaskRequest, opts ...Option) ([]FillMaskPredict
 //
 // Callers should check the length of the response list before indexing.
 func (c Client) FillMaskBatch(
-	req FillMaskBatchRequest,
-	opts ...Option,
-) ([][]FillMaskPrediction, error) {
-	return newFillMaskService(c.opts).fillBatch(req, opts...)
+	req hftypes.FillMaskBatchRequest,
+	opts ...hfopts.Option,
+) ([][]hftypes.FillMaskPrediction, error) {
+	return task.FillMaskBatch(c.opts.With(opts...), req)
 }
 
 // Summarize sends a summarization request and returns the summarization output
@@ -237,8 +244,11 @@ func (c Client) FillMaskBatch(
 // one-element list rather than a bare summary object.
 //
 // For multiple inputs, use SummarizeBatch.
-func (c Client) Summarize(req SummarizationRequest, opts ...Option) ([]Summarization, error) {
-	return newSummarizationService(c.opts).summarize(req, opts...)
+func (c Client) Summarize(
+	req hftypes.SummarizationRequest,
+	opts ...hfopts.Option,
+) ([]hftypes.Summarization, error) {
+	return task.Summarize(c.opts.With(opts...), req)
 }
 
 // SummarizeBatch sends a summarization request for a batch of inputs and returns
@@ -250,10 +260,10 @@ func (c Client) Summarize(req SummarizationRequest, opts ...Option) ([]Summariza
 // a flat list (one summary per input) — not a nested list — consistent with
 // how the API returns a list even for a single input.
 func (c Client) SummarizeBatch(
-	req SummarizationBatchRequest,
-	opts ...Option,
-) ([]Summarization, error) {
-	return newSummarizationService(c.opts).summarizeBatch(req, opts...)
+	req hftypes.SummarizationBatchRequest,
+	opts ...hfopts.Option,
+) ([]hftypes.Summarization, error) {
+	return task.SummarizeBatch(c.opts.With(opts...), req)
 }
 
 // AnswerTableQuestion sends a table question answering request and returns the answer.
@@ -266,10 +276,10 @@ func (c Client) SummarizeBatch(
 // response. This method returns a single TableQuestionAnswer to match the
 // actual API behavior.
 func (c Client) AnswerTableQuestion(
-	req TableQuestionAnsweringRequest,
-	opts ...Option,
-) (TableQuestionAnswer, error) {
-	return newTableQuestionAnsweringService(c.opts).answer(req, opts...)
+	req hftypes.TableQuestionAnsweringRequest,
+	opts ...hfopts.Option,
+) (hftypes.TableQuestionAnswer, error) {
+	return task.AnswerTableQuestion(c.opts.With(opts...), req)
 }
 
 // Translate sends a translation request and returns the translation output
@@ -279,8 +289,11 @@ func (c Client) AnswerTableQuestion(
 // one-element list rather than a bare translation object.
 //
 // For multiple inputs, use TranslateBatch.
-func (c Client) Translate(req TranslationRequest, opts ...Option) ([]Translation, error) {
-	return newTranslationService(c.opts).translate(req, opts...)
+func (c Client) Translate(
+	req hftypes.TranslationRequest,
+	opts ...hfopts.Option,
+) ([]hftypes.Translation, error) {
+	return task.Translate(c.opts.With(opts...), req)
 }
 
 // TranslateBatch sends a translation request for a batch of inputs and returns
@@ -292,10 +305,10 @@ func (c Client) Translate(req TranslationRequest, opts ...Option) ([]Translation
 // a flat list (one translation per input) — not a nested list — consistent with
 // how the API returns a list even for a single input.
 func (c Client) TranslateBatch(
-	req TranslationBatchRequest,
-	opts ...Option,
-) ([]Translation, error) {
-	return newTranslationService(c.opts).translateBatch(req, opts...)
+	req hftypes.TranslationBatchRequest,
+	opts ...hfopts.Option,
+) ([]hftypes.Translation, error) {
+	return task.TranslateBatch(c.opts.With(opts...), req)
 }
 
 // FeatureExtract sends a feature extraction request and returns the embedding
@@ -305,10 +318,10 @@ func (c Client) TranslateBatch(
 //
 // NOTE: hf-inference is NOT the only supported provider, add support for other providers.
 func (c Client) FeatureExtract(
-	req FeatureExtractionRequest,
-	opts ...Option,
-) (FeatureExtraction, error) {
-	return newFeatureExtractionService(c.opts).extract(req, opts...)
+	req hftypes.FeatureExtractionRequest,
+	opts ...hfopts.Option,
+) (hftypes.FeatureExtraction, error) {
+	return task.ExtractFeatures(c.opts.With(opts...), req)
 }
 
 // FeatureExtractBatch sends a feature extraction request for a batch of inputs
@@ -320,21 +333,8 @@ func (c Client) FeatureExtract(
 //
 // NOTE: hf-inference is NOT the only supported provider, add support for other providers.
 func (c Client) FeatureExtractBatch(
-	req FeatureExtractionBatchRequest,
-	opts ...Option,
-) ([]FeatureExtraction, error) {
-	return newFeatureExtractionService(c.opts).extractBatch(req, opts...)
-}
-
-// Raw returns the raw HTTP request service for this client. Unlike the other
-// endpoints, which are exposed directly as Client methods, the raw path remains
-// namespaced under RawService: it is the advanced escape hatch for endpoints the
-// SDK does not otherwise cover, and its several method variants are easier to
-// discover grouped together than splashed across the Client surface.
-//
-// RawService is immutable and captures a snapshot of the client options when
-// created; it is lightweight, so prefer calling Raw() per use rather than
-// retaining the value.
-func (c Client) Raw() RawService {
-	return newRawService(c.opts)
+	req hftypes.FeatureExtractionBatchRequest,
+	opts ...hfopts.Option,
+) ([]hftypes.FeatureExtraction, error) {
+	return task.ExtractFeaturesBatch(c.opts.With(opts...), req)
 }

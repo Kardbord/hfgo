@@ -109,6 +109,42 @@ go test -race -timeout 600s -v ./...
 go test -tags=integration -timeout 600s -v ./...
 ```
 
+## Repository Structure
+
+The repo is organized as a Go module with a small public root package
+(`github.com/Kardbord/hfgo/v4`) and explicit public sub-packages for
+different concerns (`hfopts`, `hftypes`, `hferrors`, `hfproviders`,
+`hfgoversion`, `hfraw`). Implementation details live under `internal/`.
+
+| Path | Purpose |
+|------|---------|
+| `client.go` | `Client`, `NewClient`, and every inference endpoint method |
+| `hfraw/` | Low-level `Client`/`Stream`/`Event` escape hatch for arbitrary HTTP/SSE |
+| `hfopts/` | `Options`, `Option`, and all `With*` option helpers |
+| `hftypes/` | Request/response DTOs for every task (chat, fill-mask, classification, etc.) |
+| `hferrors/` | `APIError`, `SDKError`, and `SDKErrorKind` |
+| `hfproviders/` | Public `Provider` interface, `HuggingFaceProvider`, `DefaultCodec`, `Task` constants |
+| `hfgoversion/` | `Version` constant and `UserAgent()` helper |
+| `internal/task/` | Package-level task functions (`Chat`, `ClassifyText`, ...) |
+| `internal/request/` | HTTP plumbing, JSON helpers, SSE parsing |
+| `internal/utils/` | Shared helpers used by public and internal packages |
+| `internal/testutils/` | Shared test helpers (mock transports, trackers) |
+| `internal/integration_tests/` | Live-API integration tests |
+| `examples/` | Runnable examples, one folder per task |
+| `tools/bruno/` | Bruno collections for manual API testing |
+
+**Where to make changes**:
+
+- **Adding or modifying request/response types**: edit `hftypes/*`. Types are
+  public directly from that package; there is no need to re-export them from
+  the root package.
+- **Adding or changing endpoint behavior**: edit the task function in
+  `internal/task/*` and the corresponding `Client` method in `client.go`.
+- **Provider or wire-format work**: edit `hfproviders/*`.
+- **Tests**: unit tests live next to the code they exercise (e.g.
+  `internal/task/*_task_test.go`); integration tests live in
+  `internal/integration_tests/*_integration_test.go`.
+
 ## Pull Requests
 
 ### Before Creating a PR
@@ -174,7 +210,7 @@ description, including release candidate (RC) workflow.
 1. **PR is merged to `main`** with a conventional commit title.
 2. **release-please analyzes commits** since the last release.
 3. **Draft release PR is created** with:
-   - Updated version in `internal/sdkversion/version.go`
+   - Updated version in `hfgoversion/version.go`
    - Updated `.github/.release-please-manifest.json`
    - Auto-generated changelog
 4. **Maintainer reviews and merges the release PR**.
@@ -249,14 +285,22 @@ func TestSomething(t *testing.T) {
 ```go
 //go:build integration
 
-package hfgo
+package integration_tests
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Kardbord/hfgo/v4"
+)
 
 func TestIntegration(t *testing.T) {
-    // Integration test code
+	// Integration test code; calls hfgo.Client directly against the live API
 }
 ```
+
+Integration tests live in `internal/integration_tests/` (package
+`integration_tests`) and end with the `_integration_test.go` suffix so the
+build tooling can discover them.
 
 ### Unit Tests
 
@@ -336,15 +380,20 @@ The SDK prioritizes **concurrency safety**:
 
 When making changes:
 
-- Don't introduce mutable state in clients or services
+- Don't introduce mutable state in clients
 - Test with `go test -race` to catch race conditions
 - Document concurrency guarantees in comments
 
 ## Common Mistakes to Avoid
 
-1. **Mutating requests**: Don't modify requests passed to methods by
-   pointer after passing them
-2. **Not closing streams**: Always call `Close()` on `ChatStream` or `RawStream`
+1. **Mutating request data**: Requests are passed to client methods **by
+   value** and the SDK never mutates the caller's payload. However, the value
+   copy shares nested data (slices, maps, and pointed-to values) with the
+   caller, so treat the request and the data it references as **read-only
+   while a call is in flight**. For concurrent invocation, pass a defensive
+   copy per call, e.g. `client.Chat(req.Clone(), ...)`, or build a fresh
+   request per call.
+2. **Not closing streams**: Always call `Close()` on `ChatStream` or `hfraw.Stream`
 3. **Sharing mutable HTTP clients**: If injecting HTTP clients, ensure thread-safety
 4. **Breaking API contracts**: Changing function signatures is a breaking change
 5. **Ignoring context**: Always respect context cancellation and timeouts

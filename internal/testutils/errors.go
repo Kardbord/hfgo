@@ -3,7 +3,7 @@ package testutils
 import (
 	"testing"
 
-	"github.com/Kardbord/hfgo/v4/internal/hferrors"
+	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/stretchr/testify/require"
 )
 

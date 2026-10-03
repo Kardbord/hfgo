@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 func main() {
@@ -16,8 +18,8 @@ func main() {
 	}
 
 	client := hfgo.NewClient(
-		hfgo.WithToken(token),
-		hfgo.WithModel("google/tapas-base-finetuned-wtq"),
+		hfopts.WithToken(token),
+		hfopts.WithModel("google/tapas-base-finetuned-wtq"),
 	)
 
 	table := map[string][]string{
@@ -33,8 +35,8 @@ func main() {
 	fmt.Println("...")
 
 	answer, err := client.AnswerTableQuestion(
-		hfgo.TableQuestionAnsweringRequest{
-			Input: hfgo.TableQuestionAnsweringInput{
+		hftypes.TableQuestionAnsweringRequest{
+			Input: hftypes.TableQuestionAnsweringInput{
 				Question: question,
 				Table:    table,
 			},

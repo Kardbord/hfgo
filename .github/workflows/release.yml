@@ -43,7 +43,7 @@ jobs:
       # 2. Determines version bump (major/minor/patch/prerelease)
       # 3. Creates Release PR with version updates:
       #    - Updates go.mod
-      #    - Updates internal/sdkversion/version.go
+      #    - Updates hfgoversion/version.go
       #    - Generates changelog
       # 4. On Release PR merge, creates:
       #    - Git tag

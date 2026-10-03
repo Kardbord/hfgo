@@ -2,7 +2,7 @@
   "packages": {
     ".": {
       "release-type": "go",
-      "version-file": "internal/sdkversion/version.go",
+      "version-file": "hfgoversion/version.go",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "skip-changelog": true,

@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 func main() {
@@ -17,14 +19,14 @@ func main() {
 
 	// Create a new client with your API token and desired model
 	client := hfgo.NewClient(
-		hfgo.WithToken(token),
-		hfgo.WithModel("google-t5/t5-small"),
+		hfopts.WithToken(token),
+		hfopts.WithModel("google-t5/t5-small"),
 	)
 
 	input := "The weather is lovely and sunny today."
 
 	cleanUp := true
-	truncation := hfgo.TranslationTruncationOnlyFirst
+	truncation := hftypes.TranslationTruncationOnlyFirst
 
 	fmt.Println("Translating input:")
 	PrintJSON(input)
@@ -32,9 +34,9 @@ func main() {
 
 	// Make the translation request with custom parameters
 	translations, err := client.Translate(
-		hfgo.TranslationRequest{
+		hftypes.TranslationRequest{
 			Input: input,
-			Parameters: &hfgo.TranslationParameters{
+			Parameters: &hftypes.TranslationParameters{
 				CleanUpTokenizationSpaces: &cleanUp,
 				Truncation:                &truncation,
 			},

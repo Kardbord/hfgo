@@ -5,6 +5,8 @@ package request
 import (
 	"bytes"
 	"testing"
+
+	"github.com/Kardbord/hfgo/v4/hfopts"
 )
 
 func FuzzJoinURL(f *testing.F) {
@@ -27,7 +29,7 @@ func FuzzBuildHTTPRequest(f *testing.F) {
 	f.Add("GET", "", []byte("hello"))
 	f.Add("GET", "/test", []byte(""))
 	f.Fuzz(func(_ *testing.T, method, path string, body []byte) {
-		opts := NewOptions()
+		opts := hfopts.NewOptions()
 		_, _ = buildHTTPRequest(opts, method, path, bytes.NewReader(body))
 	})
 }

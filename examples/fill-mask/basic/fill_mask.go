@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 func main() {
@@ -17,8 +19,8 @@ func main() {
 
 	// Create a new client with your API token and desired model
 	client := hfgo.NewClient(
-		hfgo.WithToken(token),
-		hfgo.WithModel("google-bert/bert-base-uncased"),
+		hfopts.WithToken(token),
+		hfopts.WithModel("google-bert/bert-base-uncased"),
 	)
 
 	input := "The capital of France is [MASK]."
@@ -29,7 +31,7 @@ func main() {
 
 	// Make the fill mask request
 	predictions, err := client.FillMask(
-		hfgo.FillMaskRequest{
+		hftypes.FillMaskRequest{
 			Input: input,
 		},
 	)

@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
 func main() {
@@ -17,8 +19,8 @@ func main() {
 
 	// Create a new client with your API token and desired model
 	client := hfgo.NewClient(
-		hfgo.WithToken(token),
-		hfgo.WithModel("facebook/bart-large-cnn"),
+		hfopts.WithToken(token),
+		hfopts.WithModel("facebook/bart-large-cnn"),
 	)
 
 	inputs := []string{
@@ -32,7 +34,7 @@ func main() {
 
 	// Make the batched summarization request
 	summaries, err := client.SummarizeBatch(
-		hfgo.SummarizationBatchRequest{
+		hftypes.SummarizationBatchRequest{
 			Inputs: inputs,
 		},
 	)
