@@ -126,7 +126,6 @@ different concerns (`hfopts`, `hftypes`, `hferrors`, `hfproviders`,
 | `hfproviders/` | Public `Provider` interface, `HuggingFaceProvider`, `DefaultCodec`, `Task` constants |
 | `hfgoversion/` | `Version` constant and `UserAgent()` helper |
 | `internal/task/` | Package-level task functions (`Chat`, `ClassifyText`, ...) |
-| `internal/chatstream/` | `ChatStream` and `ToolCallAccumulator` |
 | `internal/request/` | HTTP plumbing, JSON helpers, SSE parsing |
 | `internal/utils/` | Shared helpers used by public and internal packages |
 | `internal/testutils/` | Shared test helpers (mock transports, trackers) |

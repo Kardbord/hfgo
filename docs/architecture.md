@@ -71,7 +71,6 @@ None of these packages are part of the public API.
 | Package | Contents |
 |---------|----------|
 | `internal/task` | Package-level task functions (`Chat`, `StreamChat`, `ClassifyText`, …) |
-| `internal/chatstream` | `ChatStream` implementation and the `ToolCallAccumulator` helper |
 | `internal/request` | HTTP plumbing, JSON decode helpers, and SSE parsing |
 | `internal/utils` | Shared helpers used by `hfopts`, `internal/request`, and internal packages |
 | `internal/testutils` | Shared test helpers (mock transports, trackers, pointers) |
@@ -400,7 +399,7 @@ Validation:
 
 ### ChatStream
 Wraps streaming chat completion response from `ChatStream()`. Defined in
-`internal/chatstream` together with `ToolCallAccumulator`.
+`hftypes` together with `ToolCallAccumulator`.
 
 **Methods**:
 - `Recv(ctx context.Context) (ChatStreamResponse, error)`: Blocks until next chunk arrives
@@ -413,7 +412,7 @@ Wraps streaming chat completion response from `ChatStream()`. Defined in
 **Tool Call Metadata Merging**:
 - Automatically caches and merges tool call ID, type, and function name across streaming deltas
 - Ensures each delta includes complete tool call metadata
-- Implemented by `internal/chatstream.ToolCallAccumulator`
+- Implemented by `hftypes.ToolCallAccumulator`
 
 ### ChatMessage
 Represents a message in conversation history.
