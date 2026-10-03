@@ -1,8 +1,6 @@
 // Package hfproviders defines the Provider interface and built-in provider implementations.
 package hfproviders
 
-import "github.com/Kardbord/hfgo/v4/hftypes"
-
 // Provider knows how to construct API endpoints and transform between HF-spec
 // and provider-spec wire formats for a given task and model. Implementations
 // must be safe for concurrent use.
@@ -17,70 +15,122 @@ type Provider interface {
 	ProviderSuffix() string
 }
 
-// Codec knows how to transform canonical Hugging Face request types and provider wire types,
-// as well as provider response wire types and canonical Hugging Face response types.
-type Codec[Req, Resp any] interface {
-	// Encode transforms a canonical Hugging Face request type into its provider-format
-	// wire type.
-	Encode(req Req) (providerBody []byte, providerContentType string, err error)
-
-	// Decode transforms a provider wire type response into its canonical Hugging Face
-	// response type.
-	Decode(resp []byte, providerContentType string) (Resp, error)
+// ChatCodecProvider is a Provider that supplies a Codec for the Chat task.
+type ChatCodecProvider interface {
+	Provider
+	ChatCodec() ChatCodec
 }
 
-type (
-	// ChatCodec is the Codec for the Chat task.
-	ChatCodec = Codec[hftypes.ChatRequest, hftypes.ChatResponse]
+// ChatStreamCodecProvider is a Provider that supplies a Codec for the ChatStream task.
+type ChatStreamCodecProvider interface {
+	Provider
+	ChatStreamCodec() ChatStreamCodec
+}
 
-	// ChatStreamCodec is the Codec for the ChatStream task.
-	ChatStreamCodec = Codec[hftypes.ChatRequest, hftypes.ChatStreamResponse]
+// FeatureExtractionBatchCodecProvider is a Provider that supplies a Codec for the
+// FeatureExtractBatch task.
+type FeatureExtractionBatchCodecProvider interface {
+	Provider
+	FeatureExtractionBatchCodec() FeatureExtractionBatchCodec
+}
 
-	// FeatureExtractionBatchCodec is the Codec for the FeatureExtractBatch task.
-	FeatureExtractionBatchCodec = Codec[hftypes.FeatureExtractionBatchRequest, []hftypes.FeatureExtraction]
+// FeatureExtractionCodecProvider is a Provider that supplies a Codec for the
+// FeatureExtract task.
+type FeatureExtractionCodecProvider interface {
+	Provider
+	FeatureExtractionCodec() FeatureExtractionCodec
+}
 
-	// FeatureExtractionCodec is the Codec for the FeatureExtract task.
-	FeatureExtractionCodec = Codec[hftypes.FeatureExtractionRequest, hftypes.FeatureExtraction]
+// FillMaskBatchCodecProvider is a Provider that supplies a Codec for the FillMaskBatch task.
+type FillMaskBatchCodecProvider interface {
+	Provider
+	FillMaskBatchCodec() FillMaskBatchCodec
+}
 
-	// FillMaskBatchCodec is the Codec for the FillMaskBatch task.
-	FillMaskBatchCodec = Codec[hftypes.FillMaskBatchRequest, [][]hftypes.FillMaskPrediction]
+// FillMaskCodecProvider is a Provider that supplies a Codec for the FillMask task.
+type FillMaskCodecProvider interface {
+	Provider
+	FillMaskCodec() FillMaskCodec
+}
 
-	// FillMaskCodec is the Codec for the FillMask task.
-	FillMaskCodec = Codec[hftypes.FillMaskRequest, []hftypes.FillMaskPrediction]
+// QuestionAnsweringCodecProvider is a Provider that supplies a Codec for the
+// AnswerQuestion task.
+type QuestionAnsweringCodecProvider interface {
+	Provider
+	QuestionAnsweringCodec() QuestionAnsweringCodec
+}
 
-	// QuestionAnsweringCodec is the Codec for the AnswerQuestion task.
-	QuestionAnsweringCodec = Codec[hftypes.QuestionAnsweringRequest, []hftypes.QuestionAnswering]
+// SummarizationBatchCodecProvider is a Provider that supplies a Codec for the
+// SummarizeBatch task.
+type SummarizationBatchCodecProvider interface {
+	Provider
+	SummarizationBatchCodec() SummarizationBatchCodec
+}
 
-	// SummarizationBatchCodec is the Codec for the SummarizeBatch task.
-	SummarizationBatchCodec = Codec[hftypes.SummarizationBatchRequest, []hftypes.Summarization]
+// SummarizationCodecProvider is a Provider that supplies a Codec for the Summarize task.
+type SummarizationCodecProvider interface {
+	Provider
+	SummarizationCodec() SummarizationCodec
+}
 
-	// SummarizationCodec is the Codec for the Summarize task.
-	SummarizationCodec = Codec[hftypes.SummarizationRequest, []hftypes.Summarization]
+// TableQuestionAnsweringCodecProvider is a Provider that supplies a Codec for the
+// AnswerTableQuestion task.
+type TableQuestionAnsweringCodecProvider interface {
+	Provider
+	TableQuestionAnsweringCodec() TableQuestionAnsweringCodec
+}
 
-	// TableQuestionAnsweringCodec is the Codec for the AnswerTableQuestion task.
-	TableQuestionAnsweringCodec = Codec[hftypes.TableQuestionAnsweringRequest, hftypes.TableQuestionAnswer]
+// TextClassificationBatchCodecProvider is a Provider that supplies a Codec for the
+// ClassifyTextBatch task.
+type TextClassificationBatchCodecProvider interface {
+	Provider
+	TextClassificationBatchCodec() TextClassificationBatchCodec
+}
 
-	// TextClassificationBatchCodec is the Codec for the ClassifyTextBatch task.
-	TextClassificationBatchCodec = Codec[hftypes.TextClassificationBatchRequest, [][]hftypes.TextClassification]
+// TextClassificationCodecProvider is a Provider that supplies a Codec for the
+// ClassifyText task.
+type TextClassificationCodecProvider interface {
+	Provider
+	TextClassificationCodec() TextClassificationCodec
+}
 
-	// TextClassificationCodec is the Codec for the ClassifyText task.
-	TextClassificationCodec = Codec[hftypes.TextClassificationRequest, []hftypes.TextClassification]
+// TokenClassificationBatchCodecProvider is a Provider that supplies a Codec for the
+// ClassifyTokensBatch task.
+type TokenClassificationBatchCodecProvider interface {
+	Provider
+	TokenClassificationBatchCodec() TokenClassificationBatchCodec
+}
 
-	// TokenClassificationBatchCodec is the Codec for the ClassifyTokensBatch task.
-	TokenClassificationBatchCodec = Codec[hftypes.TokenClassificationBatchRequest, [][]hftypes.TokenClassification]
+// TokenClassificationCodecProvider is a Provider that supplies a Codec for the
+// ClassifyTokens task.
+type TokenClassificationCodecProvider interface {
+	Provider
+	TokenClassificationCodec() TokenClassificationCodec
+}
 
-	// TokenClassificationCodec is the Codec for the ClassifyTokens task.
-	TokenClassificationCodec = Codec[hftypes.TokenClassificationRequest, []hftypes.TokenClassification]
+// TranslationBatchCodecProvider is a Provider that supplies a Codec for the
+// TranslateBatch task.
+type TranslationBatchCodecProvider interface {
+	Provider
+	TranslationBatchCodec() TranslationBatchCodec
+}
 
-	// TranslationBatchCodec is the Codec for the TranslateBatch task.
-	TranslationBatchCodec = Codec[hftypes.TranslationBatchRequest, []hftypes.Translation]
+// TranslationCodecProvider is a Provider that supplies a Codec for the Translate task.
+type TranslationCodecProvider interface {
+	Provider
+	TranslationCodec() TranslationCodec
+}
 
-	// TranslationCodec is the Codec for the Translate task.
-	TranslationCodec = Codec[hftypes.TranslationRequest, []hftypes.Translation]
+// ZeroShotTextClassificationBatchCodecProvider is a Provider that supplies a Codec
+// for the ZeroShotClassifyTextBatch task.
+type ZeroShotTextClassificationBatchCodecProvider interface {
+	Provider
+	ZeroShotTextClassificationBatchCodec() ZeroShotTextClassificationBatchCodec
+}
 
-	// ZeroShotTextClassificationBatchCodec is the Codec for the ZeroShotClassifyTextBatch task.
-	ZeroShotTextClassificationBatchCodec = Codec[hftypes.ZeroShotTextClassificationBatchRequest, [][]hftypes.ZeroShotTextClassification]
-
-	// ZeroShotTextClassificationCodec is the Codec for the ZeroShotClassifyText task.
-	ZeroShotTextClassificationCodec = Codec[hftypes.ZeroShotTextClassificationRequest, []hftypes.ZeroShotTextClassification]
-)
+// ZeroShotTextClassificationCodecProvider is a Provider that supplies a Codec for
+// the ZeroShotClassifyText task.
+type ZeroShotTextClassificationCodecProvider interface {
+	Provider
+	ZeroShotTextClassificationCodec() ZeroShotTextClassificationCodec
+}
