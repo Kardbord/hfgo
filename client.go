@@ -53,7 +53,7 @@ func NewClient(opts ...hfopts.Option) Client {
 //
 // For example:
 //   - Model="mistral-7b", Provider=HuggingFaceProvider → "mistral-7b"
-//   - Model="mistral-7b", Provider=mockProvider("sambanova") → "mistral-7b:sambanova"
+//   - Model="mistral-7b", Provider=SomeProvider → "mistral-7b:someprovider"
 //   - Model="mistral-7b:sambanova", Provider=HuggingFaceProvider → "mistral-7b:sambanova" (Provider ignored)
 //
 // Provider selection is otherwise delegated to the HF router. To select a
@@ -103,7 +103,7 @@ func (c Client) Chat(req hftypes.ChatRequest, opts ...hfopts.Option) (hftypes.Ch
 //
 // For example:
 //   - Model="mistral-7b", Provider=HuggingFaceProvider → "mistral-7b"
-//   - Model="mistral-7b", Provider=mockProvider("sambanova") → "mistral-7b:sambanova"
+//   - Model="mistral-7b", Provider=SomeProvider → "mistral-7b:someprovider"
 //   - Model="mistral-7b:sambanova", Provider=HuggingFaceProvider → "mistral-7b:sambanova" (Provider ignored)
 //
 // Provider selection is otherwise delegated to the HF router. To select a

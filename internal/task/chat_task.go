@@ -97,7 +97,7 @@ func Chat(opts hfopts.Options, req hftypes.ChatRequest) (hftypes.ChatResponse, e
 
 // StreamChat sends a chat completion request and returns a streaming response.
 //
-//nolint:gocritic // hugeParam: DoChatStream takes the request by value so the SDK never mutates the caller's payload
+//nolint:gocritic // hugeParam: StreamChat takes the request by value so the SDK never mutates the caller's payload
 func StreamChat(opts hfopts.Options, req hftypes.ChatRequest) (*hftypes.ChatStream, error) {
 	optsOverride, err := resolveChatOptions(opts, &req)
 	if err != nil {
