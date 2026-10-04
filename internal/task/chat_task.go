@@ -83,7 +83,7 @@ func Chat(opts hfopts.Options, req hftypes.ChatRequest) (hftypes.ChatResponse, e
 	if req.Stream != nil && *req.Stream {
 		return hftypes.ChatResponse{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: "chat completion streaming is not supported; use a streaming chat method instead",
+			Message: "use a streaming chat method instead",
 			Err:     nil,
 		}
 	}
