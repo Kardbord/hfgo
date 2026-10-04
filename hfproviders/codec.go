@@ -1,6 +1,14 @@
 package hfproviders
 
-import "github.com/Kardbord/hfgo/v4/hftypes"
+import (
+	"encoding/json"
+	"errors"
+	"io"
+	"strings"
+
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hftypes"
+)
 
 // Codec knows how to transform canonical Hugging Face request types and provider wire types,
 // as well as provider response wire types and canonical Hugging Face response types.
@@ -69,3 +77,56 @@ type (
 	// ZeroShotTextClassificationCodec is the Codec for the ZeroShotClassifyText task.
 	ZeroShotTextClassificationCodec = Codec[hftypes.ZeroShotTextClassificationRequest, []hftypes.ZeroShotTextClassification]
 )
+
+// JSONCodec is a generic Codec implementation that encodes requests and decodes
+// responses as JSON.
+type JSONCodec[Req, Resp any] struct{}
+
+// Encode marshals req into a JSON request body and returns it along with the
+// "application/json" content type. It returns an *hferrors.SDKError of kind
+// SDKErrorKindSerialization if marshaling fails.
+func (JSONCodec[Req, Resp]) Encode(req Req) (body []byte, contentType string, err error) {
+	contentType = "application/json"
+	body, err = json.Marshal(req)
+	if err != nil {
+		return nil, "", &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindSerialization,
+			Message: "failed to marshal request body",
+			Err:     err,
+		}
+	}
+
+	return body, contentType, nil
+}
+
+// Decode unmarshals a JSON response body into the response type. The contentType
+// must begin with "application/json"; otherwise an *hferrors.SDKError of kind
+// SDKErrorKindSerialization is returned. A serialization error is also returned
+// if the body is empty or fails to unmarshal.
+func (JSONCodec[Req, Resp]) Decode(respBody []byte, contentType string) (resp Resp, err error) {
+	if !strings.HasPrefix(contentType, "application/json") {
+		return resp, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindSerialization,
+			Message: "expected Content-Type application/json, got" + contentType,
+			Err:     nil,
+		}
+	}
+
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		if errors.Is(err, io.EOF) {
+			return resp, &hferrors.SDKError{
+				Kind:    hferrors.SDKErrorKindSerialization,
+				Message: "empty response body",
+				Err:     err,
+			}
+		}
+
+		return resp, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindSerialization,
+			Message: "failed to decode response body",
+			Err:     err,
+		}
+	}
+
+	return resp, nil
+}
