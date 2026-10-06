@@ -44,16 +44,16 @@ func DecodeHTTPResponse(resp *http.Response, maxResponseBodyBytes int64) (body [
 type JSONStream[T any] struct {
 	raw *RawStream
 	// decode is an optional transform that produces a value from each raw
-	// event payload. If nil, the payload is JSON-unmarshalled into T.
-	decode func(context.Context, []byte) (T, error)
+	// event. If nil, the event payload is JSON-unmarshalled into T.
+	decode func(context.Context, RawEvent) (T, error)
 }
 
 // NewJSONStream returns a JSONStream backed by the given RawStream.
-// If decode is non-nil, it produces each value from the raw event payload;
-// otherwise the payload is JSON-unmarshalled into T.
+// If decode is non-nil, it produces each value from the raw event; otherwise
+// the event payload is JSON-unmarshalled into T.
 func NewJSONStream[T any](
 	raw *RawStream,
-	decode func(context.Context, []byte) (T, error),
+	decode func(context.Context, RawEvent) (T, error),
 ) *JSONStream[T] {
 	return &JSONStream[T]{raw: raw, decode: decode}
 }
@@ -87,7 +87,7 @@ func (s *JSONStream[T]) Recv(ctx context.Context) (out T, err error) {
 		if s.decode != nil {
 			// Normalize like RawStream.Recv so decode hooks always receive a
 			// non-nil context.
-			out, err = s.decode(utils.NormalizeContext(ctx), data)
+			out, err = s.decode(utils.NormalizeContext(ctx), event)
 			if err != nil {
 				return out, &hferrors.SDKError{
 					Kind:    hferrors.SDKErrorKindSerialization,

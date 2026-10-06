@@ -102,6 +102,7 @@ func doInference[Req, Resp any](
 	resp, err := codec.Decode(hfproviders.DecodeParams{
 		Context: opts.Context(),
 		Body:    respBody,
+		Event:   "", // unary responses have no SSE framing
 		Headers: httpResp.Header,
 	})
 	if err != nil {
@@ -152,10 +153,11 @@ func doStreamingInference[Req, T any](
 		return nil, err
 	}
 
-	return request.NewJSONStream[T](raw, func(ctx context.Context, data []byte) (T, error) {
+	return request.NewJSONStream[T](raw, func(ctx context.Context, ev request.RawEvent) (T, error) {
 		return codec.Decode(hfproviders.DecodeParams{
 			Context: ctx,
-			Body:    data,
+			Body:    ev.Data,
+			Event:   ev.Event,
 			Headers: http.Header{"Content-Type": {eventContentType}},
 		})
 	}), nil

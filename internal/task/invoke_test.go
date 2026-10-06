@@ -27,6 +27,7 @@ type transformProvider struct {
 
 	encodeFunc func(body []byte) ([]byte, http.Header, error)
 	decodeFunc func(body []byte, ct string) ([]byte, error)
+	onDecode   func(params hfproviders.DecodeParams)
 }
 
 func (p transformProvider) ChatEndpoint(
@@ -60,6 +61,10 @@ func (c testCodec) Encode(
 }
 
 func (c testCodec) Decode(params hfproviders.DecodeParams) (jsonInferenceResp, error) {
+	if c.p.onDecode != nil {
+		c.p.onDecode(params)
+	}
+
 	ct := params.Headers.Get("Content-Type")
 	if !strings.HasPrefix(ct, "application/json") {
 		return jsonInferenceResp{}, &hferrors.SDKError{
@@ -512,6 +517,48 @@ func TestDoStreamingInference_ProviderTransformsPerEvent(t *testing.T) {
 	chunk, err := stream.Recv(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, "hello", chunk.GeneratedText)
+}
+
+func TestDoStreamingInference_EventNamePropagated(t *testing.T) {
+	t.Parallel()
+
+	body := "event: chunk\ndata: {\"generated_text\":\"hello\"}\n\ndata: [DONE]\n\n"
+	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
+	mt.Response.Header.Set("Content-Type", "text/event-stream")
+
+	var gotEvent string
+	var gotHeaders http.Header
+
+	p := transformProvider{
+		onDecode: func(params hfproviders.DecodeParams) {
+			gotEvent = params.Event
+			gotHeaders = params.Headers
+		},
+	}
+
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(p),
+	)
+
+	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
+		opts,
+		hfproviders.Endpoint{Path: "/test-endpoint"},
+		testCodec{p: p},
+		jsonInferenceReq{Inputs: "hi"},
+	)
+	require.NoError(t, err)
+	defer func() { _ = stream.Close() }()
+
+	chunk, err := stream.Recv(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "hello", chunk.GeneratedText)
+
+	// The SSE event name and the synthesized JSON media type reach codecs
+	// through DecodeParams.
+	require.Equal(t, "chunk", gotEvent)
+	require.Equal(t, "application/json", gotHeaders.Get("Content-Type"))
 }
 
 func TestDoStreamingInference_DecodeErrorPropagated(t *testing.T) {

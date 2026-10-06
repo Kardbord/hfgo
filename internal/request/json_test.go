@@ -94,7 +94,7 @@ func TestJSONStream_DecodeHookReceivesNormalizedContext(t *testing.T) {
 		Text string `json:"text"`
 	}
 
-	stream := NewJSONStream[event](raw, func(ctx context.Context, data []byte) (event, error) {
+	stream := NewJSONStream[event](raw, func(ctx context.Context, ev RawEvent) (event, error) {
 		// Panics if ctx is nil; Recv must normalize before the hook runs.
 		select {
 		case <-ctx.Done():
@@ -103,7 +103,7 @@ func TestJSONStream_DecodeHookReceivesNormalizedContext(t *testing.T) {
 		}
 
 		var out event
-		err := json.Unmarshal(data, &out)
+		err := json.Unmarshal(ev.Data, &out)
 
 		return out, err
 	})
@@ -112,6 +112,48 @@ func TestJSONStream_DecodeHookReceivesNormalizedContext(t *testing.T) {
 	chunk, err := stream.Recv(testutils.NilContext())
 	require.NoError(t, err)
 	require.Equal(t, "hello", chunk.Text)
+}
+
+func TestJSONStream_DecodeHookReceivesEventName(t *testing.T) {
+	t.Parallel()
+
+	body := "event: message_start\ndata: {\"text\":\"hello\"}\n\n"
+	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
+	mt.Response.Header.Set("Content-Type", "text/event-stream")
+
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client {
+			return testutils.NewMockHTTPClient(mt)
+		}),
+	)
+
+	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
+	require.NoError(t, err)
+	require.NoError(t, ValidateEventStreamResponseContentType(resp.Header))
+
+	raw, err := StreamRaw(opts.Context(), resp.Body)
+	require.NoError(t, err)
+
+	type event struct {
+		Text string `json:"text"`
+	}
+
+	var gotEvent string
+
+	stream := NewJSONStream[event](raw, func(_ context.Context, ev RawEvent) (event, error) {
+		gotEvent = ev.Event
+
+		var out event
+		err := json.Unmarshal(ev.Data, &out)
+
+		return out, err
+	})
+	defer func() { _ = stream.Close() }()
+
+	chunk, err := stream.Recv(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "hello", chunk.Text)
+	require.Equal(t, "message_start", gotEvent)
 }
 
 func TestJSONStream_SSECloseCancelsRead(t *testing.T) {

@@ -54,6 +54,12 @@ type DecodeParams struct {
 	// an empty 2xx body as an error before Decode runs.
 	Body []byte
 
+	// Event is the SSE "event:" field for this payload. It is only set for
+	// streaming decodes: unary responses leave it empty, and OpenAI-style
+	// streams (data-only frames) do as well. Providers whose framing
+	// carries meaning in the event name can dispatch on it.
+	Event string
+
 	// Headers holds the response headers; read the body media type via
 	// Headers.Get("Content-Type"). For SSE event payloads, Headers carries
 	// only a synthesized Content-Type of "application/json" — event frames

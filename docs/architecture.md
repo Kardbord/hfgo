@@ -224,8 +224,9 @@ endpoints like `ChatEndpoint` never reject an empty one.
 - **`Codec[Req, Resp]`**: the wire-format transform. `Encode` receives
   `EncodeParams[Req]` (`Context`, canonical `Request`, resolved `Model`) and
   returns the body plus request headers describing the format; `Decode`
-  receives `DecodeParams` (`Context`, `Body`, response `Headers`) and owns
-  response content-type validation (the pipeline itself is format-agnostic).
+  receives `DecodeParams` (`Context`, `Body`, `Event`, response `Headers`)
+  and owns response content-type validation (the pipeline itself is
+  format-agnostic).
   **`JSONCodec`** implements the HF JSON format; the HuggingFace
   question-answering and text-classification codecs additionally accept the
   API's single-object / nested-array response variations.
@@ -240,7 +241,10 @@ are dropped entirely, because authentication is caller-owned via
 `Accept: text/event-stream` is forced by the pipeline because SSE framing is a
 transport concern, not a codec concern. SSE event frames carry no headers of
 their own, so each event payload is decoded with a synthesized
-`Content-Type: application/json`.
+`Content-Type: application/json`; the frame's `event:` name (when present) is
+surfaced to codecs as `DecodeParams.Event`, so providers with event-named
+framing (e.g. Anthropic-style `message_start`/`message_delta`) can dispatch
+on it.
 
 #### Provider Selection and Suffix Routing
 
@@ -280,6 +284,37 @@ task function:
 
 This keeps task functions (`internal/task`) agnostic to wire format: providers
 own endpoint construction and any request/response translation.
+
+#### Deferred Extension Points
+
+Deliberate non-goals, each with a cheap non-breaking path (field additions to
+the params structs, new interfaces via type assertion, or new methods) so the
+next reader does not mistake them for dead ends:
+
+- Provider-suggested base URLs: endpoint methods return relative paths and
+  the transport rejects absolute ones, keeping the bearer token confined to
+  the caller's host. If flexibility is ever needed, an optional
+  `interface{ BaseURL() string }` assertion is the non-breaking route — at
+  the cost of that containment guarantee.
+- Provider-decoded non-2xx error bodies: `APIError.Body` already exposes the
+  raw body; a `DecodeError`-style codec hook would change only rendering.
+- Async/polling providers (submit → poll, Replicate/fal style): the typed
+  pipeline is request/response. Supporting these is additive — a new
+  interface family (e.g. `SubmitEndpoint`/`StatusEndpoint` + a polling
+  dispatch loop) without touching `Codec`, `EndpointParams`, or the per-task
+  interfaces.
+- Provider lifecycle: stateful providers (cached credentials, background
+  sync) have no close hook. `Client.Close()` is an additive method, with
+  provider cleanup via an `io.Closer` type assertion against
+  `Options.Provider` — no `Provider` interface change required.
+- Error metadata surfacing: `APIError.RequestID` reads only `X-Request-ID`;
+  providers echoing trace IDs under other headers (e.g.
+  `x-amzn-trace-id`) need an additive `APIError.Headers` field. Bounded
+  error-body text (so callers need not drain `Body`) is likewise additive.
+- Sentence similarity: no typed task exists, so the provider surface does
+  not model it. Add `SentenceSimilarityEndpoint` +
+  `SentenceSimilarityProvider` + a task function if the typed layer gains
+  the endpoint.
 
 ## Error Handling
 
