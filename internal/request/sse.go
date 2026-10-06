@@ -16,6 +16,12 @@ import (
 )
 
 // RawEvent represents a single parsed SSE event payload.
+//
+// It is an internal detail of the module's SSE wiring: codecs never see it,
+// receiving only the curated projection in hfproviders.DecodeParams (the
+// frame's payload and event name), while parser state such as ID and Retry
+// stays out of the codec contract. Callers wanting raw SSE framing use the
+// public hfraw.Event type instead.
 type RawEvent struct {
 	// Data holds the concatenated data lines for the event.
 	Data []byte
