@@ -10,7 +10,10 @@ import (
 	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
-const errModelIsRequired = "model is required"
+const (
+	errModelIsRequired = "model is required"
+	hfModelPrefix      = "hf-inference/models/"
+)
 
 // HuggingFaceProvider implements Provider for the HuggingFace inference API.
 type HuggingFaceProvider struct {
@@ -261,168 +264,173 @@ type HuggingFaceEndpoints struct{}
 // ChatEndpoint returns the endpoint for chat completion. Chat completions are
 // served from a fixed OpenAI-compatible path, so this endpoint is
 // model-independent: an empty params.Model is legal.
-func (HuggingFaceEndpoints) ChatEndpoint(_ EndpointParams) (string, error) {
-	return "v1/chat/completions", nil
+func (HuggingFaceEndpoints) ChatEndpoint(_ EndpointParams) (Endpoint, error) {
+	return Endpoint{Method: http.MethodPost, Path: "v1/chat/completions"}, nil
 }
 
 // FeatureExtractionBatchEndpoint returns the endpoint for batch feature extraction.
 func (e HuggingFaceEndpoints) FeatureExtractionBatchEndpoint(
 	params EndpointParams,
-) (string, error) {
+) (Endpoint, error) {
 	return e.FeatureExtractionEndpoint(params)
 }
 
 // FeatureExtractionEndpoint returns the endpoint for feature extraction.
-func (HuggingFaceEndpoints) FeatureExtractionEndpoint(params EndpointParams) (string, error) {
+func (HuggingFaceEndpoints) FeatureExtractionEndpoint(params EndpointParams) (Endpoint, error) {
 	if params.Model == "" {
-		return "", &hferrors.SDKError{
+		return Endpoint{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
 			Message: errModelIsRequired,
 			Err:     nil,
 		}
 	}
 
-	return "hf-inference/models/" + params.Model + "/pipeline/feature-extraction", nil
+	return Endpoint{
+		Method: http.MethodPost,
+		Path:   hfModelPrefix + params.Model + "/pipeline/feature-extraction",
+	}, nil
 }
 
 // TextClassificationBatchEndpoint returns the endpoint for batch text classification.
 func (e HuggingFaceEndpoints) TextClassificationBatchEndpoint(
 	params EndpointParams,
-) (string, error) {
+) (Endpoint, error) {
 	return e.TextClassificationEndpoint(params)
 }
 
 // TextClassificationEndpoint returns the endpoint for text classification.
-func (HuggingFaceEndpoints) TextClassificationEndpoint(params EndpointParams) (string, error) {
+func (HuggingFaceEndpoints) TextClassificationEndpoint(params EndpointParams) (Endpoint, error) {
 	if params.Model == "" {
-		return "", &hferrors.SDKError{
+		return Endpoint{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
 			Message: errModelIsRequired,
 			Err:     nil,
 		}
 	}
 
-	return "hf-inference/models/" + params.Model, nil
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }
 
 // ZeroShotTextClassificationBatchEndpoint returns the endpoint for batch zero-shot text classification.
 func (e HuggingFaceEndpoints) ZeroShotTextClassificationBatchEndpoint(
 	params EndpointParams,
-) (string, error) {
+) (Endpoint, error) {
 	return e.ZeroShotTextClassificationEndpoint(params)
 }
 
 // ZeroShotTextClassificationEndpoint returns the endpoint for zero-shot text classification.
 func (HuggingFaceEndpoints) ZeroShotTextClassificationEndpoint(
 	params EndpointParams,
-) (string, error) {
+) (Endpoint, error) {
 	if params.Model == "" {
-		return "", &hferrors.SDKError{
+		return Endpoint{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
 			Message: errModelIsRequired,
 			Err:     nil,
 		}
 	}
 
-	return "hf-inference/models/" + params.Model, nil
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }
 
 // TokenClassificationBatchEndpoint returns the endpoint for batch token classification.
 func (e HuggingFaceEndpoints) TokenClassificationBatchEndpoint(
 	params EndpointParams,
-) (string, error) {
+) (Endpoint, error) {
 	return e.TokenClassificationEndpoint(params)
 }
 
 // TokenClassificationEndpoint returns the endpoint for token classification.
-func (HuggingFaceEndpoints) TokenClassificationEndpoint(params EndpointParams) (string, error) {
+func (HuggingFaceEndpoints) TokenClassificationEndpoint(params EndpointParams) (Endpoint, error) {
 	if params.Model == "" {
-		return "", &hferrors.SDKError{
+		return Endpoint{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
 			Message: errModelIsRequired,
 			Err:     nil,
 		}
 	}
 
-	return "hf-inference/models/" + params.Model, nil
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }
 
 // QuestionAnsweringEndpoint returns the endpoint for question answering.
-func (HuggingFaceEndpoints) QuestionAnsweringEndpoint(params EndpointParams) (string, error) {
+func (HuggingFaceEndpoints) QuestionAnsweringEndpoint(params EndpointParams) (Endpoint, error) {
 	if params.Model == "" {
-		return "", &hferrors.SDKError{
+		return Endpoint{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
 			Message: errModelIsRequired,
 			Err:     nil,
 		}
 	}
 
-	return "hf-inference/models/" + params.Model, nil
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }
 
 // TableQuestionAnsweringEndpoint returns the endpoint for table question answering.
-func (HuggingFaceEndpoints) TableQuestionAnsweringEndpoint(params EndpointParams) (string, error) {
+func (HuggingFaceEndpoints) TableQuestionAnsweringEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
 	if params.Model == "" {
-		return "", &hferrors.SDKError{
+		return Endpoint{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
 			Message: errModelIsRequired,
 			Err:     nil,
 		}
 	}
 
-	return "hf-inference/models/" + params.Model, nil
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }
 
 // FillMaskBatchEndpoint returns the endpoint for batch fill mask.
-func (e HuggingFaceEndpoints) FillMaskBatchEndpoint(params EndpointParams) (string, error) {
+func (e HuggingFaceEndpoints) FillMaskBatchEndpoint(params EndpointParams) (Endpoint, error) {
 	return e.FillMaskEndpoint(params)
 }
 
 // FillMaskEndpoint returns the endpoint for fill mask.
-func (HuggingFaceEndpoints) FillMaskEndpoint(params EndpointParams) (string, error) {
+func (HuggingFaceEndpoints) FillMaskEndpoint(params EndpointParams) (Endpoint, error) {
 	if params.Model == "" {
-		return "", &hferrors.SDKError{
+		return Endpoint{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
 			Message: errModelIsRequired,
 			Err:     nil,
 		}
 	}
 
-	return "hf-inference/models/" + params.Model, nil
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }
 
 // SummarizationBatchEndpoint returns the endpoint for batch summarization.
-func (e HuggingFaceEndpoints) SummarizationBatchEndpoint(params EndpointParams) (string, error) {
+func (e HuggingFaceEndpoints) SummarizationBatchEndpoint(params EndpointParams) (Endpoint, error) {
 	return e.SummarizationEndpoint(params)
 }
 
 // SummarizationEndpoint returns the endpoint for summarization.
-func (HuggingFaceEndpoints) SummarizationEndpoint(params EndpointParams) (string, error) {
+func (HuggingFaceEndpoints) SummarizationEndpoint(params EndpointParams) (Endpoint, error) {
 	if params.Model == "" {
-		return "", &hferrors.SDKError{
+		return Endpoint{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
 			Message: errModelIsRequired,
 			Err:     nil,
 		}
 	}
 
-	return "hf-inference/models/" + params.Model, nil
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }
 
 // TranslationBatchEndpoint returns the endpoint for batch translation.
-func (e HuggingFaceEndpoints) TranslationBatchEndpoint(params EndpointParams) (string, error) {
+func (e HuggingFaceEndpoints) TranslationBatchEndpoint(params EndpointParams) (Endpoint, error) {
 	return e.TranslationEndpoint(params)
 }
 
 // TranslationEndpoint returns the endpoint for translation.
-func (HuggingFaceEndpoints) TranslationEndpoint(params EndpointParams) (string, error) {
+func (HuggingFaceEndpoints) TranslationEndpoint(params EndpointParams) (Endpoint, error) {
 	if params.Model == "" {
-		return "", &hferrors.SDKError{
+		return Endpoint{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
 			Message: errModelIsRequired,
 			Err:     nil,
 		}
 	}
 
-	return "hf-inference/models/" + params.Model, nil
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }

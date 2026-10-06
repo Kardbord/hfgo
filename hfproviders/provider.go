@@ -77,17 +77,32 @@ type EndpointParams struct {
 	Model string
 }
 
+// Endpoint describes a resolved task endpoint: the HTTP method to use and the
+// path to send it to, relative to Options.BaseURL. An empty Method is
+// defaulted to POST by the typed dispatch layer.
+type Endpoint struct {
+	// Method is the HTTP request method, e.g. [net/http.MethodPost].
+	// Providers should use the http.Method* constants. An empty Method is
+	// treated as POST.
+	Method string
+
+	// Path is the request path relative to Options.BaseURL. Absolute paths
+	// are rejected by the transport so a provider can never redirect a
+	// request away from the caller's configured host.
+	Path string
+}
+
 // ChatProvider is a Provider that supplies an endpoint and Codec for the Chat task.
 type ChatProvider interface {
 	Provider
-	ChatEndpoint(params EndpointParams) (string, error)
+	ChatEndpoint(params EndpointParams) (Endpoint, error)
 	ChatCodec() ChatCodec
 }
 
 // ChatStreamProvider is a Provider that supplies an endpoint and Codec for the ChatStream task.
 type ChatStreamProvider interface {
 	Provider
-	ChatEndpoint(params EndpointParams) (string, error)
+	ChatEndpoint(params EndpointParams) (Endpoint, error)
 	ChatStreamCodec() ChatStreamCodec
 }
 
@@ -95,7 +110,7 @@ type ChatStreamProvider interface {
 // FeatureExtractBatch task.
 type FeatureExtractionBatchProvider interface {
 	Provider
-	FeatureExtractionBatchEndpoint(params EndpointParams) (string, error)
+	FeatureExtractionBatchEndpoint(params EndpointParams) (Endpoint, error)
 	FeatureExtractionBatchCodec() FeatureExtractionBatchCodec
 }
 
@@ -103,21 +118,21 @@ type FeatureExtractionBatchProvider interface {
 // FeatureExtract task.
 type FeatureExtractionProvider interface {
 	Provider
-	FeatureExtractionEndpoint(params EndpointParams) (string, error)
+	FeatureExtractionEndpoint(params EndpointParams) (Endpoint, error)
 	FeatureExtractionCodec() FeatureExtractionCodec
 }
 
 // FillMaskBatchProvider is a Provider that supplies an endpoint and Codec for the FillMaskBatch task.
 type FillMaskBatchProvider interface {
 	Provider
-	FillMaskBatchEndpoint(params EndpointParams) (string, error)
+	FillMaskBatchEndpoint(params EndpointParams) (Endpoint, error)
 	FillMaskBatchCodec() FillMaskBatchCodec
 }
 
 // FillMaskProvider is a Provider that supplies an endpoint and Codec for the FillMask task.
 type FillMaskProvider interface {
 	Provider
-	FillMaskEndpoint(params EndpointParams) (string, error)
+	FillMaskEndpoint(params EndpointParams) (Endpoint, error)
 	FillMaskCodec() FillMaskCodec
 }
 
@@ -125,7 +140,7 @@ type FillMaskProvider interface {
 // AnswerQuestion task.
 type QuestionAnsweringProvider interface {
 	Provider
-	QuestionAnsweringEndpoint(params EndpointParams) (string, error)
+	QuestionAnsweringEndpoint(params EndpointParams) (Endpoint, error)
 	QuestionAnsweringCodec() QuestionAnsweringCodec
 }
 
@@ -133,14 +148,14 @@ type QuestionAnsweringProvider interface {
 // SummarizeBatch task.
 type SummarizationBatchProvider interface {
 	Provider
-	SummarizationBatchEndpoint(params EndpointParams) (string, error)
+	SummarizationBatchEndpoint(params EndpointParams) (Endpoint, error)
 	SummarizationBatchCodec() SummarizationBatchCodec
 }
 
 // SummarizationProvider is a Provider that supplies an endpoint and Codec for the Summarize task.
 type SummarizationProvider interface {
 	Provider
-	SummarizationEndpoint(params EndpointParams) (string, error)
+	SummarizationEndpoint(params EndpointParams) (Endpoint, error)
 	SummarizationCodec() SummarizationCodec
 }
 
@@ -148,7 +163,7 @@ type SummarizationProvider interface {
 // AnswerTableQuestion task.
 type TableQuestionAnsweringProvider interface {
 	Provider
-	TableQuestionAnsweringEndpoint(params EndpointParams) (string, error)
+	TableQuestionAnsweringEndpoint(params EndpointParams) (Endpoint, error)
 	TableQuestionAnsweringCodec() TableQuestionAnsweringCodec
 }
 
@@ -156,7 +171,7 @@ type TableQuestionAnsweringProvider interface {
 // ClassifyTextBatch task.
 type TextClassificationBatchProvider interface {
 	Provider
-	TextClassificationBatchEndpoint(params EndpointParams) (string, error)
+	TextClassificationBatchEndpoint(params EndpointParams) (Endpoint, error)
 	TextClassificationBatchCodec() TextClassificationBatchCodec
 }
 
@@ -164,7 +179,7 @@ type TextClassificationBatchProvider interface {
 // ClassifyText task.
 type TextClassificationProvider interface {
 	Provider
-	TextClassificationEndpoint(params EndpointParams) (string, error)
+	TextClassificationEndpoint(params EndpointParams) (Endpoint, error)
 	TextClassificationCodec() TextClassificationCodec
 }
 
@@ -172,7 +187,7 @@ type TextClassificationProvider interface {
 // ClassifyTokensBatch task.
 type TokenClassificationBatchProvider interface {
 	Provider
-	TokenClassificationBatchEndpoint(params EndpointParams) (string, error)
+	TokenClassificationBatchEndpoint(params EndpointParams) (Endpoint, error)
 	TokenClassificationBatchCodec() TokenClassificationBatchCodec
 }
 
@@ -180,7 +195,7 @@ type TokenClassificationBatchProvider interface {
 // ClassifyTokens task.
 type TokenClassificationProvider interface {
 	Provider
-	TokenClassificationEndpoint(params EndpointParams) (string, error)
+	TokenClassificationEndpoint(params EndpointParams) (Endpoint, error)
 	TokenClassificationCodec() TokenClassificationCodec
 }
 
@@ -188,14 +203,14 @@ type TokenClassificationProvider interface {
 // TranslateBatch task.
 type TranslationBatchProvider interface {
 	Provider
-	TranslationBatchEndpoint(params EndpointParams) (string, error)
+	TranslationBatchEndpoint(params EndpointParams) (Endpoint, error)
 	TranslationBatchCodec() TranslationBatchCodec
 }
 
 // TranslationProvider is a Provider that supplies an endpoint and Codec for the Translate task.
 type TranslationProvider interface {
 	Provider
-	TranslationEndpoint(params EndpointParams) (string, error)
+	TranslationEndpoint(params EndpointParams) (Endpoint, error)
 	TranslationCodec() TranslationCodec
 }
 
@@ -203,7 +218,7 @@ type TranslationProvider interface {
 // for the ZeroShotClassifyTextBatch task.
 type ZeroShotTextClassificationBatchProvider interface {
 	Provider
-	ZeroShotTextClassificationBatchEndpoint(params EndpointParams) (string, error)
+	ZeroShotTextClassificationBatchEndpoint(params EndpointParams) (Endpoint, error)
 	ZeroShotTextClassificationBatchCodec() ZeroShotTextClassificationBatchCodec
 }
 
@@ -211,6 +226,6 @@ type ZeroShotTextClassificationBatchProvider interface {
 // the ZeroShotClassifyText task.
 type ZeroShotTextClassificationProvider interface {
 	Provider
-	ZeroShotTextClassificationEndpoint(params EndpointParams) (string, error)
+	ZeroShotTextClassificationEndpoint(params EndpointParams) (Endpoint, error)
 	ZeroShotTextClassificationCodec() ZeroShotTextClassificationCodec
 }

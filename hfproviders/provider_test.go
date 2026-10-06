@@ -3,6 +3,7 @@
 package hfproviders
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
@@ -25,7 +26,8 @@ func TestAsProvider_Success(t *testing.T) {
 
 	endpoint, err := chat.ChatEndpoint(EndpointParams{Model: "mistral-7b"})
 	require.NoError(t, err)
-	require.Equal(t, "v1/chat/completions", endpoint)
+	require.Equal(t, http.MethodPost, endpoint.Method)
+	require.Equal(t, "v1/chat/completions", endpoint.Path)
 }
 
 func TestAsProvider_WrongType(t *testing.T) {

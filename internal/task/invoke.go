@@ -53,11 +53,21 @@ func applyCodecHeaders(opts hfopts.Options, headers http.Header) hfopts.Options 
 	return opts
 }
 
+// endpointMethod returns endpoint's HTTP method, defaulting to POST when the
+// provider leaves it unset.
+func endpointMethod(endpoint hfproviders.Endpoint) string {
+	if endpoint.Method == "" {
+		return http.MethodPost
+	}
+
+	return endpoint.Method
+}
+
 // doInference posts req to the inference model endpoint using the given codec,
 // returning the typed response.
 func doInference[Req, Resp any](
 	opts hfopts.Options,
-	endpoint string,
+	endpoint hfproviders.Endpoint,
 	codec hfproviders.Codec[Req, Resp],
 	req Req,
 ) (Resp, error) {
@@ -75,7 +85,7 @@ func doInference[Req, Resp any](
 	opts = applyCodecHeaders(opts, providerHeaders)
 
 	//nolint:bodyclose // DrainAndCloseBody closes the body.
-	httpResp, err := request.DoBytes(opts, http.MethodPost, endpoint, providerBody)
+	httpResp, err := request.DoBytes(opts, endpointMethod(endpoint), endpoint.Path, providerBody)
 	if err != nil {
 		return zero, err
 	}
@@ -107,7 +117,7 @@ func doInference[Req, Resp any](
 // headers apply as defaults for everything else.
 func doStreamingInference[Req, T any](
 	opts hfopts.Options,
-	endpoint string,
+	endpoint hfproviders.Endpoint,
 	codec hfproviders.Codec[Req, T],
 	req Req,
 ) (*request.JSONStream[T], error) {
@@ -124,7 +134,7 @@ func doStreamingInference[Req, T any](
 	opts = opts.With(hfopts.WithHeader("Accept", "text/event-stream"))
 
 	//nolint:bodyclose // Body ownership transferred to RawStream.
-	httpResp, err := request.DoBytes(opts, http.MethodPost, endpoint, providerBody)
+	httpResp, err := request.DoBytes(opts, endpointMethod(endpoint), endpoint.Path, providerBody)
 	if err != nil {
 		return nil, err
 	}

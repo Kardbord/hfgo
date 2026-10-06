@@ -190,7 +190,7 @@ endpoint resolution with its codec, e.g.:
 ```go
 type SummarizationProvider interface {
     Provider
-    SummarizationEndpoint(params EndpointParams) (string, error)
+    SummarizationEndpoint(params EndpointParams) (Endpoint, error)
     SummarizationCodec() SummarizationCodec
 }
 ```
@@ -198,11 +198,13 @@ type SummarizationProvider interface {
 A provider advertises support for a task by implementing its interface; task
 dispatch casts via `AsProvider[T]`, which returns a configuration error when
 the cast fails. Endpoint methods receive `EndpointParams` (the caller's
-`Context` and the resolved `Model`) and return paths **relative to
-`Options.BaseURL`**: the transport rejects absolute paths, so a provider can
-never redirect a request (and its bearer token) to a host the caller did not
-choose. Authentication is owned by the caller via `Options.Token` /
-`Options.Headers`; providers and codecs must not set `Authorization`.
+`Context` and the resolved `Model`) and return an `Endpoint` — the HTTP
+`Method` (empty defaults to POST; typed dispatch resolves it) and a `Path`
+**relative to `Options.BaseURL`**: the transport rejects absolute paths, so a
+provider can never redirect a request (and its bearer token) to a host the
+caller did not choose. Authentication is owned by the caller via
+`Options.Token` / `Options.Headers`; providers and codecs must not set
+`Authorization`.
 
 `EndpointParams.Model` semantics differ slightly by task family: for chat it
 is the resolved routing ID including any provider suffix (the model travels in

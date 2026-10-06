@@ -4,13 +4,11 @@ package hfproviders
 
 import (
 	"errors"
+	"net/http"
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 )
-
-// hfModelPrefix is the path prefix HuggingFaceEndpoints embeds the model ID into.
-const hfModelPrefix = "hf-inference/models/"
 
 func FuzzHuggingFaceProviderEndpoint(f *testing.F) {
 	p := HuggingFaceProvider{}
@@ -58,13 +56,13 @@ func FuzzHuggingFaceProviderEndpoint(f *testing.F) {
 	f.Fuzz(func(t *testing.T, model string) {
 		params := EndpointParams{Model: model}
 
-		check := func(name string, call func(EndpointParams) (string, error), want func(string) string, allowEmpty bool) {
+		check := func(name string, call func(EndpointParams) (Endpoint, error), want func(string) string, allowEmpty bool) {
 			t.Helper()
 
 			ep, err := call(params)
 			if model == "" && !allowEmpty {
 				if err == nil {
-					t.Errorf("%s(%q): expected error for empty model, got %q", name, model, ep)
+					t.Errorf("%s(%q): expected error for empty model, got %+v", name, model, ep)
 
 					return
 				}
@@ -83,8 +81,12 @@ func FuzzHuggingFaceProviderEndpoint(f *testing.F) {
 				return
 			}
 
-			if expected := want(model); ep != expected {
-				t.Errorf("%s(%q) = %q, want %q", name, model, ep, expected)
+			if ep.Method != http.MethodPost {
+				t.Errorf("%s(%q) method = %q, want %q", name, model, ep.Method, http.MethodPost)
+			}
+
+			if expected := want(model); ep.Path != expected {
+				t.Errorf("%s(%q) path = %q, want %q", name, model, ep.Path, expected)
 			}
 		}
 
@@ -104,7 +106,7 @@ func FuzzHuggingFaceProviderEndpoint(f *testing.F) {
 		modelPath := func(m string) string { return hfModelPrefix + m }
 		for _, tc := range []struct {
 			name string
-			call func(EndpointParams) (string, error)
+			call func(EndpointParams) (Endpoint, error)
 		}{
 			{"TextClassificationEndpoint", p.TextClassificationEndpoint},
 			{"ZeroShotTextClassificationEndpoint", p.ZeroShotTextClassificationEndpoint},
