@@ -4,9 +4,11 @@ package task
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
@@ -16,40 +18,82 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// transformProvider reuses the shared MockProvider (Hugging Face defaults for
+// every task) and shadows only what the pipeline tests need: a fixed chat
+// endpoint plus optional request/response transform hooks consumed by
+// testCodec.
 type transformProvider struct {
-	hfproviders.DefaultCodec
+	testutils.MockProvider
 
-	encodeFunc func(task hfproviders.Task, body []byte, ct string) ([]byte, string, error)
-	decodeFunc func(task hfproviders.Task, body []byte, ct string) ([]byte, string, error)
-	suffix     string
+	encodeFunc func(body []byte) ([]byte, http.Header, error)
+	decodeFunc func(body []byte, ct string) ([]byte, error)
 }
 
-func (p transformProvider) Endpoint(_ hfproviders.Task, _ string) (string, error) {
+func (p transformProvider) ChatEndpoint(_ hfproviders.EndpointParams) (string, error) {
 	return "/test-endpoint", nil
 }
 
-func (p transformProvider) ProviderSuffix() string {
-	return p.suffix
+// testCodec is a Codec[jsonInferenceReq, jsonInferenceResp].
+// Encode returns request headers, Decode receives response
+// headers and is itself responsible for content-type validation.
+type testCodec struct {
+	p transformProvider
 }
 
-func (p transformProvider) EncodeRequest(
-	task hfproviders.Task, body []byte, ct string,
-) (providerBody []byte, providerContentType string, err error) {
-	if p.encodeFunc != nil {
-		return p.encodeFunc(task, body, ct)
+func (c testCodec) Encode(
+	params hfproviders.EncodeParams[jsonInferenceReq],
+) (body []byte, headers http.Header, err error) {
+	body, err = json.Marshal(params.Request)
+	if err != nil {
+		return nil, nil, err
+	}
+	if c.p.encodeFunc != nil {
+		return c.p.encodeFunc(body)
 	}
 
-	return body, ct, nil
+	return body, http.Header{
+		"Content-Type": {"application/json"},
+		"Accept":       {"application/json"},
+	}, nil
 }
 
-func (p transformProvider) DecodeResponse(
-	task hfproviders.Task, body []byte, ct string,
-) (hfBody []byte, hfContentType string, err error) {
-	if p.decodeFunc != nil {
-		return p.decodeFunc(task, body, ct)
+func (c testCodec) Decode(params hfproviders.DecodeParams) (jsonInferenceResp, error) {
+	ct := params.Headers.Get("Content-Type")
+	if !strings.HasPrefix(ct, "application/json") {
+		return jsonInferenceResp{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindSerialization,
+			Message: "expected Content-Type application/json, got " + ct,
+			Err:     nil,
+		}
 	}
 
-	return body, ct, nil
+	respBody := params.Body
+	if c.p.decodeFunc != nil {
+		raw, err := c.p.decodeFunc(respBody, ct)
+		if err != nil {
+			return jsonInferenceResp{}, err
+		}
+		respBody = raw
+	}
+
+	var out jsonInferenceResp
+	if err := json.Unmarshal(respBody, &out); err != nil {
+		if errors.Is(err, io.EOF) {
+			return jsonInferenceResp{}, &hferrors.SDKError{
+				Kind:    hferrors.SDKErrorKindSerialization,
+				Message: "empty response body",
+				Err:     err,
+			}
+		}
+
+		return jsonInferenceResp{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindSerialization,
+			Message: "failed to decode response body",
+			Err:     err,
+		}
+	}
+
+	return out, nil
 }
 
 type jsonInferenceReq struct {
@@ -60,7 +104,7 @@ type jsonInferenceResp struct {
 	GeneratedText string `json:"generated_text"`
 }
 
-func TestDoJSONInference_Success(t *testing.T) {
+func TestDoInference_Success(t *testing.T) {
 	t.Parallel()
 
 	respBody := `{"generated_text":"hello world"}`
@@ -70,21 +114,24 @@ func TestDoJSONInference_Success(t *testing.T) {
 		hfopts.WithModel("test-model"),
 		hfopts.WithProvider(transformProvider{}),
 	)
+	p := transformProvider{}
 
-	result, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
+	result, err := doInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		hfproviders.TaskTextGeneration,
+		"/test-endpoint",
+		testCodec{p: p},
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
 	require.Equal(t, "hello world", result.GeneratedText)
+	// Codec-supplied headers are applied to the request.
+	require.Equal(t, "application/json", mt.LastRequest.Header.Get("Content-Type"))
+	require.Equal(t, "application/json", mt.LastRequest.Header.Get("Accept"))
 }
 
-func TestDoJSONInference_ProviderTransformsRequestAndResponse(t *testing.T) {
+func TestDoInference_ProviderTransformsRequestAndResponse(t *testing.T) {
 	t.Parallel()
 
-	// The provider wraps the request body and unwraps the response body,
-	// verifying that both EncodeRequest and DecodeResponse are applied.
 	wrappedPrefix := `{"hfgo_inner":`
 	wrappedSuffix := `}`
 
@@ -99,21 +146,26 @@ func TestDoJSONInference_ProviderTransformsRequestAndResponse(t *testing.T) {
 	decodeCalled := false
 
 	p := transformProvider{
-		encodeFunc: func(_ hfproviders.Task, body []byte, ct string) ([]byte, string, error) {
+		encodeFunc: func(body []byte) ([]byte, http.Header, error) {
 			encodeCalled = true
 
-			return append([]byte(wrappedPrefix), append(body, wrappedSuffix...)...), ct, nil
+			return append(
+				[]byte(wrappedPrefix),
+				append(body, wrappedSuffix...)...,
+			), http.Header{
+				"Content-Type": {"application/json"},
+				"Accept":       {"application/json"},
+			}, nil
 		},
-		decodeFunc: func(_ hfproviders.Task, body []byte, ct string) ([]byte, string, error) {
+		decodeFunc: func(body []byte, _ string) ([]byte, error) {
 			decodeCalled = true
-			// Unwrap: strip {"hfgo_inner": prefix and } suffix
 			if len(body) > len(wrappedPrefix)+len(wrappedSuffix) {
 				inner := body[len(wrappedPrefix) : len(body)-len(wrappedSuffix)]
 
-				return inner, ct, nil
+				return inner, nil
 			}
 
-			return body, ct, nil
+			return body, nil
 		},
 	}
 
@@ -123,24 +175,25 @@ func TestDoJSONInference_ProviderTransformsRequestAndResponse(t *testing.T) {
 		hfopts.WithProvider(p),
 	)
 
-	result, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
+	result, err := doInference(
 		opts,
-		hfproviders.TaskTextGeneration,
+		"/test-endpoint",
+		testCodec{p: p},
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
 	require.Equal(t, "hello", result.GeneratedText)
-	require.True(t, encodeCalled, "EncodeRequest should have been called")
-	require.True(t, decodeCalled, "DecodeResponse should have been called")
+	require.True(t, encodeCalled, "Encode should have been called")
+	require.True(t, decodeCalled, "Decode should have been called")
 }
 
-func TestDoJSONInference_EncodeErrorPropagated(t *testing.T) {
+func TestDoInference_EncodeErrorPropagated(t *testing.T) {
 	t.Parallel()
 
 	encodeErr := errors.New("encode failed")
 	p := transformProvider{
-		encodeFunc: func(_ hfproviders.Task, _ []byte, ct string) ([]byte, string, error) {
-			return nil, ct, encodeErr
+		encodeFunc: func(_ []byte) ([]byte, http.Header, error) {
+			return nil, nil, encodeErr
 		},
 	}
 
@@ -150,22 +203,23 @@ func TestDoJSONInference_EncodeErrorPropagated(t *testing.T) {
 		hfopts.WithProvider(p),
 	)
 
-	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
+	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		hfproviders.TaskTextGeneration,
+		"/test-endpoint",
+		testCodec{p: p},
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.ErrorIs(t, err, encodeErr)
 }
 
-func TestDoJSONInference_DecodeErrorPropagated(t *testing.T) {
+func TestDoInference_DecodeErrorPropagated(t *testing.T) {
 	t.Parallel()
 
 	decodeErr := errors.New("decode failed")
 	mt := testutils.NewJSONMockTransport(http.StatusOK, `{"generated_text":"hello"}`, nil)
 	p := transformProvider{
-		decodeFunc: func(_ hfproviders.Task, _ []byte, ct string) ([]byte, string, error) {
-			return nil, ct, decodeErr
+		decodeFunc: func(_ []byte, _ string) ([]byte, error) {
+			return nil, decodeErr
 		},
 	}
 
@@ -175,200 +229,210 @@ func TestDoJSONInference_DecodeErrorPropagated(t *testing.T) {
 		hfopts.WithProvider(p),
 	)
 
-	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
+	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		hfproviders.TaskTextGeneration,
+		"/test-endpoint",
+		testCodec{p: p},
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.ErrorIs(t, err, decodeErr)
 }
 
-func TestDoJSONInference_204NoContent(t *testing.T) {
+func TestDoInference_204NoContent(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewMockTransport(http.StatusNoContent, "", nil)
+	p := transformProvider{}
 	opts := hfopts.NewOptions().With(
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 		hfopts.WithModel("test-model"),
-		hfopts.WithProvider(transformProvider{}),
+		hfopts.WithProvider(p),
 	)
 
-	result, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
+	result, err := doInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		hfproviders.TaskTextGeneration,
+		"/test-endpoint",
+		testCodec{p: p},
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
 	require.Equal(t, jsonInferenceResp{}, result)
 }
 
-func TestDoJSONInference_205ResetContent(t *testing.T) {
+func TestDoInference_205ResetContent(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewMockTransport(http.StatusResetContent, "", nil)
+	p := transformProvider{}
 	opts := hfopts.NewOptions().With(
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 		hfopts.WithModel("test-model"),
-		hfopts.WithProvider(transformProvider{}),
+		hfopts.WithProvider(p),
 	)
 
-	result, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
+	result, err := doInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		hfproviders.TaskTextGeneration,
+		"/test-endpoint",
+		testCodec{p: p},
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
 	require.Equal(t, jsonInferenceResp{}, result)
 }
 
-func TestDoJSONInference_EmptyResponseBody(t *testing.T) {
+func TestDoInference_EmptyResponseBody(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(http.StatusOK, "", nil)
+	p := transformProvider{}
 	opts := hfopts.NewOptions().With(
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 		hfopts.WithModel("test-model"),
-		hfopts.WithProvider(transformProvider{}),
+		hfopts.WithProvider(p),
 	)
 
-	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
+	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		hfproviders.TaskTextGeneration,
+		"/test-endpoint",
+		testCodec{p: p},
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.Error(t, err)
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 }
 
-func TestDoJSONInference_InvalidJSONResponse(t *testing.T) {
+func TestDoInference_InvalidJSONResponse(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(http.StatusOK, `not json`, nil)
+	p := transformProvider{}
 	opts := hfopts.NewOptions().With(
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 		hfopts.WithModel("test-model"),
-		hfopts.WithProvider(transformProvider{}),
+		hfopts.WithProvider(p),
 	)
 
-	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
+	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		hfproviders.TaskTextGeneration,
+		"/test-endpoint",
+		testCodec{p: p},
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.Error(t, err)
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 }
 
-func TestDoJSONInference_NonJSONResponseContentType(t *testing.T) {
+func TestDoInference_NonJSONResponseContentType(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewMockTransport(http.StatusOK, `{"generated_text":"hi"}`, nil)
 	mt.Response.Header.Set("Content-Type", "text/plain")
+	p := transformProvider{}
 	opts := hfopts.NewOptions().With(
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 		hfopts.WithModel("test-model"),
-		hfopts.WithProvider(transformProvider{}),
+		hfopts.WithProvider(p),
 	)
 
-	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
+	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		hfproviders.TaskTextGeneration,
+		"/test-endpoint",
+		testCodec{p: p},
 		jsonInferenceReq{Inputs: "hi"},
 	)
+	// The pipeline no longer enforces response content types; the codec
+	// surfaces the mismatch as a serialization error.
 	require.Error(t, err)
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 }
 
-func TestDoJSONInference_NoModel(t *testing.T) {
+func TestDoInference_UserHeadersOverrideCodecHeaders(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(http.StatusOK, `{"generated_text":"hi"}`, nil)
-	opts := hfopts.NewOptions().With(
-		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
-		hfopts.WithProvider(transformProvider{}),
-	)
-
-	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
-		opts,
-		hfproviders.TaskTextGeneration,
-		jsonInferenceReq{Inputs: "hi"},
-	)
-	require.Error(t, err)
-	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
-	require.Nil(t, mt.LastRequest)
-}
-
-func TestDoJSONInference_NilProvider(t *testing.T) {
-	t.Parallel()
-
-	opts := hfopts.NewOptions().With(
-		hfopts.WithModel("test-model"),
-		hfopts.WithProvider(nil),
-	)
-
-	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
-		opts,
-		hfproviders.TaskTextGeneration,
-		jsonInferenceReq{Inputs: "hi"},
-	)
-	require.Error(t, err)
-	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
-}
-
-func TestDoJSONInference_ContentTypeValidation(t *testing.T) {
-	t.Parallel()
-
-	mt := testutils.NewJSONMockTransport(http.StatusOK, `{"generated_text":"hi"}`, nil)
+	p := transformProvider{}
 	opts := hfopts.NewOptions().With(
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 		hfopts.WithModel("test-model"),
-		hfopts.WithProvider(transformProvider{}),
+		hfopts.WithProvider(p),
 		hfopts.WithHeader("Content-Type", "text/plain"),
 	)
 
-	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
+	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		hfproviders.TaskTextGeneration,
+		"/test-endpoint",
+		testCodec{p: p},
 		jsonInferenceReq{Inputs: "hi"},
 	)
-	require.Error(t, err)
-	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+	// Codec headers are defaults: the caller's explicit Content-Type wins
+	// and the pipeline forwards the request as configured.
+	require.NoError(t, err)
+	require.Equal(t, "text/plain", mt.LastRequest.Header.Get("Content-Type"))
+	require.Equal(t, "application/json", mt.LastRequest.Header.Get("Accept"))
 }
 
-func TestDoJSONInference_ModelWithExistingSuffixPassedThrough(t *testing.T) {
+func TestDoInference_CodecHeadersCannotOverrideAuth(t *testing.T) {
 	t.Parallel()
 
-	respBody := `{"generated_text":"hello"}`
-	p := suffixProvider{
-		transformProvider: transformProvider{},
+	mt := testutils.NewJSONMockTransport(http.StatusOK, `{"generated_text":"hi"}`, nil)
+	p := transformProvider{
+		encodeFunc: func(body []byte) ([]byte, http.Header, error) {
+			return body, http.Header{
+				"Content-Type":  {"application/json"},
+				"Accept":        {"application/json"},
+				"Authorization": {"Bearer codec-supplied"},
+			}, nil
+		},
 	}
-	mt := testutils.NewJSONMockTransport(http.StatusOK, respBody, nil)
 	opts := hfopts.NewOptions().With(
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
-		hfopts.WithModel("mistral-7b:sambanova"),
+		hfopts.WithToken("caller-token"),
+		hfopts.WithModel("test-model"),
 		hfopts.WithProvider(p),
 	)
 
-	_, err := doJSONInference[jsonInferenceReq, jsonInferenceResp](
+	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		hfproviders.TaskTextGeneration,
+		"/test-endpoint",
+		testCodec{p: p},
+		jsonInferenceReq{Inputs: "hi"},
+	)
+	// Authorization is caller-owned: codec-supplied values are dropped so
+	// they can never replace the bearer token.
+	require.NoError(t, err)
+	require.Equal(t, "Bearer caller-token", mt.LastRequest.Header.Get("Authorization"))
+}
+
+func TestDoInference_MultiValuedCodecHeadersPreserved(t *testing.T) {
+	t.Parallel()
+
+	mt := testutils.NewJSONMockTransport(http.StatusOK, `{"generated_text":"hi"}`, nil)
+	p := transformProvider{
+		encodeFunc: func(body []byte) ([]byte, http.Header, error) {
+			return body, http.Header{
+				"Content-Type": {"application/json"},
+				"Accept":       {"application/json", "application/msgpack"},
+			}, nil
+		},
+	}
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(p),
+	)
+
+	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
+		opts,
+		"/test-endpoint",
+		testCodec{p: p},
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
-
-	require.NotNil(t, mt.LastRequest)
-	// The model "mistral-7b" should have the suffix "sambanova" appended
-	// by resolveModelDispatch before reaching doJSONInference.
-	require.Contains(t, mt.LastRequest.URL.Path, "mistral-7b:sambanova")
-}
-
-// suffixProvider is a transformProvider that includes the model in the endpoint path.
-type suffixProvider struct {
-	transformProvider
-}
-
-func (p suffixProvider) Endpoint(_ hfproviders.Task, model string) (string, error) {
-	return "/test-endpoint/" + model, nil
+	require.Equal(
+		t,
+		[]string{"application/json", "application/msgpack"},
+		mt.LastRequest.Header.Values("Accept"),
+	)
 }
 
 func TestDoStreamingInference_Success(t *testing.T) {
@@ -378,15 +442,17 @@ func TestDoStreamingInference_Success(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
+	p := transformProvider{}
 	opts := hfopts.NewOptions().With(
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 		hfopts.WithModel("test-model"),
-		hfopts.WithProvider(transformProvider{}),
+		hfopts.WithProvider(p),
 	)
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		hfproviders.TaskTextGeneration,
+		"/test-endpoint",
+		testCodec{p: p},
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
@@ -398,12 +464,15 @@ func TestDoStreamingInference_Success(t *testing.T) {
 
 	_, err = stream.Recv(context.Background())
 	require.ErrorIs(t, err, io.EOF)
+
+	// SSE framing is a transport concern: Accept is forced to
+	// text/event-stream even though the codec defaults it to JSON.
+	require.Equal(t, "text/event-stream", mt.LastRequest.Header.Get("Accept"))
 }
 
 func TestDoStreamingInference_ProviderTransformsPerEvent(t *testing.T) {
 	t.Parallel()
 
-	// The provider wraps each event's JSON data; the decode function unwraps it.
 	wrappedPrefix := `{"hfgo_inner":`
 	wrappedSuffix := `}`
 
@@ -412,14 +481,14 @@ func TestDoStreamingInference_ProviderTransformsPerEvent(t *testing.T) {
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
 	p := transformProvider{
-		decodeFunc: func(_ hfproviders.Task, body []byte, ct string) ([]byte, string, error) {
+		decodeFunc: func(body []byte, _ string) ([]byte, error) {
 			if len(body) > len(wrappedPrefix)+len(wrappedSuffix) {
 				inner := body[len(wrappedPrefix) : len(body)-len(wrappedSuffix)]
 
-				return inner, ct, nil
+				return inner, nil
 			}
 
-			return body, ct, nil
+			return body, nil
 		},
 	}
 
@@ -431,7 +500,8 @@ func TestDoStreamingInference_ProviderTransformsPerEvent(t *testing.T) {
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		hfproviders.TaskTextGeneration,
+		"/test-endpoint",
+		testCodec{p: p},
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
@@ -451,8 +521,8 @@ func TestDoStreamingInference_DecodeErrorPropagated(t *testing.T) {
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
 	p := transformProvider{
-		decodeFunc: func(_ hfproviders.Task, _ []byte, ct string) ([]byte, string, error) {
-			return nil, ct, decodeErr
+		decodeFunc: func(_ []byte, _ string) ([]byte, error) {
+			return nil, decodeErr
 		},
 	}
 
@@ -464,7 +534,8 @@ func TestDoStreamingInference_DecodeErrorPropagated(t *testing.T) {
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		hfproviders.TaskTextGeneration,
+		"/test-endpoint",
+		testCodec{p: p},
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.NoError(t, err)
@@ -478,15 +549,17 @@ func TestDoStreamingInference_NonEventStreamContentType(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(http.StatusOK, `{"generated_text":"hi"}`, nil)
+	p := transformProvider{}
 	opts := hfopts.NewOptions().With(
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 		hfopts.WithModel("test-model"),
-		hfopts.WithProvider(transformProvider{}),
+		hfopts.WithProvider(p),
 	)
 
 	_, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
 		opts,
-		hfproviders.TaskTextGeneration,
+		"/test-endpoint",
+		testCodec{p: p},
 		jsonInferenceReq{Inputs: "hi"},
 	)
 	require.Error(t, err)

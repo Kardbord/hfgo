@@ -123,7 +123,7 @@ different concerns (`hfopts`, `hftypes`, `hferrors`, `hfproviders`,
 | `hfopts/` | `Options`, `Option`, and all `With*` option helpers |
 | `hftypes/` | Request/response DTOs for every task (chat, fill-mask, classification, etc.) |
 | `hferrors/` | `APIError`, `SDKError`, and `SDKErrorKind` |
-| `hfproviders/` | Public `Provider` interface, `HuggingFaceProvider`, `DefaultCodec`, `Task` constants |
+| `hfproviders/` | Public `Provider` interface, per-task `*Provider` interfaces, `Codec` types (`JSONCodec` + HuggingFace built-ins), `AsProvider`, `HuggingFaceProvider` |
 | `hfgoversion/` | `Version` constant and `UserAgent()` helper |
 | `internal/task/` | Package-level task functions (`Chat`, `ClassifyText`, ...) |
 | `internal/request/` | HTTP plumbing, JSON helpers, SSE parsing |

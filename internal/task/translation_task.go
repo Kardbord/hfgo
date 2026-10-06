@@ -1,6 +1,8 @@
+//nolint:dupl // Similar structure to other task functions by design
 package task
 
 import (
+	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
@@ -11,11 +13,28 @@ func Translate(
 	opts hfopts.Options,
 	req hftypes.TranslationRequest,
 ) ([]hftypes.Translation, error) {
-	return doJSONInference[hftypes.TranslationRequest, []hftypes.Translation](
-		opts,
-		hfproviders.TaskTranslation,
-		req,
-	)
+	if err := validateDispatch(opts); err != nil {
+		return nil, err
+	}
+
+	prov, err := hfproviders.AsProvider[hfproviders.TranslationProvider](opts.Provider)
+	if err != nil {
+		return nil, err
+	}
+
+	endpoint, err := prov.TranslationEndpoint(hfproviders.EndpointParams{
+		Context: opts.Context(),
+		Model:   opts.Model,
+	})
+	if err != nil {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "error computing endpoint: " + err.Error(),
+			Err:     err,
+		}
+	}
+
+	return doInference(opts, endpoint, prov.TranslationCodec(), req)
 }
 
 // TranslateBatch sends a translation request for a batch of inputs.
@@ -23,9 +42,26 @@ func TranslateBatch(
 	opts hfopts.Options,
 	req hftypes.TranslationBatchRequest,
 ) ([]hftypes.Translation, error) {
-	return doJSONInference[hftypes.TranslationBatchRequest, []hftypes.Translation](
-		opts,
-		hfproviders.TaskTranslation,
-		req,
-	)
+	if err := validateDispatch(opts); err != nil {
+		return nil, err
+	}
+
+	prov, err := hfproviders.AsProvider[hfproviders.TranslationBatchProvider](opts.Provider)
+	if err != nil {
+		return nil, err
+	}
+
+	endpoint, err := prov.TranslationBatchEndpoint(hfproviders.EndpointParams{
+		Context: opts.Context(),
+		Model:   opts.Model,
+	})
+	if err != nil {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "error computing endpoint: " + err.Error(),
+			Err:     err,
+		}
+	}
+
+	return doInference(opts, endpoint, prov.TranslationBatchCodec(), req)
 }

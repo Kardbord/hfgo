@@ -93,6 +93,14 @@ linters:
           - paralleltest
           - testpackage
           - thelper
+      # Codec accessor methods are interface-typed factory points by design:
+      # they exist so providers can substitute custom wire formats via the
+      # per-task Provider interfaces, and returning concrete types would
+      # defeat that. The ireturn complaints are structural, not incidental,
+      # so suppress them by declaration pattern instead of per-method nolint.
+      - linters:
+          - ireturn
+        source: "^func \\(.*\\) \\w+Codec\\(\\)"
       # Exclude `lll` issues for long lines with `go:generate`.
       - linters:
           - lll

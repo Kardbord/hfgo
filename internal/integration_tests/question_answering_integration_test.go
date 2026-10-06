@@ -61,8 +61,9 @@ func TestQuestionAnswering_LiveAPI(t *testing.T) {
 //   - When top_k is unset or 1: The API returns a bare JSON object {"answer":"...","score":...,"start":...,"end":...}
 //   - When top_k is > 1: The API returns a JSON array [{"answer":"...","score":...},...]
 //
-// The SDK handles this transparently in the answer() method by dispatching
-// to doJSONInference with the appropriate response type based on TopK.
+// The SDK handles both shapes transparently: the HuggingFace
+// question-answering codec accepts a bare object or an array and
+// normalizes either response to []hftypes.QuestionAnswering.
 //
 // This test requires the HF_TOKEN environment variable to be set.
 func TestQuestionAnswering_TopKResponseFormatQuirk(t *testing.T) {

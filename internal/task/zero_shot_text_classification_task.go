@@ -14,6 +14,10 @@ func ZeroShotClassifyText(
 	opts hfopts.Options,
 	req hftypes.ZeroShotTextClassificationRequest,
 ) ([]hftypes.ZeroShotTextClassification, error) {
+	if err := validateDispatch(opts); err != nil {
+		return nil, err
+	}
+
 	if req.Parameters == nil || len(req.Parameters.CandidateLabels) == 0 {
 		return nil, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
@@ -22,16 +26,26 @@ func ZeroShotClassifyText(
 		}
 	}
 
-	resp, err := doJSONInference[hftypes.ZeroShotTextClassificationRequest, []hftypes.ZeroShotTextClassification](
-		opts,
-		hfproviders.TaskZeroShotTextClassification,
-		req,
+	prov, err := hfproviders.AsProvider[hfproviders.ZeroShotTextClassificationProvider](
+		opts.Provider,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	return resp, nil
+	endpoint, err := prov.ZeroShotTextClassificationEndpoint(hfproviders.EndpointParams{
+		Context: opts.Context(),
+		Model:   opts.Model,
+	})
+	if err != nil {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "error computing endpoint: " + err.Error(),
+			Err:     err,
+		}
+	}
+
+	return doInference(opts, endpoint, prov.ZeroShotTextClassificationCodec(), req)
 }
 
 // ZeroShotClassifyTextBatch sends a zero-shot classification request for a batch of inputs
@@ -40,6 +54,10 @@ func ZeroShotClassifyTextBatch(
 	opts hfopts.Options,
 	req hftypes.ZeroShotTextClassificationBatchRequest,
 ) ([][]hftypes.ZeroShotTextClassification, error) {
+	if err := validateDispatch(opts); err != nil {
+		return nil, err
+	}
+
 	if req.Parameters == nil || len(req.Parameters.CandidateLabels) == 0 {
 		return nil, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
@@ -48,11 +66,26 @@ func ZeroShotClassifyTextBatch(
 		}
 	}
 
-	resp, err := doJSONInference[hftypes.ZeroShotTextClassificationBatchRequest, []hftypes.ZeroShotTextClassificationBatched](
-		opts,
-		hfproviders.TaskZeroShotTextClassification,
-		req,
+	prov, err := hfproviders.AsProvider[hfproviders.ZeroShotTextClassificationBatchProvider](
+		opts.Provider,
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	endpoint, err := prov.ZeroShotTextClassificationBatchEndpoint(hfproviders.EndpointParams{
+		Context: opts.Context(),
+		Model:   opts.Model,
+	})
+	if err != nil {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "error computing endpoint: " + err.Error(),
+			Err:     err,
+		}
+	}
+
+	resp, err := doInference(opts, endpoint, prov.ZeroShotTextClassificationBatchCodec(), req)
 	if err != nil {
 		return nil, err
 	}

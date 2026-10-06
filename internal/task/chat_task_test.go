@@ -14,26 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type mockProvider struct {
-	hfproviders.DefaultCodec
-
-	name string
-}
-
-func (p mockProvider) Endpoint(_ hfproviders.Task, _ string) (string, error) {
-	return "", nil
-}
-
-func (p mockProvider) ProviderSuffix() string {
-	return p.name
-}
-
 func TestApplyProvider(t *testing.T) {
 	t.Parallel()
 
 	t.Run("applies provider suffix", func(t *testing.T) {
 		model := testutils.Ptr("mistral-7b")
-		provider := mockProvider{name: "sambanova"}
+		provider := testutils.NewMockProvider("sambanova", "sambanova")
 		want := "mistral-7b:sambanova"
 		got := applyProvider(model, provider)
 		require.NotNil(t, got)
@@ -48,13 +34,13 @@ func TestApplyProvider(t *testing.T) {
 	})
 
 	t.Run("returns nil when model is nil", func(t *testing.T) {
-		got := applyProvider(nil, mockProvider{name: "sambanova"})
+		got := applyProvider(nil, testutils.NewMockProvider("sambanova", "sambanova"))
 		require.Nil(t, got)
 	})
 
 	t.Run("returns model unchanged when model is empty", func(t *testing.T) {
 		model := testutils.Ptr("")
-		got := applyProvider(model, mockProvider{name: "sambanova"})
+		got := applyProvider(model, testutils.NewMockProvider("sambanova", "sambanova"))
 		require.NotNil(t, got)
 		require.Empty(t, *got)
 	})
@@ -68,21 +54,24 @@ func TestApplyProvider(t *testing.T) {
 
 	t.Run("ignores provider when model already has suffix", func(t *testing.T) {
 		model := testutils.Ptr("mistral-7b:mistral")
-		got := applyProvider(model, mockProvider{name: "sambanova"})
+		got := applyProvider(model, testutils.NewMockProvider("sambanova", "sambanova"))
 		require.NotNil(t, got)
 		require.Equal(t, "mistral-7b:mistral", *got)
 	})
 
 	t.Run("ignores provider when model has multiple colons", func(t *testing.T) {
 		model := testutils.Ptr("org:model:variant")
-		got := applyProvider(model, mockProvider{name: "sambanova"})
+		got := applyProvider(model, testutils.NewMockProvider("sambanova", "sambanova"))
 		require.NotNil(t, got)
 		require.Equal(t, "org:model:variant", *got)
 	})
 
 	t.Run("handles provider with special characters", func(t *testing.T) {
 		model := testutils.Ptr("mistral-7b")
-		got := applyProvider(model, mockProvider{name: "provider-name_v1.0"})
+		got := applyProvider(
+			model,
+			testutils.NewMockProvider("provider-name_v1.0", "provider-name_v1.0"),
+		)
 		require.NotNil(t, got)
 		require.Equal(t, "mistral-7b:provider-name_v1.0", *got)
 	})
@@ -93,83 +82,92 @@ func TestResolveModel(t *testing.T) {
 
 	t.Run("uses request model when provided", func(t *testing.T) {
 		payload := &hftypes.ChatRequest{Model: testutils.Ptr("request-model")}
-		resolveModel(payload, hfopts.NewOptions().With(hfopts.WithModel("client-model")))
+		model, err := resolveModel(
+			payload,
+			hfopts.NewOptions().With(hfopts.WithModel("client-model")),
+		)
+		require.NoError(t, err)
 		require.NotNil(t, payload.Model)
 		require.Equal(t, "request-model", *payload.Model)
+		require.Equal(t, "request-model", model)
 	})
 
 	t.Run("uses options model when request model is nil", func(t *testing.T) {
 		payload := &hftypes.ChatRequest{}
-		resolveModel(payload, hfopts.NewOptions().With(hfopts.WithModel("opts-model")))
+		model, err := resolveModel(
+			payload,
+			hfopts.NewOptions().With(hfopts.WithModel("opts-model")),
+		)
+		require.NoError(t, err)
 		require.NotNil(t, payload.Model)
 		require.Equal(t, "opts-model", *payload.Model)
+		require.Equal(t, "opts-model", model)
 	})
 
 	t.Run("uses options model when request model is empty", func(t *testing.T) {
 		payload := &hftypes.ChatRequest{Model: testutils.Ptr("")}
-		resolveModel(payload, hfopts.NewOptions().With(hfopts.WithModel("opts-model")))
+		model, err := resolveModel(
+			payload,
+			hfopts.NewOptions().With(hfopts.WithModel("opts-model")),
+		)
+		require.NoError(t, err)
 		require.NotNil(t, payload.Model)
 		require.Equal(t, "opts-model", *payload.Model)
+		require.Equal(t, "opts-model", model)
 	})
 
 	t.Run("applies provider suffix to resolved model", func(t *testing.T) {
 		payload := &hftypes.ChatRequest{}
-		resolveModel(payload, hfopts.NewOptions().With(
+		model, err := resolveModel(payload, hfopts.NewOptions().With(
 			hfopts.WithModel("mistral-7b"),
-			hfopts.WithProvider(mockProvider{name: "sambanova"}),
+			hfopts.WithProvider(testutils.NewMockProvider("sambanova", "sambanova")),
 		))
+		require.NoError(t, err)
 		require.NotNil(t, payload.Model)
 		require.Equal(t, "mistral-7b:sambanova", *payload.Model)
+		require.Equal(t, "mistral-7b:sambanova", model)
 	})
 
 	t.Run("request model with suffix ignores provider", func(t *testing.T) {
 		payload := &hftypes.ChatRequest{Model: testutils.Ptr("mistral-7b:mistral")}
-		resolveModel(payload, hfopts.NewOptions().With(
+		model, err := resolveModel(payload, hfopts.NewOptions().With(
 			hfopts.WithModel("client-model"),
-			hfopts.WithProvider(mockProvider{name: "sambanova"}),
+			hfopts.WithProvider(testutils.NewMockProvider("sambanova", "sambanova")),
 		))
+		require.NoError(t, err)
 		require.NotNil(t, payload.Model)
 		require.Equal(t, "mistral-7b:mistral", *payload.Model)
+		require.Equal(t, "mistral-7b:mistral", model)
 	})
 
 	t.Run("HF provider does not append suffix", func(t *testing.T) {
 		payload := &hftypes.ChatRequest{}
-		resolveModel(payload, hfopts.NewOptions().With(
+		model, err := resolveModel(payload, hfopts.NewOptions().With(
 			hfopts.WithModel("mistral-7b"),
 			hfopts.WithProvider(hfproviders.NewHuggingFaceProvider()),
 		))
+		require.NoError(t, err)
 		require.NotNil(t, payload.Model)
 		require.Equal(t, "mistral-7b", *payload.Model)
+		require.Equal(t, "mistral-7b", model)
 	})
 }
 
-func TestResolveChatOptions(t *testing.T) {
+func TestChat_Validation(t *testing.T) {
 	t.Parallel()
 
 	t.Run("returns error when model is missing", func(t *testing.T) {
 		opts := hfopts.NewOptions().With(hfopts.WithProvider(hfproviders.NewHuggingFaceProvider()))
-		_, err := resolveChatOptions(opts, &hftypes.ChatRequest{})
+		_, err := Chat(opts, hftypes.ChatRequest{})
 		require.Error(t, err)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	})
 
 	t.Run("returns error when provider is nil", func(t *testing.T) {
 		opts := hfopts.NewOptions().With(hfopts.WithProvider(nil))
-		_, err := resolveChatOptions(opts, &hftypes.ChatRequest{Model: testutils.Ptr("model")})
+		_, err := Chat(opts, hftypes.ChatRequest{Model: testutils.Ptr("model")})
 		require.Error(t, err)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
-	})
-
-	t.Run("sets resolved model on options", func(t *testing.T) {
-		opts := hfopts.NewOptions().With(
-			hfopts.WithModel("client-model"),
-			hfopts.WithProvider(hfproviders.NewHuggingFaceProvider()),
-		)
-		updated, err := resolveChatOptions(opts, &hftypes.ChatRequest{
-			Model: testutils.Ptr("request-model"),
-		})
-		require.NoError(t, err)
-		require.Equal(t, "request-model", updated.Model)
 	})
 }
 
