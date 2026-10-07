@@ -7,25 +7,32 @@ import (
 	"reflect"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
 // AsProvider casts the given [Provider] implementation into the desired
 // [Provider] type, e.g. [SummarizationProvider], [ChatProvider], etc.
-// If the cast fails, an error is returned stating that the given provider
-// does not implement the desired provider type.
-func AsProvider[T Provider](p Provider) (T, error) {
-	tProvider, ok := p.(T)
-	if !ok {
-		name := "<nil>"
-		if p != nil {
-			name = p.Name()
-		}
+// If provider is nil (including a typed-nil pointer wrapped in the interface)
+// or does not implement the desired provider type, an error is returned
+// stating so.
+func AsProvider[T Provider](provider Provider) (T, error) {
+	if utils.IsNil(provider) {
+		var zero T
 
+		return zero, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "provider must not be nil",
+			Err:     nil,
+		}
+	}
+
+	tProvider, ok := provider.(T)
+	if !ok {
 		return tProvider, &hferrors.SDKError{
 			Kind: hferrors.SDKErrorKindConfiguration,
 			Message: fmt.Sprintf(
 				"%s does not implement %s",
-				name,
+				provider.Name(),
 				reflect.TypeFor[T](),
 			),
 			Err: nil,

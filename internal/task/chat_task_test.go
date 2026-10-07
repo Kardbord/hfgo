@@ -52,6 +52,14 @@ func TestApplyProvider(t *testing.T) {
 		require.Equal(t, "mistral-7b", *got)
 	})
 
+	t.Run("returns model unchanged when provider is typed nil", func(t *testing.T) {
+		model := testutils.Ptr("mistral-7b")
+		var provider *hfproviders.HuggingFaceProvider
+		got := applyProvider(model, provider)
+		require.NotNil(t, got)
+		require.Equal(t, "mistral-7b", *got)
+	})
+
 	t.Run("ignores provider when model already has suffix", func(t *testing.T) {
 		model := testutils.Ptr("mistral-7b:mistral")
 		got := applyProvider(model, testutils.NewMockProvider("sambanova", "sambanova"))

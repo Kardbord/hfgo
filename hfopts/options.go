@@ -107,7 +107,7 @@ func (o Options) Validate() error {
 		return err
 	}
 
-	if o.Provider == nil {
+	if utils.IsNil(o.Provider) {
 		return &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
 			Message: "provider must not be nil",

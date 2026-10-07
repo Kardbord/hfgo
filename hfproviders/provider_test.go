@@ -51,7 +51,23 @@ func TestAsProvider_NilProvider(t *testing.T) {
 
 	_, err := AsProvider[ChatProvider](nil)
 	require.Error(t, err)
-	require.ErrorContains(t, err, "<nil> does not implement hfproviders.ChatProvider")
+	require.ErrorContains(t, err, "provider must not be nil")
+}
+
+func TestAsProvider_TypedNilProvider(t *testing.T) {
+	t.Parallel()
+
+	// A typed-nil pointer satisfies interface != nil and its method set can
+	// pass the cast, so it must be rejected explicitly before any value
+	// receiver dereferences it.
+	var p *HuggingFaceProvider
+	_, err := AsProvider[ChatProvider](p)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "provider must not be nil")
+
+	var sdkErr *hferrors.SDKError
+	require.ErrorAs(t, err, &sdkErr)
+	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
 }
 
 func TestAsProvider_ExactType(t *testing.T) {

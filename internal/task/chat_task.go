@@ -8,6 +8,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
 // resolveModel resolves the model with precedence and applies the provider suffix.
@@ -38,7 +39,7 @@ func resolveModel(payload *hftypes.ChatRequest, opts hfopts.Options) (string, er
 // applyProvider applies the provider to the model if the model
 // doesn't already contain a provider (indicated by ":").
 func applyProvider(model *string, provider hfproviders.Provider) *string {
-	if model == nil || *model == "" || provider == nil {
+	if model == nil || *model == "" || utils.IsNil(provider) {
 		return model
 	}
 

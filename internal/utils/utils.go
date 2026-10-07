@@ -5,6 +5,7 @@ package utils
 import (
 	"context"
 	"net/http"
+	"reflect"
 )
 
 // NormalizeContext returns ctx when non-nil, otherwise context.Background.
@@ -53,4 +54,26 @@ func EnsureHeader(h http.Header, key, value string) http.Header {
 	}
 
 	return out
+}
+
+// IsNil reports whether value is nil, including a nil pointer, map, slice,
+// channel, or function stored inside a non-nil interface (a so-called typed
+// nil). Interface fields checked only with == nil otherwise pass typed-nil
+// values through, and calling a value-receiver method on them panics.
+func IsNil(value any) bool {
+	if value == nil {
+		return true
+	}
+
+	reflected := reflect.ValueOf(value)
+	if !reflected.IsValid() {
+		return true
+	}
+
+	kind := reflected.Kind()
+	nilable := kind == reflect.Pointer || kind == reflect.Map ||
+		kind == reflect.Slice || kind == reflect.Chan ||
+		kind == reflect.Func || kind == reflect.UnsafePointer
+
+	return nilable && reflected.IsNil()
 }
