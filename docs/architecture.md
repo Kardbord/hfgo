@@ -100,7 +100,7 @@ The SDK follows a strict immutability pattern for concurrency safety:
    - Each method call snapshots the client's options, so calls are independent and deterministic
 
 2. **Client Methods**: Every inference endpoint is called directly on the `Client`
-   - `Chat` / `ChatStream`: Chat completions
+    - `Chat` / `StreamChat`: Chat completions
     - `ClassifyText` / `ClassifyTextBatch`: Text classification
     - `AnswerQuestion`: Question answering
     - `ClassifyTokens` / `ClassifyTokensBatch`: Token classification (named entity recognition)
@@ -487,7 +487,9 @@ Represents a chat completion request. Key fields:
 Response from non-streaming chat completion. Fields:
 
 - `ID string`: Response identifier
+- `Created int64`: Unix timestamp in seconds
 - `Model string`: Model used
+- `SystemFingerprint string`: System fingerprint
 - `Choices []ChatChoice`: Generated choices
 - `Usage`: Token usage statistics
 
@@ -516,6 +518,7 @@ Wraps streaming chat completion response from `ChatStream()`. Defined in
 Represents a message in conversation history.
 
 - `Role string`: Message role (system, user, assistant)
+- `Name *string`: Optional participant name
 - `Content ChatMessageContent`: Message content
 - `ToolCalls []ChatToolCall`: Tool calls made by assistant (if any)
 
@@ -672,7 +675,7 @@ Single input zero-shot text classification.
 Batch zero-shot text classification for multiple inputs.
 
 **API Response Normalization**:
-The HuggingFace API returns batched zero-shot results in a different format than single inputs. The SDK transparently normalizes responses via `normalizeZeroShotTextClassificationResponse()`.
+The HuggingFace API returns batched zero-shot results in a different format than single inputs. The SDK transparently normalizes responses via `normalizeResponse()`.
 
 ### Fill Mask
 

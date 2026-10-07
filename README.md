@@ -111,6 +111,7 @@ client := hfgo.NewClient(
 ## Inference Tasks
 
 - [Chat](./examples/chat)
+- [Feature Extraction](./examples/feature-extraction)
 - [Fill Mask](./examples/fill-mask)
 - [Question Answering](./examples/question-answering)
 - [Summarization](./examples/summarization)
