@@ -14,6 +14,66 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestZeroShotClassifyTextBatch_NormalizationErrors(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name         string
+		responseBody string
+		inputs       []string
+		wantContains string
+		description  string
+	}{
+		{
+			name:         "response count mismatch",
+			responseBody: `[{"Sequence":"text1","Labels":["positive"],"Scores":[0.95]}]`,
+			inputs:       []string{"text1", "text2"},
+			wantContains: "response item count (1) does not match input count (2)",
+			description:  "SDK serialization error when counts differ",
+		},
+		{
+			name:         "sequence mismatch",
+			responseBody: `[{"Sequence":"different","Labels":["positive"],"Scores":[0.95]}]`,
+			inputs:       []string{"text1"},
+			wantContains: "sequence does not match input",
+			description:  "SDK serialization error when sequence does not match input",
+		},
+		{
+			name:         "label score mismatch",
+			responseBody: `[{"Sequence":"text1","Labels":["positive","negative"],"Scores":[0.95]}]`,
+			inputs:       []string{"text1"},
+			wantContains: "mismatched label and score counts (labels: 2, scores: 1)",
+			description:  "SDK serialization error when labels and scores differ in length",
+		},
+	}
+
+	for i := range cases {
+		tc := cases[i]
+		t.Run(tc.name, func(t *testing.T) {
+			mt := testutils.NewJSONMockTransport(http.StatusOK, tc.responseBody, nil)
+			client := hfgo.NewClient(
+				hfopts.WithHTTPClientFactory(
+					func() http.Client { return testutils.NewMockHTTPClient(mt) },
+				),
+				hfopts.WithModel("test-model"),
+			)
+
+			result, err := client.ZeroShotClassifyTextBatch(
+				hftypes.ZeroShotTextClassificationBatchRequest{
+					Inputs: tc.inputs,
+					Parameters: &hftypes.ZeroShotTextClassificationParameters{
+						CandidateLabels: []string{"positive", "negative"},
+					},
+				},
+			)
+			require.Error(t, err, tc.description)
+			testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+			require.ErrorContains(t, err, tc.wantContains, tc.description)
+			require.Nil(t, result, tc.description)
+		})
+	}
+}
+
 func TestZeroShotClassifyText_SingleInput(t *testing.T) {
 	t.Parallel()
 

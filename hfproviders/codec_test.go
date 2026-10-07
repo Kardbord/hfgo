@@ -123,6 +123,20 @@ func TestJSONCodec_Decode(t *testing.T) {
 		assertSerializationError(t, err)
 	})
 
+	t.Run("empty body", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := c.Decode(DecodeParams{Body: []byte{}, Headers: jsonHeaders(mimeTypeJSON)})
+		require.Error(t, err)
+		assertSerializationError(t, err)
+		// The exact wrapping message depends on the Go version: some return
+		// io.EOF (message "empty response body"), others a SyntaxError
+		// ("unexpected end of JSON input"); assert only the invariant parts.
+		var sdkErr *hferrors.SDKError
+		require.ErrorAs(t, err, &sdkErr)
+		require.Error(t, sdkErr.Err, "underlying unmarshal error must be preserved")
+	})
+
 	t.Run("invalid json surfaces wrapped error", func(t *testing.T) {
 		t.Parallel()
 
@@ -179,6 +193,18 @@ func TestQuestionAnsweringCodec_Decode(t *testing.T) {
 			Headers: jsonHeaders("application/vnd.hf+json"),
 		})
 		require.NoError(t, err)
+	})
+
+	t.Run("non-json content type rejected", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := c.Decode(DecodeParams{
+			Body:    []byte(`[{"answer":"Paris","score":0.9,"start":0,"end":5}]`),
+			Headers: jsonHeaders("text/plain"),
+		})
+		require.Error(t, err)
+		assertSerializationError(t, err)
+		require.ErrorContains(t, err, "expected Content-Type application/json, got text/plain")
 	})
 
 	t.Run("unparseable response joins underlying errors", func(t *testing.T) {
@@ -248,6 +274,18 @@ func TestTextClassificationCodec_Decode(t *testing.T) {
 		))
 		require.Error(t, err)
 		require.ErrorContains(t, err, "expected a single text-classification result set, got 2")
+	})
+
+	t.Run("non-json content type rejected", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := c.Decode(DecodeParams{
+			Body:    []byte(`[{"label":"positive","score":0.95}]`),
+			Headers: jsonHeaders("text/plain"),
+		})
+		require.Error(t, err)
+		assertSerializationError(t, err)
+		require.ErrorContains(t, err, "expected Content-Type application/json, got text/plain")
 	})
 
 	t.Run("unparseable response joins underlying errors", func(t *testing.T) {
