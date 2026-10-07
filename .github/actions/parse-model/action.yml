@@ -1,9 +1,7 @@
----
 name: Parse model from comment
 description: >
-  Resolve an opencode model from a comment body against an allowlist, falling
-  back to a default when none is requested or the requested model is not
-  allowed. Centralizes the allowlist so it is maintained in one place.
+  Resolve an opencode model from a comment body against an allowlist, falling back to a default when none is requested or the requested model is not allowed. Centralizes the allowlist so it is maintained in one place.
+
 inputs:
   body:
     description: The comment body to parse.
@@ -25,26 +23,22 @@ runs:
       with:
         script: |
           const ALLOWED_MODELS = [
-            'openrouter/openrouter/free',
-            'openrouter/openrouter/auto',
-            'openrouter/deepseek/deepseek-v4-pro',
-            'openrouter/~deepseek/deepseek-v4-flash-latest',
-            'openrouter/moonshotai/kimi-k2.6',
-            'openrouter/qwen/qwen3.6-flash',
-            'openrouter/mistralai/devstral-2512',
-            'openrouter/google/gemini-3.5-flash',
+            'openrouter/google/gemini-3.5-flash-lite',
             'openrouter/google/gemma-4-31b-it',
-            'openrouter/z-ai/glm-5.1',
-            'openrouter/xiaomi/mimo-v2.5',
-            'openrouter/minimax/minimax-m2.7',
-            'openrouter/ibm-granite/granite-4.1-8b',
-            'openrouter/kwaipilot/kat-coder-pro-v2',
-            'openrouter/inclusionai/ring-2.6-1t',
-            'openrouter/inception/mercury-2',
-            'openrouter/anthropic/claude-haiku-4.5',
-            'openrouter/anthropic/claude-sonnet-4.6'
+            'openrouter/inclusionai/ling-3.1-flash',
+            'openrouter/minimax/minimax-m3',
+            'openrouter/moonshotai/kimi-k2.6',
+            'openrouter/moonshotai/kimi-k2.7-code',
+            'openrouter/openrouter/free',
+            'openrouter/qwen/qwen3.8-flash',
+            'openrouter/qwen/qwen3.8-omni-flash',
+            'openrouter/xiaomi/mimo-v2.6-pro',
+            'openrouter/~deepseek/deepseek-flash-latest',
+            'openrouter/~deepseek/deepseek-pro-latest',
+            'openrouter/~moonshotai/kimi-latest',
+            'openrouter/~z-ai/glm-flash-latest',
           ];
-          const DEFAULT_MODEL = 'openrouter/~deepseek/deepseek-v4-flash-latest';
+          const DEFAULT_MODEL = 'openrouter/moonshotai/kimi-k2.6';
           const body = process.env.BODY || '';
           const match = body.match(/^\/(?:review|opencode|oc)\s+model=(\S+)/);
           const requested = match ? match[1] : '';
