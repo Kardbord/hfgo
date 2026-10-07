@@ -181,8 +181,11 @@ func (JSONCodec[Req, Resp]) Encode(
 // Decode unmarshals a JSON response body into the response type. The body
 // media type, read from params.Headers via the "Content-Type" header, must be
 // application/json or a structured +json type; otherwise an *hferrors.SDKError
-// of kind SDKErrorKindSerialization is returned. A serialization error is also
-// returned if the body fails to unmarshal.
+// of kind SDKErrorKindSerialization is returned. A missing or empty
+// Content-Type fails the same way — the media type is never inferred from the
+// body. Callers whose upstream omits Content-Type must synthesize
+// "application/json" before delegating to JSONCodec. A serialization error is
+// also returned if the body fails to unmarshal.
 func (JSONCodec[Req, Resp]) Decode(params DecodeParams) (resp Resp, err error) {
 	contentType := params.Headers.Get("Content-Type")
 	if !isJSONContentType(contentType) {
