@@ -8,27 +8,38 @@ import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
 // resolveModel resolves the model with precedence and applies the provider suffix.
 // Model precedence: request > options.
 // Provider suffix is appended only if the model doesn't already contain a provider
 // (indicated by ":") and the provider is not the default HuggingFace provider.
-func resolveModel(payload *hftypes.ChatRequest, opts hfopts.Options) {
+// Returns the resolved model along with its suffix, or an error if no model could be resolved.
+func resolveModel(payload *hftypes.ChatRequest, opts hfopts.Options) (string, error) {
 	if payload.Model == nil || *payload.Model == "" {
 		if opts.Model != "" {
 			model := opts.Model
 			payload.Model = &model
 		}
 	}
-
 	payload.Model = applyProvider(payload.Model, opts.Provider)
+
+	if payload.Model == nil || *payload.Model == "" {
+		return "", &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "no chat model specified",
+			Err:     nil,
+		}
+	}
+
+	return *payload.Model, nil
 }
 
 // applyProvider applies the provider to the model if the model
 // doesn't already contain a provider (indicated by ":").
 func applyProvider(model *string, provider hfproviders.Provider) *string {
-	if model == nil || *model == "" || provider == nil {
+	if model == nil || *model == "" || utils.IsNil(provider) {
 		return model
 	}
 
@@ -45,52 +56,49 @@ func applyProvider(model *string, provider hfproviders.Provider) *string {
 	return model
 }
 
-// resolveChatOptions validates options and resolves the model on the request payload.
-// It returns the options with the model set so downstream dispatch can use it.
-func resolveChatOptions(opts hfopts.Options, req *hftypes.ChatRequest) (hfopts.Options, error) {
-	resolveModel(req, opts)
-
-	if req.Model == nil || *req.Model == "" {
-		return hfopts.Options{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: "the model option must be set for chat completion to succeed",
-			Err:     nil,
-		}
-	}
-
-	if opts.Provider == nil {
-		return hfopts.Options{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: "provider must not be nil",
-			Err:     nil,
-		}
-	}
-
-	opts.Model = *req.Model
-
-	return opts, nil
-}
-
 // Chat sends a chat completion request and returns a chat completion response.
 //
 //nolint:gocritic // hugeParam: Chat takes the request by value so the SDK never mutates the caller's payload
 func Chat(opts hfopts.Options, req hftypes.ChatRequest) (hftypes.ChatResponse, error) {
-	optsOverride, err := resolveChatOptions(opts, &req)
+	model, err := resolveModel(&req, opts)
 	if err != nil {
 		return hftypes.ChatResponse{}, err
+	}
+	opts = opts.With(hfopts.WithModel(model))
+
+	if err = validateDispatch(opts); err != nil {
+		return hftypes.ChatResponse{}, err
+	}
+
+	prov, err := hfproviders.AsProvider[hfproviders.ChatProvider](opts.Provider)
+	if err != nil {
+		return hftypes.ChatResponse{}, err
+	}
+
+	endpoint, err := prov.ChatEndpoint(hfproviders.EndpointParams{
+		Context: opts.Context(),
+		Model:   model,
+	})
+	if err != nil {
+		return hftypes.ChatResponse{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "error computing chat endpoint: " + err.Error(),
+			Err:     err,
+		}
 	}
 
 	if req.Stream != nil && *req.Stream {
 		return hftypes.ChatResponse{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: "chat completion streaming is not supported; use a streaming chat method instead",
+			Message: "use a streaming chat method instead",
 			Err:     nil,
 		}
 	}
 
-	return doJSONInference[hftypes.ChatRequest, hftypes.ChatResponse](
-		optsOverride,
-		hfproviders.TaskChatCompletion,
+	return doInference(
+		opts,
+		endpoint,
+		prov.ChatCodec(),
 		req,
 	)
 }
@@ -99,17 +107,40 @@ func Chat(opts hfopts.Options, req hftypes.ChatRequest) (hftypes.ChatResponse, e
 //
 //nolint:gocritic // hugeParam: StreamChat takes the request by value so the SDK never mutates the caller's payload
 func StreamChat(opts hfopts.Options, req hftypes.ChatRequest) (*hftypes.ChatStream, error) {
-	optsOverride, err := resolveChatOptions(opts, &req)
+	model, err := resolveModel(&req, opts)
 	if err != nil {
 		return nil, err
+	}
+	opts = opts.With(hfopts.WithModel(model))
+
+	if err = validateDispatch(opts); err != nil {
+		return nil, err
+	}
+
+	prov, err := hfproviders.AsProvider[hfproviders.ChatStreamProvider](opts.Provider)
+	if err != nil {
+		return nil, err
+	}
+
+	endpoint, err := prov.ChatEndpoint(hfproviders.EndpointParams{
+		Context: opts.Context(),
+		Model:   model,
+	})
+	if err != nil {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "error computing chat streaming endpoint: " + err.Error(),
+			Err:     err,
+		}
 	}
 
 	stream := true
 	req.Stream = &stream
 
-	streamResp, err := doStreamingInference[hftypes.ChatRequest, hftypes.ChatStreamResponse](
-		optsOverride,
-		hfproviders.TaskChatCompletion,
+	streamResp, err := doStreamingInference(
+		opts,
+		endpoint,
+		prov.ChatStreamCodec(),
 		req,
 	)
 	if err != nil {

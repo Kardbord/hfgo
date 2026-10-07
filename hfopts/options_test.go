@@ -563,6 +563,12 @@ func TestOptions_Validate(t *testing.T) {
 			wantErr: true,
 			kind:    hferrors.SDKErrorKindConfiguration,
 		},
+		{
+			name:    "typed nil provider",
+			opts:    NewOptions().With(WithProvider((*hfproviders.HuggingFaceProvider)(nil))),
+			wantErr: true,
+			kind:    hferrors.SDKErrorKindConfiguration,
+		},
 	}
 
 	for i := range tests {

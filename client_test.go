@@ -20,20 +20,6 @@ import (
 
 const chatServiceResponseBody = `{"id":"id","created":1,"model":"m","system_fingerprint":"s","choices":[{"finish_reason":"stop","index":0,"message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`
 
-type mockProvider struct {
-	hfproviders.DefaultCodec
-
-	name string
-}
-
-func (p mockProvider) Endpoint(_ hfproviders.Task, _ string) (string, error) {
-	return "", nil
-}
-
-func (p mockProvider) ProviderSuffix() string {
-	return p.name
-}
-
 func TestNewClient_Defaults(t *testing.T) {
 	t.Parallel()
 
@@ -271,7 +257,7 @@ func TestClientChat_ProviderSuffix(t *testing.T) {
 	client := NewClient(
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 		hfopts.WithModel("mistral-7b"),
-		hfopts.WithProvider(mockProvider{name: "sambanova"}),
+		hfopts.WithProvider(testutils.NewMockProvider("sambanova", "sambanova")),
 	)
 
 	text := "hi"

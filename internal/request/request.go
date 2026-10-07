@@ -52,7 +52,10 @@ func DoRaw(
 	path string,
 	body io.Reader,
 ) (*http.Response, error) {
-	if err := opts.Validate(); err != nil {
+	// Transport-level checks only: model and provider configuration are
+	// task-level concerns enforced by the typed dispatch layer, and raw
+	// requests legitimately run without them.
+	if err := opts.ValidateTransport(); err != nil {
 		return nil, err
 	}
 
@@ -192,19 +195,6 @@ func DoBytes(
 	data []byte,
 ) (*http.Response, error) {
 	return Do(opts, method, path, bytes.NewReader(data))
-}
-
-// DoBytesRaw performs an HTTP request with a byte slice body and returns the response
-// without translating non-2xx status codes into SDK errors.
-// It is a convenience wrapper around DoRaw that converts the byte slice to an io.Reader.
-// The caller must close resp.Body on success.
-func DoBytesRaw(
-	opts hfopts.Options,
-	method string,
-	path string,
-	data []byte,
-) (*http.Response, error) {
-	return DoRaw(opts, method, path, bytes.NewReader(data))
 }
 
 // ReadResponseBody reads the response body up to maxBytes and returns an error

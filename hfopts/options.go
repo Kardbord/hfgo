@@ -99,19 +99,34 @@ func (o Options) With(opts ...Option) Options {
 }
 
 // Validate performs sanity checks on Options and returns an error describing the first issue.
+// It composes [Options.ValidateTransport] with checks for fields consumed by the typed task
+// layer (the provider). Model readiness is intentionally not checked here: a model-less Options
+// is valid for raw requests, and typed dispatch enforces the model where it is required.
 func (o Options) Validate() error {
-	if o.HTTPClient == nil {
+	if err := o.ValidateTransport(); err != nil {
+		return err
+	}
+
+	if utils.IsNil(o.Provider) {
 		return &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: "http client must not be nil",
+			Message: "provider must not be nil",
 			Err:     nil,
 		}
 	}
 
-	if o.Provider == nil {
+	return nil
+}
+
+// ValidateTransport performs the transport-level sanity checks that must hold before any HTTP
+// request is dispatched: the HTTP client must not be nil, and BaseURL must parse with a scheme
+// and host, and without query parameters or a fragment. It does not check provider, model, or
+// other task-level fields.
+func (o Options) ValidateTransport() error {
+	if o.HTTPClient == nil {
 		return &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: "provider must not be nil",
+			Message: "http client must not be nil",
 			Err:     nil,
 		}
 	}

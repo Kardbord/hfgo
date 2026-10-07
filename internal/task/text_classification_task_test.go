@@ -142,6 +142,17 @@ func TestClassifyTextBatch_ResponseVariations(t *testing.T) {
 			description:         "multiple text classifications with TopK unset (triggers normalization)",
 		},
 		{
+			name:                "flattened output not matching input count passes through",
+			responseBody:        `[[{"label":"positive","score":0.95}]]`,
+			inputs:              []string{"text1", "text2"},
+			topK:                nil,
+			expectedOuterLength: 1,
+			expectedInnerLength: 1,
+			expectedFirstLabel:  "positive",
+			expectedFirstScore:  0.95,
+			description:         "normalization only applies when inner length matches input count",
+		},
+		{
 			name:                "empty response",
 			responseBody:        `[[]]`,
 			inputs:              []string{"test text"},

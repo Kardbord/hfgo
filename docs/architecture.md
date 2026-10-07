@@ -26,7 +26,7 @@ imported from within the module.
 | `hfopts` | `github.com/Kardbord/hfgo/v4/hfopts` | `Options`, `Option`, and all `With*` option helpers |
 | `hftypes` | `github.com/Kardbord/hfgo/v4/hftypes` | Request/response Data Transfer Objects for every task |
 | `hferrors` | `github.com/Kardbord/hfgo/v4/hferrors` | `APIError`, `SDKError`, and `SDKErrorKind` definitions |
-| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, `HuggingFaceProvider`, built-in codec |
+| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, and the built-in `HuggingFaceProvider` |
 | `hfraw` | `github.com/Kardbord/hfgo/v4/hfraw` | Low-level `Client`/`Stream`/`Event` escape hatch for arbitrary HTTP/SSE |
 | `hfgoversion` | `github.com/Kardbord/hfgo/v4/hfgoversion` | `Version` constant and `UserAgent()` helper |
 
@@ -41,7 +41,7 @@ imported from within the module.
 
 | File | Contents |
 |------|----------|
-| `options.go` | `Options`, `Option`, all `With*` helpers, and `Validate` |
+| `options.go` | `Options`, `Option`, all `With*` helpers, `Validate`, and `ValidateTransport` |
 | `doc.go` | Package documentation |
 
 ### `hftypes`
@@ -60,9 +60,14 @@ top of `internal/request` and `hfopts`; advanced callers import it explicitly.
 
 ### `hfproviders/` (public package)
 
-Defines the inference-provider abstraction: the `Provider` interface, the
-built-in `HuggingFaceProvider` with its embedded `DefaultCodec`, and the
-`Task` constants naming every supported inference task.
+Defines the inference-provider abstraction: the core `Provider` interface
+(`Name` + `ProviderSuffix`), per-task `*Provider` interfaces that pair a task's
+endpoint-resolution method with its `Codec` accessor, the generic `Codec` wire
+format transformer (with `JSONCodec` and HuggingFace-flexible built-ins),
+`AsProvider` for type-safe interface casting, and the built-in
+`HuggingFaceProvider`. There are no task-name constants: each task has its own
+`XEndpoint(EndpointParams)` method, and unsupported tasks simply fail the
+`AsProvider` cast.
 
 ### `internal/` (implementation detail)
 
@@ -73,7 +78,7 @@ None of these packages are part of the public API.
 | `internal/task` | Package-level task functions (`Chat`, `StreamChat`, `ClassifyText`, …) |
 | `internal/request` | HTTP plumbing, JSON decode helpers, and SSE parsing |
 | `internal/utils` | Shared helpers used by `hfopts`, `internal/request`, and internal packages |
-| `internal/testutils` | Shared test helpers (mock transports, trackers, pointers) |
+| `internal/testutils` | Shared test helpers (mock transports, mock provider, trackers, pointers) |
 | `internal/integration_tests` | Live-API integration tests (tagged `integration`) |
 
 ### Re-export Pattern
@@ -162,43 +167,92 @@ go func() {
 The SDK routes requests and transforms wire formats through a pluggable
 provider layer, defined in the public `hfproviders` package. The HuggingFace
 Inference API is the reference wire format, so the built-in provider is a
-no-op transform; third-party providers can implement the same interface to
-serve HF-format requests from their own endpoints.
+no-op transform; third-party providers can implement the same interfaces to
+serve HF-format requests from their own wire formats.
 
 #### The `Provider` Interface
 
 ```go
 type Provider interface {
-    Endpoint(task Task, model string) (string, error)
     ProviderSuffix() string
-    EncodeRequest(task Task, hfBody []byte, hfContentType string) (
-        providerBody []byte, providerContentType string, err error,
-    )
-    DecodeResponse(task Task, providerBody []byte, providerContentType string) (
-        hfBody []byte, hfContentType string, err error,
-    )
+    Name() string
 }
 ```
 
-- `Endpoint` returns the API endpoint path for a task and model, or an error if
-  the model is invalid or the task is unsupported.
 - `ProviderSuffix` returns the routing suffix appended to model IDs on
   OpenAI-compatible endpoints. An empty string (the HuggingFace provider)
   appends nothing.
-- `EncodeRequest` / `DecodeResponse` transform between HF-spec and
-  provider-spec request/response bodies. Implementations must be safe for
-  concurrent use.
+- `Name` identifies the provider in error messages.
+
+Task support is expressed through per-task interfaces that pair each task's
+endpoint resolution with its codec, e.g.:
+
+```go
+type SummarizationProvider interface {
+    Provider
+    SummarizationEndpoint(params EndpointParams) (Endpoint, error)
+    SummarizationCodec() SummarizationCodec
+}
+```
+
+A provider advertises support for a task by implementing its interface; task
+dispatch casts via `AsProvider[T]`, which returns a configuration error when
+the cast fails. Endpoint methods receive `EndpointParams` (the caller's
+`Context` and the resolved `Model`) and return an `Endpoint` — the HTTP
+`Method` (empty defaults to POST; typed dispatch resolves it) and a `Path`
+**relative to `Options.BaseURL`**: the transport rejects absolute paths, so a
+provider can never redirect a request (and its bearer token) to a host the
+caller did not choose. Authentication is owned by the caller via
+`Options.Token` / `Options.Headers`; providers and codecs must not set
+`Authorization`.
+
+`EndpointParams.Model` semantics differ slightly by task family: for chat it
+is the resolved routing ID including any provider suffix (the model travels in
+the request body), while for pipeline tasks it is the configured model ID
+(routing travels in the path). The typed dispatch layer guarantees a
+non-empty `Model` before any endpoint method runs, so model-independent
+endpoints like `ChatEndpoint` never reject an empty one.
 
 #### Built-ins
 
-- **`HuggingFaceProvider`**: embeds `DefaultCodec` (identity transforms) and
+- **`HuggingFaceProvider`**: embeds `HuggingFaceEndpoints` and
+  `HuggingFaceCodecs`, implements every per-task `*Provider` interface, and
   appends no routing suffix. Construct via `NewHuggingFaceProvider()`.
-- **`DefaultCodec`**: identity codec passing request/response bodies through
-  unchanged. Embedded by `HuggingFaceProvider` and available for other
-  providers that speak the same wire format for a task.
-- **`hfproviders.Task`**: string constants naming supported inference tasks
-  (e.g. `TaskChatCompletion`, `TaskTextClassification`,
-  `TaskFeatureExtraction`, `TaskTextToImage`, …).
+- **`HuggingFaceEndpoints` / `HuggingFaceCodecs`**: embeddable defaults for
+  custom providers and test mocks. Embed only what you actually support —
+  embedding hands you methods for every task in the family.
+- **`Codec[Req, Resp]`**: the wire-format transform. `Encode` receives
+  `EncodeParams[Req]` (`Context`, canonical `Request`, resolved `Model`) and
+  returns the body plus request headers describing the format; `Decode`
+  receives `DecodeParams` (`Context`, `Body`, `Event`, response `Headers`)
+  and owns response content-type validation (the pipeline itself is
+  format-agnostic).
+  **`JSONCodec`** implements the HF JSON format; the HuggingFace
+  question-answering and text-classification codecs additionally accept the
+  API's single-object / nested-array response variations.
+
+#### Headers and Precedence
+
+Codec-returned request headers are applied as **defaults**: headers the caller
+set via `hfopts.WithHeader`/`WithHeaders` win, and multi-valued codec headers
+are applied in full. `Authorization` is the exception: codec-returned values
+are dropped entirely, because authentication is caller-owned via
+`Options.Token` / `Options.Headers`. Streaming is the other exception:
+`Accept: text/event-stream` is forced by the pipeline because SSE framing is a
+transport concern, not a codec concern. SSE event frames carry no headers of
+their own, so each event payload is decoded with a synthesized
+`Content-Type: application/json`; the frame's `event:` name (when present) is
+surfaced to codecs as `DecodeParams.Event`, so providers with event-named
+framing (e.g. Anthropic-style `message_start`/`message_delta`) can dispatch
+on it. Codecs may also steer the stream: returning
+`hferrors.SkipEventError{}` suppresses a frame, and
+`hferrors.EndOfStreamError{}` ends it — the consumer observes `io.EOF`.
+Transport-level termination (`data: [DONE]` or server close) remains the
+default path for OpenAI-style streams. Either way termination is final: the
+terminal frame's value is not delivered, frames sent after it are drained
+and discarded, and anything a consumer receives precedes the terminal
+frame — so the `results` channel's closed-and-empty state, not mutable
+stream flags, records end-of-stream.
 
 #### Provider Selection and Suffix Routing
 
@@ -211,22 +265,66 @@ type Provider interface {
 - `hfopts.WithProvider(p)` sets `Options.Provider`; `hfopts.WithDefaultProvider()` sets
   the default `HuggingFaceProvider`.
 
-#### Dispatch Flow
+#### Dispatch Flow and Validation
+
+Validation is layered by concern:
+
+1. `Options.ValidateTransport()` — HTTP client present, base URL well-formed.
+   Called by `internal/request` before every dispatch; raw (`hfraw`) callers
+   need nothing more.
+2. `Options.Validate()` — adds provider presence. Typed tasks call it via
+   `internal/task`'s `validateDispatch`, which additionally requires a
+   non-empty model (`hfraw` and model-in-payload cases stay valid).
+3. Provider-side — `AsProvider` casts fail cleanly for unsupported tasks;
+   model-dependent endpoint methods may validate `Model` defensively.
 
 `internal/task/invoke.go` implements the request lifecycle shared by every
 task function:
 
-1. `resolveModelDispatch` validates options (model set, provider non-nil) and
-   resolves the endpoint via `Provider.Endpoint`.
-2. `encodeRequest` marshals the typed request DTO to JSON, then applies
-   `Provider.EncodeRequest` to produce the wire body and `Content-Type`.
-3. `doJSONInference` / `doStreamingInference` send the request through the
-   `internal/request` layer, then convert the response back with
-   `Provider.DecodeResponse` before unmarshalling into the typed response DTO.
-   Streaming additionally applies the same transform per SSE `data` chunk.
+1. `validateDispatch` runs the checks above; for chat, `resolveModel` first
+   resolves (and suffixes) the model from payload/options precedence.
+2. The task function casts `opts.Provider` via `AsProvider`, resolves the
+   endpoint, and gets the task's codec.
+3. `doInference` / `doStreamingInference` encode via `Codec.Encode`, apply
+   the returned headers as defaults, send through `internal/request`, and
+   decode via `Codec.Decode` — once per response body, and once per SSE
+   event for streaming. Streaming decoders may steer the pipeline with
+   `hferrors.SkipEventError` (suppress a frame) or `hferrors.EndOfStreamError`
+   (end the stream).
 
 This keeps task functions (`internal/task`) agnostic to wire format: providers
 own endpoint construction and any request/response translation.
+
+#### Deferred Extension Points
+
+Deliberate non-goals, each with a cheap non-breaking path (field additions to
+the params structs, new interfaces via type assertion, or new methods) so the
+next reader does not mistake them for dead ends:
+
+- Provider-suggested base URLs: endpoint methods return relative paths and
+  the transport rejects absolute ones, keeping the bearer token confined to
+  the caller's host. If flexibility is ever needed, an optional
+  `interface{ BaseURL() string }` assertion is the non-breaking route — at
+  the cost of that containment guarantee.
+- Provider-decoded non-2xx error bodies: `APIError.Body` already exposes the
+  raw body; a `DecodeError`-style codec hook would change only rendering.
+- Async/polling providers (submit → poll, Replicate/fal style): the typed
+  pipeline is request/response. Supporting these is additive — a new
+  interface family (e.g. `SubmitEndpoint`/`StatusEndpoint` + a polling
+  dispatch loop) without touching `Codec`, `EndpointParams`, or the per-task
+  interfaces.
+- Provider lifecycle: stateful providers (cached credentials, background
+  sync) have no close hook. `Client.Close()` is an additive method, with
+  provider cleanup via an `io.Closer` type assertion against
+  `Options.Provider` — no `Provider` interface change required.
+- Error metadata surfacing: `APIError.RequestID` reads only `X-Request-ID`;
+  providers echoing trace IDs under other headers (e.g.
+  `x-amzn-trace-id`) need an additive `APIError.Headers` field. Bounded
+  error-body text (so callers need not drain `Body`) is likewise additive.
+- Sentence similarity: no typed task exists, so the provider surface does
+  not model it. Add `SentenceSimilarityEndpoint` +
+  `SentenceSimilarityProvider` + a task function if the typed layer gains
+  the endpoint.
 
 ## Error Handling
 
@@ -715,7 +813,7 @@ Endpoints are resolved by the configured provider (see
 
 ### Pipeline endpoints
 - **Path**: `hf-inference/models/{model}/pipeline/{task}`
-- **Tasks**: feature extraction, sentence similarity
+- **Tasks**: feature extraction
 - **Method**: POST
 
 ### Chat Completions
