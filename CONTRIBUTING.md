@@ -182,7 +182,7 @@ different concerns (`hfopts`, `hftypes`, `hferrors`, `hfproviders`,
 ```
 feat: add support for tool calling
 fix: handle nil context in streaming
-feat!: remove deprecated Chat.Complete method
+feat!: remove deprecated client option
 docs: update API documentation
 refactor: reorganize internal packages
 test: add integration tests for streaming

@@ -161,7 +161,7 @@ jobs:
             **Examples:**
             - `feat: add support for tool calling`
             - `fix: handle nil context in streaming`
-            - `feat!: remove deprecated Chat.Complete method`
+            - `feat!: remove deprecated client option`
             - `docs: update API documentation`
 
             **Details:**
@@ -194,7 +194,7 @@ jobs:
             **Format:** `type!: subject` or `type(scope)!: subject`
 
             **Examples:**
-            - `feat!: remove deprecated Chat.Complete method`
+            - `feat!: remove deprecated client option`
             - `refactor!: rename client option`
 
             **Details:**

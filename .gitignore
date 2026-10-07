@@ -24,3 +24,4 @@ examples/**/*
 
 # Misc
 .token
+.ruff_cache/

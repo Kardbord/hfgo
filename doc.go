@@ -17,7 +17,6 @@
 //   - HTTP client injection uses a value factory; return a fresh client value to avoid shared state.
 //   - The SDK favors upstream feature parity and uses DTOs closely aligned to the API; breaking changes are possible as the upstream API evolves.
 //   - WithDefaultHTTPClient restores the default client; a nil factory is treated as a configuration error.
-//   - Request DTOs are passed to Client methods by value and the SDK never mutates the caller's payload.
 //   - DTO validation is enforced during JSON marshal/unmarshal. Invalid request
 //     payloads surface as configuration errors. For responses, invalid content
 //     type surfaces as validation errors, while malformed JSON surfaces as
