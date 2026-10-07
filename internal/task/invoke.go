@@ -41,7 +41,7 @@ func validateDispatch(opts hfopts.Options) error {
 func applyCodecHeaders(opts hfopts.Options, headers http.Header) hfopts.Options {
 	for key, values := range headers {
 		canonical := http.CanonicalHeaderKey(key)
-		if canonical == "Authorization" || len(opts.Headers.Values(key)) > 0 {
+		if canonical == "Authorization" || len(opts.Headers.Values(canonical)) > 0 {
 			continue
 		}
 
