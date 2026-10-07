@@ -157,12 +157,12 @@ func TestDoInference_ProviderTransformsRequestAndResponse(t *testing.T) {
 			encodeCalled = true
 
 			return append(
-				[]byte(wrappedPrefix),
-				append(body, wrappedSuffix...)...,
-			), http.Header{
-				"Content-Type": {"application/json"},
-				"Accept":       {"application/json"},
-			}, nil
+					[]byte(wrappedPrefix),
+					append(body, wrappedSuffix...)...,
+				), http.Header{
+					"Content-Type": {"application/json"},
+					"Accept":       {"application/json"},
+				}, nil
 		},
 		decodeFunc: func(body []byte, _ string) ([]byte, error) {
 			decodeCalled = true
