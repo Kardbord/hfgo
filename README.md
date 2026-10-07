@@ -8,6 +8,7 @@
   <a href="https://github.com/Kardbord/hfgo/actions/workflows/fuzz-tests.yml"><img src="https://github.com/Kardbord/hfgo/actions/workflows/fuzz-tests.yml/badge.svg" alt="Fuzz Tests"></a>
   <a href="https://github.com/Kardbord/hfgo/actions/workflows/codeql-analysis.yml"><img src="https://github.com/Kardbord/hfgo/actions/workflows/codeql-analysis.yml/badge.svg" alt="CodeQL"></a>
   <a href="https://pkg.go.dev/github.com/Kardbord/hfgo/v4"><img src="https://pkg.go.dev/badge/github.com/Kardbord/hfgo/v4.svg" alt="Go Reference"></a>
+  <a href="https://codecov.io/gh/Kardbord/hfgo" ><img src="https://codecov.io/gh/Kardbord/hfgo/graph/badge.svg?token=TK2WOHFEVG" alt="Code Coverage"/></a>
   <a href="https://www.bestpractices.dev/projects/12720"><img src="https://www.bestpractices.dev/projects/12720/baseline" alt="OpenSSF Baseline"></a>
   <a href="https://scorecard.dev/viewer/?uri=github.com/Kardbord/hfgo"><img alt="OpenSSF Scorecard" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.scorecard.dev%2Fprojects%2Fgithub.com%2FKardbord%2Fhfgo&query=%24.score&style=flat&logoSize=auto&label=openssf%20scorecard&color=%23591A99&link=https%3A%2F%2Fscorecard.dev%2Fviewer%2F%3Furi%3Dgithub.com%2FKardbord%2Fhfgo"></a>
   <a href="https://www.bestpractices.dev/projects/12720"><img src="https://www.bestpractices.dev/projects/12720/badge" alt="OpenSSF Best Practices"></a>
