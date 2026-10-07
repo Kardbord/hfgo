@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// jsonDecode is a decode hook that JSON-unmarshals the event payload
+// jsonDecode is a decode hook that JSON-unmarshals the event payload.
 func jsonDecode[T any](_ context.Context, ev RawEvent) (T, error) {
 	var out T
 	err := json.Unmarshal(ev.Data, &out)
