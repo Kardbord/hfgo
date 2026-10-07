@@ -156,6 +156,9 @@ type chatstreamer interface {
 }
 
 // ChatStream wraps a streaming chat completion response.
+//
+// Recv is intended for a single consumer goroutine: concurrent consumers
+// are memory-safe, but which goroutine receives which chunk is undefined.
 type ChatStream struct {
 	stream       chatstreamer
 	toolCallAccr ToolCallAccumulator
@@ -170,6 +173,9 @@ func NewChatStream(stream chatstreamer) *ChatStream {
 }
 
 // Recv blocks until the next streaming chunk arrives or the context is done.
+// It returns io.EOF when the stream ends. Termination is final: once io.EOF
+// is observed, no further chunks will be delivered, and every delivered
+// chunk precedes the stream's terminal frame.
 func (c *ChatStream) Recv(ctx context.Context) (ChatStreamResponse, error) {
 	if c == nil || c.stream == nil {
 		return ChatStreamResponse{}, &hferrors.SDKError{

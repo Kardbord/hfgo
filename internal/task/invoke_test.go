@@ -561,6 +561,71 @@ func TestDoStreamingInference_EventNamePropagated(t *testing.T) {
 	require.Equal(t, "application/json", gotHeaders.Get("Content-Type"))
 }
 
+// framingCodec simulates an Anthropic-style provider: meaningful state
+// travels in the SSE event name, frames like content_block_start carry no
+// consumer-visible payload, and the stream ends on message_stop rather than
+// a transport-level [DONE].
+type framingCodec struct{}
+
+func (framingCodec) Encode(
+	_ hfproviders.EncodeParams[jsonInferenceReq],
+) (body []byte, headers http.Header, err error) {
+	return []byte(`{}`), http.Header{
+		"Content-Type": {"application/json"},
+		"Accept":       {"text/event-stream"},
+	}, nil
+}
+
+func (framingCodec) Decode(params hfproviders.DecodeParams) (jsonInferenceResp, error) {
+	switch params.Event {
+	case "content_block_start":
+		return jsonInferenceResp{}, hferrors.SkipEventError{}
+	case "message_stop":
+		return jsonInferenceResp{}, hferrors.EndOfStreamError{}
+	default:
+		var out jsonInferenceResp
+		err := json.Unmarshal(params.Body, &out)
+
+		return out, err
+	}
+}
+
+func TestDoStreamingInference_CodecControlSignalsSkipAndEnd(t *testing.T) {
+	t.Parallel()
+
+	body := "event: content_block_start\ndata: {\"generated_text\":\"phantom\"}\n\n"
+	body += "event: delta\ndata: {\"generated_text\":\"hello\"}\n\n"
+	body += "event: message_stop\ndata: {}\n\n"
+	body += "data: {\"generated_text\":\"unseen\"}\n\n"
+
+	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
+	mt.Response.Header.Set("Content-Type", "text/event-stream")
+
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(transformProvider{}),
+	)
+
+	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
+		opts,
+		hfproviders.Endpoint{Path: "/test-endpoint"},
+		framingCodec{},
+		jsonInferenceReq{Inputs: "hi"},
+	)
+	require.NoError(t, err)
+	defer func() { _ = stream.Close() }()
+
+	// content_block_start is suppressed; only the delta is delivered.
+	chunk, err := stream.Recv(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "hello", chunk.GeneratedText)
+
+	// message_stop ends the stream; the trailing frame is never delivered.
+	_, err = stream.Recv(context.Background())
+	require.ErrorIs(t, err, io.EOF)
+}
+
 func TestDoStreamingInference_DecodeErrorPropagated(t *testing.T) {
 	t.Parallel()
 

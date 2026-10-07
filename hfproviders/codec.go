@@ -57,7 +57,9 @@ type DecodeParams struct {
 	// Event is the SSE "event:" field for this payload. It is only set for
 	// streaming decodes: unary responses leave it empty, and OpenAI-style
 	// streams (data-only frames) do as well. Providers whose framing
-	// carries meaning in the event name can dispatch on it.
+	// carries meaning in the event name can dispatch on it, and may return
+	// [hferrors.EndOfStreamError] or [hferrors.SkipEventError] from Decode
+	// to end the stream or suppress the frame.
 	Event string
 
 	// Headers holds the response headers; read the body media type via
@@ -81,6 +83,16 @@ type Codec[Req, Resp any] interface {
 
 	// Decode transforms a provider wire type response into its canonical
 	// Hugging Face response type.
+	//
+	// While streaming, Decode may steer the pipeline by returning
+	// [hferrors.EndOfStreamError] to end the stream (the consumer observes
+	// io.EOF) or [hferrors.SkipEventError] to suppress the current frame.
+	// Any other non-nil error surfaces to the stream consumer as a
+	// serialization failure. Termination is final: the terminating frame's
+	// own value is not delivered, and frames the server sends after it are
+	// discarded — anything a consumer receives precedes the terminal frame.
+	// The control signals have no meaning for unary responses, where any
+	// error is returned as-is.
 	Decode(params DecodeParams) (Resp, error)
 }
 

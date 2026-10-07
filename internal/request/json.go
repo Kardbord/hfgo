@@ -3,7 +3,7 @@ package request
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"io"
 	"mime"
 	"net/http"
@@ -43,14 +43,14 @@ func DecodeHTTPResponse(resp *http.Response, maxResponseBodyBytes int64) (body [
 // type T.
 type JSONStream[T any] struct {
 	raw *RawStream
-	// decode is an optional transform that produces a value from each raw
-	// event. If nil, the event payload is JSON-unmarshalled into T.
+	// decode produces a value from each raw event. It is required and must
+	// not be nil.
 	decode func(context.Context, RawEvent) (T, error)
 }
 
 // NewJSONStream returns a JSONStream backed by the given RawStream.
-// If decode is non-nil, it produces each value from the raw event; otherwise
-// the event payload is JSON-unmarshalled into T.
+// decode transforms each raw event into a value of T; it must not be nil
+// (callers wanting plain JSON payloads supply a json.Unmarshal-based hook).
 func NewJSONStream[T any](
 	raw *RawStream,
 	decode func(context.Context, RawEvent) (T, error),
@@ -58,9 +58,48 @@ func NewJSONStream[T any](
 	return &JSONStream[T]{raw: raw, decode: decode}
 }
 
+// classifyHookError maps a decode-hook error onto stream control behavior.
+func classifyHookError(err error) (skip, terminate bool) {
+	switch {
+	case errors.Is(err, hferrors.SkipEventError{}):
+		return true, false
+	case errors.Is(err, hferrors.EndOfStreamError{}):
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+// endStream releases the raw stream and drains any buffered frames so the
+// results channel ends closed and empty: the channel itself records
+// termination, with no JSONStream state, and every later receive yields
+// io.EOF. The drain cannot block unboundedly — Close cancels the producer's
+// context and closes the body, so the producer returns promptly and closes
+// the channel. Frames the server sent after the terminating frame are
+// discarded here and never delivered. The drain deliberately uses a
+// non-cancelable context: a caller-canceled ctx could stop the drain while
+// a frame is still buffered, breaking the post-EOF terminal guarantee.
+func (s *JSONStream[T]) endStream() error {
+	_ = s.raw.Close()
+
+	for {
+		if _, err := s.raw.Recv(context.Background()); err != nil {
+			return io.EOF
+		}
+	}
+}
+
 // Recv blocks until the next event is available or the stream ends.
 // It skips keepalive events, treats data: [DONE] as EOF, and decodes each
-// payload into T.
+// payload into T. A decode hook may steer the stream by returning
+// [hferrors.SkipEventError] to suppress the current frame or
+// [hferrors.EndOfStreamError] to end it (Recv then returns io.EOF).
+//
+// Termination is final: the terminating frame's own value is not surfaced,
+// frames after it are discarded, and anything a consumer receives precedes
+// the terminal frame. Recv is intended for a single consumer goroutine;
+// concurrent consumers are memory-safe (events partition over a channel)
+// but which goroutine receives which frame is undefined.
 func (s *JSONStream[T]) Recv(ctx context.Context) (out T, err error) {
 	if s.raw == nil {
 		return out, &hferrors.SDKError{
@@ -70,43 +109,67 @@ func (s *JSONStream[T]) Recv(ctx context.Context) (out T, err error) {
 		}
 	}
 
+	if s.decode == nil {
+		return out, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindInternal,
+			Message: "json stream decode is nil",
+			Err:     nil,
+		}
+	}
+
 	for {
 		event, err := s.raw.Recv(ctx)
 		if err != nil {
 			return out, err
 		}
-		data := bytes.TrimSpace(event.Data)
-		if len(data) == 0 {
-			continue
-		}
-		if bytes.Equal(data, []byte("[DONE]")) {
-			_ = s.raw.Close()
 
-			return out, io.EOF
+		next, skip, nextErr := s.processEvent(ctx, event)
+		if !skip {
+			return next, nextErr
 		}
-		if s.decode != nil {
-			// Normalize like RawStream.Recv so decode hooks always receive a
-			// non-nil context.
-			out, err = s.decode(utils.NormalizeContext(ctx), event)
-			if err != nil {
-				return out, &hferrors.SDKError{
-					Kind:    hferrors.SDKErrorKindSerialization,
-					Message: "failed to decode stream event",
-					Err:     err,
-				}
-			}
+	}
+}
 
-			return out, nil
-		}
-		if err := json.Unmarshal(data, &out); err != nil {
-			return out, &hferrors.SDKError{
-				Kind:    hferrors.SDKErrorKindSerialization,
-				Message: "failed to decode stream event",
-				Err:     err,
-			}
-		}
+// processEvent decodes one raw event and reports the outcome for it.
+// skip is true only when the frame produced nothing to return — a keepalive
+// or a frame suppressed by a [hferrors.SkipEventError] signal — in which
+// case the caller fetches the next event; otherwise (out, err) is the
+// result, which may be a delivered value, a failure, or io.EOF at
+// termination.
+func (s *JSONStream[T]) processEvent(
+	ctx context.Context,
+	event RawEvent,
+) (out T, skip bool, err error) {
+	data := bytes.TrimSpace(event.Data)
+	if len(data) == 0 {
+		return out, true, nil
+	}
 
-		return out, nil
+	if bytes.Equal(data, []byte("[DONE]")) {
+		return out, false, s.endStream() //nolint:contextcheck // drain uses its own bounded ctx
+	}
+
+	// Normalize like RawStream.Recv so decode hooks always receive a
+	// non-nil context.
+	out, err = s.decode(utils.NormalizeContext(ctx), event)
+	if err == nil {
+		return out, false, nil
+	}
+
+	hookSkip, hookTerminate := classifyHookError(err)
+	switch {
+	case hookSkip:
+		return out, true, nil
+	case hookTerminate:
+		var zero T
+
+		return zero, false, s.endStream() //nolint:contextcheck // drain uses its own bounded ctx
+	default:
+		return out, false, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindSerialization,
+			Message: "failed to decode stream event",
+			Err:     err,
+		}
 	}
 }
 

@@ -244,7 +244,15 @@ their own, so each event payload is decoded with a synthesized
 `Content-Type: application/json`; the frame's `event:` name (when present) is
 surfaced to codecs as `DecodeParams.Event`, so providers with event-named
 framing (e.g. Anthropic-style `message_start`/`message_delta`) can dispatch
-on it.
+on it. Codecs may also steer the stream: returning
+`hferrors.SkipEventError{}` suppresses a frame, and
+`hferrors.EndOfStreamError{}` ends it — the consumer observes `io.EOF`.
+Transport-level termination (`data: [DONE]` or server close) remains the
+default path for OpenAI-style streams. Either way termination is final: the
+terminal frame's value is not delivered, frames sent after it are drained
+and discarded, and anything a consumer receives precedes the terminal
+frame — so the `results` channel's closed-and-empty state, not mutable
+stream flags, records end-of-stream.
 
 #### Provider Selection and Suffix Routing
 
@@ -279,8 +287,10 @@ task function:
    endpoint, and gets the task's codec.
 3. `doInference` / `doStreamingInference` encode via `Codec.Encode`, apply
    the returned headers as defaults, send through `internal/request`, and
-   decode via `Codec.Decode` — once per response body, and once per SSE event
-   payload for streaming.
+   decode via `Codec.Decode` — once per response body, and once per SSE
+   event for streaming. Streaming decoders may steer the pipeline with
+   `hferrors.SkipEventError` (suppress a frame) or `hferrors.EndOfStreamError`
+   (end the stream).
 
 This keeps task functions (`internal/task`) agnostic to wire format: providers
 own endpoint construction and any request/response translation.
