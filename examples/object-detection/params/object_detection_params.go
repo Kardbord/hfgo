@@ -40,7 +40,7 @@ func main() {
 	objects, err := client.DetectObjects(hftypes.ObjectDetectionRequest{
 		Input: imgData,
 		Parameters: &hftypes.ObjectDetectionParameters{
-			Threshold: ptr(0.8),
+			Threshold: new(0.8),
 		},
 	})
 	if err != nil {
@@ -91,8 +91,4 @@ func printJSON[T any](v T) {
 	}
 
 	fmt.Println(string(b))
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

@@ -43,10 +43,6 @@ func main() {
 	PrintJSON(predictions)
 }
 
-func Ptr[T any](v T) *T {
-	return &v
-}
-
 func PrintJSON[T any](v T) {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {

@@ -165,7 +165,7 @@ func TestClassifyTextBatch_ResponseVariations(t *testing.T) {
 			name:                "multiple classifications per input with TopK set",
 			responseBody:        `[[{"label":"positive","score":0.95},{"label":"negative","score":0.05}],[{"label":"negative","score":0.87},{"label":"positive","score":0.13}]]`,
 			inputs:              []string{"text1", "text2"},
-			topK:                testutils.Ptr(2),
+			topK:                new(2),
 			expectedOuterLength: 2,
 			expectedInnerLength: 2,
 			expectedFirstLabel:  "positive",

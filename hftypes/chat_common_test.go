@@ -89,7 +89,7 @@ func TestChatFunctionCallClone_Deep(t *testing.T) {
 	fc := &hftypes.ChatFunctionCall{
 		Name:        "fn",
 		Arguments:   "{}",
-		Description: testutils.Ptr("does things"),
+		Description: new("does things"),
 	}
 
 	cloned := fc.Clone()

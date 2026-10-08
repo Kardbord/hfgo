@@ -62,7 +62,7 @@ func TestClientChat_ModelSelection(t *testing.T) {
 			name:        "respects request model",
 			clientModel: "default-model",
 			optModel:    "opts-model",
-			reqModel:    testutils.Ptr("explicit-model"),
+			reqModel:    new("explicit-model"),
 			wantModel:   "explicit-model",
 		},
 	}

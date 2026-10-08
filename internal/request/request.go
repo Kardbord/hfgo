@@ -76,8 +76,7 @@ func buildHTTPRequest(
 
 	reqURL, err := joinURL(opts.BaseURL, path)
 	if err != nil {
-		var sdkErr *hferrors.SDKError
-		if errors.As(err, &sdkErr) {
+		if sdkErr, ok := errors.AsType[*hferrors.SDKError](err); ok {
 			return nil, sdkErr
 		}
 

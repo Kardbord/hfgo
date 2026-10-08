@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +15,7 @@ func TestFillMaskRequestClone_Deep(t *testing.T) {
 	req := hftypes.FillMaskRequest{
 		Input: "The capital of France is [MASK].",
 		Parameters: &hftypes.FillMaskParameters{
-			TopK:    testutils.Ptr(3),
+			TopK:    new(3),
 			Targets: []string{"Paris", "Lyon"},
 		},
 	}
@@ -40,7 +39,7 @@ func TestFillMaskBatchRequestClone_Deep(t *testing.T) {
 	req := hftypes.FillMaskBatchRequest{
 		Inputs: []string{"I [MASK] my dog.", "She is [MASK]."},
 		Parameters: &hftypes.FillMaskParameters{
-			TopK: testutils.Ptr(2),
+			TopK: new(2),
 		},
 	}
 
@@ -59,7 +58,7 @@ func TestFillMaskParametersClone_Deep(t *testing.T) {
 	t.Parallel()
 
 	params := &hftypes.FillMaskParameters{
-		TopK:    testutils.Ptr(3),
+		TopK:    new(3),
 		Targets: []string{"Paris", "Lyon"},
 	}
 

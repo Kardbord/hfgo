@@ -66,31 +66,31 @@ func TestSummarize_ParameterSerialization(t *testing.T) {
 		},
 		{
 			name:        "clean up tokenization spaces",
-			cleanUp:     testutils.Ptr(true),
+			cleanUp:     new(true),
 			want:        map[string]any{"clean_up_tokenization_spaces": true},
 			description: "clean_up_tokenization_spaces maps to its JSON key",
 		},
 		{
 			name:        "truncation do_not_truncate",
-			truncation:  testutils.Ptr(hftypes.SummarizationTruncationDoNotTruncate),
+			truncation:  new(hftypes.SummarizationTruncationDoNotTruncate),
 			want:        map[string]any{"truncation": hftypes.SummarizationTruncationDoNotTruncate},
 			description: "do_not_truncate constant serializes correctly",
 		},
 		{
 			name:        "truncation longest_first",
-			truncation:  testutils.Ptr(hftypes.SummarizationTruncationLongestFirst),
+			truncation:  new(hftypes.SummarizationTruncationLongestFirst),
 			want:        map[string]any{"truncation": hftypes.SummarizationTruncationLongestFirst},
 			description: "longest_first constant serializes correctly",
 		},
 		{
 			name:        "truncation only_first",
-			truncation:  testutils.Ptr(hftypes.SummarizationTruncationOnlyFirst),
+			truncation:  new(hftypes.SummarizationTruncationOnlyFirst),
 			want:        map[string]any{"truncation": hftypes.SummarizationTruncationOnlyFirst},
 			description: "only_first constant serializes correctly",
 		},
 		{
 			name:        "truncation only_second",
-			truncation:  testutils.Ptr(hftypes.SummarizationTruncationOnlySecond),
+			truncation:  new(hftypes.SummarizationTruncationOnlySecond),
 			want:        map[string]any{"truncation": hftypes.SummarizationTruncationOnlySecond},
 			description: "only_second constant serializes correctly",
 		},
@@ -107,8 +107,8 @@ func TestSummarize_ParameterSerialization(t *testing.T) {
 		},
 		{
 			name:       "all parameters",
-			cleanUp:    testutils.Ptr(true),
-			truncation: testutils.Ptr(hftypes.SummarizationTruncationOnlyFirst),
+			cleanUp:    new(true),
+			truncation: new(hftypes.SummarizationTruncationOnlyFirst),
 			generate:   map[string]any{"max_new_tokens": 60},
 			want: map[string]any{
 				"clean_up_tokenization_spaces": true,

@@ -30,11 +30,11 @@ func main() {
 			{
 				Role: "user",
 				Content: hftypes.ChatMessageContent{
-					Text: Ptr("Hello! What is the capital of France?"),
+					Text: new("Hello! What is the capital of France?"),
 				},
 			},
 		},
-		MaxTokens: Ptr(1024),
+		MaxTokens: new(1024),
 	}
 
 	// Send the request and get the response
@@ -62,9 +62,4 @@ func main() {
 	fmt.Printf("  Prompt Tokens: %d\n", response.Usage.PromptTokens)
 	fmt.Printf("  Completion Tokens: %d\n", response.Usage.CompletionTokens)
 	fmt.Printf("  Total Tokens: %d\n", response.Usage.TotalTokens)
-}
-
-// Helper function to create pointers from values.
-func Ptr[T any](v T) *T {
-	return &v
 }

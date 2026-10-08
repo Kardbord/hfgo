@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -58,12 +57,12 @@ func TestChatStreamDelta_UnmarshalSuccess(t *testing.T) {
 		{
 			name:      "role only",
 			unmarshal: `{"role":"assistant"}`,
-			wantRole:  testutils.Ptr("assistant"),
+			wantRole:  new("assistant"),
 		},
 		{
 			name:        "content only",
 			unmarshal:   `{"content":"hi"}`,
-			wantContent: testutils.Ptr("hi"),
+			wantContent: new("hi"),
 		},
 		{
 			name:          "tool_calls only",

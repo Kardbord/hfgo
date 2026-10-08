@@ -40,7 +40,7 @@ func TestAnswerTableQuestion_ResponseDecoding(t *testing.T) {
 			wantAnswer:   "COUNT > 3",
 			wantCells:    []string{"Alice", "Bob", "Carol"},
 			wantCoords:   [][]int{{0, 0}, {0, 1}, {0, 2}},
-			wantAggr:     testutils.Ptr("COUNT"),
+			wantAggr:     new("COUNT"),
 			description:  "answer with aggregator field",
 		},
 		{

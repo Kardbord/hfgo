@@ -38,7 +38,7 @@ func TestFillMask_ResponseDecoding(t *testing.T) {
 			expectedSeq:    "The capital of France is Paris.",
 			expectedScore:  0.95,
 			expectedToken:  1,
-			expectedTokStr: testutils.Ptr("Paris"),
+			expectedTokStr: new("Paris"),
 			description:    "single mask filling prediction",
 		},
 		{
@@ -60,7 +60,7 @@ func TestFillMask_ResponseDecoding(t *testing.T) {
 			expectedSeq:    "The capital of France is Paris.",
 			expectedScore:  0.95,
 			expectedToken:  1,
-			expectedTokStr: testutils.Ptr("Paris"),
+			expectedTokStr: new("Paris"),
 			expectedSeq2:   "The capital of France is Lyon.",
 			expectedScore2: 0.03,
 			description:    "multiple ranked candidates preserve order",

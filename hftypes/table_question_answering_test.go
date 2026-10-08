@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,9 +21,9 @@ func TestTableQuestionAnsweringRequestClone_Deep(t *testing.T) {
 			},
 		},
 		Parameters: &hftypes.TableQuestionAnsweringParameters{
-			Padding:    testutils.Ptr(hftypes.TableQuestionAnsweringPaddingMaxLength),
-			Sequential: testutils.Ptr(false),
-			Truncation: testutils.Ptr(true),
+			Padding:    new(hftypes.TableQuestionAnsweringPaddingMaxLength),
+			Sequential: new(false),
+			Truncation: new(true),
 		},
 	}
 
@@ -52,9 +51,9 @@ func TestTableQuestionAnsweringParametersClone_Deep(t *testing.T) {
 	t.Parallel()
 
 	params := &hftypes.TableQuestionAnsweringParameters{
-		Padding:    testutils.Ptr(hftypes.TableQuestionAnsweringPaddingLongest),
-		Sequential: testutils.Ptr(true),
-		Truncation: testutils.Ptr(false),
+		Padding:    new(hftypes.TableQuestionAnsweringPaddingLongest),
+		Sequential: new(true),
+		Truncation: new(false),
 	}
 
 	cloned := params.Clone()

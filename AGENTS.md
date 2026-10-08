@@ -29,7 +29,7 @@ go build ./...
 
 ## Configuration Requirements
 
-- Requires Go 1.25+
+- Requires Go 1.27+
 - Requires `HF_TOKEN` for integration tests
 - Requires `golangci-lint` for linting
 

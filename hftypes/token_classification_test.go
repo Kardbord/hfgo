@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,8 +16,8 @@ func TestTokenClassificationRequestClone_Deep(t *testing.T) {
 		Input: "My name is Sarah and I live in London.",
 		Parameters: &hftypes.TokenClassificationParameters{
 			IgnoreLabels:        []string{"O", "MISC"},
-			Stride:              testutils.Ptr(5),
-			AggregationStrategy: testutils.Ptr(hftypes.TokenClassificationAggregationSimple),
+			Stride:              new(5),
+			AggregationStrategy: new(hftypes.TokenClassificationAggregationSimple),
 		},
 	}
 
@@ -51,7 +50,7 @@ func TestTokenClassificationBatchRequestClone_Deep(t *testing.T) {
 		},
 		Parameters: &hftypes.TokenClassificationParameters{
 			IgnoreLabels: []string{"O"},
-			Stride:       testutils.Ptr(3),
+			Stride:       new(3),
 		},
 	}
 
@@ -77,8 +76,8 @@ func TestTokenClassificationParametersClone_Deep(t *testing.T) {
 
 	params := &hftypes.TokenClassificationParameters{
 		IgnoreLabels:        []string{"O", "MISC"},
-		Stride:              testutils.Ptr(5),
-		AggregationStrategy: testutils.Ptr(hftypes.TokenClassificationAggregationFirst),
+		Stride:              new(5),
+		AggregationStrategy: new(hftypes.TokenClassificationAggregationFirst),
 	}
 
 	cloned := params.Clone()

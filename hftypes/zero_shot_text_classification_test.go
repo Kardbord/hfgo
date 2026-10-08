@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,8 +16,8 @@ func TestZeroShotTextClassificationRequestClone_Deep(t *testing.T) {
 		Input: "I love this product",
 		Parameters: &hftypes.ZeroShotTextClassificationParameters{
 			CandidateLabels:    []string{"positive", "negative", "neutral"},
-			HypothesisTemplate: testutils.Ptr("This example is {}."),
-			MultiLabel:         testutils.Ptr(false),
+			HypothesisTemplate: new("This example is {}."),
+			MultiLabel:         new(false),
 		},
 	}
 
@@ -44,7 +43,7 @@ func TestZeroShotTextClassificationBatchRequestClone_Deep(t *testing.T) {
 		Inputs: []string{"text1", "text2"},
 		Parameters: &hftypes.ZeroShotTextClassificationParameters{
 			CandidateLabels: []string{"positive", "negative"},
-			MultiLabel:      testutils.Ptr(false),
+			MultiLabel:      new(false),
 		},
 	}
 
@@ -64,8 +63,8 @@ func TestZeroShotTextClassificationParametersClone_Deep(t *testing.T) {
 
 	params := &hftypes.ZeroShotTextClassificationParameters{
 		CandidateLabels:    []string{"positive", "negative"},
-		HypothesisTemplate: testutils.Ptr("This example is {}."),
-		MultiLabel:         testutils.Ptr(true),
+		HypothesisTemplate: new("This example is {}."),
+		MultiLabel:         new(true),
 	}
 
 	cloned := params.Clone()

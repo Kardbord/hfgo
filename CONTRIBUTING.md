@@ -26,7 +26,7 @@ If you plan to contribute code, please:
 
 ### Prerequisites
 
-- Go 1.25 or later
+- Go 1.27 or later
 - Git
 - Hugging Face API key (for running integration tests)
   - Get one at https://huggingface.co/settings/tokens
