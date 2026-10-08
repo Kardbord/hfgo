@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 
 	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
@@ -45,7 +44,7 @@ func main() {
 		},
 	})
 	if err != nil {
-		log.Fatalf("Object detection failed: %s", strconv.Quote(err.Error()))
+		log.Fatalf("error running object detection: %v\n", err)
 	}
 
 	fmt.Println("Detected objects:")
@@ -80,9 +79,9 @@ func fetchImage() (string, error) {
 		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	uri := base64.StdEncoding.EncodeToString(body)
+	encoded := base64.StdEncoding.EncodeToString(body)
 
-	return uri, nil
+	return encoded, nil
 }
 
 func printJSON[T any](v T) {

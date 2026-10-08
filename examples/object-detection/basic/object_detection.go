@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 
 	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
@@ -41,7 +40,7 @@ func main() {
 		Input: imgData,
 	})
 	if err != nil {
-		log.Fatalf("Object detection failed: %s", strconv.Quote(err.Error()))
+		log.Fatalf("error running object detection: %v\n", err)
 	}
 
 	fmt.Println("Detected objects:")
