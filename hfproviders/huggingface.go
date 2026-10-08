@@ -64,6 +64,11 @@ func (HuggingFaceCodecs) ChatStreamCodec() ChatStreamCodec {
 	return JSONCodec[hftypes.ChatRequest, hftypes.ChatStreamResponse]{}
 }
 
+// DetectObjectsCodec returns the JSON codec for object-detection requests and responses.
+func (HuggingFaceCodecs) DetectObjectsCodec() DetectObjectsCodec {
+	return JSONCodec[hftypes.ObjectDetectionRequest, []hftypes.ObjectDetection]{}
+}
+
 // FeatureExtractionBatchCodec returns the JSON codec for batch
 // feature-extraction requests and responses.
 func (HuggingFaceCodecs) FeatureExtractionBatchCodec() FeatureExtractionBatchCodec {
@@ -266,6 +271,22 @@ type HuggingFaceEndpoints struct{}
 // model-independent: an empty params.Model is legal.
 func (HuggingFaceEndpoints) ChatEndpoint(_ EndpointParams) (Endpoint, error) {
 	return Endpoint{Method: http.MethodPost, Path: "v1/chat/completions"}, nil
+}
+
+// DetectObjectsEndpoint returns the endpoint for object detection.
+func (HuggingFaceEndpoints) DetectObjectsEndpoint(params EndpointParams) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{
+		Method: http.MethodPost,
+		Path:   hfModelPrefix + params.Model,
+	}, nil
 }
 
 // FeatureExtractionBatchEndpoint returns the endpoint for batch feature extraction.

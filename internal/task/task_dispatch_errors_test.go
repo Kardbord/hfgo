@@ -43,6 +43,12 @@ func (p endpointFailProvider) ChatEndpoint(
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
+func (p endpointFailProvider) DetectObjectsEndpoint(
+	_ hfproviders.EndpointParams,
+) (hfproviders.Endpoint, error) {
+	return hfproviders.Endpoint{}, errEndpointUnavailable
+}
+
 func (p endpointFailProvider) FeatureExtractionEndpoint(
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
@@ -332,6 +338,15 @@ func dispatchErrorCases() []dispatchErrorCase {
 				}
 
 				return hfgo.NewClient(opts...).ZeroShotClassifyTextBatch(req)
+			},
+		},
+		{
+			"DetectObjects",
+			"error computing endpoint:",
+			func(opts ...hfopts.Option) (any, error) {
+				return hfgo.NewClient(opts...).DetectObjects(
+					hftypes.ObjectDetectionRequest{Input: testutils.TinyPNGBase64},
+				)
 			},
 		},
 	}

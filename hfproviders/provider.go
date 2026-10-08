@@ -143,6 +143,13 @@ type FillMaskProvider interface {
 	FillMaskCodec() FillMaskCodec
 }
 
+// ObjectDetectionProvider is a Provider that supplies an endpoint and Codec for the DetectObject task.
+type ObjectDetectionProvider interface {
+	Provider
+	DetectObjectsEndpoint(params EndpointParams) (Endpoint, error)
+	DetectObjectsCodec() DetectObjectsCodec
+}
+
 // QuestionAnsweringProvider is a Provider that supplies an endpoint and Codec for the
 // AnswerQuestion task.
 type QuestionAnsweringProvider interface {

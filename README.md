@@ -113,6 +113,7 @@ client := hfgo.NewClient(
 - [Chat](./examples/chat)
 - [Feature Extraction](./examples/feature-extraction)
 - [Fill Mask](./examples/fill-mask)
+- [Object Detection](./examples/object-detection)
 - [Question Answering](./examples/question-answering)
 - [Summarization](./examples/summarization)
 - [Table Question Answering](./examples/table-question-answering)

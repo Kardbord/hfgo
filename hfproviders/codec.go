@@ -103,6 +103,9 @@ type (
 	// ChatStreamCodec is the Codec for the ChatStream task.
 	ChatStreamCodec = Codec[hftypes.ChatRequest, hftypes.ChatStreamResponse]
 
+	// DetectObjectsCodec is the codec for the DetectObjects task.
+	DetectObjectsCodec = Codec[hftypes.ObjectDetectionRequest, []hftypes.ObjectDetection]
+
 	// FeatureExtractionBatchCodec is the Codec for the FeatureExtractBatch task.
 	FeatureExtractionBatchCodec = Codec[hftypes.FeatureExtractionBatchRequest, []hftypes.FeatureExtraction]
 

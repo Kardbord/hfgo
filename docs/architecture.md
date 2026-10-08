@@ -110,6 +110,7 @@ The SDK follows a strict immutability pattern for concurrency safety:
     - `Translate` / `TranslateBatch`: Translation
     - `AnswerTableQuestion`: Table question answering
     - `FeatureExtract` / `FeatureExtractBatch`: Feature extraction (embeddings)
+    - `DetectObjects`: Object detection
     - Per-domain task functions in internal/task are unexported implementation details; callers interact only with the Client
    - The root package exposes only typed inference endpoints; raw HTTP/SSE access lives in the separate `hfraw` package (see below).
 
@@ -772,6 +773,20 @@ Batch feature extraction for multiple inputs.
 - Returns a list of embedding vectors (`[][]float64`), one per input, in input order
 - Callers should check the length of the response list before indexing
 
+### Object Detection
+
+#### DetectObjects(req ObjectDetectionRequest, opts ...hfopts.Option) ([]ObjectDetection, error)
+Object detection for a single image.
+
+**Behavior**:
+- Applies per-request options
+- Validates that a model is configured
+- The request `inputs` field is the image as a base64-encoded string (no `data:` URI prefix)
+- Returns a list of `ObjectDetection` results, each with a `label`, a confidence `score`, and an integer `box` (`xmin`, `ymin`, `xmax`, `ymax`) bounding box in pixel coordinates
+
+**Parameters**:
+- `threshold` (float): Probability threshold for detected objects; predictions below it are filtered
+
 ### `hfraw.Client` (escape hatch)
 
 Created via `hfraw.NewClient(...)`. For raw HTTP requests without type-safe JSON handling. This is the advanced escape hatch for endpoints the SDK does not model. Its broader method matrix (`Do`/`DoRaw`/`DoReader`/`DoRawReader` and `Stream`/`StreamReader`/`StreamRaw`/`StreamRawReader`) is grouped under `hfraw.Client` rather than cluttering the root `Client` surface. `hfraw.Client`, `hfraw.Stream`, and `hfraw.Event` are defined in the `hfraw` package.
@@ -811,7 +826,7 @@ Endpoints are resolved by the configured provider (see
 - **Path**: `hf-inference/models/{model}`
 - **Tasks**: text classification, zero-shot text classification, token
   classification, question answering, table question answering, fill mask,
-  summarization, translation
+  object detection, summarization, translation
 - **Method**: POST
 
 ### Pipeline endpoints
