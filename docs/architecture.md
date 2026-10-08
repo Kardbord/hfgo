@@ -5,7 +5,7 @@
 **hfgo** is a production-quality Go SDK for the [Hugging Face Inference API](https://huggingface.co/docs/inference-providers/tasks/index). It provides Go bindings to perform inference tasks for any supported model available in the Hugging Face Model Hub.
 
 - **Module**: `github.com/Kardbord/hfgo/v4`
-- **Go Version**: 1.25+
+- **Go Version**: 1.27+
 - **License**: MIT (Copyright 2021 Tanner Kvarfordt)
 - **Goal**: Production-ready, follows best practices and idioms, maintains feature parity with upstream API
 - **Repository**: https://github.com/Kardbord/hfgo
@@ -415,7 +415,7 @@ response, err := client.Chat(
 // Request structure field: "structure-model"
 response, err := client.Chat(
     hftypes.ChatRequest{
-        Model: ptr("structure-model"),
+        Model: new("structure-model"),
         Messages: msgs,
     },
     hfopts.WithModel("request-model"),

@@ -60,6 +60,36 @@ func TestTextClassificationRequestClone_Nil(t *testing.T) {
 	var req *hftypes.TextClassificationRequest
 	require.Empty(t, req.Clone())
 
+	var batch *hftypes.TextClassificationBatchRequest
+	require.Empty(t, batch.Clone())
+
 	var params *hftypes.TextClassificationParameters
 	require.Empty(t, params.Clone())
+}
+
+func TestTextClassificationBatchRequest_CloneDeep(t *testing.T) {
+	t.Parallel()
+
+	funcToApply := hftypes.TextClassificationFuncSoftmax
+	topK := 2
+	req := hftypes.TextClassificationBatchRequest{
+		Inputs: []string{"one", "two"},
+		Parameters: &hftypes.TextClassificationParameters{
+			FunctionToApply: &funcToApply,
+			TopK:            &topK,
+		},
+	}
+
+	cloned := req.Clone()
+
+	cloned.Inputs[0] = "changed"
+	*cloned.Parameters.FunctionToApply = hftypes.TextClassificationFuncSigmoid
+	*cloned.Parameters.TopK = 5
+
+	require.Equal(t, []string{"one", "two"}, req.Inputs)
+	require.Equal(t, hftypes.TextClassificationFuncSoftmax, *req.Parameters.FunctionToApply)
+	require.Equal(t, 2, *req.Parameters.TopK)
+	require.Equal(t, []string{"changed", "two"}, cloned.Inputs)
+	require.Equal(t, hftypes.TextClassificationFuncSigmoid, *cloned.Parameters.FunctionToApply)
+	require.Equal(t, 5, *cloned.Parameters.TopK)
 }

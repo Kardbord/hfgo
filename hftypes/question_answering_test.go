@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,20 +18,20 @@ func TestQuestionAnsweringRequestClone_Deep(t *testing.T) {
 			Context:  "France is a country in Europe. Its capital is Paris.",
 		},
 		Parameters: &hftypes.QuestionAnsweringParameters{
-			TopK:                   testutils.Ptr(3),
-			DocStride:              testutils.Ptr(128),
-			MaxAnswerLen:           testutils.Ptr(50),
-			MaxSeqLen:              testutils.Ptr(384),
-			MaxQuestionLen:         testutils.Ptr(64),
-			HandleImpossibleAnswer: testutils.Ptr(true),
-			AlignToWords:           testutils.Ptr(true),
+			TopK:                   new(3),
+			DocStride:              new(128),
+			MaxAnswerLen:           new(50),
+			MaxSeqLen:              new(384),
+			MaxQuestionLen:         new(64),
+			HandleImpossibleAnswer: new(true),
+			AlignToWords:           new(true),
 		},
 	}
 
 	cloned := req.Clone()
 
 	*cloned.Parameters.TopK = 5
-	cloned.Parameters.HandleImpossibleAnswer = testutils.Ptr(false)
+	cloned.Parameters.HandleImpossibleAnswer = new(false)
 	cloned.Input.Question = "changed"
 
 	require.Equal(t, "What is the capital of France?", req.Input.Question)
@@ -47,13 +46,13 @@ func TestQuestionAnsweringParametersClone_Deep(t *testing.T) {
 	t.Parallel()
 
 	params := &hftypes.QuestionAnsweringParameters{
-		TopK:                   testutils.Ptr(3),
-		DocStride:              testutils.Ptr(128),
-		MaxAnswerLen:           testutils.Ptr(50),
-		MaxSeqLen:              testutils.Ptr(384),
-		MaxQuestionLen:         testutils.Ptr(64),
-		HandleImpossibleAnswer: testutils.Ptr(true),
-		AlignToWords:           testutils.Ptr(true),
+		TopK:                   new(3),
+		DocStride:              new(128),
+		MaxAnswerLen:           new(50),
+		MaxSeqLen:              new(384),
+		MaxQuestionLen:         new(64),
+		HandleImpossibleAnswer: new(true),
+		AlignToWords:           new(true),
 	}
 
 	cloned := params.Clone()

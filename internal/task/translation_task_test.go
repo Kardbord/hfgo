@@ -65,8 +65,8 @@ func TestTranslate_ParameterSerialization(t *testing.T) {
 		{
 			name: "source and target language",
 			params: &hftypes.TranslationParameters{
-				SrcLang: testutils.Ptr("en"),
-				TgtLang: testutils.Ptr("fr"),
+				SrcLang: new("en"),
+				TgtLang: new("fr"),
 			},
 			want:        map[string]any{"src_lang": "en", "tgt_lang": "fr"},
 			description: "src_lang and tgt_lang map to their JSON keys",
@@ -74,7 +74,7 @@ func TestTranslate_ParameterSerialization(t *testing.T) {
 		{
 			name: "clean up tokenization spaces",
 			params: &hftypes.TranslationParameters{
-				CleanUpTokenizationSpaces: testutils.Ptr(true),
+				CleanUpTokenizationSpaces: new(true),
 			},
 			want:        map[string]any{"clean_up_tokenization_spaces": true},
 			description: "clean_up_tokenization_spaces maps to its JSON key",
@@ -82,7 +82,7 @@ func TestTranslate_ParameterSerialization(t *testing.T) {
 		{
 			name: "truncation",
 			params: &hftypes.TranslationParameters{
-				Truncation: testutils.Ptr(hftypes.TranslationTruncationOnlyFirst),
+				Truncation: new(hftypes.TranslationTruncationOnlyFirst),
 			},
 			want:        map[string]any{"truncation": hftypes.TranslationTruncationOnlyFirst},
 			description: "truncation constant serializes correctly",

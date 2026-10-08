@@ -57,11 +57,11 @@ func main() {
 			{
 				Role: "user",
 				Content: hftypes.ChatMessageContent{
-					Text: Ptr("Hello! What is the capital of France?"),
+					Text: new("Hello! What is the capital of France?"),
 				},
 			},
 		},
-		MaxTokens: Ptr(1024),
+		MaxTokens: new(1024),
 	}
 
 	response, err := client.Chat(request)
@@ -74,10 +74,6 @@ func main() {
 			fmt.Println(*choice.Message.Content)
 		}
 	}
-}
-
-func Ptr[T any](v T) *T {
-	return &v
 }
 ```
 

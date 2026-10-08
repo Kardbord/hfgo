@@ -97,50 +97,50 @@ func featureExtractionParameterCases() []struct {
 		},
 		{
 			name:   "normalize true",
-			params: &hftypes.FeatureExtractionParameters{Normalize: testutils.Ptr(true)},
+			params: &hftypes.FeatureExtractionParameters{Normalize: new(true)},
 			want:   map[string]any{"normalize": true},
 		},
 		{
 			name:   "normalize false",
-			params: &hftypes.FeatureExtractionParameters{Normalize: testutils.Ptr(false)},
+			params: &hftypes.FeatureExtractionParameters{Normalize: new(false)},
 			want:   map[string]any{"normalize": false},
 		},
 		{
 			name:   "prompt_name",
-			params: &hftypes.FeatureExtractionParameters{PromptName: testutils.Ptr("query")},
+			params: &hftypes.FeatureExtractionParameters{PromptName: new("query")},
 			want:   map[string]any{"prompt_name": "query"},
 		},
 		{
 			name:   "truncate true",
-			params: &hftypes.FeatureExtractionParameters{Truncate: testutils.Ptr(true)},
+			params: &hftypes.FeatureExtractionParameters{Truncate: new(true)},
 			want:   map[string]any{"truncate": true},
 		},
 		{
 			name:   "truncate false",
-			params: &hftypes.FeatureExtractionParameters{Truncate: testutils.Ptr(false)},
+			params: &hftypes.FeatureExtractionParameters{Truncate: new(false)},
 			want:   map[string]any{"truncate": false},
 		},
 		{
 			name: "truncation_direction left",
 			params: &hftypes.FeatureExtractionParameters{
-				TruncationDirection: testutils.Ptr(hftypes.FeatureExtractionTruncationLeft),
+				TruncationDirection: new(hftypes.FeatureExtractionTruncationLeft),
 			},
 			want: map[string]any{"truncation_direction": hftypes.FeatureExtractionTruncationLeft},
 		},
 		{
 			name: "truncation_direction right",
 			params: &hftypes.FeatureExtractionParameters{
-				TruncationDirection: testutils.Ptr(hftypes.FeatureExtractionTruncationRight),
+				TruncationDirection: new(hftypes.FeatureExtractionTruncationRight),
 			},
 			want: map[string]any{"truncation_direction": hftypes.FeatureExtractionTruncationRight},
 		},
 		{
 			name: "all parameters",
 			params: &hftypes.FeatureExtractionParameters{
-				Normalize:           testutils.Ptr(true),
-				PromptName:          testutils.Ptr("query"),
-				Truncate:            testutils.Ptr(true),
-				TruncationDirection: testutils.Ptr(hftypes.FeatureExtractionTruncationRight),
+				Normalize:           new(true),
+				PromptName:          new("query"),
+				Truncate:            new(true),
+				TruncationDirection: new(hftypes.FeatureExtractionTruncationRight),
 			},
 			want: map[string]any{
 				"normalize":            true,

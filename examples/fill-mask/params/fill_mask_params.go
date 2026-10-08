@@ -42,7 +42,7 @@ func main() {
 		hftypes.FillMaskRequest{
 			Input: input,
 			Parameters: &hftypes.FillMaskParameters{
-				TopK:    Ptr(5),
+				TopK:    new(5),
 				Targets: targets,
 			},
 		},
@@ -53,10 +53,6 @@ func main() {
 
 	fmt.Println("Results:")
 	PrintJSON(predictions)
-}
-
-func Ptr[T any](v T) *T {
-	return &v
 }
 
 func PrintJSON[T any](v T) {

@@ -42,7 +42,7 @@ func TestChatCompletion_LiveAPI(t *testing.T) {
 				{
 					Role: "user",
 					Content: hftypes.ChatMessageContent{
-						Text: testutils.Ptr(text),
+						Text: new(text),
 					},
 				},
 			},
@@ -166,7 +166,7 @@ func TestChatCompletion_MultiMessageLiveAPI(t *testing.T) {
 				{
 					Role: "assistant",
 					Content: hftypes.ChatMessageContent{
-						Text: testutils.Ptr("2+2 equals 4"),
+						Text: new("2+2 equals 4"),
 					},
 				},
 				{

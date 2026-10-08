@@ -146,13 +146,9 @@ func (chatClient *ChatClient) recv(stream *hftypes.ChatStream) error {
 	chatClient.history = append(chatClient.history, hftypes.ChatMessage{
 		Role: "assistant",
 		Content: hftypes.ChatMessageContent{
-			Text: Ptr(response.String()),
+			Text: new(response.String()),
 		},
 	})
 
 	return nil
-}
-
-func Ptr[T any](v T) *T {
-	return &v
 }

@@ -37,7 +37,7 @@ func main() {
 		hftypes.TextClassificationBatchRequest{
 			Inputs: input,
 			Parameters: &hftypes.TextClassificationParameters{
-				TopK: Ptr(2),
+				TopK: new(2),
 			},
 		},
 	)
@@ -47,10 +47,6 @@ func main() {
 
 	fmt.Println("Results:")
 	PrintJSON(classifications)
-}
-
-func Ptr[T any](v T) *T {
-	return &v
 }
 
 func PrintJSON[T any](v T) {

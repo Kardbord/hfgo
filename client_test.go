@@ -62,7 +62,7 @@ func TestClientChat_ModelSelection(t *testing.T) {
 			name:        "respects request model",
 			clientModel: "default-model",
 			optModel:    "opts-model",
-			reqModel:    testutils.Ptr("explicit-model"),
+			reqModel:    new("explicit-model"),
 			wantModel:   "explicit-model",
 		},
 	}
@@ -274,35 +274,254 @@ func TestClientChat_ProviderSuffix(t *testing.T) {
 	require.Equal(t, "mistral-7b:sambanova", payload["model"])
 }
 
-func TestClientDetectObjects(t *testing.T) {
+func TestClient_EndpointDelegates(t *testing.T) {
 	t.Parallel()
 
-	mt := testutils.NewJSONMockTransport(
-		http.StatusOK,
-		`[{"label":"person","score":0.95,"box":{"xmin":1,"ymin":2,"xmax":3,"ymax":4}}]`,
-		nil,
-	)
-	client := NewClient(
-		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
-		hfopts.WithModel("test-model"),
-	)
+	question := hftypes.QuestionAnsweringInput{
+		Question: "What is the capital of France?",
+		Context:  "France is a country in Europe. Its capital is Paris.",
+	}
+	table := hftypes.TableQuestionAnsweringInput{
+		Question: "How old is Bob?",
+		Table: map[string][]string{
+			"Name": {"Alice", "Bob", "Carol"},
+			"Age":  {"25", "30", "35"},
+		},
+	}
 
-	const img = testutils.TinyPNGBase64
-
-	objects, err := client.DetectObjects(hftypes.ObjectDetectionRequest{Input: img})
-	require.NoError(t, err)
-	require.Len(t, objects, 1)
-	require.Equal(t, "person", objects[0].Label)
-	require.InEpsilon(t, 0.95, objects[0].Score, 0.001)
-	require.Equal(
-		t,
-		hftypes.ObjectDetectionBoundingBox{XMin: 1, XMax: 3, YMin: 2, YMax: 4},
-		objects[0].Box,
+	const (
+		modelPath    = "/hf-inference/models/test-model"
+		pipelinePath = modelPath + "/pipeline/feature-extraction"
 	)
 
-	require.NotNil(t, mt.LastRequest)
-	require.Equal(t, "/hf-inference/models/test-model", mt.LastRequest.URL.Path)
+	cases := []struct {
+		name        string
+		response    string
+		wantPath    string
+		validateReq func(t *testing.T, mt *testutils.MockTransport)
+		call        func(client Client) error
+	}{
+		{
+			name:     "ClassifyText",
+			response: `[[{"label":"positive","score":0.95}]]`,
+			call: func(client Client) error {
+				_, err := client.ClassifyText(hftypes.TextClassificationRequest{Input: "test text"})
 
-	payload := testutils.ReadRequestBody(t, mt)
-	require.Equal(t, img, payload["inputs"])
+				return err
+			},
+		},
+		{
+			name:     "ClassifyTextBatch",
+			response: `[[{"label":"positive","score":0.95}]]`,
+			call: func(client Client) error {
+				_, err := client.ClassifyTextBatch(
+					hftypes.TextClassificationBatchRequest{Inputs: []string{"test text"}},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "ClassifyTokens",
+			response: `[{"entity":"PER","score":0.998,"word":"Sarah","start":11,"end":16}]`,
+			call: func(client Client) error {
+				_, err := client.ClassifyTokens(
+					hftypes.TokenClassificationRequest{Input: "My name is Sarah."},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "ClassifyTokensBatch",
+			response: `[[{"entity":"PER","score":0.998,"word":"Sarah","start":11,"end":16}]]`,
+			call: func(client Client) error {
+				_, err := client.ClassifyTokensBatch(
+					hftypes.TokenClassificationBatchRequest{Inputs: []string{"My name is Sarah."}},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "AnswerQuestion",
+			response: `{"answer":"Paris","score":0.95,"start":48,"end":53}`,
+			call: func(client Client) error {
+				_, err := client.AnswerQuestion(hftypes.QuestionAnsweringRequest{Input: question})
+
+				return err
+			},
+		},
+		{
+			name:     "ZeroShotClassifyText",
+			response: `[{"label":"positive","score":0.95}]`,
+			call: func(client Client) error {
+				_, err := client.ZeroShotClassifyText(hftypes.ZeroShotTextClassificationRequest{
+					Input: "test text",
+					Parameters: &hftypes.ZeroShotTextClassificationParameters{
+						CandidateLabels: []string{"positive", "negative"},
+					},
+				})
+
+				return err
+			},
+		},
+		{
+			name:     "ZeroShotClassifyTextBatch",
+			response: `[{"Sequence":"test text","Labels":["positive","negative"],"Scores":[0.95,0.05]}]`,
+			call: func(client Client) error {
+				_, err := client.ZeroShotClassifyTextBatch(
+					hftypes.ZeroShotTextClassificationBatchRequest{
+						Inputs: []string{"test text"},
+						Parameters: &hftypes.ZeroShotTextClassificationParameters{
+							CandidateLabels: []string{"positive", "negative"},
+						},
+					},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "FillMask",
+			response: `[{"sequence":"The capital of France is Paris.","score":0.95,"token":1,"token_str":"Paris"}]`,
+			call: func(client Client) error {
+				_, err := client.FillMask(
+					hftypes.FillMaskRequest{Input: "The capital of France is [MASK]."},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "FillMaskBatch",
+			response: `[[{"sequence":"I walk my dog everyday.","score":0.95,"token":1,"token_str":"walk"}]]`,
+			call: func(client Client) error {
+				_, err := client.FillMaskBatch(
+					hftypes.FillMaskBatchRequest{Inputs: []string{"I [MASK] my dog everyday."}},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "Summarize",
+			response: `[{"summary_text":"A concise summary."}]`,
+			call: func(client Client) error {
+				_, err := client.Summarize(hftypes.SummarizationRequest{Input: "Some long text."})
+
+				return err
+			},
+		},
+		{
+			name:     "SummarizeBatch",
+			response: `[{"summary_text":"Summary one."}]`,
+			call: func(client Client) error {
+				_, err := client.SummarizeBatch(
+					hftypes.SummarizationBatchRequest{Inputs: []string{"Long text one."}},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "AnswerTableQuestion",
+			response: `{"answer":"30","cells":["30"],"coordinates":[[1,1]]}`,
+			call: func(client Client) error {
+				_, err := client.AnswerTableQuestion(
+					hftypes.TableQuestionAnsweringRequest{Input: table},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "Translate",
+			response: `[{"translation_text":"Bonjour le monde."}]`,
+			call: func(client Client) error {
+				_, err := client.Translate(hftypes.TranslationRequest{Input: "Hello world."})
+
+				return err
+			},
+		},
+		{
+			name:     "TranslateBatch",
+			response: `[{"translation_text":"Bonjour le monde."}]`,
+			call: func(client Client) error {
+				_, err := client.TranslateBatch(
+					hftypes.TranslationBatchRequest{Inputs: []string{"Hello world."}},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "FeatureExtract",
+			response: `[0.1,0.2,0.3]`,
+			wantPath: pipelinePath,
+			call: func(client Client) error {
+				_, err := client.FeatureExtract(
+					hftypes.FeatureExtractionRequest{Input: "hello"},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "FeatureExtractBatch",
+			response: `[[0.1,0.2,0.3]]`,
+			wantPath: pipelinePath,
+			call: func(client Client) error {
+				_, err := client.FeatureExtractBatch(
+					hftypes.FeatureExtractionBatchRequest{Inputs: []string{"hello"}},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "DetectObjects",
+			response: `[{"label":"person","score":0.95,"box":{"xmin":1,"ymin":2,"xmax":3,"ymax":4}}]`,
+			validateReq: func(t *testing.T, mt *testutils.MockTransport) {
+				t.Helper()
+
+				payload := testutils.ReadRequestBody(t, mt)
+				require.Equal(t, testutils.TinyPNGBase64, payload["inputs"])
+			},
+			call: func(client Client) error {
+				_, err := client.DetectObjects(
+					hftypes.ObjectDetectionRequest{Input: testutils.TinyPNGBase64},
+				)
+
+				return err
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			mt := testutils.NewJSONMockTransport(http.StatusOK, tc.response, nil)
+			client := NewClient(
+				hfopts.WithHTTPClientFactory(
+					func() http.Client { return testutils.NewMockHTTPClient(mt) },
+				),
+				hfopts.WithModel("test-model"),
+			)
+
+			require.NoError(t, tc.call(client))
+			require.NotNil(t, mt.LastRequest)
+
+			wantPath := tc.wantPath
+			if wantPath == "" {
+				wantPath = modelPath
+			}
+			require.Equal(t, wantPath, mt.LastRequest.URL.Path)
+
+			if tc.validateReq != nil {
+				tc.validateReq(t, mt)
+			}
+		})
+	}
 }

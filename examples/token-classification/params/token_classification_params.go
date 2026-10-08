@@ -32,7 +32,7 @@ func main() {
 		hftypes.TokenClassificationRequest{
 			Input: input,
 			Parameters: &hftypes.TokenClassificationParameters{
-				AggregationStrategy: Ptr(hftypes.TokenClassificationAggregationSimple),
+				AggregationStrategy: new(hftypes.TokenClassificationAggregationSimple),
 				IgnoreLabels:        []string{"O"},
 			},
 		},
@@ -43,10 +43,6 @@ func main() {
 
 	fmt.Println("Results:")
 	PrintJSON(entities)
-}
-
-func Ptr[T any](v T) *T {
-	return &v
 }
 
 func PrintJSON[T any](v T) {

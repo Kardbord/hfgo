@@ -148,7 +148,7 @@ func (p endpointFailProvider) TranslationBatchEndpoint(
 func chatDispatchRequest() hftypes.ChatRequest {
 	return hftypes.ChatRequest{
 		Messages: []hftypes.ChatMessage{
-			{Role: "user", Content: hftypes.ChatMessageContent{Text: testutils.Ptr("hi")}},
+			{Role: "user", Content: hftypes.ChatMessageContent{Text: new("hi")}},
 		},
 	}
 }

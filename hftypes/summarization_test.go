@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,8 +13,8 @@ func TestSummarizationRequestClone_NestedIndependence(t *testing.T) {
 	t.Parallel()
 
 	origParams := hftypes.SummarizationParameters{
-		CleanUpTokenizationSpaces: testutils.Ptr(false),
-		Truncation:                testutils.Ptr(hftypes.SummarizationTruncationLongestFirst),
+		CleanUpTokenizationSpaces: new(false),
+		Truncation:                new(hftypes.SummarizationTruncationLongestFirst),
 		GenerateParameters:        map[string]any{"max_new_tokens": 5},
 	}
 	single := hftypes.SummarizationRequest{Input: "a", Parameters: &origParams}

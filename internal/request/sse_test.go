@@ -12,6 +12,7 @@ import (
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStreamRaw_BasicEvents(t *testing.T) {
@@ -208,4 +209,30 @@ type errorReadCloser struct {
 
 func (e errorReadCloser) Close() error {
 	return e.Err
+}
+
+func TestSSEStateHandleLine_InvalidRetry(t *testing.T) {
+	t.Parallel()
+
+	state := &sseState{}
+	results := make(chan rawResult, 1)
+
+	require.True(t, state.handleLine(context.Background(), "retry: not-a-number", results))
+	require.False(t, state.retrySet)
+	require.Equal(t, time.Duration(0), state.retry)
+}
+
+func TestStreamRaw_ReadError(t *testing.T) {
+	t.Parallel()
+
+	stream, err := StreamRaw(context.Background(), testutils.ErrorReadCloser{})
+	require.NoError(t, err)
+	defer func() { _ = stream.Close() }()
+
+	_, err = stream.Recv(context.Background())
+	require.Error(t, err)
+
+	var sdkErr *hferrors.SDKError
+	require.ErrorAs(t, err, &sdkErr)
+	require.Equal(t, hferrors.SDKErrorKindTransport, sdkErr.Kind)
 }

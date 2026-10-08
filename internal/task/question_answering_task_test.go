@@ -42,7 +42,7 @@ func TestAnswerQuestion_ResponseDecoding(t *testing.T) {
 		{
 			name:         "bare object response (top_k = 1)",
 			responseBody: `{"answer":"Paris","score":0.95,"start":48,"end":53}`,
-			topK:         testutils.Ptr(1),
+			topK:         new(1),
 			expectedLen:  1,
 			wantAnswer:   "Paris",
 			wantScore:    0.95,
@@ -53,7 +53,7 @@ func TestAnswerQuestion_ResponseDecoding(t *testing.T) {
 		{
 			name:         "bare object response (top_k = 0)",
 			responseBody: `{"answer":"Paris","score":0.95,"start":48,"end":53}`,
-			topK:         testutils.Ptr(0),
+			topK:         new(0),
 			expectedLen:  1,
 			wantAnswer:   "Paris",
 			wantScore:    0.95,
@@ -64,7 +64,7 @@ func TestAnswerQuestion_ResponseDecoding(t *testing.T) {
 		{
 			name:         "array response (top_k > 1)",
 			responseBody: `[{"answer":"Paris","score":0.95,"start":48,"end":53},{"answer":"France","score":0.03,"start":0,"end":6}]`,
-			topK:         testutils.Ptr(3),
+			topK:         new(3),
 			expectedLen:  2,
 			wantAnswer:   "Paris",
 			wantScore:    0.95,
@@ -75,7 +75,7 @@ func TestAnswerQuestion_ResponseDecoding(t *testing.T) {
 		{
 			name:         "empty array response (top_k > 1)",
 			responseBody: `[]`,
-			topK:         testutils.Ptr(3),
+			topK:         new(3),
 			expectedLen:  0,
 			description:  "no answers found",
 		},

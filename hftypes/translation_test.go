@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,10 +13,10 @@ func TestTranslationRequestClone_NestedIndependence(t *testing.T) {
 	t.Parallel()
 
 	origParams := hftypes.TranslationParameters{
-		CleanUpTokenizationSpaces: testutils.Ptr(false),
-		SrcLang:                   testutils.Ptr("en"),
-		TgtLang:                   testutils.Ptr("fr"),
-		Truncation:                testutils.Ptr(hftypes.TranslationTruncationLongestFirst),
+		CleanUpTokenizationSpaces: new(false),
+		SrcLang:                   new("en"),
+		TgtLang:                   new("fr"),
+		Truncation:                new(hftypes.TranslationTruncationLongestFirst),
 		GenerateParameters:        map[string]any{"max_new_tokens": 5},
 	}
 	single := hftypes.TranslationRequest{Input: "a", Parameters: &origParams}

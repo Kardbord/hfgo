@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,7 +15,7 @@ func TestObjectDetectionRequestClone_Deep(t *testing.T) {
 	req := hftypes.ObjectDetectionRequest{
 		Input: "base64imgdata",
 		Parameters: &hftypes.ObjectDetectionParameters{
-			Threshold: testutils.Ptr(0.5),
+			Threshold: new(0.5),
 		},
 	}
 
@@ -35,7 +34,7 @@ func TestObjectDetectionParametersClone_Deep(t *testing.T) {
 	t.Parallel()
 
 	params := &hftypes.ObjectDetectionParameters{
-		Threshold: testutils.Ptr(0.5),
+		Threshold: new(0.5),
 	}
 
 	cloned := params.Clone()

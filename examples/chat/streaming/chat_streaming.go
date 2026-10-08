@@ -40,9 +40,9 @@ func main() {
 			},
 		},
 		StreamOptions: &hftypes.ChatStreamOptions{
-			IncludeUsage: Ptr(false),
+			IncludeUsage: new(false),
 		},
-		MaxTokens: Ptr(1024),
+		MaxTokens: new(1024),
 	}
 
 	// Create a context for the streaming request/response
@@ -86,9 +86,4 @@ func main() {
 
 	fmt.Println("\n-----------------------------------")
 	fmt.Println("Stream completed successfully!")
-}
-
-// Helper function to create pointers from values.
-func Ptr[T any](v T) *T {
-	return &v
 }

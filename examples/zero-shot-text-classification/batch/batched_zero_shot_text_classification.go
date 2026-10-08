@@ -45,7 +45,7 @@ func main() {
 			Inputs: inputs,
 			Parameters: &hftypes.ZeroShotTextClassificationParameters{
 				CandidateLabels: candidates,
-				MultiLabel:      Ptr(false),
+				MultiLabel:      new(false),
 			},
 		},
 	)
@@ -55,10 +55,6 @@ func main() {
 
 	fmt.Println("Results:")
 	PrintJSON(classifications)
-}
-
-func Ptr[T any](v T) *T {
-	return &v
 }
 
 func PrintJSON[T any](v T) {

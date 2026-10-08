@@ -25,8 +25,8 @@ func main() {
 
 	input := "The quick brown fox jumps over the lazy dog."
 	params := hftypes.FeatureExtractionParameters{
-		Normalize: Ptr(true),
-		Truncate:  Ptr(true),
+		Normalize: new(true),
+		Truncate:  new(true),
 	}
 
 	fmt.Println("Extracting features from input:")
@@ -48,10 +48,6 @@ func main() {
 
 	fmt.Printf("Results: embedding with %d dimensions\n", len(embedding))
 	PrintJSON(embedding)
-}
-
-func Ptr[T any](v T) *T {
-	return &v
 }
 
 func PrintJSON[T any](v T) {

@@ -383,6 +383,25 @@ func TestDo(t *testing.T) {
 				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 			},
 		},
+		{
+			name: "returns joinURL SDKError unchanged for absolute path",
+			setupOpts: func() hfopts.Options {
+				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
+
+				return hfopts.NewOptions().With(hfopts.WithHTTPClientFactory(func() http.Client {
+					return testutils.NewMockHTTPClient(mt)
+				}))
+			},
+			method:  http.MethodGet,
+			path:    "https://evil.example.com/override",
+			body:    nil,
+			wantErr: true,
+			validateErr: func(t *testing.T, err error) {
+				t.Helper()
+				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+				require.ErrorContains(t, err, "path must be relative")
+			},
+		},
 	}
 
 	for _, tt := range tests {

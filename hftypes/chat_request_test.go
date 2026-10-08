@@ -241,18 +241,18 @@ func TestChatRequestClone_Deep_Scalars(t *testing.T) {
 	t.Parallel()
 
 	req := &hftypes.ChatRequest{
-		Model:            testutils.Ptr("m"),
-		FrequencyPenalty: testutils.Ptr(0.5),
-		LogProbs:         testutils.Ptr(true),
-		MaxTokens:        testutils.Ptr(100),
-		PresencePenalty:  testutils.Ptr(-0.2),
-		Seed:             testutils.Ptr(int64(42)),
+		Model:            new("m"),
+		FrequencyPenalty: new(0.5),
+		LogProbs:         new(true),
+		MaxTokens:        new(100),
+		PresencePenalty:  new(-0.2),
+		Seed:             new(int64(42)),
 		Stop:             []string{"x"},
-		Stream:           testutils.Ptr(false),
-		Temperature:      testutils.Ptr(1.0),
-		ToolPrompt:       testutils.Ptr("prompt"),
-		TopLogProbs:      testutils.Ptr(1),
-		TopP:             testutils.Ptr(0.9),
+		Stream:           new(false),
+		Temperature:      new(1.0),
+		ToolPrompt:       new("prompt"),
+		TopLogProbs:      new(1),
+		TopP:             new(0.9),
 	}
 
 	cloned := req.Clone()
@@ -296,7 +296,7 @@ func TestChatRequestClone_Deep_Nested(t *testing.T) {
 					Function: hftypes.ChatFunctionCall{
 						Name:        "fn",
 						Arguments:   "{}",
-						Description: testutils.Ptr("desc"),
+						Description: new("desc"),
 					},
 				},
 			}},
@@ -305,25 +305,25 @@ func TestChatRequestClone_Deep_Nested(t *testing.T) {
 					Type:     hftypes.MessageChunkTypeImageURL,
 					ImageURL: &hftypes.ChatImageURL{URL: "https://example.com/img.png"},
 				},
-				{Type: hftypes.MessageChunkTypeText, Text: testutils.Ptr("hi")},
+				{Type: hftypes.MessageChunkTypeText, Text: new("hi")},
 			}}},
 		},
 		ResponseFormat: &hftypes.ChatResponseFormat{
 			Type: hftypes.ResponseFormatTypeJSONSchema,
 			JSONSchema: &hftypes.ChatJSONSchemaConfig{
 				Name:        "n",
-				Description: testutils.Ptr("d"),
-				Strict:      testutils.Ptr(true),
+				Description: new("d"),
+				Strict:      new(true),
 			},
 		},
-		StreamOptions: &hftypes.ChatStreamOptions{IncludeUsage: testutils.Ptr(true)},
+		StreamOptions: &hftypes.ChatStreamOptions{IncludeUsage: new(true)},
 		ToolChoice:    &hftypes.ChatToolChoice{Function: &hftypes.ChatFunctionName{Name: "fn"}},
 		Tools: []hftypes.ChatTool{
 			{
 				Type: "function",
 				Function: hftypes.ChatFunctionDefinition{
 					Name:        "f",
-					Description: testutils.Ptr("desc"),
+					Description: new("desc"),
 					Parameters:  json.RawMessage(`{"type":"object"}`),
 				},
 			},
@@ -354,9 +354,9 @@ func TestChatRequestClone_Deep_JSONSchema(t *testing.T) {
 
 	schema := json.RawMessage(`{"type":"object"}`)
 	req := &hftypes.ChatRequest{
-		Model: testutils.Ptr("m"),
+		Model: new("m"),
 		Messages: []hftypes.ChatMessage{
-			{Role: "user", Content: hftypes.ChatMessageContent{Text: testutils.Ptr("hello")}},
+			{Role: "user", Content: hftypes.ChatMessageContent{Text: new("hello")}},
 		},
 		Stop: []string{"x"},
 		Tools: []hftypes.ChatTool{
@@ -372,7 +372,7 @@ func TestChatRequestClone_Deep_JSONSchema(t *testing.T) {
 			Type:       hftypes.ResponseFormatTypeJSONSchema,
 			JSONSchema: &hftypes.ChatJSONSchemaConfig{Name: "n", Schema: schema},
 		},
-		ToolChoice: &hftypes.ChatToolChoice{Mode: testutils.Ptr(hftypes.ToolChoiceModeAuto)},
+		ToolChoice: &hftypes.ChatToolChoice{Mode: new(hftypes.ToolChoiceModeAuto)},
 	}
 
 	cloned := req.Clone()
@@ -529,7 +529,7 @@ func TestChatRequest_MarshalValidation(t *testing.T) {
 		{
 			name: "empty model",
 			value: hftypes.ChatRequest{
-				Model: testutils.Ptr(""),
+				Model: new(""),
 				Messages: []hftypes.ChatMessage{
 					{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
 				},
@@ -608,7 +608,7 @@ func TestChatToolChoice_Marshal(t *testing.T) {
 		},
 		{
 			name:        "empty mode",
-			value:       hftypes.ChatToolChoice{Mode: testutils.Ptr(hftypes.ToolChoiceMode(""))},
+			value:       hftypes.ChatToolChoice{Mode: new(hftypes.ToolChoiceMode(""))},
 			wantErr:     true,
 			wantErrKind: hferrors.SDKErrorKindConfiguration,
 		},

@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hftypes"
-	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,10 +13,10 @@ func TestFeatureExtractionRequestClone_NestedIndependence(t *testing.T) {
 	t.Parallel()
 
 	origParams := hftypes.FeatureExtractionParameters{
-		Normalize:           testutils.Ptr(true),
-		PromptName:          testutils.Ptr("query"),
-		Truncate:            testutils.Ptr(true),
-		TruncationDirection: testutils.Ptr(hftypes.FeatureExtractionTruncationRight),
+		Normalize:           new(true),
+		PromptName:          new("query"),
+		Truncate:            new(true),
+		TruncationDirection: new(hftypes.FeatureExtractionTruncationRight),
 	}
 	single := hftypes.FeatureExtractionRequest{Input: "hello world", Parameters: &origParams}
 	batch := hftypes.FeatureExtractionBatchRequest{
@@ -59,10 +58,10 @@ func TestFeatureExtractionParametersClone_Deep(t *testing.T) {
 	t.Parallel()
 
 	params := &hftypes.FeatureExtractionParameters{
-		Normalize:           testutils.Ptr(true),
-		PromptName:          testutils.Ptr("query"),
-		Truncate:            testutils.Ptr(true),
-		TruncationDirection: testutils.Ptr(hftypes.FeatureExtractionTruncationRight),
+		Normalize:           new(true),
+		PromptName:          new("query"),
+		Truncate:            new(true),
+		TruncationDirection: new(hftypes.FeatureExtractionTruncationRight),
 	}
 
 	cloned := params.Clone()
