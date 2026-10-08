@@ -5,16 +5,36 @@ meta {
 }
 
 post {
-  url: {{HF_BASE_URL}}/hf-inference/models/{{model_image_text_to_text}}
-  body: multipartForm
+  url: {{HF_BASE_URL}}/v1/chat/completions
+  body: json
   auth: inherit
 }
 
 headers {
   Accept: application/json
+  Content-Type: application/json
 }
 
-body:multipart-form {
-  inputs: @file({{sample_png}})
-  text: What is shown in this image?
+body:json {
+  {
+    "model": "{{model_image_text_to_text}}",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {"type": "text", "text": "What is shown in this image?"},
+          {"type": "image_url", "image_url": {"url": ""}}
+        ]
+      }
+    ]
+  }
+}
+
+script:pre-request {
+  const { IMAGE_SAMPLE_URL, download, toDataUri } = require('./scripts/samples.js');
+
+  const sample = await download(IMAGE_SAMPLE_URL);
+  const body = req.getBody();
+  body.messages[0].content[1].image_url.url = toDataUri(sample);
+  req.setBody(body);
 }

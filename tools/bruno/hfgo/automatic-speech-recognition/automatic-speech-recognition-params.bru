@@ -6,15 +6,27 @@ meta {
 
 post {
   url: {{HF_BASE_URL}}/hf-inference/models/{{model_automatic_speech_recognition}}
-  body: multipartForm
+  body: json
   auth: inherit
 }
 
 headers {
   Accept: application/json
+  Content-Type: application/json
 }
 
-body:multipart-form {
-  inputs: @file({{sample_audio}})
-  parameters: {"return_timestamps": true}
+body:json {
+  {
+    "inputs": "",
+    "parameters": {"return_timestamps": true}
+  }
+}
+
+script:pre-request {
+  const { AUDIO_SAMPLE_URL, download, toBase64 } = require('./scripts/samples.js');
+
+  const sample = await download(AUDIO_SAMPLE_URL);
+  const body = req.getBody();
+  body.inputs = toBase64(sample);
+  req.setBody(body);
 }

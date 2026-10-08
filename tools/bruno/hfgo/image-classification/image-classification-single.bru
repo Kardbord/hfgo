@@ -6,7 +6,7 @@ meta {
 
 post {
   url: {{HF_BASE_URL}}/hf-inference/models/{{model_image_classification}}
-  body: multipartForm
+  body: none
   auth: inherit
 }
 
@@ -14,6 +14,10 @@ headers {
   Accept: application/json
 }
 
-body:multipart-form {
-  inputs: @file({{sample_png}})
+script:pre-request {
+  const { IMAGE_SAMPLE_URL, download } = require('./scripts/samples.js');
+  
+  const sample = await download(IMAGE_SAMPLE_URL);
+  req.setHeader('Content-Type', sample.contentType);
+  req.setBody(sample.bytes, { raw: true });
 }

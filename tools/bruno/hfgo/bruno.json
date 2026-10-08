@@ -1,4 +1,5 @@
 {
+  "version": "1",
   "name": "hfgo",
   "type": "collection",
   "ignore": [
@@ -11,5 +12,7 @@
   "presets": {
     "requestType": "http"
   },
-  "version": "1"
+  "scripts": {
+    "moduleWhitelist": []
+  }
 }
