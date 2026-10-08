@@ -31,25 +31,16 @@ func TestClient_Stream_Success(t *testing.T) {
 	)
 
 	stream, err := client.Stream(nil, http.MethodGet, "/stream")
-	if err != nil {
-		t.Fatalf("Stream: %v", err)
-	}
+	require.NoError(t, err)
 	defer func() { _ = stream.Close() }()
 
 	event, err := stream.Recv(context.Background())
-	if err != nil {
-		t.Fatalf("Recv: %v", err)
-	}
-	if string(event.Data) != `{"id":"1"}` {
-		t.Fatalf("unexpected data: %q", string(event.Data))
-	}
+	require.NoError(t, err)
+	require.JSONEq(t, `{"id":"1"}`, string(event.Data))
+
 	done, err := stream.Recv(context.Background())
-	if err != nil {
-		t.Fatalf("Recv done: %v", err)
-	}
-	if string(done.Data) != "[DONE]" {
-		t.Fatalf("unexpected done event: %q", string(done.Data))
-	}
+	require.NoError(t, err)
+	require.Equal(t, "[DONE]", string(done.Data))
 }
 
 func TestClient_Stream_DoError(t *testing.T) {
@@ -63,9 +54,7 @@ func TestClient_Stream_DoError(t *testing.T) {
 	)
 
 	_, err := client.Stream(nil, http.MethodGet, "/stream")
-	if err == nil {
-		t.Fatal("expected error")
-	}
+	require.Error(t, err)
 }
 
 func TestClient_StreamRaw_AllowsNon2xx(t *testing.T) {
@@ -82,18 +71,12 @@ func TestClient_StreamRaw_AllowsNon2xx(t *testing.T) {
 	)
 
 	stream, err := client.StreamRaw(nil, http.MethodGet, "/stream")
-	if err != nil {
-		t.Fatalf("StreamRaw: %v", err)
-	}
+	require.NoError(t, err)
 	defer func() { _ = stream.Close() }()
 
 	event, err := stream.Recv(context.Background())
-	if err != nil {
-		t.Fatalf("Recv: %v", err)
-	}
-	if string(event.Data) != "hi" {
-		t.Fatalf("unexpected data: %q", string(event.Data))
-	}
+	require.NoError(t, err)
+	require.Equal(t, "hi", string(event.Data))
 }
 
 func TestClient_Do(t *testing.T) {

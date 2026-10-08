@@ -289,10 +289,17 @@ func TestClient_EndpointDelegates(t *testing.T) {
 		},
 	}
 
+	const (
+		modelPath    = "/hf-inference/models/test-model"
+		pipelinePath = modelPath + "/pipeline/feature-extraction"
+	)
+
 	cases := []struct {
-		name     string
-		response string
-		call     func(client Client) error
+		name        string
+		response    string
+		wantPath    string
+		validateReq func(t *testing.T, mt *testutils.MockTransport)
+		call        func(client Client) error
 	}{
 		{
 			name:     "ClassifyText",
@@ -451,6 +458,7 @@ func TestClient_EndpointDelegates(t *testing.T) {
 		{
 			name:     "FeatureExtract",
 			response: `[0.1,0.2,0.3]`,
+			wantPath: pipelinePath,
 			call: func(client Client) error {
 				_, err := client.FeatureExtract(
 					hftypes.FeatureExtractionRequest{Input: "hello"},
@@ -462,6 +470,7 @@ func TestClient_EndpointDelegates(t *testing.T) {
 		{
 			name:     "FeatureExtractBatch",
 			response: `[[0.1,0.2,0.3]]`,
+			wantPath: pipelinePath,
 			call: func(client Client) error {
 				_, err := client.FeatureExtractBatch(
 					hftypes.FeatureExtractionBatchRequest{Inputs: []string{"hello"}},
@@ -473,6 +482,12 @@ func TestClient_EndpointDelegates(t *testing.T) {
 		{
 			name:     "DetectObjects",
 			response: `[{"label":"person","score":0.95,"box":{"xmin":1,"ymin":2,"xmax":3,"ymax":4}}]`,
+			validateReq: func(t *testing.T, mt *testutils.MockTransport) {
+				t.Helper()
+
+				payload := testutils.ReadRequestBody(t, mt)
+				require.Equal(t, testutils.TinyPNGBase64, payload["inputs"])
+			},
 			call: func(client Client) error {
 				_, err := client.DetectObjects(
 					hftypes.ObjectDetectionRequest{Input: testutils.TinyPNGBase64},
@@ -497,7 +512,16 @@ func TestClient_EndpointDelegates(t *testing.T) {
 
 			require.NoError(t, tc.call(client))
 			require.NotNil(t, mt.LastRequest)
-			require.Contains(t, mt.LastRequest.URL.Path, "test-model")
+
+			wantPath := tc.wantPath
+			if wantPath == "" {
+				wantPath = modelPath
+			}
+			require.Equal(t, wantPath, mt.LastRequest.URL.Path)
+
+			if tc.validateReq != nil {
+				tc.validateReq(t, mt)
+			}
 		})
 	}
 }
