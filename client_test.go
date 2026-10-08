@@ -273,3 +273,36 @@ func TestClientChat_ProviderSuffix(t *testing.T) {
 	payload := testutils.ReadRequestBody(t, mt)
 	require.Equal(t, "mistral-7b:sambanova", payload["model"])
 }
+
+func TestClientDetectObjects(t *testing.T) {
+	t.Parallel()
+
+	mt := testutils.NewJSONMockTransport(
+		http.StatusOK,
+		`[{"label":"person","score":0.95,"box":{"xmin":1,"ymin":2,"xmax":3,"ymax":4}}]`,
+		nil,
+	)
+	client := NewClient(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+	)
+
+	const img = testutils.TinyPNGBase64
+
+	objects, err := client.DetectObjects(hftypes.ObjectDetectionRequest{Input: img})
+	require.NoError(t, err)
+	require.Len(t, objects, 1)
+	require.Equal(t, "person", objects[0].Label)
+	require.InEpsilon(t, 0.95, objects[0].Score, 0.001)
+	require.Equal(
+		t,
+		hftypes.ObjectDetectionBoundingBox{XMin: 1, XMax: 3, YMin: 2, YMax: 4},
+		objects[0].Box,
+	)
+
+	require.NotNil(t, mt.LastRequest)
+	require.Equal(t, "/hf-inference/models/test-model", mt.LastRequest.URL.Path)
+
+	payload := testutils.ReadRequestBody(t, mt)
+	require.Equal(t, img, payload["inputs"])
+}

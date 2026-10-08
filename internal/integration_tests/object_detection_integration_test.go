@@ -14,6 +14,7 @@ import (
 	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -129,8 +130,10 @@ func TestDetectObjects_ContextCancellation(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
+	// Use a minimal inline base64 image (1x1 transparent PNG) so the cancelled
+	// context is exercised immediately, without a preliminary HTTP fetch.
 	resp, err := client.DetectObjects(hftypes.ObjectDetectionRequest{
-		Input: detectObjectsInput(t),
+		Input: testutils.TinyPNGBase64,
 	})
 
 	require.Error(t, err, "request with cancelled context should fail")
