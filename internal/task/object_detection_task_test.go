@@ -63,11 +63,8 @@ func TestDetectObjects_ResponseDecoding(t *testing.T) {
 				hfopts.WithModel("test-model"),
 			)
 
-			// Use a minimal base64 image (1x1 transparent PNG)
-			img := "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAO6oxnYAAAAASUVORK5CYII="
-
 			objects, err := client.DetectObjects(hftypes.ObjectDetectionRequest{
-				Input: img,
+				Input: testutils.TinyPNGBase64,
 			})
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, objects)
@@ -100,9 +97,8 @@ func TestDetectObjects_WithParameters(t *testing.T) {
 	)
 
 	threshold := 0.7
-	img := "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAO6oxnYAAAAASUVORK5CYII="
 	objects, err := client.DetectObjects(hftypes.ObjectDetectionRequest{
-		Input: img,
+		Input: testutils.TinyPNGBase64,
 		Parameters: &hftypes.ObjectDetectionParameters{
 			Threshold: &threshold,
 		},
@@ -150,10 +146,8 @@ func TestDetectObjects_Errors(t *testing.T) {
 			},
 		},
 		func(opts ...hfopts.Option) ([]hftypes.ObjectDetection, error) {
-			img := "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAO6oxnYAAAAASUVORK5CYII="
-
 			return hfgo.NewClient(opts...).DetectObjects(hftypes.ObjectDetectionRequest{
-				Input: img,
+				Input: testutils.TinyPNGBase64,
 			})
 		},
 	)
