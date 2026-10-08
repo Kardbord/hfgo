@@ -338,3 +338,12 @@ func (c Client) FeatureExtractBatch(
 ) ([]hftypes.FeatureExtraction, error) {
 	return task.ExtractFeaturesBatch(c.opts.With(opts...), req)
 }
+
+// DetectObjects sends an object detection request and returns a list
+// of object detections.
+func (c Client) DetectObjects(
+	req hftypes.ObjectDetectionRequest,
+	opts ...hfopts.Option,
+) ([]hftypes.ObjectDetection, error) {
+	return task.DetectObjects(c.opts.With(opts...), req)
+}
