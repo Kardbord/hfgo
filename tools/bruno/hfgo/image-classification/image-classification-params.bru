@@ -6,15 +6,27 @@ meta {
 
 post {
   url: {{HF_BASE_URL}}/hf-inference/models/{{model_image_classification}}
-  body: multipartForm
+  body: json
   auth: inherit
 }
 
 headers {
   Accept: application/json
+  Content-Type: application/json
 }
 
-body:multipart-form {
-  inputs: @file({{sample_png}})
-  parameters: {"function_to_apply": "softmax", "top_k": 5}
+body:json {
+  {
+    "inputs": "",
+    "parameters": {"function_to_apply": "softmax", "top_k": 5}
+  }
+}
+
+script:pre-request {
+  const { IMAGE_SAMPLE_URL, download, toBase64 } = require('./scripts/samples.js');
+
+  const sample = await download(IMAGE_SAMPLE_URL);
+  const body = req.getBody();
+  body.inputs = toBase64(sample);
+  req.setBody(body);
 }
