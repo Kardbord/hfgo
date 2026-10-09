@@ -212,6 +212,14 @@ type TextClassificationProvider interface {
 	TextClassificationCodec() TextClassificationCodec
 }
 
+// TextToImageProvider is a Provider that supplies an endpoint and Codec for the
+// GenerateImage task.
+type TextToImageProvider interface {
+	Provider
+	TextToImageEndpoint(params EndpointParams) (Endpoint, error)
+	TextToImageCodec() TextToImageCodec
+}
+
 // TokenClassificationBatchProvider is a Provider that supplies an endpoint and Codec for the
 // ClassifyTokensBatch task.
 type TokenClassificationBatchProvider interface {

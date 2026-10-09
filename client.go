@@ -358,6 +358,24 @@ func (c Client) DetectObjects(
 	return task.DetectObjects(c.opts.With(opts...), req)
 }
 
+// GenerateImage sends a text-to-image request and returns the generated image
+// together with the media type the API advertised for it (for example,
+// "image/png"). The image bytes are available on the response's Image field.
+//
+// Callers that only need to sniff the format can inspect the bytes with
+// net/http.DetectContentType or, when it matters, pin the desired format via
+// the model/provider.
+//
+// Generated images are binary and can exceed the default 1 MiB response cap, in
+// which case the request fails with a configuration error. Use
+// hfopts.WithMaxResponseBodyBytes to raise the cap for larger outputs.
+func (c Client) GenerateImage(
+	req hftypes.TextToImageRequest,
+	opts ...hfopts.Option,
+) (hftypes.TextToImageResponse, error) {
+	return task.GenerateImage(c.opts.With(opts...), req)
+}
+
 // SegmentImage sends an image segmentation request and returns a list of
 // predicted masks / segments.
 func (c Client) SegmentImage(

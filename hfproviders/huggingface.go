@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hftypes"
@@ -140,6 +141,12 @@ func (HuggingFaceCodecs) TextClassificationCodec() TextClassificationCodec {
 	return hfTextClassificationCodec{}
 }
 
+// TextToImageCodec returns the text-to-image codec, which encodes requests as
+// JSON and returns the generated image as raw bytes.
+func (HuggingFaceCodecs) TextToImageCodec() TextToImageCodec {
+	return hfTextToImageCodec{}
+}
+
 // TokenClassificationBatchCodec returns the JSON codec for batch
 // token-classification requests and responses.
 func (HuggingFaceCodecs) TokenClassificationBatchCodec() TokenClassificationBatchCodec {
@@ -267,6 +274,48 @@ func (hfTextClassificationCodec) Decode(params DecodeParams) ([]hftypes.TextClas
 		Message: errFailedToDecodeResponseBody,
 		Err:     errors.Join(flatErr, nestedErr),
 	}
+}
+
+// hfTextToImageCodec is a Codec for text-to-image that encodes canonical
+// requests as JSON and decodes the generated image from the raw response body.
+// The exact image subtype is provider-chosen, so requests advertise
+// "Accept: image/*" and content-type validation accepts any image media type,
+// returning the body plus the parsed media type.
+type hfTextToImageCodec struct{}
+
+func (hfTextToImageCodec) Encode(
+	params EncodeParams[hftypes.TextToImageRequest],
+) (body []byte, headers http.Header, err error) {
+	body, headers, err = JSONCodec[
+		hftypes.TextToImageRequest,
+		hftypes.TextToImageResponse,
+	]{}.Encode(params)
+	if err != nil {
+		return nil, nil, err
+	}
+	headers.Set("Accept", "image/*")
+
+	return body, headers, nil
+}
+
+func (hfTextToImageCodec) Decode(
+	params DecodeParams,
+) (hftypes.TextToImageResponse, error) {
+	contentType := params.Headers.Get("Content-Type")
+
+	mediaType, ok := parseMediaType(contentType)
+	if !ok || !strings.HasPrefix(mediaType, "image/") {
+		return hftypes.TextToImageResponse{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindSerialization,
+			Message: "expected an image Content-Type, got " + contentType,
+			Err:     nil,
+		}
+	}
+
+	return hftypes.TextToImageResponse{
+		Image:     params.Body,
+		MediaType: mediaType,
+	}, nil
 }
 
 // HuggingFaceEndpoints provides default HuggingFace endpoint implementations
@@ -434,6 +483,19 @@ func (HuggingFaceEndpoints) QuestionAnsweringEndpoint(params EndpointParams) (En
 func (HuggingFaceEndpoints) TableQuestionAnsweringEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+}
+
+// TextToImageEndpoint returns the endpoint for text-to-image generation.
+func (HuggingFaceEndpoints) TextToImageEndpoint(params EndpointParams) (Endpoint, error) {
 	if params.Model == "" {
 		return Endpoint{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,

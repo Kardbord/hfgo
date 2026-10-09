@@ -145,6 +145,9 @@ type (
 	// TextClassificationCodec is the Codec for the ClassifyText task.
 	TextClassificationCodec = Codec[hftypes.TextClassificationRequest, []hftypes.TextClassification]
 
+	// TextToImageCodec is the Codec for the GenerateImage task.
+	TextToImageCodec = Codec[hftypes.TextToImageRequest, hftypes.TextToImageResponse]
+
 	// TokenClassificationBatchCodec is the Codec for the ClassifyTokensBatch task.
 	TokenClassificationBatchCodec = Codec[hftypes.TokenClassificationBatchRequest, [][]hftypes.TokenClassification]
 
@@ -231,14 +234,26 @@ func (JSONCodec[Req, Resp]) Decode(params DecodeParams) (resp Resp, err error) {
 // structured +json media type. Media-type parameters (e.g. charset) are
 // ignored.
 func isJSONContentType(contentType string) bool {
-	if contentType == "" {
-		return false
-	}
-
-	mediatype, _, err := mime.ParseMediaType(contentType)
-	if err != nil {
+	mediatype, ok := parseMediaType(contentType)
+	if !ok {
 		return false
 	}
 
 	return mediatype == mimeTypeJSON || strings.HasSuffix(mediatype, "+json")
+}
+
+// parseMediaType parses contentType and returns its normalized media type (for
+// example "application/json" or "image/png"), ignoring media-type parameters
+// such as charset. It reports false when contentType is empty or malformed.
+func parseMediaType(contentType string) (string, bool) {
+	if contentType == "" {
+		return "", false
+	}
+
+	mediatype, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return "", false
+	}
+
+	return mediatype, true
 }

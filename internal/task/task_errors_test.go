@@ -34,7 +34,7 @@ type errorCase struct {
 // model set only when withModel is true), invokes run, and verifies that:
 //
 //   - an error is returned,
-//   - the result is nil,
+//   - the result is the zero value,
 //   - it is of the expected type (SDKError kind or APIError status), and
 //   - SDK configuration errors make no request.
 //

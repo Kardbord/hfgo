@@ -116,6 +116,7 @@ client := hfgo.NewClient(
 - [Summarization](./examples/summarization)
 - [Table Question Answering](./examples/table-question-answering)
 - [Text Classification](./examples/text-classification)
+- [Text to Image](./examples/text-to-image)
 - [Token Classification](./examples/token-classification)
 - [Translation](./examples/translation)
 - [Zero-Shot Text Classification](./examples/zero-shot-text-classification)
