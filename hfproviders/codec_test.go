@@ -235,6 +235,168 @@ func TestQuestionAnsweringCodec_EncodePassesHeaders(t *testing.T) {
 	require.Equal(t, ctJSON, headers.Get("Content-Type"))
 }
 
+func TestTextToImageCodec_Encode(t *testing.T) {
+	t.Parallel()
+
+	body, headers, err := HuggingFaceCodecs{}.TextToImageCodec().Encode(
+		EncodeParams[hftypes.TextToImageRequest]{
+			Context: context.Background(),
+			Request: hftypes.TextToImageRequest{
+				Input: "a serene mountain landscape at sunset",
+				Parameters: &hftypes.TextToImageParameters{
+					GuidanceScale: new(7.5),
+					Width:         new(512),
+				},
+			},
+			Model: "test-model",
+		},
+	)
+	require.NoError(t, err)
+	require.JSONEq(
+		t,
+		`{"inputs":"a serene mountain landscape at sunset","parameters":{"guidance_scale":7.5,"width":512}}`,
+		string(body),
+	)
+	require.Equal(t, ctJSON, headers.Get("Content-Type")) //nolint:testifylint // media type
+	require.Equal(t, "*/*", headers.Get("Accept"))
+}
+
+func TestTextToImageCodec_Decode(t *testing.T) {
+	t.Parallel()
+
+	c := HuggingFaceCodecs{}.TextToImageCodec()
+	imageBytes := []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}
+
+	cases := []struct {
+		name        string
+		contentType string
+		wantMedia   string
+		wantErr     bool
+	}{
+		{
+			name:        "png",
+			contentType: "image/png",
+			wantMedia:   "image/png",
+		},
+		{
+			name:        "jpeg",
+			contentType: "image/jpeg",
+			wantMedia:   "image/jpeg",
+		},
+		{
+			name:        "webp",
+			contentType: "image/webp",
+			wantMedia:   "image/webp",
+		},
+		{
+			name:        "image with charset parameter",
+			contentType: "image/png; charset=utf-8",
+			wantMedia:   "image/png",
+		},
+		{
+			name:        "uppercase media type normalized",
+			contentType: "IMAGE/PNG",
+			wantMedia:   "image/png",
+		},
+		{
+			name:        "json rejected",
+			contentType: "application/json",
+			wantErr:     true,
+		},
+		{
+			name:        "text rejected",
+			contentType: "text/plain",
+			wantErr:     true,
+		},
+		{
+			name:        "missing content type rejected",
+			contentType: "",
+			wantErr:     true,
+		},
+		{
+			name:        "malformed content type rejected",
+			contentType: "not a media type",
+			wantErr:     true,
+		},
+	}
+
+	for i := range cases {
+		tc := cases[i]
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := c.Decode(DecodeParams{
+				Body:    imageBytes,
+				Headers: jsonHeaders(tc.contentType),
+			})
+
+			if tc.wantErr {
+				require.Error(t, err)
+				assertSerializationError(t, err)
+				require.Equal(t, hftypes.TextToImageResponse{}, got)
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, imageBytes, got.Image)
+			require.Equal(t, tc.wantMedia, got.MediaType)
+		})
+	}
+}
+
+func TestParseMediaType(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name        string
+		contentType string
+		wantMedia   string
+		wantOK      bool
+	}{
+		{
+			name:        "plain",
+			contentType: "application/json",
+			wantMedia:   "application/json",
+			wantOK:      true,
+		},
+		{
+			name:        "with charset parameter",
+			contentType: "text/plain; charset=utf-8",
+			wantMedia:   "text/plain",
+			wantOK:      true,
+		},
+		{
+			name:        "uppercase normalized",
+			contentType: "IMAGE/PNG",
+			wantMedia:   "image/png",
+			wantOK:      true,
+		},
+		{
+			name:        "empty",
+			contentType: "",
+			wantOK:      false,
+		},
+		{
+			name:        "malformed",
+			contentType: "not a media type",
+			wantOK:      false,
+		},
+	}
+
+	for i := range cases {
+		tc := cases[i]
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			media, ok := parseMediaType(tc.contentType)
+
+			require.Equal(t, tc.wantOK, ok)
+			require.Equal(t, tc.wantMedia, media)
+		})
+	}
+}
+
 func TestTextClassificationCodec_Decode(t *testing.T) {
 	t.Parallel()
 

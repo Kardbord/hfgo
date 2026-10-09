@@ -297,6 +297,7 @@ func TestClient_EndpointDelegates(t *testing.T) {
 	cases := []struct {
 		name        string
 		response    string
+		contentType string
 		wantPath    string
 		validateReq func(t *testing.T, mt *testutils.MockTransport)
 		call        func(client Client) error
@@ -530,13 +531,36 @@ func TestClient_EndpointDelegates(t *testing.T) {
 				return err
 			},
 		},
+		{
+			name:        "GenerateImage",
+			response:    "\x89PNG\r\n\x1a\n",
+			contentType: "image/png",
+			validateReq: func(t *testing.T, mt *testutils.MockTransport) {
+				t.Helper()
+
+				payload := testutils.ReadRequestBody(t, mt)
+				require.Equal(t, "a cat", payload["inputs"])
+				require.Equal(t, "*/*", mt.LastRequest.Header.Get("Accept"))
+			},
+			call: func(client Client) error {
+				_, err := client.GenerateImage(hftypes.TextToImageRequest{Input: "a cat"})
+
+				return err
+			},
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			mt := testutils.NewJSONMockTransport(http.StatusOK, tc.response, nil)
+			var mt *testutils.MockTransport
+			if tc.contentType != "" {
+				mt = testutils.NewMockTransport(http.StatusOK, tc.response, nil)
+				mt.Response.Header.Set("Content-Type", tc.contentType)
+			} else {
+				mt = testutils.NewJSONMockTransport(http.StatusOK, tc.response, nil)
+			}
 			client := NewClient(
 				hfopts.WithHTTPClientFactory(
 					func() http.Client { return testutils.NewMockHTTPClient(mt) },

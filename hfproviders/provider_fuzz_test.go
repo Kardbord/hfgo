@@ -116,6 +116,7 @@ func FuzzHuggingFaceProviderEndpoint(f *testing.F) {
 			{"TokenClassificationEndpoint", p.TokenClassificationEndpoint},
 			{"QuestionAnsweringEndpoint", p.QuestionAnsweringEndpoint},
 			{"TableQuestionAnsweringEndpoint", p.TableQuestionAnsweringEndpoint},
+			{"TextToImageEndpoint", p.TextToImageEndpoint},
 			{"FillMaskEndpoint", p.FillMaskEndpoint},
 			{"SummarizationEndpoint", p.SummarizationEndpoint},
 			{"TranslationEndpoint", p.TranslationEndpoint},

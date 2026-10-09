@@ -113,6 +113,7 @@ The SDK follows a strict immutability pattern for concurrency safety:
     - `DetectObjects`: Object detection
     - `ClassifyImage`: Image classification
     - `SegmentImage`: Image segmentation
+    - `GenerateImage`: Text-to-image generation
     - Per-domain task functions in internal/task are unexported implementation details; callers interact only with the Client
    - The root package exposes only typed inference endpoints; raw HTTP/SSE access lives in the separate `hfraw` package (see below).
 
@@ -232,7 +233,10 @@ endpoints like `ChatEndpoint` never reject an empty one.
   format-agnostic).
   **`JSONCodec`** implements the HF JSON format; the HuggingFace
   question-answering and text-classification codecs additionally accept the
-  API's single-object / nested-array response variations.
+  API's single-object / nested-array response variations. Text-to-image uses a
+  codec that encodes JSON requests but returns the response body together with
+  the response's parsed image media type, validating that the response
+  advertises an `image/*` media type.
 
 #### Headers and Precedence
 
@@ -821,6 +825,27 @@ Image segmentation for a single image.
 - `subtask` (`instance` | `panoptic` | `semantic`): Segmentation subtask to perform, depending on model capabilities
 - `threshold` (float): Probability threshold used to filter out predicted masks
 
+### Text to Image
+
+#### GenerateImage(req TextToImageRequest, opts ...hfopts.Option) (TextToImageResponse, error)
+Text-to-image generation for a single prompt.
+
+**Behavior**:
+- Applies per-request options
+- Validates that a model is configured
+- The request `inputs` field is the text prompt
+- Returns a `TextToImageResponse` with the raw image bytes in `Image` and the parsed, normalized media type in `MediaType` (for example `image/png`)
+- The HuggingFace provider advertises `Accept: */*` and validates that the response advertises an `image/*` media type before returning
+- Generated images can exceed the default 1 MiB response cap; raise it with `hfopts.WithMaxResponseBodyBytes` for larger outputs
+
+**Parameters**:
+- `guidance_scale` (float): Higher values tie the generated image more closely to the prompt, at the risk of saturation and other artifacts
+- `negative_prompt` (string): Guides what NOT to include in the generated image
+- `num_inference_steps` (int): Number of denoising steps; more steps trade speed for quality
+- `width` / `height` (int): Output image dimensions in pixels
+- `scheduler` (string): Override the scheduler with a compatible one
+- `seed` (int64): Seed for the random number generator
+
 ### `hfraw.Client` (escape hatch)
 
 Created via `hfraw.NewClient(...)`. For raw HTTP requests without type-safe JSON handling. This is the advanced escape hatch for endpoints the SDK does not model. Its broader method matrix (`Do`/`DoRaw`/`DoReader`/`DoRawReader` and `Stream`/`StreamReader`/`StreamRaw`/`StreamRawReader`) is grouped under `hfraw.Client` rather than cluttering the root `Client` surface. `hfraw.Client`, `hfraw.Stream`, and `hfraw.Event` are defined in the `hfraw` package.
@@ -860,8 +885,8 @@ Endpoints are resolved by the configured provider (see
 - **Path**: `hf-inference/models/{model}`
 - **Tasks**: text classification, zero-shot text classification, token
   classification, question answering, table question answering, fill mask,
-  image classification, image segmentation, object detection, summarization,
-  translation
+  image classification, image segmentation, object detection, text to image,
+  summarization, translation
 - **Method**: POST
 
 ### Pipeline endpoints

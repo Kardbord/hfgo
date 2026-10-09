@@ -78,6 +78,7 @@ func endpointCases() []endpointCase {
 		ep("TokenClassificationBatchEndpoint", e.TokenClassificationBatchEndpoint),
 		ep("QuestionAnsweringEndpoint", e.QuestionAnsweringEndpoint),
 		ep("TableQuestionAnsweringEndpoint", e.TableQuestionAnsweringEndpoint),
+		ep("TextToImageEndpoint", e.TextToImageEndpoint),
 		ep("FillMaskEndpoint", e.FillMaskEndpoint),
 		ep("FillMaskBatchEndpoint", e.FillMaskBatchEndpoint),
 		ep("SummarizationEndpoint", e.SummarizationEndpoint),
@@ -197,6 +198,7 @@ func TestHuggingFaceCodecs_Wiring(t *testing.T) {
 		c.TextClassificationBatchCodec(),
 	)
 	require.IsType(t, hfTextClassificationCodec{}, c.TextClassificationCodec())
+	require.IsType(t, hfTextToImageCodec{}, c.TextToImageCodec())
 	require.IsType(
 		t,
 		JSONCodec[hftypes.TokenClassificationBatchRequest, [][]hftypes.TokenClassification]{},
