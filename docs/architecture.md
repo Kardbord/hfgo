@@ -111,6 +111,7 @@ The SDK follows a strict immutability pattern for concurrency safety:
     - `AnswerTableQuestion`: Table question answering
     - `FeatureExtract` / `FeatureExtractBatch`: Feature extraction (embeddings)
     - `DetectObjects`: Object detection
+    - `ClassifyImage`: Image classification
     - `SegmentImage`: Image segmentation
     - Per-domain task functions in internal/task are unexported implementation details; callers interact only with the Client
    - The root package exposes only typed inference endpoints; raw HTTP/SSE access lives in the separate `hfraw` package (see below).
@@ -788,6 +789,21 @@ Object detection for a single image.
 **Parameters**:
 - `threshold` (float): Probability threshold for detected objects; predictions below it are filtered
 
+### Image Classification
+
+#### ClassifyImage(req ImageClassificationRequest, opts ...hfopts.Option) ([]ImageClassification, error)
+Image classification for a single image.
+
+**Behavior**:
+- Applies per-request options
+- Validates that a model is configured
+- The request `inputs` field is the image as a base64-encoded string (no `data:` URI prefix)
+- Returns a list of `ImageClassification` results, each with a predicted class `label` and a confidence `score`, ordered by score (descending)
+
+**Parameters**:
+- `function_to_apply` (string): Transform applied to model outputs to retrieve scores; one of `sigmoid`, `softmax`, or `none` (see `ImageClassificationFuncSigmoid`, `ImageClassificationFuncSoftmax`, `ImageClassificationFuncNone`)
+- `top_k` (int): When set, limits the output to the top K most probable classes
+
 ### Image Segmentation
 
 #### SegmentImage(req ImageSegmentationRequest, opts ...hfopts.Option) ([]ImageSegmentation, error)
@@ -844,7 +860,8 @@ Endpoints are resolved by the configured provider (see
 - **Path**: `hf-inference/models/{model}`
 - **Tasks**: text classification, zero-shot text classification, token
   classification, question answering, table question answering, fill mask,
-  object detection, image segmentation, summarization, translation
+  image classification, image segmentation, object detection, summarization,
+  translation
 - **Method**: POST
 
 ### Pipeline endpoints

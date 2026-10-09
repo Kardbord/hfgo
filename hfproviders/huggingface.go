@@ -92,6 +92,12 @@ func (HuggingFaceCodecs) FillMaskCodec() FillMaskCodec {
 	return JSONCodec[hftypes.FillMaskRequest, []hftypes.FillMaskPrediction]{}
 }
 
+// ImageClassificationCodec returns the JSON codec for image-classification
+// requests and responses.
+func (HuggingFaceCodecs) ImageClassificationCodec() ImageClassificationCodec {
+	return JSONCodec[hftypes.ImageClassificationRequest, []hftypes.ImageClassification]{}
+}
+
 // ImageSegmentationCodec returns the JSON codec for image-segmentation
 // requests and responses.
 func (HuggingFaceCodecs) ImageSegmentationCodec() ImageSegmentationCodec {
@@ -281,6 +287,24 @@ func (HuggingFaceEndpoints) ChatEndpoint(_ EndpointParams) (Endpoint, error) {
 
 // DetectObjectsEndpoint returns the endpoint for object detection.
 func (HuggingFaceEndpoints) DetectObjectsEndpoint(params EndpointParams) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{
+		Method: http.MethodPost,
+		Path:   hfModelPrefix + params.Model,
+	}, nil
+}
+
+// ImageClassificationEndpoint returns the endpoint for image classification.
+func (HuggingFaceEndpoints) ImageClassificationEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
 	if params.Model == "" {
 		return Endpoint{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,

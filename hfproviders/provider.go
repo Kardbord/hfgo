@@ -143,6 +143,14 @@ type FillMaskProvider interface {
 	FillMaskCodec() FillMaskCodec
 }
 
+// ImageClassificationProvider is a Provider that supplies an endpoint and Codec
+// for the ClassifyImage task.
+type ImageClassificationProvider interface {
+	Provider
+	ImageClassificationEndpoint(params EndpointParams) (Endpoint, error)
+	ImageClassificationCodec() ImageClassificationCodec
+}
+
 // ObjectDetectionProvider is a Provider that supplies an endpoint and Codec for the DetectObject task.
 type ObjectDetectionProvider interface {
 	Provider

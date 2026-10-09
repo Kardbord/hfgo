@@ -49,6 +49,12 @@ func (p endpointFailProvider) DetectObjectsEndpoint(
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
+func (p endpointFailProvider) ImageClassificationEndpoint(
+	_ hfproviders.EndpointParams,
+) (hfproviders.Endpoint, error) {
+	return hfproviders.Endpoint{}, errEndpointUnavailable
+}
+
 func (p endpointFailProvider) ImageSegmentationEndpoint(
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
@@ -352,6 +358,15 @@ func dispatchErrorCases() []dispatchErrorCase {
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).DetectObjects(
 					hftypes.ObjectDetectionRequest{Input: testutils.TinyPNGBase64},
+				)
+			},
+		},
+		{
+			"ClassifyImage",
+			"error computing endpoint:",
+			func(opts ...hfopts.Option) (any, error) {
+				return hfgo.NewClient(opts...).ClassifyImage(
+					hftypes.ImageClassificationRequest{Input: testutils.TinyPNGBase64},
 				)
 			},
 		},
