@@ -175,6 +175,16 @@ func (c Client) ClassifyTokensBatch(
 	return task.ClassifyTokensBatch(c.opts.With(opts...), req)
 }
 
+// ClassifyImage sends an image classification request and returns a list of
+// image classification predictions for the single input, ordered by score
+// (descending).
+func (c Client) ClassifyImage(
+	req hftypes.ImageClassificationRequest,
+	opts ...hfopts.Option,
+) ([]hftypes.ImageClassification, error) {
+	return task.ClassifyImage(c.opts.With(opts...), req)
+}
+
 // AnswerQuestion sends a question answering request and returns the answers.
 //
 // The request must include both a question and a context. The model will

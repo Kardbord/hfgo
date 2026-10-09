@@ -65,6 +65,7 @@ func endpointCases() []endpointCase {
 			modelRequired: true,
 		},
 		ep("DetectObjectsEndpoint", e.DetectObjectsEndpoint),
+		ep("ImageClassificationEndpoint", e.ImageClassificationEndpoint),
 		ep("ImageSegmentationEndpoint", e.ImageSegmentationEndpoint),
 		ep("TextClassificationEndpoint", e.TextClassificationEndpoint),
 		ep("TextClassificationBatchEndpoint", e.TextClassificationBatchEndpoint),
@@ -163,6 +164,11 @@ func TestHuggingFaceCodecs_Wiring(t *testing.T) {
 		t,
 		JSONCodec[hftypes.FillMaskRequest, []hftypes.FillMaskPrediction]{},
 		c.FillMaskCodec(),
+	)
+	require.IsType(
+		t,
+		JSONCodec[hftypes.ImageClassificationRequest, []hftypes.ImageClassification]{},
+		c.ImageClassificationCodec(),
 	)
 	require.IsType(
 		t,

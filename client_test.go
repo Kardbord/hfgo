@@ -513,6 +513,23 @@ func TestClient_EndpointDelegates(t *testing.T) {
 				return err
 			},
 		},
+		{
+			name:     "ClassifyImage",
+			response: `[{"label":"Egyptian cat","score":0.514}]`,
+			validateReq: func(t *testing.T, mt *testutils.MockTransport) {
+				t.Helper()
+
+				payload := testutils.ReadRequestBody(t, mt)
+				require.Equal(t, testutils.TinyPNGBase64, payload["inputs"])
+			},
+			call: func(client Client) error {
+				_, err := client.ClassifyImage(
+					hftypes.ImageClassificationRequest{Input: testutils.TinyPNGBase64},
+				)
+
+				return err
+			},
+		},
 	}
 
 	for _, tc := range cases {
