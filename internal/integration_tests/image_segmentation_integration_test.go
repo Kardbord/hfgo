@@ -81,7 +81,7 @@ func TestSegmentImage_WithParameters(t *testing.T) {
 	apiToken := os.Getenv("HF_TOKEN")
 	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
 
-	const model = "mattmdjaga/segformer_b2_clothes"
+	const model = "facebook/mask2former-swin-large-coco-panoptic"
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -118,7 +118,7 @@ func TestSegmentImage_ContextCancellation(t *testing.T) {
 
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
-		hfopts.WithModel("mattmdjaga/segformer_b2_clothes"),
+		hfopts.WithModel("facebook/mask2former-swin-large-coco-panoptic"),
 		hfopts.WithContext(ctx),
 	)
 
