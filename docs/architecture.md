@@ -111,6 +111,7 @@ The SDK follows a strict immutability pattern for concurrency safety:
     - `AnswerTableQuestion`: Table question answering
     - `FeatureExtract` / `FeatureExtractBatch`: Feature extraction (embeddings)
     - `DetectObjects`: Object detection
+    - `SegmentImage`: Image segmentation
     - Per-domain task functions in internal/task are unexported implementation details; callers interact only with the Client
    - The root package exposes only typed inference endpoints; raw HTTP/SSE access lives in the separate `hfraw` package (see below).
 
@@ -787,6 +788,23 @@ Object detection for a single image.
 **Parameters**:
 - `threshold` (float): Probability threshold for detected objects; predictions below it are filtered
 
+### Image Segmentation
+
+#### SegmentImage(req ImageSegmentationRequest, opts ...hfopts.Option) ([]ImageSegmentation, error)
+Image segmentation for a single image.
+
+**Behavior**:
+- Applies per-request options
+- Validates that a model is configured
+- The request `inputs` field is the image as a base64-encoded string (no `data:` URI prefix)
+- Returns a list of `ImageSegmentation` results, each with a `label`, a base64-encoded black-and-white `mask`, and an optional confidence `score` (`*float64`, absent when the API omits it)
+
+**Parameters**:
+- `mask_threshold` (float): Threshold used when turning predicted masks into binary values
+- `overlap_mask_area_threshold` (float): Mask overlap threshold to eliminate small, disconnected segments
+- `subtask` (`instance` | `panoptic` | `semantic`): Segmentation subtask to perform, depending on model capabilities
+- `threshold` (float): Probability threshold used to filter out predicted masks
+
 ### `hfraw.Client` (escape hatch)
 
 Created via `hfraw.NewClient(...)`. For raw HTTP requests without type-safe JSON handling. This is the advanced escape hatch for endpoints the SDK does not model. Its broader method matrix (`Do`/`DoRaw`/`DoReader`/`DoRawReader` and `Stream`/`StreamReader`/`StreamRaw`/`StreamRawReader`) is grouped under `hfraw.Client` rather than cluttering the root `Client` surface. `hfraw.Client`, `hfraw.Stream`, and `hfraw.Event` are defined in the `hfraw` package.
@@ -826,7 +844,7 @@ Endpoints are resolved by the configured provider (see
 - **Path**: `hf-inference/models/{model}`
 - **Tasks**: text classification, zero-shot text classification, token
   classification, question answering, table question answering, fill mask,
-  object detection, summarization, translation
+  object detection, image segmentation, summarization, translation
 - **Method**: POST
 
 ### Pipeline endpoints

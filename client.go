@@ -347,3 +347,12 @@ func (c Client) DetectObjects(
 ) ([]hftypes.ObjectDetection, error) {
 	return task.DetectObjects(c.opts.With(opts...), req)
 }
+
+// SegmentImage sends an image segmentation request and returns a list of
+// predicted masks / segments.
+func (c Client) SegmentImage(
+	req hftypes.ImageSegmentationRequest,
+	opts ...hfopts.Option,
+) ([]hftypes.ImageSegmentation, error) {
+	return task.SegmentImage(c.opts.With(opts...), req)
+}

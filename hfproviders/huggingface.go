@@ -92,6 +92,12 @@ func (HuggingFaceCodecs) FillMaskCodec() FillMaskCodec {
 	return JSONCodec[hftypes.FillMaskRequest, []hftypes.FillMaskPrediction]{}
 }
 
+// ImageSegmentationCodec returns the JSON codec for image-segmentation
+// requests and responses.
+func (HuggingFaceCodecs) ImageSegmentationCodec() ImageSegmentationCodec {
+	return JSONCodec[hftypes.ImageSegmentationRequest, []hftypes.ImageSegmentation]{}
+}
+
 // QuestionAnsweringCodec returns the flexible question-answering codec, which
 // accepts both single-object and array response shapes.
 func (HuggingFaceCodecs) QuestionAnsweringCodec() QuestionAnsweringCodec {
@@ -310,6 +316,19 @@ func (HuggingFaceEndpoints) FeatureExtractionEndpoint(params EndpointParams) (En
 		Method: http.MethodPost,
 		Path:   hfModelPrefix + params.Model + "/pipeline/feature-extraction",
 	}, nil
+}
+
+// ImageSegmentationEndpoint returns the endpoint for image segmentation.
+func (HuggingFaceEndpoints) ImageSegmentationEndpoint(params EndpointParams) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }
 
 // TextClassificationBatchEndpoint returns the endpoint for batch text classification.
