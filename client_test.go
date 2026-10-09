@@ -540,7 +540,7 @@ func TestClient_EndpointDelegates(t *testing.T) {
 
 				payload := testutils.ReadRequestBody(t, mt)
 				require.Equal(t, "a cat", payload["inputs"])
-				require.Equal(t, "image/*", mt.LastRequest.Header.Get("Accept"))
+				require.Equal(t, "*/*", mt.LastRequest.Header.Get("Accept"))
 			},
 			call: func(client Client) error {
 				_, err := client.GenerateImage(hftypes.TextToImageRequest{Input: "a cat"})

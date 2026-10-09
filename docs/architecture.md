@@ -835,7 +835,7 @@ Text-to-image generation for a single prompt.
 - Validates that a model is configured
 - The request `inputs` field is the text prompt
 - Returns a `TextToImageResponse` with the raw image bytes in `Image` and the parsed, normalized media type in `MediaType` (for example `image/png`)
-- The HuggingFace provider advertises `Accept: image/*` and validates that the response advertises an `image/*` media type before returning
+- The HuggingFace provider advertises `Accept: */*` and validates that the response advertises an `image/*` media type before returning
 - Generated images can exceed the default 1 MiB response cap; raise it with `hfopts.WithMaxResponseBodyBytes` for larger outputs
 
 **Parameters**:

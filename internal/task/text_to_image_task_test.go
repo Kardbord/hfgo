@@ -129,9 +129,9 @@ func TestGenerateImage_WithParameters(t *testing.T) {
 	require.Equal(t, pngSignature(), image.Image)
 	require.Equal(t, "image/png", image.MediaType)
 
-	// The request advertises JSON and accepts any image media type.
+	// The request advertises JSON and accepts any media type.
 	require.Equal(t, "application/json", mt.LastRequest.Header.Get("Content-Type"))
-	require.Equal(t, "image/*", mt.LastRequest.Header.Get("Accept"))
+	require.Equal(t, "*/*", mt.LastRequest.Header.Get("Accept"))
 
 	reqBody := testutils.ReadRequestBody(t, mt)
 	require.Equal(t, "a majestic lion in the savanna", reqBody["inputs"])

@@ -22,6 +22,12 @@ examples/**/*
 # Go cache
 .gocache
 
+# Images
+*.png
+*.jpg
+*.jpeg
+*.svg
+
 # Misc
 .token
 .ruff_cache/

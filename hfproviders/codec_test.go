@@ -258,7 +258,7 @@ func TestTextToImageCodec_Encode(t *testing.T) {
 		string(body),
 	)
 	require.Equal(t, ctJSON, headers.Get("Content-Type")) //nolint:testifylint // media type
-	require.Equal(t, "image/*", headers.Get("Accept"))
+	require.Equal(t, "*/*", headers.Get("Accept"))
 }
 
 func TestTextToImageCodec_Decode(t *testing.T) {

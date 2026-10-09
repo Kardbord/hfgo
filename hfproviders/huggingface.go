@@ -279,7 +279,7 @@ func (hfTextClassificationCodec) Decode(params DecodeParams) ([]hftypes.TextClas
 // hfTextToImageCodec is a Codec for text-to-image that encodes canonical
 // requests as JSON and decodes the generated image from the raw response body.
 // The exact image subtype is provider-chosen, so requests advertise
-// "Accept: image/*" and content-type validation accepts any image media type,
+// "Accept: */*" and content-type validation accepts any image media type,
 // returning the body plus the parsed media type.
 type hfTextToImageCodec struct{}
 
@@ -293,7 +293,7 @@ func (hfTextToImageCodec) Encode(
 	if err != nil {
 		return nil, nil, err
 	}
-	headers.Set("Accept", "image/*")
+	headers.Set("Accept", "*/*")
 
 	return body, headers, nil
 }
