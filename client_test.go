@@ -496,6 +496,23 @@ func TestClient_EndpointDelegates(t *testing.T) {
 				return err
 			},
 		},
+		{
+			name:     "SegmentImage",
+			response: `[{"label":"cat","mask":"bWFzaw==","score":0.97}]`,
+			validateReq: func(t *testing.T, mt *testutils.MockTransport) {
+				t.Helper()
+
+				payload := testutils.ReadRequestBody(t, mt)
+				require.Equal(t, testutils.TinyPNGBase64, payload["inputs"])
+			},
+			call: func(client Client) error {
+				_, err := client.SegmentImage(
+					hftypes.ImageSegmentationRequest{Input: testutils.TinyPNGBase64},
+				)
+
+				return err
+			},
+		},
 	}
 
 	for _, tc := range cases {

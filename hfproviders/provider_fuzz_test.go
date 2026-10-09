@@ -109,6 +109,7 @@ func FuzzHuggingFaceProviderEndpoint(f *testing.F) {
 			call func(EndpointParams) (Endpoint, error)
 		}{
 			{"DetectObjectsEndpoint", p.DetectObjectsEndpoint},
+			{"ImageSegmentationEndpoint", p.ImageSegmentationEndpoint},
 			{"TextClassificationEndpoint", p.TextClassificationEndpoint},
 			{"ZeroShotTextClassificationEndpoint", p.ZeroShotTextClassificationEndpoint},
 			{"TokenClassificationEndpoint", p.TokenClassificationEndpoint},

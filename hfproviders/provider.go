@@ -150,6 +150,13 @@ type ObjectDetectionProvider interface {
 	DetectObjectsCodec() DetectObjectsCodec
 }
 
+// ImageSegmentationProvider is a Provider that supplies an endpoint and Codec for the SegmentImage task.
+type ImageSegmentationProvider interface {
+	Provider
+	ImageSegmentationEndpoint(params EndpointParams) (Endpoint, error)
+	ImageSegmentationCodec() ImageSegmentationCodec
+}
+
 // QuestionAnsweringProvider is a Provider that supplies an endpoint and Codec for the
 // AnswerQuestion task.
 type QuestionAnsweringProvider interface {

@@ -118,6 +118,9 @@ type (
 	// FillMaskCodec is the Codec for the FillMask task.
 	FillMaskCodec = Codec[hftypes.FillMaskRequest, []hftypes.FillMaskPrediction]
 
+	// ImageSegmentationCodec is the Codec for the SegmentImage task.
+	ImageSegmentationCodec = Codec[hftypes.ImageSegmentationRequest, []hftypes.ImageSegmentation]
+
 	// QuestionAnsweringCodec is the Codec for the AnswerQuestion task.
 	QuestionAnsweringCodec = Codec[hftypes.QuestionAnsweringRequest, []hftypes.QuestionAnswering]
 
