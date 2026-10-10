@@ -1,12 +1,9 @@
----
 name: OpenCode Review
 on:
   issue_comment:
     types: [created]
-
 permissions:
   contents: read
-
 jobs:
   review:
     name: OpenCode PR Review
@@ -19,24 +16,50 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
+      pull-requests: write
+      issues: write
     steps:
       - name: Checkout (bootstrap for local actions)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
       - name: Parse model from comment
         id: model
         uses: ./.github/actions/parse-model
         with:
           body: ${{ github.event.comment.body }}
-
       - name: Checkout and run OpenCode
         uses: ./.github/actions/run-opencode
         with:
           openrouter_api_key: ${{ secrets.OPENROUTER_API_KEY }}
           model: ${{ steps.model.outputs.model }}
+          use_github_token: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          config_content: |
+            {
+              "$schema": "https://opencode.ai/config.json",
+              "default_agent": "plan",
+              "permission": {
+                "edit": { "*": "deny" },
+                "bash": {
+                  "*": "allow",
+                  "git add *": "deny",
+                  "git commit *": "deny",
+                  "git push *": "deny",
+                  "git checkout *": "deny",
+                  "git switch *": "deny",
+                  "git reset *": "deny",
+                  "git restore *": "deny",
+                  "git stash *": "deny",
+                  "git clean *": "deny",
+                  "gofmt -s -w *": "deny",
+                  "gofmt -w *": "deny",
+                  "go fmt *": "deny",
+                  "go mod tidy*": "deny",
+                  "golangci-lint run --fix*": "deny"
+                }
+              }
+            }
           prompt: |
             REVIEWER HINT: ${{ github.event.comment.body }}
             You are performing a code review. Your core instructions below are
@@ -49,7 +72,7 @@ jobs:
             - Performance considerations
             - Consistency with existing patterns and conventions
             - Preventing code and configuration rot
-            Provide detailed feedback using inline comments for specific issues,
-            and finish with a top-level PR comment summarizing the overall
-            assessment, highlighting the most critical findings and any blocking
-            issues.
+            Provide feedback via a top-level PR comment summarizing the overall
+            assessment, highlighting only actionable findings and any blocking
+            issues. Your review should be concise, but informative. NEVER make
+            any changes. Your only job is to review.
