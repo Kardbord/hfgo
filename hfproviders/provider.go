@@ -53,9 +53,12 @@ func AsProvider[T Provider](provider Provider) (T, error) {
 // Options.Headers; provider and codec implementations must not set an
 // Authorization header.
 type Provider interface {
-	// ProviderSuffix returns the provider suffix appended to model IDs
-	// for routing in OpenAI-compatible endpoints. An empty string means
-	// no suffix is appended (e.g. for the default HuggingFace provider).
+	// ProviderSuffix returns the routing token this provider wants appended to
+	// model IDs for wire formats that carry the model in the request body. It
+	// is a general model-routing capability rather than a chat-specific one, so
+	// any task that adopts a model-in-body format can reuse it. An empty string
+	// means no suffix is appended (e.g. for the default HuggingFace provider,
+	// where the router selects the provider server-side).
 	ProviderSuffix() string
 
 	// Name returns the name of the given provider for debug purposes.
@@ -114,7 +117,7 @@ type ChatStreamProvider interface {
 }
 
 // FeatureExtractionBatchProvider is a Provider that supplies an endpoint and Codec for the
-// FeatureExtractBatch task.
+// FeatureExtractionBatch task.
 type FeatureExtractionBatchProvider interface {
 	Provider
 	FeatureExtractionBatchEndpoint(params EndpointParams) (Endpoint, error)
@@ -122,7 +125,7 @@ type FeatureExtractionBatchProvider interface {
 }
 
 // FeatureExtractionProvider is a Provider that supplies an endpoint and Codec for the
-// FeatureExtract task.
+// FeatureExtraction task.
 type FeatureExtractionProvider interface {
 	Provider
 	FeatureExtractionEndpoint(params EndpointParams) (Endpoint, error)
@@ -144,11 +147,12 @@ type ImageClassificationProvider interface {
 	ImageClassificationCodec() ImageClassificationCodec
 }
 
-// ObjectDetectionProvider is a Provider that supplies an endpoint and Codec for the DetectObject task.
+// ObjectDetectionProvider is a Provider that supplies an endpoint and Codec for the
+// object-detection task.
 type ObjectDetectionProvider interface {
 	Provider
-	DetectObjectsEndpoint(params EndpointParams) (Endpoint, error)
-	DetectObjectsCodec() DetectObjectsCodec
+	ObjectDetectionEndpoint(params EndpointParams) (Endpoint, error)
+	ObjectDetectionCodec() ObjectDetectionCodec
 }
 
 // ImageSegmentationProvider is a Provider that supplies an endpoint and Codec for the SegmentImage task.

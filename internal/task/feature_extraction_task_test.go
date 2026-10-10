@@ -63,7 +63,7 @@ func TestExtractFeatures_ResponseDecoding(t *testing.T) {
 				hfopts.WithModel("test-model"),
 			)
 
-			result, err := client.FeatureExtract(hftypes.FeatureExtractionRequest{
+			result, err := client.ExtractFeatures(hftypes.FeatureExtractionRequest{
 				Input: "What is the capital of France?",
 			})
 			require.NoError(t, err, tc.description)
@@ -175,7 +175,7 @@ func TestExtractFeatures_ParameterSerialization(t *testing.T) {
 				req.Parameters = tc.params
 			}
 
-			result, err := client.FeatureExtract(req)
+			result, err := client.ExtractFeatures(req)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, result, tc.description)
 
@@ -223,7 +223,7 @@ func TestExtractFeatures_Errors(t *testing.T) {
 			},
 		},
 		func(opts ...hfopts.Option) (hftypes.FeatureExtraction, error) {
-			return hfgo.NewClient(opts...).FeatureExtract(hftypes.FeatureExtractionRequest{
+			return hfgo.NewClient(opts...).ExtractFeatures(hftypes.FeatureExtractionRequest{
 				Input: "What is the capital of France?",
 			})
 		},
@@ -298,7 +298,7 @@ func TestExtractFeaturesBatch_ResponseDecoding(t *testing.T) {
 				hfopts.WithModel("test-model"),
 			)
 
-			result, err := client.FeatureExtractBatch(hftypes.FeatureExtractionBatchRequest{
+			result, err := client.ExtractFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
 				Inputs: tc.inputs,
 			})
 			require.NoError(t, err, tc.description)
@@ -347,7 +347,7 @@ func TestExtractFeaturesBatch_Errors(t *testing.T) {
 		},
 		func(opts ...hfopts.Option) ([]hftypes.FeatureExtraction, error) {
 			return hfgo.NewClient(opts...).
-				FeatureExtractBatch(hftypes.FeatureExtractionBatchRequest{
+				ExtractFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
 					Inputs: []string{"hello", "world"},
 				})
 		},
@@ -379,7 +379,7 @@ func TestExtractFeaturesBatch_ParameterSerialization(t *testing.T) {
 				req.Parameters = tc.params
 			}
 
-			result, err := client.FeatureExtractBatch(req)
+			result, err := client.ExtractFeaturesBatch(req)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, result, tc.description)
 
@@ -408,7 +408,7 @@ func TestExtractFeaturesBatch_NoModel(t *testing.T) {
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	result, err := client.FeatureExtractBatch(hftypes.FeatureExtractionBatchRequest{
+	result, err := client.ExtractFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
 		Inputs: []string{"hello"},
 	})
 	require.Error(t, err)
@@ -431,7 +431,7 @@ func TestExtractFeaturesBatch_ModelFromOptions(t *testing.T) {
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	result, err := client.FeatureExtractBatch(hftypes.FeatureExtractionBatchRequest{
+	result, err := client.ExtractFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
 		Inputs: []string{"hello"},
 	}, hfopts.WithModel("override-model"))
 	require.NoError(t, err)

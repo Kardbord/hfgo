@@ -65,8 +65,8 @@ func (HuggingFaceCodecs) ChatStreamCodec() ChatStreamCodec {
 	return JSONCodec[hftypes.ChatRequest, hftypes.ChatStreamResponse]{}
 }
 
-// DetectObjectsCodec returns the JSON codec for object-detection requests and responses.
-func (HuggingFaceCodecs) DetectObjectsCodec() DetectObjectsCodec {
+// ObjectDetectionCodec returns the JSON codec for object-detection requests and responses.
+func (HuggingFaceCodecs) ObjectDetectionCodec() ObjectDetectionCodec {
 	return JSONCodec[hftypes.ObjectDetectionRequest, []hftypes.ObjectDetection]{}
 }
 
@@ -298,8 +298,8 @@ func (HuggingFaceEndpoints) ChatEndpoint(_ EndpointParams) (Endpoint, error) {
 	return Endpoint{Method: http.MethodPost, Path: "v1/chat/completions"}, nil
 }
 
-// DetectObjectsEndpoint returns the endpoint for object detection.
-func (HuggingFaceEndpoints) DetectObjectsEndpoint(params EndpointParams) (Endpoint, error) {
+// ObjectDetectionEndpoint returns the endpoint for object detection.
+func (HuggingFaceEndpoints) ObjectDetectionEndpoint(params EndpointParams) (Endpoint, error) {
 	if params.Model == "" {
 		return Endpoint{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,

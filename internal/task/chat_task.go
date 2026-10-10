@@ -103,10 +103,10 @@ func Chat(opts hfopts.Options, req hftypes.ChatRequest) (hftypes.ChatResponse, e
 	)
 }
 
-// StreamChat sends a chat completion request and returns a streaming response.
+// ChatStream sends a chat completion request and returns a streaming response.
 //
-//nolint:gocritic // hugeParam: StreamChat takes the request by value so the SDK never mutates the caller's payload
-func StreamChat(opts hfopts.Options, req hftypes.ChatRequest) (*hftypes.ChatStream, error) {
+//nolint:gocritic // hugeParam: ChatStream takes the request by value so the SDK never mutates the caller's payload
+func ChatStream(opts hfopts.Options, req hftypes.ChatRequest) (*hftypes.ChatStream, error) {
 	model, err := resolveModel(&req, opts)
 	if err != nil {
 		return nil, err
