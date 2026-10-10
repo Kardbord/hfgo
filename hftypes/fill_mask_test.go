@@ -33,27 +33,6 @@ func TestFillMaskRequestClone_Deep(t *testing.T) {
 	require.Equal(t, "Marseille", cloned.Parameters.Targets[0])
 }
 
-func TestFillMaskBatchRequestClone_Deep(t *testing.T) {
-	t.Parallel()
-
-	req := hftypes.FillMaskBatchRequest{
-		Inputs: []string{"I [MASK] my dog.", "She is [MASK]."},
-		Parameters: &hftypes.FillMaskParameters{
-			TopK: new(2),
-		},
-	}
-
-	cloned := req.Clone()
-
-	cloned.Inputs[0] = "changed"
-	*cloned.Parameters.TopK = 4
-
-	require.Equal(t, []string{"I [MASK] my dog.", "She is [MASK]."}, req.Inputs)
-	require.Equal(t, 2, *req.Parameters.TopK)
-	require.Equal(t, "changed", cloned.Inputs[0])
-	require.Equal(t, 4, *cloned.Parameters.TopK)
-}
-
 func TestFillMaskParametersClone_Deep(t *testing.T) {
 	t.Parallel()
 
@@ -78,9 +57,6 @@ func TestFillMaskClone_Nil(t *testing.T) {
 
 	var r *hftypes.FillMaskRequest
 	require.Empty(t, r.Clone())
-
-	var b *hftypes.FillMaskBatchRequest
-	require.Empty(t, b.Clone())
 
 	var p *hftypes.FillMaskParameters
 	require.Empty(t, p.Clone())

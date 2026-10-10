@@ -130,52 +130,6 @@ func TestFillMask_WithTargets(t *testing.T) {
 	}
 }
 
-// TestFillMask_BatchLiveAPI tests a batch fill mask request against the live HF API.
-// This test requires the HF_TOKEN environment variable to be set.
-func TestFillMask_BatchLiveAPI(t *testing.T) {
-	apiToken := os.Getenv("HF_TOKEN")
-	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
-
-	const model = "google-bert/bert-base-uncased"
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	client := hfgo.NewClient(
-		hfopts.WithToken(apiToken),
-		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
-	)
-
-	inputs := []string{
-		"I [MASK] my dog everyday.",
-		"She is a [MASK] programmer.",
-		"The meeting was [MASK] due to the storm.",
-	}
-
-	resp, err := client.FillMaskBatch(
-		hftypes.FillMaskBatchRequest{
-			Inputs: inputs,
-		},
-	)
-
-	require.NoError(t, err, "batch fill mask should succeed")
-	require.NotNil(t, resp, "response should not be nil")
-	require.Len(t, resp, len(inputs), "response should have one entry per input")
-
-	for i, predictions := range resp {
-		require.NotEmpty(t, predictions, "each input should have predictions")
-
-		for _, prediction := range predictions {
-			require.NotEmpty(t, prediction.Sequence, "prediction should have a sequence")
-			require.GreaterOrEqual(t, prediction.Score, 0.0, "score should be non-negative")
-			require.LessOrEqual(t, prediction.Score, 1.0, "score should be at most 1.0")
-		}
-
-		t.Logf("Input %d: %d predictions", i, len(predictions))
-	}
-}
-
 // TestFillMask_ContextCancellation tests that context cancellation is respected.
 // This test requires the HF_TOKEN environment variable to be set.
 func TestFillMask_ContextCancellation(t *testing.T) {
@@ -200,54 +154,4 @@ func TestFillMask_ContextCancellation(t *testing.T) {
 
 	require.Error(t, err, "request with cancelled context should fail")
 	require.Nil(t, resp, "response should be nil for cancelled context")
-}
-
-// TestFillMask_VeryLargeBatch tests fill mask with a larger batch of inputs.
-// This test requires the HF_TOKEN environment variable to be set.
-func TestFillMask_VeryLargeBatch(t *testing.T) {
-	apiToken := os.Getenv("HF_TOKEN")
-	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
-
-	const model = "google-bert/bert-base-uncased"
-
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer cancel()
-
-	client := hfgo.NewClient(
-		hfopts.WithToken(apiToken),
-		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
-	)
-
-	// Create a batch of 10 inputs
-	inputs := make([]string, 10)
-	topics := []string{
-		"I [MASK] my dog everyday.",
-		"She is a [MASK] programmer.",
-		"The capital of France is [MASK].",
-		"The sky is [MASK] today.",
-		"He [MASK] a book every night.",
-		"They [MASK] to the store yesterday.",
-		"The [MASK] is shining brightly.",
-		"We had a [MASK] time at the party.",
-		"The coffee is [MASK] and delicious.",
-		"She [MASK] the guitar beautifully.",
-	}
-	for i, text := range topics {
-		inputs[i] = text
-	}
-
-	resp, err := client.FillMaskBatch(
-		hftypes.FillMaskBatchRequest{
-			Inputs: inputs,
-		},
-	)
-
-	require.NoError(t, err, "batch fill mask with larger batch should succeed")
-	require.NotNil(t, resp, "response should not be nil")
-	require.Len(t, resp, 10, "response should have 10 entries")
-
-	for _, predictions := range resp {
-		require.NotEmpty(t, predictions, "each input should have predictions")
-	}
 }

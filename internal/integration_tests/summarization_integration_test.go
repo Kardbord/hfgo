@@ -47,44 +47,6 @@ func TestSummarization_LiveAPI(t *testing.T) {
 	require.NotEmpty(t, resp[0].SummaryText, "summary text should not be empty")
 }
 
-// TestSummarization_BatchLiveAPI tests batch summarization against the live HF API.
-// This test requires the HF_TOKEN environment variable to be set.
-func TestSummarization_BatchLiveAPI(t *testing.T) {
-	apiToken := os.Getenv("HF_TOKEN")
-	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
-
-	const model = "facebook/bart-large-cnn"
-
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer cancel()
-
-	client := hfgo.NewClient(
-		hfopts.WithToken(apiToken),
-		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
-	)
-
-	inputs := []string{
-		"The Earth orbits the Sun once every 365 days, giving us a year.",
-		"The Moon orbits the Earth roughly every 27 days, a period known as a sidereal month.",
-	}
-
-	resp, err := client.SummarizeBatch(
-		hftypes.SummarizationBatchRequest{
-			Inputs: inputs,
-		},
-	)
-
-	require.NoError(t, err, "batch summarization should succeed")
-	require.NotNil(t, resp, "response should not be nil")
-	require.Len(t, resp, 2, "response should have 2 summaries")
-
-	for i, summary := range resp {
-		require.NotEmpty(t, summary.SummaryText, "summary text should not be empty")
-		t.Logf("Input %d: %s", i, summary.SummaryText)
-	}
-}
-
 // TestSummarization_WithParameters tests summarization with various parameters.
 // This test requires the HF_TOKEN environment variable to be set.
 func TestSummarization_WithParameters(t *testing.T) {

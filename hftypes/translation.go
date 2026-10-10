@@ -1,9 +1,6 @@
 package hftypes
 
-import (
-	"maps"
-	"slices"
-)
+import "maps"
 
 // TranslationRequest represents a translation
 // inference request to the API for a single input.
@@ -11,20 +8,6 @@ type TranslationRequest struct {
 	// The text to translate.
 	// Required.
 	Input string `json:"inputs"`
-
-	// Additional inference parameters for translation.
-	Parameters *TranslationParameters `json:"parameters,omitempty"`
-}
-
-// TranslationBatchRequest represents a batched translation
-// inference request to the API for multiple inputs.
-//
-// NOTE: Batched inference is supported by the upstream API, but is not
-// officially documented; behavior may change without notice.
-type TranslationBatchRequest struct {
-	// The texts to translate.
-	// Required.
-	Inputs []string `json:"inputs"`
 
 	// Additional inference parameters for translation.
 	Parameters *TranslationParameters `json:"parameters,omitempty"`
@@ -80,18 +63,6 @@ func (r *TranslationRequest) Clone() TranslationRequest {
 		return TranslationRequest{}
 	}
 	out := *r
-	out.Parameters = cloneStructPtr(r.Parameters, (*TranslationParameters).Clone)
-
-	return out
-}
-
-// Clone returns a deep defensive copy of the request.
-func (r *TranslationBatchRequest) Clone() TranslationBatchRequest {
-	if r == nil {
-		return TranslationBatchRequest{}
-	}
-	out := *r
-	out.Inputs = slices.Clone(r.Inputs)
 	out.Parameters = cloneStructPtr(r.Parameters, (*TranslationParameters).Clone)
 
 	return out

@@ -419,7 +419,6 @@ func TestExtractFeaturesBatch_NoModel(t *testing.T) {
 	require.Nil(t, mt.LastRequest)
 }
 
-//nolint:dupl // batch model-from-options test is structurally similar across domains
 func TestExtractFeaturesBatch_ModelFromOptions(t *testing.T) {
 	t.Parallel()
 

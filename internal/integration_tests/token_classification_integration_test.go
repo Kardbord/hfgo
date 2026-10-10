@@ -118,52 +118,6 @@ func TestTokenClassification_WithAggregationStrategy(t *testing.T) {
 	}
 }
 
-// TestTokenClassification_BatchLiveAPI tests batch token classification against the live HF API.
-// This test requires the HF_TOKEN environment variable to be set.
-func TestTokenClassification_BatchLiveAPI(t *testing.T) {
-	apiToken := os.Getenv("HF_TOKEN")
-	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
-
-	const model = "dslim/bert-base-NER"
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	client := hfgo.NewClient(
-		hfopts.WithToken(apiToken),
-		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
-	)
-
-	inputs := []string{
-		"My name is Sarah and I live in London.",
-		"I work at Google in New York.",
-		"Angela Merkel was the Chancellor of Germany.",
-	}
-
-	resp, err := client.ClassifyTokensBatch(
-		hftypes.TokenClassificationBatchRequest{
-			Inputs: inputs,
-		},
-	)
-
-	require.NoError(t, err, "batch token classification should succeed")
-	require.NotNil(t, resp, "response should not be nil")
-	require.Len(t, resp, len(inputs), "response should have one entry per input")
-
-	for i, entities := range resp {
-		require.NotEmpty(t, entities, "each input should have entities")
-
-		for _, entity := range entities {
-			require.NotEmpty(t, entity.Word, "entity should have a word")
-			require.GreaterOrEqual(t, entity.Score, 0.0, "score should be non-negative")
-			require.LessOrEqual(t, entity.Score, 1.0, "score should be at most 1.0")
-		}
-
-		t.Logf("Input %d: %d entities", i, len(entities))
-	}
-}
-
 // TestTokenClassification_ContextCancellation tests that context cancellation is respected.
 // This test requires the HF_TOKEN environment variable to be set.
 func TestTokenClassification_ContextCancellation(t *testing.T) {
@@ -187,49 +141,6 @@ func TestTokenClassification_ContextCancellation(t *testing.T) {
 
 	require.Error(t, err, "request with cancelled context should fail")
 	require.Nil(t, resp, "response should be nil for cancelled context")
-}
-
-// TestTokenClassification_VeryLargeBatch tests token classification with a larger batch of inputs.
-// This test requires the HF_TOKEN environment variable to be set.
-func TestTokenClassification_VeryLargeBatch(t *testing.T) {
-	apiToken := os.Getenv("HF_TOKEN")
-	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer cancel()
-
-	client := hfgo.NewClient(
-		hfopts.WithToken(apiToken),
-		hfopts.WithModel("dslim/bert-base-NER"),
-		hfopts.WithContext(ctx),
-	)
-
-	inputs := []string{
-		"My name is Sarah and I live in London.",
-		"I work at Google in New York.",
-		"Angela Merkel was the Chancellor of Germany.",
-		"Apple Inc. is headquartered in Cupertino, California.",
-		"Barack Obama was the 44th President of the United States.",
-		"The Eiffel Tower is located in Paris, France.",
-		"Amazon was founded by Jeff Bezos in Seattle.",
-		"Tokyo is the capital city of Japan.",
-		"Marie Curie won the Nobel Prize in Physics.",
-		"The United Nations is based in New York City.",
-	}
-
-	resp, err := client.ClassifyTokensBatch(
-		hftypes.TokenClassificationBatchRequest{
-			Inputs: inputs,
-		},
-	)
-
-	require.NoError(t, err, "batch token classification with larger batch should succeed")
-	require.NotNil(t, resp, "response should not be nil")
-	require.Len(t, resp, len(inputs), "response should have one entry per input")
-
-	for _, entities := range resp {
-		require.NotEmpty(t, entities, "each input should have entities")
-	}
 }
 
 // entityLabel returns the entity label from either Entity or EntityGroup field.

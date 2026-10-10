@@ -312,33 +312,11 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			},
 		},
 		{
-			name:     "ClassifyTextBatch",
-			response: `[[{"label":"positive","score":0.95}]]`,
-			call: func(client Client) error {
-				_, err := client.ClassifyTextBatch(
-					hftypes.TextClassificationBatchRequest{Inputs: []string{"test text"}},
-				)
-
-				return err
-			},
-		},
-		{
 			name:     "ClassifyTokens",
 			response: `[{"entity":"PER","score":0.998,"word":"Sarah","start":11,"end":16}]`,
 			call: func(client Client) error {
 				_, err := client.ClassifyTokens(
 					hftypes.TokenClassificationRequest{Input: "My name is Sarah."},
-				)
-
-				return err
-			},
-		},
-		{
-			name:     "ClassifyTokensBatch",
-			response: `[[{"entity":"PER","score":0.998,"word":"Sarah","start":11,"end":16}]]`,
-			call: func(client Client) error {
-				_, err := client.ClassifyTokensBatch(
-					hftypes.TokenClassificationBatchRequest{Inputs: []string{"My name is Sarah."}},
 				)
 
 				return err
@@ -368,22 +346,6 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			},
 		},
 		{
-			name:     "ZeroShotClassifyTextBatch",
-			response: `[{"Sequence":"test text","Labels":["positive","negative"],"Scores":[0.95,0.05]}]`,
-			call: func(client Client) error {
-				_, err := client.ZeroShotClassifyTextBatch(
-					hftypes.ZeroShotTextClassificationBatchRequest{
-						Inputs: []string{"test text"},
-						Parameters: &hftypes.ZeroShotTextClassificationParameters{
-							CandidateLabels: []string{"positive", "negative"},
-						},
-					},
-				)
-
-				return err
-			},
-		},
-		{
 			name:     "FillMask",
 			response: `[{"sequence":"The capital of France is Paris.","score":0.95,"token":1,"token_str":"Paris"}]`,
 			call: func(client Client) error {
@@ -395,32 +357,10 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			},
 		},
 		{
-			name:     "FillMaskBatch",
-			response: `[[{"sequence":"I walk my dog everyday.","score":0.95,"token":1,"token_str":"walk"}]]`,
-			call: func(client Client) error {
-				_, err := client.FillMaskBatch(
-					hftypes.FillMaskBatchRequest{Inputs: []string{"I [MASK] my dog everyday."}},
-				)
-
-				return err
-			},
-		},
-		{
 			name:     "Summarize",
 			response: `[{"summary_text":"A concise summary."}]`,
 			call: func(client Client) error {
 				_, err := client.Summarize(hftypes.SummarizationRequest{Input: "Some long text."})
-
-				return err
-			},
-		},
-		{
-			name:     "SummarizeBatch",
-			response: `[{"summary_text":"Summary one."}]`,
-			call: func(client Client) error {
-				_, err := client.SummarizeBatch(
-					hftypes.SummarizationBatchRequest{Inputs: []string{"Long text one."}},
-				)
 
 				return err
 			},
@@ -441,17 +381,6 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			response: `[{"translation_text":"Bonjour le monde."}]`,
 			call: func(client Client) error {
 				_, err := client.Translate(hftypes.TranslationRequest{Input: "Hello world."})
-
-				return err
-			},
-		},
-		{
-			name:     "TranslateBatch",
-			response: `[{"translation_text":"Bonjour le monde."}]`,
-			call: func(client Client) error {
-				_, err := client.TranslateBatch(
-					hftypes.TranslationBatchRequest{Inputs: []string{"Hello world."}},
-				)
 
 				return err
 			},

@@ -1,9 +1,6 @@
 package hftypes
 
-import (
-	"maps"
-	"slices"
-)
+import "maps"
 
 // SummarizationRequest represents a summarization
 // inference request to the API for a single input.
@@ -11,20 +8,6 @@ type SummarizationRequest struct {
 	// The text to summarize.
 	// Required.
 	Input string `json:"inputs"`
-
-	// Additional inference parameters for summarization.
-	Parameters *SummarizationParameters `json:"parameters,omitempty"`
-}
-
-// SummarizationBatchRequest represents a batched summarization
-// inference request to the API for multiple inputs.
-//
-// NOTE: Batched inference is supported by the upstream API, but is not
-// officially documented; behavior may change without notice.
-type SummarizationBatchRequest struct {
-	// The texts to summarize.
-	// Required.
-	Inputs []string `json:"inputs"`
 
 	// Additional inference parameters for summarization.
 	Parameters *SummarizationParameters `json:"parameters,omitempty"`
@@ -72,18 +55,6 @@ func (r *SummarizationRequest) Clone() SummarizationRequest {
 		return SummarizationRequest{}
 	}
 	out := *r
-	out.Parameters = cloneStructPtr(r.Parameters, (*SummarizationParameters).Clone)
-
-	return out
-}
-
-// Clone returns a deep defensive copy of the request.
-func (r *SummarizationBatchRequest) Clone() SummarizationBatchRequest {
-	if r == nil {
-		return SummarizationBatchRequest{}
-	}
-	out := *r
-	out.Inputs = slices.Clone(r.Inputs)
 	out.Parameters = cloneStructPtr(r.Parameters, (*SummarizationParameters).Clone)
 
 	return out

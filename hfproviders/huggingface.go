@@ -82,12 +82,6 @@ func (HuggingFaceCodecs) FeatureExtractionCodec() FeatureExtractionCodec {
 	return JSONCodec[hftypes.FeatureExtractionRequest, hftypes.FeatureExtraction]{}
 }
 
-// FillMaskBatchCodec returns the JSON codec for batch fill-mask requests
-// and responses.
-func (HuggingFaceCodecs) FillMaskBatchCodec() FillMaskBatchCodec {
-	return JSONCodec[hftypes.FillMaskBatchRequest, [][]hftypes.FillMaskPrediction]{}
-}
-
 // FillMaskCodec returns the JSON codec for fill-mask requests and responses.
 func (HuggingFaceCodecs) FillMaskCodec() FillMaskCodec {
 	return JSONCodec[hftypes.FillMaskRequest, []hftypes.FillMaskPrediction]{}
@@ -111,12 +105,6 @@ func (HuggingFaceCodecs) QuestionAnsweringCodec() QuestionAnsweringCodec {
 	return hfQuestionAnsweringCodec{}
 }
 
-// SummarizationBatchCodec returns the JSON codec for batch summarization
-// requests and responses.
-func (HuggingFaceCodecs) SummarizationBatchCodec() SummarizationBatchCodec {
-	return JSONCodec[hftypes.SummarizationBatchRequest, []hftypes.Summarization]{}
-}
-
 // SummarizationCodec returns the JSON codec for summarization requests and
 // responses.
 func (HuggingFaceCodecs) SummarizationCodec() SummarizationCodec {
@@ -127,12 +115,6 @@ func (HuggingFaceCodecs) SummarizationCodec() SummarizationCodec {
 // question-answering requests and responses.
 func (HuggingFaceCodecs) TableQuestionAnsweringCodec() TableQuestionAnsweringCodec {
 	return JSONCodec[hftypes.TableQuestionAnsweringRequest, hftypes.TableQuestionAnswer]{}
-}
-
-// TextClassificationBatchCodec returns the JSON codec for batch
-// text-classification requests and responses.
-func (HuggingFaceCodecs) TextClassificationBatchCodec() TextClassificationBatchCodec {
-	return JSONCodec[hftypes.TextClassificationBatchRequest, [][]hftypes.TextClassification]{}
 }
 
 // TextClassificationCodec returns the flexible text-classification codec,
@@ -147,34 +129,16 @@ func (HuggingFaceCodecs) TextToImageCodec() TextToImageCodec {
 	return hfTextToImageCodec{}
 }
 
-// TokenClassificationBatchCodec returns the JSON codec for batch
-// token-classification requests and responses.
-func (HuggingFaceCodecs) TokenClassificationBatchCodec() TokenClassificationBatchCodec {
-	return JSONCodec[hftypes.TokenClassificationBatchRequest, [][]hftypes.TokenClassification]{}
-}
-
 // TokenClassificationCodec returns the JSON codec for token-classification
 // requests and responses.
 func (HuggingFaceCodecs) TokenClassificationCodec() TokenClassificationCodec {
 	return JSONCodec[hftypes.TokenClassificationRequest, []hftypes.TokenClassification]{}
 }
 
-// TranslationBatchCodec returns the JSON codec for batch translation
-// requests and responses.
-func (HuggingFaceCodecs) TranslationBatchCodec() TranslationBatchCodec {
-	return JSONCodec[hftypes.TranslationBatchRequest, []hftypes.Translation]{}
-}
-
 // TranslationCodec returns the JSON codec for translation requests and
 // responses.
 func (HuggingFaceCodecs) TranslationCodec() TranslationCodec {
 	return JSONCodec[hftypes.TranslationRequest, []hftypes.Translation]{}
-}
-
-// ZeroShotTextClassificationBatchCodec returns the JSON codec for batch
-// zero-shot text-classification requests and responses.
-func (HuggingFaceCodecs) ZeroShotTextClassificationBatchCodec() ZeroShotTextClassificationBatchCodec {
-	return JSONCodec[hftypes.ZeroShotTextClassificationBatchRequest, []hftypes.ZeroShotTextClassificationBatched]{}
 }
 
 // ZeroShotTextClassificationCodec returns the JSON codec for zero-shot
@@ -404,13 +368,6 @@ func (HuggingFaceEndpoints) ImageSegmentationEndpoint(params EndpointParams) (En
 	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }
 
-// TextClassificationBatchEndpoint returns the endpoint for batch text classification.
-func (e HuggingFaceEndpoints) TextClassificationBatchEndpoint(
-	params EndpointParams,
-) (Endpoint, error) {
-	return e.TextClassificationEndpoint(params)
-}
-
 // TextClassificationEndpoint returns the endpoint for text classification.
 func (HuggingFaceEndpoints) TextClassificationEndpoint(params EndpointParams) (Endpoint, error) {
 	if params.Model == "" {
@@ -422,13 +379,6 @@ func (HuggingFaceEndpoints) TextClassificationEndpoint(params EndpointParams) (E
 	}
 
 	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
-}
-
-// ZeroShotTextClassificationBatchEndpoint returns the endpoint for batch zero-shot text classification.
-func (e HuggingFaceEndpoints) ZeroShotTextClassificationBatchEndpoint(
-	params EndpointParams,
-) (Endpoint, error) {
-	return e.ZeroShotTextClassificationEndpoint(params)
 }
 
 // ZeroShotTextClassificationEndpoint returns the endpoint for zero-shot text classification.
@@ -444,13 +394,6 @@ func (HuggingFaceEndpoints) ZeroShotTextClassificationEndpoint(
 	}
 
 	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
-}
-
-// TokenClassificationBatchEndpoint returns the endpoint for batch token classification.
-func (e HuggingFaceEndpoints) TokenClassificationBatchEndpoint(
-	params EndpointParams,
-) (Endpoint, error) {
-	return e.TokenClassificationEndpoint(params)
 }
 
 // TokenClassificationEndpoint returns the endpoint for token classification.
@@ -507,11 +450,6 @@ func (HuggingFaceEndpoints) TextToImageEndpoint(params EndpointParams) (Endpoint
 	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }
 
-// FillMaskBatchEndpoint returns the endpoint for batch fill mask.
-func (e HuggingFaceEndpoints) FillMaskBatchEndpoint(params EndpointParams) (Endpoint, error) {
-	return e.FillMaskEndpoint(params)
-}
-
 // FillMaskEndpoint returns the endpoint for fill mask.
 func (HuggingFaceEndpoints) FillMaskEndpoint(params EndpointParams) (Endpoint, error) {
 	if params.Model == "" {
@@ -525,11 +463,6 @@ func (HuggingFaceEndpoints) FillMaskEndpoint(params EndpointParams) (Endpoint, e
 	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }
 
-// SummarizationBatchEndpoint returns the endpoint for batch summarization.
-func (e HuggingFaceEndpoints) SummarizationBatchEndpoint(params EndpointParams) (Endpoint, error) {
-	return e.SummarizationEndpoint(params)
-}
-
 // SummarizationEndpoint returns the endpoint for summarization.
 func (HuggingFaceEndpoints) SummarizationEndpoint(params EndpointParams) (Endpoint, error) {
 	if params.Model == "" {
@@ -541,11 +474,6 @@ func (HuggingFaceEndpoints) SummarizationEndpoint(params EndpointParams) (Endpoi
 	}
 
 	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
-}
-
-// TranslationBatchEndpoint returns the endpoint for batch translation.
-func (e HuggingFaceEndpoints) TranslationBatchEndpoint(params EndpointParams) (Endpoint, error) {
-	return e.TranslationEndpoint(params)
 }
 
 // TranslationEndpoint returns the endpoint for translation.

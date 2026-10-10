@@ -14,20 +14,6 @@ type FillMaskRequest struct {
 	Parameters *FillMaskParameters `json:"parameters,omitempty"`
 }
 
-// FillMaskBatchRequest represents a batched fill mask
-// request to the API for multiple masked inputs.
-//
-// NOTE: Batched inference is supported by the upstream API, but is not
-// officially documented; behavior may change without notice.
-type FillMaskBatchRequest struct {
-	// The inputs with masked tokens.
-	// Required.
-	Inputs []string `json:"inputs"`
-
-	// Additional inference parameters for mask filling
-	Parameters *FillMaskParameters `json:"parameters,omitempty"`
-}
-
 // FillMaskParameters specify additional inference
 // parameters for mask filling tasks.
 type FillMaskParameters struct {
@@ -62,18 +48,6 @@ func (r *FillMaskRequest) Clone() FillMaskRequest {
 		return FillMaskRequest{}
 	}
 	out := *r
-	out.Parameters = cloneStructPtr(r.Parameters, (*FillMaskParameters).Clone)
-
-	return out
-}
-
-// Clone returns a deep defensive copy of the request.
-func (r *FillMaskBatchRequest) Clone() FillMaskBatchRequest {
-	if r == nil {
-		return FillMaskBatchRequest{}
-	}
-	out := *r
-	out.Inputs = slices.Clone(r.Inputs)
 	out.Parameters = cloneStructPtr(r.Parameters, (*FillMaskParameters).Clone)
 
 	return out

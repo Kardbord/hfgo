@@ -1,4 +1,3 @@
-//nolint:dupl // Similar structure to other task functions by design
 package task
 
 import (
@@ -35,33 +34,4 @@ func Translate(
 	}
 
 	return doInference(opts, endpoint, prov.TranslationCodec(), req)
-}
-
-// TranslateBatch sends a translation request for a batch of inputs.
-func TranslateBatch(
-	opts hfopts.Options,
-	req hftypes.TranslationBatchRequest,
-) ([]hftypes.Translation, error) {
-	if err := validateDispatch(opts); err != nil {
-		return nil, err
-	}
-
-	prov, err := hfproviders.AsProvider[hfproviders.TranslationBatchProvider](opts.Provider)
-	if err != nil {
-		return nil, err
-	}
-
-	endpoint, err := prov.TranslationBatchEndpoint(hfproviders.EndpointParams{
-		Context: opts.Context(),
-		Model:   opts.Model,
-	})
-	if err != nil {
-		return nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: "error computing endpoint: " + err.Error(),
-			Err:     err,
-		}
-	}
-
-	return doInference(opts, endpoint, prov.TranslationBatchCodec(), req)
 }

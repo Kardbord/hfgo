@@ -43,42 +43,6 @@ func TestTranslation_LiveAPI(t *testing.T) {
 	require.NotEmpty(t, resp[0].TranslationText, "translation text should not be empty")
 }
 
-// TestTranslation_BatchLiveAPI tests batch translation against the live HF API.
-// This test requires the HF_TOKEN environment variable to be set.
-func TestTranslation_BatchLiveAPI(t *testing.T) {
-	apiToken := os.Getenv("HF_TOKEN")
-	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
-
-	const model = "google-t5/t5-small"
-
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer cancel()
-
-	client := hfgo.NewClient(
-		hfopts.WithToken(apiToken),
-		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
-	)
-
-	resp, err := client.TranslateBatch(
-		hftypes.TranslationBatchRequest{
-			Inputs: []string{
-				"Good morning, everyone.",
-				"See you tomorrow.",
-			},
-		},
-	)
-
-	require.NoError(t, err, "batch translation should succeed")
-	require.NotNil(t, resp, "response should not be nil")
-	require.Len(t, resp, 2, "response should have 2 translations")
-
-	for i, translation := range resp {
-		require.NotEmpty(t, translation.TranslationText, "translation text should not be empty")
-		t.Logf("Translation %d: %s", i, translation.TranslationText)
-	}
-}
-
 // TestTranslation_WithParameters tests translation with various parameters.
 // This test requires the HF_TOKEN environment variable to be set.
 func TestTranslation_WithParameters(t *testing.T) {
