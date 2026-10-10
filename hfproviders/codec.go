@@ -112,9 +112,6 @@ type (
 	// FeatureExtractionCodec is the Codec for the FeatureExtract task.
 	FeatureExtractionCodec = Codec[hftypes.FeatureExtractionRequest, hftypes.FeatureExtraction]
 
-	// FillMaskBatchCodec is the Codec for the FillMaskBatch task.
-	FillMaskBatchCodec = Codec[hftypes.FillMaskBatchRequest, [][]hftypes.FillMaskPrediction]
-
 	// FillMaskCodec is the Codec for the FillMask task.
 	FillMaskCodec = Codec[hftypes.FillMaskRequest, []hftypes.FillMaskPrediction]
 
@@ -130,17 +127,11 @@ type (
 	// QuestionAnsweringCodec is the Codec for the AnswerQuestion task.
 	QuestionAnsweringCodec = Codec[hftypes.QuestionAnsweringRequest, []hftypes.QuestionAnswering]
 
-	// SummarizationBatchCodec is the Codec for the SummarizeBatch task.
-	SummarizationBatchCodec = Codec[hftypes.SummarizationBatchRequest, []hftypes.Summarization]
-
 	// SummarizationCodec is the Codec for the Summarize task.
 	SummarizationCodec = Codec[hftypes.SummarizationRequest, []hftypes.Summarization]
 
 	// TableQuestionAnsweringCodec is the Codec for the AnswerTableQuestion task.
 	TableQuestionAnsweringCodec = Codec[hftypes.TableQuestionAnsweringRequest, hftypes.TableQuestionAnswer]
-
-	// TextClassificationBatchCodec is the Codec for the ClassifyTextBatch task.
-	TextClassificationBatchCodec = Codec[hftypes.TextClassificationBatchRequest, [][]hftypes.TextClassification]
 
 	// TextClassificationCodec is the Codec for the ClassifyText task.
 	TextClassificationCodec = Codec[hftypes.TextClassificationRequest, []hftypes.TextClassification]
@@ -148,20 +139,11 @@ type (
 	// TextToImageCodec is the Codec for the GenerateImage task.
 	TextToImageCodec = Codec[hftypes.TextToImageRequest, hftypes.TextToImageResponse]
 
-	// TokenClassificationBatchCodec is the Codec for the ClassifyTokensBatch task.
-	TokenClassificationBatchCodec = Codec[hftypes.TokenClassificationBatchRequest, [][]hftypes.TokenClassification]
-
 	// TokenClassificationCodec is the Codec for the ClassifyTokens task.
 	TokenClassificationCodec = Codec[hftypes.TokenClassificationRequest, []hftypes.TokenClassification]
 
-	// TranslationBatchCodec is the Codec for the TranslateBatch task.
-	TranslationBatchCodec = Codec[hftypes.TranslationBatchRequest, []hftypes.Translation]
-
 	// TranslationCodec is the Codec for the Translate task.
 	TranslationCodec = Codec[hftypes.TranslationRequest, []hftypes.Translation]
-
-	// ZeroShotTextClassificationBatchCodec is the Codec for the ZeroShotClassifyTextBatch task.
-	ZeroShotTextClassificationBatchCodec = Codec[hftypes.ZeroShotTextClassificationBatchRequest, []hftypes.ZeroShotTextClassificationBatched]
 
 	// ZeroShotTextClassificationCodec is the Codec for the ZeroShotClassifyText task.
 	ZeroShotTextClassificationCodec = Codec[hftypes.ZeroShotTextClassificationRequest, []hftypes.ZeroShotTextClassification]

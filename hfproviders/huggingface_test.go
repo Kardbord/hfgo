@@ -68,23 +68,14 @@ func endpointCases() []endpointCase {
 		ep("ImageClassificationEndpoint", e.ImageClassificationEndpoint),
 		ep("ImageSegmentationEndpoint", e.ImageSegmentationEndpoint),
 		ep("TextClassificationEndpoint", e.TextClassificationEndpoint),
-		ep("TextClassificationBatchEndpoint", e.TextClassificationBatchEndpoint),
 		ep("ZeroShotTextClassificationEndpoint", e.ZeroShotTextClassificationEndpoint),
-		ep(
-			"ZeroShotTextClassificationBatchEndpoint",
-			e.ZeroShotTextClassificationBatchEndpoint,
-		),
 		ep("TokenClassificationEndpoint", e.TokenClassificationEndpoint),
-		ep("TokenClassificationBatchEndpoint", e.TokenClassificationBatchEndpoint),
 		ep("QuestionAnsweringEndpoint", e.QuestionAnsweringEndpoint),
 		ep("TableQuestionAnsweringEndpoint", e.TableQuestionAnsweringEndpoint),
 		ep("TextToImageEndpoint", e.TextToImageEndpoint),
 		ep("FillMaskEndpoint", e.FillMaskEndpoint),
-		ep("FillMaskBatchEndpoint", e.FillMaskBatchEndpoint),
 		ep("SummarizationEndpoint", e.SummarizationEndpoint),
-		ep("SummarizationBatchEndpoint", e.SummarizationBatchEndpoint),
 		ep("TranslationEndpoint", e.TranslationEndpoint),
-		ep("TranslationBatchEndpoint", e.TranslationBatchEndpoint),
 	}
 }
 
@@ -158,11 +149,6 @@ func TestHuggingFaceCodecs_Wiring(t *testing.T) {
 	)
 	require.IsType(
 		t,
-		JSONCodec[hftypes.FillMaskBatchRequest, [][]hftypes.FillMaskPrediction]{},
-		c.FillMaskBatchCodec(),
-	)
-	require.IsType(
-		t,
 		JSONCodec[hftypes.FillMaskRequest, []hftypes.FillMaskPrediction]{},
 		c.FillMaskCodec(),
 	)
@@ -179,11 +165,6 @@ func TestHuggingFaceCodecs_Wiring(t *testing.T) {
 	require.IsType(t, hfQuestionAnsweringCodec{}, c.QuestionAnsweringCodec())
 	require.IsType(
 		t,
-		JSONCodec[hftypes.SummarizationBatchRequest, []hftypes.Summarization]{},
-		c.SummarizationBatchCodec(),
-	)
-	require.IsType(
-		t,
 		JSONCodec[hftypes.SummarizationRequest, []hftypes.Summarization]{},
 		c.SummarizationCodec(),
 	)
@@ -192,18 +173,8 @@ func TestHuggingFaceCodecs_Wiring(t *testing.T) {
 		JSONCodec[hftypes.TableQuestionAnsweringRequest, hftypes.TableQuestionAnswer]{},
 		c.TableQuestionAnsweringCodec(),
 	)
-	require.IsType(
-		t,
-		JSONCodec[hftypes.TextClassificationBatchRequest, [][]hftypes.TextClassification]{},
-		c.TextClassificationBatchCodec(),
-	)
 	require.IsType(t, hfTextClassificationCodec{}, c.TextClassificationCodec())
 	require.IsType(t, hfTextToImageCodec{}, c.TextToImageCodec())
-	require.IsType(
-		t,
-		JSONCodec[hftypes.TokenClassificationBatchRequest, [][]hftypes.TokenClassification]{},
-		c.TokenClassificationBatchCodec(),
-	)
 	require.IsType(
 		t,
 		JSONCodec[hftypes.TokenClassificationRequest, []hftypes.TokenClassification]{},
@@ -211,18 +182,8 @@ func TestHuggingFaceCodecs_Wiring(t *testing.T) {
 	)
 	require.IsType(
 		t,
-		JSONCodec[hftypes.TranslationBatchRequest, []hftypes.Translation]{},
-		c.TranslationBatchCodec(),
-	)
-	require.IsType(
-		t,
 		JSONCodec[hftypes.TranslationRequest, []hftypes.Translation]{},
 		c.TranslationCodec(),
-	)
-	require.IsType(
-		t,
-		JSONCodec[hftypes.ZeroShotTextClassificationBatchRequest, []hftypes.ZeroShotTextClassificationBatched]{},
-		c.ZeroShotTextClassificationBatchCodec(),
 	)
 	require.IsType(
 		t,

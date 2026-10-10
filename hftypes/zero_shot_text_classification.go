@@ -14,21 +14,6 @@ type ZeroShotTextClassificationRequest struct {
 	Parameters *ZeroShotTextClassificationParameters `json:"parameters,omitempty"`
 }
 
-// ZeroShotTextClassificationBatchRequest represents a batched zero-shot text
-// classification request to the API for multiple inputs.
-//
-// NOTE: Batched inference is supported by the upstream API, but is not
-// officially documented; behavior may change without notice.
-type ZeroShotTextClassificationBatchRequest struct {
-	// The texts to classify.
-	// Required.
-	Inputs []string `json:"inputs"`
-
-	// Additional inference parameters for zero-shot text classification.
-	// Required.
-	Parameters *ZeroShotTextClassificationParameters `json:"parameters,omitempty"`
-}
-
 // ZeroShotTextClassificationParameters specify additional inference parameters
 // for zero-shot text classification.
 type ZeroShotTextClassificationParameters struct {
@@ -57,40 +42,12 @@ type ZeroShotTextClassification struct {
 	Score float64 `json:"score"`
 }
 
-// ZeroShotTextClassificationBatched represents a zero-shot text classification output
-// for batched inputs.
-//
-// NOTE: Batched inference is supported by the upstream API, but is not
-// officially documented; behavior may change without notice.
-type ZeroShotTextClassificationBatched struct {
-	// The input on which classification was run.
-	Sequence string `json:"sequence"`
-
-	// The classification labels.
-	Labels []string `json:"labels"`
-
-	// The classification scores.
-	Scores []float64 `json:"scores"`
-}
-
 // Clone returns a deep defensive copy of the request.
 func (r *ZeroShotTextClassificationRequest) Clone() ZeroShotTextClassificationRequest {
 	if r == nil {
 		return ZeroShotTextClassificationRequest{}
 	}
 	out := *r
-	out.Parameters = cloneStructPtr(r.Parameters, (*ZeroShotTextClassificationParameters).Clone)
-
-	return out
-}
-
-// Clone returns a deep defensive copy of the request.
-func (r *ZeroShotTextClassificationBatchRequest) Clone() ZeroShotTextClassificationBatchRequest {
-	if r == nil {
-		return ZeroShotTextClassificationBatchRequest{}
-	}
-	out := *r
-	out.Inputs = slices.Clone(r.Inputs)
 	out.Parameters = cloneStructPtr(r.Parameters, (*ZeroShotTextClassificationParameters).Clone)
 
 	return out

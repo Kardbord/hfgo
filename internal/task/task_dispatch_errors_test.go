@@ -85,31 +85,13 @@ func (p endpointFailProvider) TextClassificationEndpoint(
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
-func (p endpointFailProvider) TextClassificationBatchEndpoint(
-	_ hfproviders.EndpointParams,
-) (hfproviders.Endpoint, error) {
-	return hfproviders.Endpoint{}, errEndpointUnavailable
-}
-
 func (p endpointFailProvider) ZeroShotTextClassificationEndpoint(
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
-func (p endpointFailProvider) ZeroShotTextClassificationBatchEndpoint(
-	_ hfproviders.EndpointParams,
-) (hfproviders.Endpoint, error) {
-	return hfproviders.Endpoint{}, errEndpointUnavailable
-}
-
 func (p endpointFailProvider) TokenClassificationEndpoint(
-	_ hfproviders.EndpointParams,
-) (hfproviders.Endpoint, error) {
-	return hfproviders.Endpoint{}, errEndpointUnavailable
-}
-
-func (p endpointFailProvider) TokenClassificationBatchEndpoint(
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
@@ -133,31 +115,13 @@ func (p endpointFailProvider) FillMaskEndpoint(
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
-func (p endpointFailProvider) FillMaskBatchEndpoint(
-	_ hfproviders.EndpointParams,
-) (hfproviders.Endpoint, error) {
-	return hfproviders.Endpoint{}, errEndpointUnavailable
-}
-
 func (p endpointFailProvider) SummarizationEndpoint(
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
-func (p endpointFailProvider) SummarizationBatchEndpoint(
-	_ hfproviders.EndpointParams,
-) (hfproviders.Endpoint, error) {
-	return hfproviders.Endpoint{}, errEndpointUnavailable
-}
-
 func (p endpointFailProvider) TranslationEndpoint(
-	_ hfproviders.EndpointParams,
-) (hfproviders.Endpoint, error) {
-	return hfproviders.Endpoint{}, errEndpointUnavailable
-}
-
-func (p endpointFailProvider) TranslationBatchEndpoint(
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
@@ -237,27 +201,11 @@ func dispatchErrorCases() []dispatchErrorCase {
 			},
 		},
 		{
-			"FillMaskBatch",
-			"error computing endpoint:",
-			func(opts ...hfopts.Option) (any, error) {
-				return hfgo.NewClient(opts...).
-					FillMaskBatch(hftypes.FillMaskBatchRequest{Inputs: []string{"The cat is [MASK]."}})
-			},
-		},
-		{
 			"Summarize",
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).
 					Summarize(hftypes.SummarizationRequest{Input: "Some long text."})
-			},
-		},
-		{
-			"SummarizeBatch",
-			"error computing endpoint:",
-			func(opts ...hfopts.Option) (any, error) {
-				return hfgo.NewClient(opts...).
-					SummarizeBatch(hftypes.SummarizationBatchRequest{Inputs: []string{"Some long text."}})
 			},
 		},
 		{
@@ -269,14 +217,6 @@ func dispatchErrorCases() []dispatchErrorCase {
 			},
 		},
 		{
-			"ClassifyTextBatch",
-			"error computing endpoint:",
-			func(opts ...hfopts.Option) (any, error) {
-				return hfgo.NewClient(opts...).
-					ClassifyTextBatch(hftypes.TextClassificationBatchRequest{Inputs: []string{"test"}})
-			},
-		},
-		{
 			"ClassifyTokens",
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
@@ -285,28 +225,11 @@ func dispatchErrorCases() []dispatchErrorCase {
 			},
 		},
 		{
-			"ClassifyTokensBatch",
-			"error computing endpoint:",
-			func(opts ...hfopts.Option) (any, error) {
-				return hfgo.NewClient(opts...).ClassifyTokensBatch(
-					hftypes.TokenClassificationBatchRequest{Inputs: []string{"My name is Sarah."}},
-				)
-			},
-		},
-		{
 			"Translate",
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).
 					Translate(hftypes.TranslationRequest{Input: "Hello."})
-			},
-		},
-		{
-			"TranslateBatch",
-			"error computing endpoint:",
-			func(opts ...hfopts.Option) (any, error) {
-				return hfgo.NewClient(opts...).
-					TranslateBatch(hftypes.TranslationBatchRequest{Inputs: []string{"Hello."}})
 			},
 		},
 		{
@@ -342,20 +265,6 @@ func dispatchErrorCases() []dispatchErrorCase {
 				}
 
 				return hfgo.NewClient(opts...).ZeroShotClassifyText(req)
-			},
-		},
-		{
-			"ZeroShotClassifyTextBatch",
-			"error computing endpoint:",
-			func(opts ...hfopts.Option) (any, error) {
-				req := hftypes.ZeroShotTextClassificationBatchRequest{
-					Inputs: []string{"test text"},
-					Parameters: &hftypes.ZeroShotTextClassificationParameters{
-						CandidateLabels: []string{"positive", "negative"},
-					},
-				}
-
-				return hfgo.NewClient(opts...).ZeroShotClassifyTextBatch(req)
 			},
 		},
 		{

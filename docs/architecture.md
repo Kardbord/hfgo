@@ -101,13 +101,13 @@ The SDK follows a strict immutability pattern for concurrency safety:
 
 2. **Client Methods**: Every inference endpoint is called directly on the `Client`
     - `Chat` / `StreamChat`: Chat completions
-    - `ClassifyText` / `ClassifyTextBatch`: Text classification
+    - `ClassifyText`: Text classification
     - `AnswerQuestion`: Question answering
-    - `ClassifyTokens` / `ClassifyTokensBatch`: Token classification (named entity recognition)
-    - `ZeroShotClassifyText` / `ZeroShotClassifyTextBatch`: Zero-shot text classification
-   - `FillMask` / `FillMaskBatch`: Mask filling
-   - `Summarize` / `SummarizeBatch`: Summarization
-    - `Translate` / `TranslateBatch`: Translation
+    - `ClassifyTokens`: Token classification (named entity recognition)
+    - `ZeroShotClassifyText`: Zero-shot text classification
+   - `FillMask`: Mask filling
+    - `Summarize`: Summarization
+    - `Translate`: Translation
     - `AnswerTableQuestion`: Table question answering
     - `FeatureExtract` / `FeatureExtractBatch`: Feature extraction (embeddings)
     - `DetectObjects`: Object detection
@@ -624,16 +624,6 @@ Single text classification.
 - Returns flat array of classifications for the single input
 - Automatically unwraps the response to get the single input result
 
-#### ClassifyTextBatch(req TextClassificationBatchRequest, opts ...hfopts.Option) ([][]TextClassification, error)
-Batch text classification for multiple inputs.
-
-**API Response Format Normalization**:
-The SDK handles a quirk in the HuggingFace API where the response format differs based on whether the `TopK` parameter is explicitly set:
-- **When TopK is explicitly set**: Returns `[[classifications for input1], [classifications for input2], ...]` (per-input format)
-- **When TopK is unset (nil)**: Returns `[[all classifications together]]` (flat format)
-
-This inconsistency is handled transparently by the `normalizeTextClassificationResponse()` helper function.
-
 ### Question Answering
 
 #### AnswerQuestion(req QuestionAnsweringRequest, opts ...hfopts.Option) ([]QuestionAnswering, error)
@@ -658,15 +648,6 @@ Single input token classification (named entity recognition).
 - Each entity includes its label, score, word text, and character span (start/end)
 - When aggregation_strategy is "none", the `Entity` field is populated; otherwise `EntityGroup` is populated
 
-#### ClassifyTokensBatch(req TokenClassificationBatchRequest, opts ...hfopts.Option) ([][]TokenClassification, error)
-Batch token classification for multiple inputs.
-
-**Behavior**:
-- Applies per-request options
-- Validates that a model is configured
-- Returns a list of entity lists, one per input, in input order
-- Callers should check the length of the response list before indexing
-
 ### Zero-Shot Text Classification
 
 #### ZeroShotClassifyText(req ZeroShotTextClassificationRequest, opts ...hfopts.Option) ([]ZeroShotTextClassification, error)
@@ -678,12 +659,6 @@ Single input zero-shot text classification.
 - Applies per-request options
 - Returns flat array of classifications for the single input, ordered by score (descending)
 
-#### ZeroShotClassifyTextBatch(req ZeroShotTextClassificationBatchRequest, opts ...hfopts.Option) ([][]ZeroShotTextClassification, error)
-Batch zero-shot text classification for multiple inputs.
-
-**API Response Normalization**:
-The HuggingFace API returns batched zero-shot results in a different format than single inputs. The SDK transparently normalizes responses via `normalizeResponse()`.
-
 ### Fill Mask
 
 #### FillMask(req FillMaskRequest, opts ...hfopts.Option) ([]FillMaskPrediction, error)
@@ -693,15 +668,6 @@ Single input mask filling.
 - Applies per-request options
 - Validates that a model is configured
 - Returns ranked mask filling predictions for the single input
-
-#### FillMaskBatch(req FillMaskBatchRequest, opts ...hfopts.Option) ([][]FillMaskPrediction, error)
-Batch mask filling for multiple inputs.
-
-**Behavior**:
-- Applies per-request options
-- Validates that a model is configured
-- Returns a list of prediction lists, one per input, in input order
-- Callers should check the length of the response list before indexing
 
 ### Summarization
 
@@ -713,14 +679,6 @@ Single text summarization.
 - Validates that a model is configured
 - Returns a flat list of `Summarization` outputs for the single input
 
-#### SummarizeBatch(req SummarizationBatchRequest, opts ...hfopts.Option) ([]Summarization, error)
-Batch text summarization for multiple inputs.
-
-**Behavior**:
-- Applies per-request options
-- Validates that a model is configured
-- The API returns a flat list of `Summarization` outputs (one per input, in order) rather than a nested list, consistent with how it returns a list even for a single input
-
 ### Translation
 
 #### Translate(req TranslationRequest, opts ...hfopts.Option) ([]Translation, error)
@@ -730,14 +688,6 @@ Single text translation.
 - Applies per-request options
 - Validates that a model is configured
 - Returns a flat list of `Translation` outputs for the single input
-
-#### TranslateBatch(req TranslationBatchRequest, opts ...hfopts.Option) ([]Translation, error)
-Batch text translation for multiple inputs.
-
-**Behavior**:
-- Applies per-request options
-- Validates that a model is configured
-- The API returns a flat list of `Translation` outputs (one per input, in order) rather than a nested list, consistent with how it returns a list even for a single input
 
 ### Table Question Answering
 

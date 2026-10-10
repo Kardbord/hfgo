@@ -127,8 +127,6 @@ func (c Client) ChatStream(
 
 // ClassifyText sends a text classification request and returns the text
 // classification response for a single input.
-//
-// For multiple classification inputs, use ClassifyTextBatch.
 func (c Client) ClassifyText(
 	req hftypes.TextClassificationRequest,
 	opts ...hfopts.Option,
@@ -136,43 +134,13 @@ func (c Client) ClassifyText(
 	return task.ClassifyText(c.opts.With(opts...), req)
 }
 
-// ClassifyTextBatch sends a text classification request for a batch of inputs
-// and returns a list of text classification responses for each input in the batch.
-//
-// NOTE: Batched inference is supported by the upstream API, but is not
-// officially documented; behavior may change without notice.
-//
-// Callers should check the length of the response list before indexing.
-func (c Client) ClassifyTextBatch(
-	req hftypes.TextClassificationBatchRequest,
-	opts ...hfopts.Option,
-) ([][]hftypes.TextClassification, error) {
-	return task.ClassifyTextBatch(c.opts.With(opts...), req)
-}
-
 // ClassifyTokens sends a token classification request and returns the token
 // classification response for a single input.
-//
-// For multiple inputs, use ClassifyTokensBatch.
 func (c Client) ClassifyTokens(
 	req hftypes.TokenClassificationRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.TokenClassification, error) {
 	return task.ClassifyTokens(c.opts.With(opts...), req)
-}
-
-// ClassifyTokensBatch sends a token classification request for a batch of inputs
-// and returns a list of token classification responses for each input in the batch.
-//
-// NOTE: Batched inference is supported by the upstream API, but is not
-// officially documented; behavior may change without notice.
-//
-// Callers should check the length of the response list before indexing.
-func (c Client) ClassifyTokensBatch(
-	req hftypes.TokenClassificationBatchRequest,
-	opts ...hfopts.Option,
-) ([][]hftypes.TokenClassification, error) {
-	return task.ClassifyTokensBatch(c.opts.With(opts...), req)
 }
 
 // ClassifyImage sends an image classification request and returns a list of
@@ -198,8 +166,6 @@ func (c Client) AnswerQuestion(
 
 // ZeroShotClassifyText sends a zero-shot text classification request and
 // returns the zero-shot text classification response for a single input.
-//
-// For multiple inputs, use ZeroShotClassifyTextBatch.
 func (c Client) ZeroShotClassifyText(
 	req hftypes.ZeroShotTextClassificationRequest,
 	opts ...hfopts.Option,
@@ -207,25 +173,8 @@ func (c Client) ZeroShotClassifyText(
 	return task.ZeroShotClassifyText(c.opts.With(opts...), req)
 }
 
-// ZeroShotClassifyTextBatch sends a zero-shot text classification request for
-// a batch of inputs and returns a list of zero-shot text classification
-// responses for each input in the batch.
-//
-// NOTE: Batched inference is supported by the upstream API, but is not
-// officially documented; behavior may change without notice.
-//
-// Callers should check the length of the response list before indexing.
-func (c Client) ZeroShotClassifyTextBatch(
-	req hftypes.ZeroShotTextClassificationBatchRequest,
-	opts ...hfopts.Option,
-) ([][]hftypes.ZeroShotTextClassification, error) {
-	return task.ZeroShotClassifyTextBatch(c.opts.With(opts...), req)
-}
-
 // FillMask sends a fill mask request and returns the mask filling predictions
 // for a single input.
-//
-// For multiple inputs, use FillMaskBatch.
 func (c Client) FillMask(
 	req hftypes.FillMaskRequest,
 	opts ...hfopts.Option,
@@ -233,47 +182,16 @@ func (c Client) FillMask(
 	return task.FillMask(c.opts.With(opts...), req)
 }
 
-// FillMaskBatch sends a fill mask request for a batch of inputs and returns a
-// list of mask filling predictions for each input in the batch.
-//
-// NOTE: Batched inference is supported by the upstream API, but is not
-// officially documented; behavior may change without notice.
-//
-// Callers should check the length of the response list before indexing.
-func (c Client) FillMaskBatch(
-	req hftypes.FillMaskBatchRequest,
-	opts ...hfopts.Option,
-) ([][]hftypes.FillMaskPrediction, error) {
-	return task.FillMaskBatch(c.opts.With(opts...), req)
-}
-
 // Summarize sends a summarization request and returns the summarization output
 // for a single input.
 //
 // The API always returns a list for summarization; a single input yields a
 // one-element list rather than a bare summary object.
-//
-// For multiple inputs, use SummarizeBatch.
 func (c Client) Summarize(
 	req hftypes.SummarizationRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.Summarization, error) {
 	return task.Summarize(c.opts.With(opts...), req)
-}
-
-// SummarizeBatch sends a summarization request for a batch of inputs and returns
-// a flat list of summarization outputs, one for each input in the batch, in the
-// same order as the inputs.
-//
-// NOTE: Batched inference is supported by the upstream API, but is not
-// officially documented; behavior may change without notice. The response is
-// a flat list (one summary per input) — not a nested list — consistent with
-// how the API returns a list even for a single input.
-func (c Client) SummarizeBatch(
-	req hftypes.SummarizationBatchRequest,
-	opts ...hfopts.Option,
-) ([]hftypes.Summarization, error) {
-	return task.SummarizeBatch(c.opts.With(opts...), req)
 }
 
 // AnswerTableQuestion sends a table question answering request and returns the answer.
@@ -297,28 +215,11 @@ func (c Client) AnswerTableQuestion(
 //
 // The API always returns a list for translation; a single input yields a
 // one-element list rather than a bare translation object.
-//
-// For multiple inputs, use TranslateBatch.
 func (c Client) Translate(
 	req hftypes.TranslationRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.Translation, error) {
 	return task.Translate(c.opts.With(opts...), req)
-}
-
-// TranslateBatch sends a translation request for a batch of inputs and returns
-// a flat list of translation outputs, one for each input in the batch, in the
-// same order as the inputs.
-//
-// NOTE: Batched inference is supported by the upstream API, but is not
-// officially documented; behavior may change without notice. The response is
-// a flat list (one translation per input) — not a nested list — consistent with
-// how the API returns a list even for a single input.
-func (c Client) TranslateBatch(
-	req hftypes.TranslationBatchRequest,
-	opts ...hfopts.Option,
-) ([]hftypes.Translation, error) {
-	return task.TranslateBatch(c.opts.With(opts...), req)
 }
 
 // FeatureExtract sends a feature extraction request and returns the embedding
@@ -337,9 +238,9 @@ func (c Client) FeatureExtract(
 // FeatureExtractBatch sends a feature extraction request for a batch of inputs
 // and returns embedding vectors for each input in the batch.
 //
-// NOTE: Batched inference is supported by the upstream API, but is not
-// officially documented; behavior may change without notice. The response
-// is a flat list of embedding vectors in the same order as the inputs.
+// Batch input is part of the upstream inference schema for feature extraction:
+// the API accepts either a string or a list of strings. The response is a flat
+// list of embedding vectors in the same order as the inputs.
 //
 // NOTE: hf-inference is NOT the only supported provider, add support for other providers.
 func (c Client) FeatureExtractBatch(

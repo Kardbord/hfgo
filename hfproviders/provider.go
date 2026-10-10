@@ -129,13 +129,6 @@ type FeatureExtractionProvider interface {
 	FeatureExtractionCodec() FeatureExtractionCodec
 }
 
-// FillMaskBatchProvider is a Provider that supplies an endpoint and Codec for the FillMaskBatch task.
-type FillMaskBatchProvider interface {
-	Provider
-	FillMaskBatchEndpoint(params EndpointParams) (Endpoint, error)
-	FillMaskBatchCodec() FillMaskBatchCodec
-}
-
 // FillMaskProvider is a Provider that supplies an endpoint and Codec for the FillMask task.
 type FillMaskProvider interface {
 	Provider
@@ -173,14 +166,6 @@ type QuestionAnsweringProvider interface {
 	QuestionAnsweringCodec() QuestionAnsweringCodec
 }
 
-// SummarizationBatchProvider is a Provider that supplies an endpoint and Codec for the
-// SummarizeBatch task.
-type SummarizationBatchProvider interface {
-	Provider
-	SummarizationBatchEndpoint(params EndpointParams) (Endpoint, error)
-	SummarizationBatchCodec() SummarizationBatchCodec
-}
-
 // SummarizationProvider is a Provider that supplies an endpoint and Codec for the Summarize task.
 type SummarizationProvider interface {
 	Provider
@@ -194,14 +179,6 @@ type TableQuestionAnsweringProvider interface {
 	Provider
 	TableQuestionAnsweringEndpoint(params EndpointParams) (Endpoint, error)
 	TableQuestionAnsweringCodec() TableQuestionAnsweringCodec
-}
-
-// TextClassificationBatchProvider is a Provider that supplies an endpoint and Codec for the
-// ClassifyTextBatch task.
-type TextClassificationBatchProvider interface {
-	Provider
-	TextClassificationBatchEndpoint(params EndpointParams) (Endpoint, error)
-	TextClassificationBatchCodec() TextClassificationBatchCodec
 }
 
 // TextClassificationProvider is a Provider that supplies an endpoint and Codec for the
@@ -220,14 +197,6 @@ type TextToImageProvider interface {
 	TextToImageCodec() TextToImageCodec
 }
 
-// TokenClassificationBatchProvider is a Provider that supplies an endpoint and Codec for the
-// ClassifyTokensBatch task.
-type TokenClassificationBatchProvider interface {
-	Provider
-	TokenClassificationBatchEndpoint(params EndpointParams) (Endpoint, error)
-	TokenClassificationBatchCodec() TokenClassificationBatchCodec
-}
-
 // TokenClassificationProvider is a Provider that supplies an endpoint and Codec for the
 // ClassifyTokens task.
 type TokenClassificationProvider interface {
@@ -236,27 +205,11 @@ type TokenClassificationProvider interface {
 	TokenClassificationCodec() TokenClassificationCodec
 }
 
-// TranslationBatchProvider is a Provider that supplies an endpoint and Codec for the
-// TranslateBatch task.
-type TranslationBatchProvider interface {
-	Provider
-	TranslationBatchEndpoint(params EndpointParams) (Endpoint, error)
-	TranslationBatchCodec() TranslationBatchCodec
-}
-
 // TranslationProvider is a Provider that supplies an endpoint and Codec for the Translate task.
 type TranslationProvider interface {
 	Provider
 	TranslationEndpoint(params EndpointParams) (Endpoint, error)
 	TranslationCodec() TranslationCodec
-}
-
-// ZeroShotTextClassificationBatchProvider is a Provider that supplies an endpoint and Codec
-// for the ZeroShotClassifyTextBatch task.
-type ZeroShotTextClassificationBatchProvider interface {
-	Provider
-	ZeroShotTextClassificationBatchEndpoint(params EndpointParams) (Endpoint, error)
-	ZeroShotTextClassificationBatchCodec() ZeroShotTextClassificationBatchCodec
 }
 
 // ZeroShotTextClassificationProvider is a Provider that supplies an endpoint and Codec for

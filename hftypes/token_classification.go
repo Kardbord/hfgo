@@ -13,20 +13,6 @@ type TokenClassificationRequest struct {
 	Parameters *TokenClassificationParameters `json:"parameters,omitempty"`
 }
 
-// TokenClassificationBatchRequest represents a batched token classification
-// request to the API for multiple inputs.
-//
-// NOTE: Batched inference is supported by the upstream API, but is not
-// officially documented; behavior may change without notice.
-type TokenClassificationBatchRequest struct {
-	// The texts to classify tokens from.
-	// Required.
-	Inputs []string `json:"inputs"`
-
-	// Additional inference parameters for token classification.
-	Parameters *TokenClassificationParameters `json:"parameters,omitempty"`
-}
-
 // TokenClassificationParameters specify additional inference
 // parameters for token classification.
 type TokenClassificationParameters struct {
@@ -89,18 +75,6 @@ func (r *TokenClassificationRequest) Clone() TokenClassificationRequest {
 		return TokenClassificationRequest{}
 	}
 	out := *r
-	out.Parameters = cloneStructPtr(r.Parameters, (*TokenClassificationParameters).Clone)
-
-	return out
-}
-
-// Clone returns a deep defensive copy of the request.
-func (r *TokenClassificationBatchRequest) Clone() TokenClassificationBatchRequest {
-	if r == nil {
-		return TokenClassificationBatchRequest{}
-	}
-	out := *r
-	out.Inputs = slices.Clone(r.Inputs)
 	out.Parameters = cloneStructPtr(r.Parameters, (*TokenClassificationParameters).Clone)
 
 	return out
