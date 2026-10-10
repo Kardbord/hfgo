@@ -10,7 +10,9 @@ updates:
     commit-message:
       prefix: "fix(deps)"
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - "/"
+      - "/.github/actions/*"
     schedule:
       interval: weekly
       day: monday
@@ -24,3 +26,7 @@ updates:
       cache:
         patterns:
           - "actions/cache/*"
+      per-dependency:
+        group-by: dependency-name
+        patterns:
+          - "*"
