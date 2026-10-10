@@ -383,6 +383,14 @@ next reader does not mistake them for dead ends:
   not model it. Add `SentenceSimilarityEndpoint` +
   `SentenceSimilarityProvider` + a task function if the typed layer gains
   the endpoint.
+- Batched inference beyond feature extraction: batched variants of
+  text/token/zero-shot classification, fill-mask, summarization, and
+  translation are absent from the upstream inference schema and untyped by
+  the official clients, so the SDK intentionally does not model them (feature
+  extraction is the exception, because its schema declares list input).
+  Re-adding a task's batch variant is additive once the schema documents list
+  input; undocumented batch surface may instead live in a future
+  `hfexperimental` submodule or separate repository.
 
 ## Error Handling
 
