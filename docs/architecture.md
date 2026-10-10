@@ -278,6 +278,9 @@ records just those:
 | ImageSegmentation           | `SegmentImage`         | `[]ImageSegmentation`           |
 | TextToImage                 | `GenerateImage`        | `TextToImageResponse`           |
 
+`ChatStream` is an SDK streaming variant of the `Chat` task (server-sent
+events), not a separate entry in Hugging Face's task taxonomy.
+
 Pipeline tasks post to `hf-inference/models/{model}`; feature extraction
 appends `/pipeline/feature-extraction`. Chat endpoints are
 `POST v1/chat/completions` and carry the model in the body.
