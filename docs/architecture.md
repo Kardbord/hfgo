@@ -75,7 +75,7 @@ None of these packages are part of the public API.
 
 | Package | Contents |
 |---------|----------|
-| `internal/task` | Package-level task functions (`Chat`, `StreamChat`, `ClassifyText`, …) |
+| `internal/task` | Package-level task functions (`Chat`, `ChatStream`, `ClassifyText`, …) |
 | `internal/request` | HTTP plumbing, JSON decode helpers, and SSE parsing |
 | `internal/utils` | Shared helpers used by `hfopts`, `internal/request`, and internal packages |
 | `internal/testutils` | Shared test helpers (mock transports, mock provider, trackers, pointers) |
@@ -100,7 +100,7 @@ The SDK follows a strict immutability pattern for concurrency safety:
    - Each method call snapshots the client's options, so calls are independent and deterministic
 
 2. **Client Methods**: Every inference endpoint is called directly on the `Client`
-    - `Chat` / `StreamChat`: Chat completions
+    - `Chat` / `ChatStream`: Chat completions
     - `ClassifyText`: Text classification
     - `AnswerQuestion`: Question answering
     - `ClassifyTokens`: Token classification (named entity recognition)
@@ -109,7 +109,7 @@ The SDK follows a strict immutability pattern for concurrency safety:
     - `Summarize`: Summarization
     - `Translate`: Translation
     - `AnswerTableQuestion`: Table question answering
-    - `FeatureExtract` / `FeatureExtractBatch`: Feature extraction (embeddings)
+    - `ExtractFeatures` / `ExtractFeaturesBatch`: Feature extraction (embeddings)
     - `DetectObjects`: Object detection
     - `ClassifyImage`: Image classification
     - `SegmentImage`: Image segmentation
@@ -238,6 +238,60 @@ endpoints like `ChatEndpoint` never reject an empty one.
   the response's parsed image media type, validating that the response
   advertises an `image/*` media type.
 
+#### Task Naming Map
+
+Each task crosses several layers, and the names intentionally use two
+vocabularies: **client methods use an action verb** (what the caller does),
+while **provider interfaces, endpoints, codecs, and DTOs use the upstream task
+noun** (matching Hugging Face's task taxonomy). There are no task-name
+constants: task support is expressed structurally through these interfaces.
+
+Provider-layer names are mechanical functions of the task noun:
+
+- provider interface: `{Noun}Provider`
+- endpoint: `{Noun}Endpoint`
+- codec: `{Noun}Codec`
+- request DTO: `{Noun}Request`
+
+The one batch variant (feature extraction) inserts `Batch` before each suffix,
+e.g. `{Noun}BatchProvider`, `{Noun}BatchEndpoint`, `{Noun}BatchRequest`.
+
+Only the client verb and the result type are not mechanical, so the table
+records just those:
+
+| Task noun                   | Client method          | Result                          |
+| --------------------------- | ---------------------- | ------------------------------- |
+| Chat                        | `Chat`                 | `ChatResponse`                  |
+| ChatStream                  | `ChatStream`           | `ChatStreamResponse`            |
+| TextClassification          | `ClassifyText`         | `[]TextClassification`          |
+| TokenClassification         | `ClassifyTokens`       | `[]TokenClassification`         |
+| ZeroShotTextClassification  | `ZeroShotClassifyText` | `[]ZeroShotTextClassification`  |
+| FillMask                    | `FillMask`             | `[]FillMaskPrediction`          |
+| Summarization               | `Summarize`            | `[]Summarization`               |
+| Translation                 | `Translate`            | `[]Translation`                 |
+| QuestionAnswering           | `AnswerQuestion`       | `[]QuestionAnswering`           |
+| TableQuestionAnswering      | `AnswerTableQuestion`  | `TableQuestionAnswer`           |
+| FeatureExtraction           | `ExtractFeatures`      | `FeatureExtraction`             |
+| FeatureExtractionBatch      | `ExtractFeaturesBatch` | `[]FeatureExtraction`           |
+| ObjectDetection             | `DetectObjects`        | `[]ObjectDetection`             |
+| ImageClassification         | `ClassifyImage`        | `[]ImageClassification`         |
+| ImageSegmentation           | `SegmentImage`         | `[]ImageSegmentation`           |
+| TextToImage                 | `GenerateImage`        | `TextToImageResponse`           |
+
+`ChatStream` is an SDK streaming variant of the `Chat` task (server-sent
+events), not a separate entry in Hugging Face's task taxonomy.
+
+Pipeline tasks post to `hf-inference/models/{model}`; feature extraction
+appends `/pipeline/feature-extraction`. Chat endpoints are
+`POST v1/chat/completions` and carry the model in the body.
+
+Result types are named for their semantic content rather than mechanically
+after the task: `FillMaskPrediction` and `TableQuestionAnswer` are
+descriptive, and `{Noun}Response` marks a raw/wrapper payload (chat,
+text-to-image). Feature extraction is the only task with a batch variant,
+because it is the only one whose upstream inference schema declares list input
+(`inputs: oneOf [string, string[]]`).
+
 #### Headers and Precedence
 
 Codec-returned request headers are applied as **defaults**: headers the caller
@@ -332,6 +386,14 @@ next reader does not mistake them for dead ends:
   not model it. Add `SentenceSimilarityEndpoint` +
   `SentenceSimilarityProvider` + a task function if the typed layer gains
   the endpoint.
+- Batched inference beyond feature extraction: batched variants of
+  text/token/zero-shot classification, fill-mask, summarization, and
+  translation are absent from the upstream inference schema and untyped by
+  the official clients, so the SDK intentionally does not model them (feature
+  extraction is the exception, because its schema declares list input).
+  Re-adding a task's batch variant is additive once the schema documents list
+  input; undocumented batch surface may instead live in a future
+  `hfexperimental` submodule or separate repository.
 
 ## Error Handling
 
@@ -705,7 +767,7 @@ The HuggingFace API returns a bare JSON object for table question answering, not
 
 ### Feature Extraction
 
-#### FeatureExtract(req FeatureExtractionRequest, opts ...hfopts.Option) (FeatureExtraction, error)
+#### ExtractFeatures(req FeatureExtractionRequest, opts ...hfopts.Option) (FeatureExtraction, error)
 Single input feature extraction (embeddings).
 
 **Behavior**:
@@ -720,7 +782,7 @@ Single input feature extraction (embeddings).
 - `truncate` (bool): Whether to truncate input to model's max length
 - `truncation_direction` ("left" | "right"): Direction to truncate from
 
-#### FeatureExtractBatch(req FeatureExtractionBatchRequest, opts ...hfopts.Option) ([]FeatureExtraction, error)
+#### ExtractFeaturesBatch(req FeatureExtractionBatchRequest, opts ...hfopts.Option) ([]FeatureExtraction, error)
 Batch feature extraction for multiple inputs.
 
 **Behavior**:

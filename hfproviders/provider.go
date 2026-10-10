@@ -53,9 +53,12 @@ func AsProvider[T Provider](provider Provider) (T, error) {
 // Options.Headers; provider and codec implementations must not set an
 // Authorization header.
 type Provider interface {
-	// ProviderSuffix returns the provider suffix appended to model IDs
-	// for routing in OpenAI-compatible endpoints. An empty string means
-	// no suffix is appended (e.g. for the default HuggingFace provider).
+	// ProviderSuffix returns the routing token this provider wants appended to
+	// model IDs for wire formats that carry the model in the request body. It
+	// is a general model-routing capability rather than a chat-specific one, so
+	// any task that adopts a model-in-body format can reuse it. An empty string
+	// means no suffix is appended (e.g. for the default HuggingFace provider,
+	// where the router selects the provider server-side).
 	ProviderSuffix() string
 
 	// Name returns the name of the given provider for debug purposes.
@@ -114,7 +117,7 @@ type ChatStreamProvider interface {
 }
 
 // FeatureExtractionBatchProvider is a Provider that supplies an endpoint and Codec for the
-// FeatureExtractBatch task.
+// FeatureExtractionBatch task.
 type FeatureExtractionBatchProvider interface {
 	Provider
 	FeatureExtractionBatchEndpoint(params EndpointParams) (Endpoint, error)
@@ -122,7 +125,7 @@ type FeatureExtractionBatchProvider interface {
 }
 
 // FeatureExtractionProvider is a Provider that supplies an endpoint and Codec for the
-// FeatureExtract task.
+// FeatureExtraction task.
 type FeatureExtractionProvider interface {
 	Provider
 	FeatureExtractionEndpoint(params EndpointParams) (Endpoint, error)
@@ -137,52 +140,55 @@ type FillMaskProvider interface {
 }
 
 // ImageClassificationProvider is a Provider that supplies an endpoint and Codec
-// for the ClassifyImage task.
+// for the ImageClassification task.
 type ImageClassificationProvider interface {
 	Provider
 	ImageClassificationEndpoint(params EndpointParams) (Endpoint, error)
 	ImageClassificationCodec() ImageClassificationCodec
 }
 
-// ObjectDetectionProvider is a Provider that supplies an endpoint and Codec for the DetectObject task.
+// ObjectDetectionProvider is a Provider that supplies an endpoint and Codec for
+// the ObjectDetection task.
 type ObjectDetectionProvider interface {
 	Provider
-	DetectObjectsEndpoint(params EndpointParams) (Endpoint, error)
-	DetectObjectsCodec() DetectObjectsCodec
+	ObjectDetectionEndpoint(params EndpointParams) (Endpoint, error)
+	ObjectDetectionCodec() ObjectDetectionCodec
 }
 
-// ImageSegmentationProvider is a Provider that supplies an endpoint and Codec for the SegmentImage task.
+// ImageSegmentationProvider is a Provider that supplies an endpoint and Codec
+// for the ImageSegmentation task.
 type ImageSegmentationProvider interface {
 	Provider
 	ImageSegmentationEndpoint(params EndpointParams) (Endpoint, error)
 	ImageSegmentationCodec() ImageSegmentationCodec
 }
 
-// QuestionAnsweringProvider is a Provider that supplies an endpoint and Codec for the
-// AnswerQuestion task.
+// QuestionAnsweringProvider is a Provider that supplies an endpoint and Codec
+// for the QuestionAnswering task.
 type QuestionAnsweringProvider interface {
 	Provider
 	QuestionAnsweringEndpoint(params EndpointParams) (Endpoint, error)
 	QuestionAnsweringCodec() QuestionAnsweringCodec
 }
 
-// SummarizationProvider is a Provider that supplies an endpoint and Codec for the Summarize task.
+// SummarizationProvider is a Provider that supplies an endpoint and Codec for
+// the Summarization task.
 type SummarizationProvider interface {
 	Provider
 	SummarizationEndpoint(params EndpointParams) (Endpoint, error)
 	SummarizationCodec() SummarizationCodec
 }
 
-// TableQuestionAnsweringProvider is a Provider that supplies an endpoint and Codec for the
-// AnswerTableQuestion task.
+// TableQuestionAnsweringProvider is a Provider that supplies an endpoint and
+// Codec for the TableQuestionAnswering task.
 type TableQuestionAnsweringProvider interface {
 	Provider
 	TableQuestionAnsweringEndpoint(params EndpointParams) (Endpoint, error)
 	TableQuestionAnsweringCodec() TableQuestionAnsweringCodec
 }
 
-// TextClassificationProvider is a Provider that supplies an endpoint and Codec for the
-// ClassifyText task.
+// TextClassificationProvider is a Provider that supplies an endpoint and Codec
+// for the TextClassification task.
 type TextClassificationProvider interface {
 	Provider
 	TextClassificationEndpoint(params EndpointParams) (Endpoint, error)
@@ -190,30 +196,31 @@ type TextClassificationProvider interface {
 }
 
 // TextToImageProvider is a Provider that supplies an endpoint and Codec for the
-// GenerateImage task.
+// TextToImage task.
 type TextToImageProvider interface {
 	Provider
 	TextToImageEndpoint(params EndpointParams) (Endpoint, error)
 	TextToImageCodec() TextToImageCodec
 }
 
-// TokenClassificationProvider is a Provider that supplies an endpoint and Codec for the
-// ClassifyTokens task.
+// TokenClassificationProvider is a Provider that supplies an endpoint and Codec
+// for the TokenClassification task.
 type TokenClassificationProvider interface {
 	Provider
 	TokenClassificationEndpoint(params EndpointParams) (Endpoint, error)
 	TokenClassificationCodec() TokenClassificationCodec
 }
 
-// TranslationProvider is a Provider that supplies an endpoint and Codec for the Translate task.
+// TranslationProvider is a Provider that supplies an endpoint and Codec for the
+// Translation task.
 type TranslationProvider interface {
 	Provider
 	TranslationEndpoint(params EndpointParams) (Endpoint, error)
 	TranslationCodec() TranslationCodec
 }
 
-// ZeroShotTextClassificationProvider is a Provider that supplies an endpoint and Codec for
-// the ZeroShotClassifyText task.
+// ZeroShotTextClassificationProvider is a Provider that supplies an endpoint
+// and Codec for the ZeroShotTextClassification task.
 type ZeroShotTextClassificationProvider interface {
 	Provider
 	ZeroShotTextClassificationEndpoint(params EndpointParams) (Endpoint, error)

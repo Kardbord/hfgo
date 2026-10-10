@@ -30,7 +30,7 @@ func main() {
 	fmt.Println("...")
 
 	// Make the feature extraction request
-	embedding, err := client.FeatureExtract(
+	embedding, err := client.ExtractFeatures(
 		hftypes.FeatureExtractionRequest{
 			Input: input,
 		},

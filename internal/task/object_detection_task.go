@@ -21,7 +21,7 @@ func DetectObjects(
 		return nil, err
 	}
 
-	endpoint, err := prov.DetectObjectsEndpoint(hfproviders.EndpointParams{
+	endpoint, err := prov.ObjectDetectionEndpoint(hfproviders.EndpointParams{
 		Context: opts.Context(),
 		Model:   opts.Model,
 	})
@@ -33,5 +33,5 @@ func DetectObjects(
 		}
 	}
 
-	return doInference(opts, endpoint, prov.DetectObjectsCodec(), req)
+	return doInference(opts, endpoint, prov.ObjectDetectionCodec(), req)
 }

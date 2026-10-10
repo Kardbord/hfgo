@@ -31,7 +31,7 @@ func TestFeatureExtraction_LiveAPI(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.FeatureExtract(
+	resp, err := client.ExtractFeatures(
 		hftypes.FeatureExtractionRequest{
 			Input: "What is the capital of France?",
 		},
@@ -64,7 +64,7 @@ func TestFeatureExtraction_BatchLiveAPI(t *testing.T) {
 		"I love programming in Go.",
 	}
 
-	resp, err := client.FeatureExtractBatch(
+	resp, err := client.ExtractFeaturesBatch(
 		hftypes.FeatureExtractionBatchRequest{
 			Inputs: inputs,
 		},
@@ -100,7 +100,7 @@ func TestFeatureExtraction_WithParameters(t *testing.T) {
 	normalize := true
 	truncate := true
 	truncDir := hftypes.FeatureExtractionTruncationRight
-	resp, err := client.FeatureExtract(
+	resp, err := client.ExtractFeatures(
 		hftypes.FeatureExtractionRequest{
 			Input: "The capital of France is Paris, a city on the Seine.",
 			Parameters: &hftypes.FeatureExtractionParameters{
@@ -131,7 +131,7 @@ func TestFeatureExtraction_ContextCancellation(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.FeatureExtract(
+	resp, err := client.ExtractFeatures(
 		hftypes.FeatureExtractionRequest{
 			Input: "What is the capital of France?",
 		},
@@ -161,7 +161,7 @@ func TestFeatureExtraction_BatchWithParameters(t *testing.T) {
 	normalize := true
 	truncate := true
 	truncDir := hftypes.FeatureExtractionTruncationRight
-	resp, err := client.FeatureExtractBatch(
+	resp, err := client.ExtractFeaturesBatch(
 		hftypes.FeatureExtractionBatchRequest{
 			Inputs: []string{
 				"The weather is nice today.",
@@ -201,7 +201,7 @@ func TestFeatureExtraction_BatchContextCancellation(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.FeatureExtractBatch(
+	resp, err := client.ExtractFeaturesBatch(
 		hftypes.FeatureExtractionBatchRequest{
 			Inputs: []string{"The weather is nice today.", "I love programming in Go."},
 		},

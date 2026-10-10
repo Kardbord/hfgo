@@ -64,7 +64,7 @@ func endpointCases() []endpointCase {
 			wantPath:      pipeline,
 			modelRequired: true,
 		},
-		ep("DetectObjectsEndpoint", e.DetectObjectsEndpoint),
+		ep("ObjectDetectionEndpoint", e.ObjectDetectionEndpoint),
 		ep("ImageClassificationEndpoint", e.ImageClassificationEndpoint),
 		ep("ImageSegmentationEndpoint", e.ImageSegmentationEndpoint),
 		ep("TextClassificationEndpoint", e.TextClassificationEndpoint),
@@ -135,7 +135,7 @@ func TestHuggingFaceCodecs_Wiring(t *testing.T) {
 	require.IsType(
 		t,
 		JSONCodec[hftypes.ObjectDetectionRequest, []hftypes.ObjectDetection]{},
-		c.DetectObjectsCodec(),
+		c.ObjectDetectionCodec(),
 	)
 	require.IsType(
 		t,

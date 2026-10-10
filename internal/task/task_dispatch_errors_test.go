@@ -43,7 +43,7 @@ func (p endpointFailProvider) ChatEndpoint(
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
-func (p endpointFailProvider) DetectObjectsEndpoint(
+func (p endpointFailProvider) ObjectDetectionEndpoint(
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
@@ -135,7 +135,7 @@ func chatDispatchRequest() hftypes.ChatRequest {
 	}
 }
 
-func tableQADispatchRequest() hftypes.TableQuestionAnsweringRequest {
+func tableQuestionAnsweringDispatchRequest() hftypes.TableQuestionAnsweringRequest {
 	return hftypes.TableQuestionAnsweringRequest{
 		Input: hftypes.TableQuestionAnsweringInput{
 			Question: "How old is Bob?",
@@ -177,19 +177,19 @@ func dispatchErrorCases() []dispatchErrorCase {
 			},
 		},
 		{
-			"FeatureExtract",
+			"ExtractFeatures",
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).
-					FeatureExtract(hftypes.FeatureExtractionRequest{Input: "test input"})
+					ExtractFeatures(hftypes.FeatureExtractionRequest{Input: "test input"})
 			},
 		},
 		{
-			"FeatureExtractBatch",
+			"ExtractFeaturesBatch",
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).
-					FeatureExtractBatch(hftypes.FeatureExtractionBatchRequest{Inputs: []string{"hi"}})
+					ExtractFeaturesBatch(hftypes.FeatureExtractionBatchRequest{Inputs: []string{"hi"}})
 			},
 		},
 		{
@@ -250,7 +250,9 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"AnswerTableQuestion",
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
-				return hfgo.NewClient(opts...).AnswerTableQuestion(tableQADispatchRequest())
+				return hfgo.NewClient(opts...).AnswerTableQuestion(
+					tableQuestionAnsweringDispatchRequest(),
+				)
 			},
 		},
 		{

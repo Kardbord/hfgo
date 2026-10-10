@@ -204,7 +204,7 @@ func TestChat_RejectStream(t *testing.T) {
 	require.Nil(t, mt.LastRequest)
 }
 
-func TestStreamChat_SetsStreamTrue(t *testing.T) {
+func TestChatStream_SetsStreamTrue(t *testing.T) {
 	t.Parallel()
 
 	body := "data: {\"id\":\"id\",\"created\":1,\"model\":\"stream-model\",\"system_fingerprint\":\"sig\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n" +
@@ -218,7 +218,7 @@ func TestStreamChat_SetsStreamTrue(t *testing.T) {
 		hfopts.WithProvider(hfproviders.NewHuggingFaceProvider()),
 	)
 
-	stream, err := StreamChat(opts, hftypes.ChatRequest{
+	stream, err := ChatStream(opts, hftypes.ChatRequest{
 		Messages: []hftypes.ChatMessage{
 			{Role: "user", Content: hftypes.ChatMessageContent{Text: new("hi")}},
 		},

@@ -122,7 +122,7 @@ func (c Client) ChatStream(
 	req hftypes.ChatRequest,
 	opts ...hfopts.Option,
 ) (*hftypes.ChatStream, error) {
-	return task.StreamChat(c.opts.With(opts...), req)
+	return task.ChatStream(c.opts.With(opts...), req)
 }
 
 // ClassifyText sends a text classification request and returns the text
@@ -222,20 +222,20 @@ func (c Client) Translate(
 	return task.Translate(c.opts.With(opts...), req)
 }
 
-// FeatureExtract sends a feature extraction request and returns the embedding
+// ExtractFeatures sends a feature extraction request and returns the embedding
 // vector for a single input.
 //
-// For multiple inputs, use FeatureExtractBatch.
+// For multiple inputs, use ExtractFeaturesBatch.
 //
 // NOTE: hf-inference is NOT the only supported provider, add support for other providers.
-func (c Client) FeatureExtract(
+func (c Client) ExtractFeatures(
 	req hftypes.FeatureExtractionRequest,
 	opts ...hfopts.Option,
 ) (hftypes.FeatureExtraction, error) {
 	return task.ExtractFeatures(c.opts.With(opts...), req)
 }
 
-// FeatureExtractBatch sends a feature extraction request for a batch of inputs
+// ExtractFeaturesBatch sends a feature extraction request for a batch of inputs
 // and returns embedding vectors for each input in the batch.
 //
 // Batch input is part of the upstream inference schema for feature extraction:
@@ -243,7 +243,7 @@ func (c Client) FeatureExtract(
 // list of embedding vectors in the same order as the inputs.
 //
 // NOTE: hf-inference is NOT the only supported provider, add support for other providers.
-func (c Client) FeatureExtractBatch(
+func (c Client) ExtractFeaturesBatch(
 	req hftypes.FeatureExtractionBatchRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.FeatureExtraction, error) {
