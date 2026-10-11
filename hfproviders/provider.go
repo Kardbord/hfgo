@@ -226,3 +226,11 @@ type ZeroShotTextClassificationProvider interface {
 	ZeroShotTextClassificationEndpoint(params EndpointParams) (Endpoint, error)
 	ZeroShotTextClassificationCodec() ZeroShotTextClassificationCodec
 }
+
+// SpeechRecognitionProvider is a Provider that supplies an endpoint and Codec
+// for the SpeechRecognition task.
+type SpeechRecognitionProvider interface {
+	Provider
+	SpeechRecognitionEndpoint(params EndpointParams) (Endpoint, error)
+	SpeechRecognitionCodec() SpeechRecognitionCodec
+}

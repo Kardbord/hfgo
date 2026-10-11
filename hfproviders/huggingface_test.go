@@ -3,6 +3,7 @@
 package hfproviders
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -76,6 +77,7 @@ func endpointCases() []endpointCase {
 		ep("FillMaskEndpoint", e.FillMaskEndpoint),
 		ep("SummarizationEndpoint", e.SummarizationEndpoint),
 		ep("TranslationEndpoint", e.TranslationEndpoint),
+		ep("SpeechRecognitionEndpoint", e.SpeechRecognitionEndpoint),
 	}
 }
 
@@ -190,4 +192,90 @@ func TestHuggingFaceCodecs_Wiring(t *testing.T) {
 		JSONCodec[hftypes.ZeroShotTextClassificationRequest, []hftypes.ZeroShotTextClassification]{},
 		c.ZeroShotTextClassificationCodec(),
 	)
+	require.IsType(t, hfSpeechRecognitionCodec{}, c.SpeechRecognitionCodec())
+}
+
+func TestSpeechRecognitionCodec_Encode(t *testing.T) {
+	t.Parallel()
+
+	type encodeCase struct {
+		name     string
+		request  hftypes.SpeechRecognitionRequest
+		validate func(*testing.T, []byte, http.Header, error)
+	}
+
+	cases := []encodeCase{
+		{
+			name:    "no params",
+			request: hftypes.SpeechRecognitionRequest{Input: "AAAA"},
+			validate: func(t *testing.T, body []byte, headers http.Header, err error) {
+				t.Helper()
+				require.NoError(t, err)
+				require.NotNil(t, body)
+				require.Len(t, body, 3)
+				require.Equal(t, byte(0), body[0])
+				require.Equal(t, byte(0), body[1])
+				require.Equal(t, byte(0), body[2])
+				require.NotEmpty(t, headers.Get("Content-Type"))
+			},
+		},
+		{
+			name: "with params",
+			request: hftypes.SpeechRecognitionRequest{
+				Input: "AAAA",
+				Parameters: &hftypes.SpeechRecognitionParameters{
+					ReturnTimestamps: new(true),
+				},
+			},
+			validate: func(t *testing.T, body []byte, headers http.Header, err error) {
+				t.Helper()
+				require.NoError(t, err)
+				require.NotNil(t, body)
+				require.Equal(t, "application/json", headers.Get("Content-Type"))
+
+				var payload map[string]any
+				err = json.Unmarshal(body, &payload)
+				require.NoError(t, err)
+				inputs, ok := payload["inputs"].(string)
+				require.True(t, ok)
+				require.Equal(t, "AAAA", inputs)
+			},
+		},
+		{
+			name:    "invalid base64",
+			request: hftypes.SpeechRecognitionRequest{Input: "!!!invalid"},
+			validate: func(t *testing.T, _ []byte, _ http.Header, err error) {
+				t.Helper()
+				require.Error(t, err)
+				var sdkErr *hferrors.SDKError
+				require.ErrorAs(t, err, &sdkErr)
+				require.Equal(t, hferrors.SDKErrorKindSerialization, sdkErr.Kind)
+			},
+		},
+	}
+
+	codec := hfSpeechRecognitionCodec{}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			body, headers, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
+				Request: tc.request,
+			})
+			tc.validate(t, body, headers, err)
+		})
+	}
+}
+
+func TestSpeechRecognitionCodec_Decode(t *testing.T) {
+	t.Parallel()
+
+	codec := hfSpeechRecognitionCodec{}
+	resp, err := codec.Decode(DecodeParams{
+		Body:    []byte(`{"text":"hello world"}`),
+		Headers: http.Header{"Content-Type": {"application/json"}},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "hello world", resp.Text)
+	require.Nil(t, resp.Chunks)
 }

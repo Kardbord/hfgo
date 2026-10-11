@@ -477,6 +477,51 @@ func TestClient_EndpointDelegates(t *testing.T) {
 				return err
 			},
 		},
+		{
+			name:     "RecognizeSpeech_raw",
+			response: `{"text":"hello world"}`,
+			validateReq: func(t *testing.T, mt *testutils.MockTransport) {
+				t.Helper()
+
+				require.NotEmpty(
+					t,
+					mt.LastRequest.Header.Get("Content-Type"),
+					"raw audio body should have sniffed Content-Type",
+				)
+			},
+			call: func(client Client) error {
+				_, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+					Input: "AAAA",
+				})
+
+				return err
+			},
+		},
+		{
+			name:     "RecognizeSpeech_params",
+			response: `{"text":"hello world","chunks":[{"text":"hello","timestamp":[0.0,0.5]}]}`,
+			validateReq: func(t *testing.T, mt *testutils.MockTransport) {
+				t.Helper()
+
+				payload := testutils.ReadRequestBody(t, mt)
+				require.Equal(t, "AAAA", payload["inputs"])
+				params, ok := payload["parameters"].(map[string]any)
+				require.True(t, ok)
+				rt, ok := params["return_timestamps"].(bool)
+				require.True(t, ok)
+				require.True(t, rt)
+			},
+			call: func(client Client) error {
+				_, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+					Input: "AAAA",
+					Parameters: &hftypes.SpeechRecognitionParameters{
+						ReturnTimestamps: new(true),
+					},
+				})
+
+				return err
+			},
+		},
 	}
 
 	for _, tc := range cases {

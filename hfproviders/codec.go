@@ -147,6 +147,9 @@ type (
 
 	// ZeroShotTextClassificationCodec is the Codec for the ZeroShotTextClassification task.
 	ZeroShotTextClassificationCodec = Codec[hftypes.ZeroShotTextClassificationRequest, []hftypes.ZeroShotTextClassification]
+
+	// SpeechRecognitionCodec is the Codec for the SpeechRecognition task.
+	SpeechRecognitionCodec = Codec[hftypes.SpeechRecognitionRequest, hftypes.SpeechRecognitionResponse]
 )
 
 // JSONCodec is a generic Codec implementation that encodes requests and decodes

@@ -1,6 +1,7 @@
 package hfproviders
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -147,6 +148,13 @@ func (HuggingFaceCodecs) ZeroShotTextClassificationCodec() ZeroShotTextClassific
 	return JSONCodec[hftypes.ZeroShotTextClassificationRequest, []hftypes.ZeroShotTextClassification]{}
 }
 
+// SpeechRecognitionCodec returns the speech recognition codec, which encodes
+// requests as raw bytes when no parameters are present and as JSON when
+// parameters are provided, always decoding the JSON response.
+func (HuggingFaceCodecs) SpeechRecognitionCodec() SpeechRecognitionCodec {
+	return hfSpeechRecognitionCodec{}
+}
+
 // hfQuestionAnsweringCodec is a flexible Codec for question answering that handles both single object and array responses.
 type hfQuestionAnsweringCodec struct{}
 
@@ -280,6 +288,48 @@ func (hfTextToImageCodec) Decode(
 		Image:     params.Body,
 		MediaType: mediaType,
 	}, nil
+}
+
+// hfSpeechRecognitionCodec is a Codec for speech recognition that encodes
+// requests as raw audio bytes when no parameters are provided (matching the
+// API requirement), and as JSON with base64-encoded input when parameters
+// are present. Responses are always JSON.
+type hfSpeechRecognitionCodec struct{}
+
+func (hfSpeechRecognitionCodec) Encode(
+	params EncodeParams[hftypes.SpeechRecognitionRequest],
+) (body []byte, headers http.Header, err error) {
+	req := params.Request
+	if req.Parameters == nil {
+		decoded, err := base64.StdEncoding.DecodeString(req.Input)
+		if err != nil {
+			return nil, nil, &hferrors.SDKError{
+				Kind:    hferrors.SDKErrorKindSerialization,
+				Message: "failed to decode base64 input",
+				Err:     err,
+			}
+		}
+
+		headers = http.Header{}
+		headers.Set("Content-Type", http.DetectContentType(decoded))
+		headers.Set("Accept", "application/json")
+
+		return decoded, headers, nil
+	}
+
+	return JSONCodec[
+		hftypes.SpeechRecognitionRequest,
+		hftypes.SpeechRecognitionResponse,
+	]{}.Encode(params)
+}
+
+func (hfSpeechRecognitionCodec) Decode(
+	params DecodeParams,
+) (hftypes.SpeechRecognitionResponse, error) {
+	return JSONCodec[
+		hftypes.SpeechRecognitionRequest,
+		hftypes.SpeechRecognitionResponse,
+	]{}.Decode(params)
 }
 
 // HuggingFaceEndpoints provides default HuggingFace endpoint implementations
@@ -478,6 +528,21 @@ func (HuggingFaceEndpoints) SummarizationEndpoint(params EndpointParams) (Endpoi
 
 // TranslationEndpoint returns the endpoint for translation.
 func (HuggingFaceEndpoints) TranslationEndpoint(params EndpointParams) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+}
+
+// SpeechRecognitionEndpoint returns the endpoint for speech recognition.
+func (HuggingFaceEndpoints) SpeechRecognitionEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
 	if params.Model == "" {
 		return Endpoint{}, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,

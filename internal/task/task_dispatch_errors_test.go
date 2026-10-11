@@ -127,6 +127,12 @@ func (p endpointFailProvider) TranslationEndpoint(
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
+func (p endpointFailProvider) SpeechRecognitionEndpoint(
+	_ hfproviders.EndpointParams,
+) (hfproviders.Endpoint, error) {
+	return hfproviders.Endpoint{}, errEndpointUnavailable
+}
+
 func chatDispatchRequest() hftypes.ChatRequest {
 	return hftypes.ChatRequest{
 		Messages: []hftypes.ChatMessage{
@@ -302,6 +308,15 @@ func dispatchErrorCases() []dispatchErrorCase {
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).GenerateImage(
 					hftypes.TextToImageRequest{Input: "a cat"},
+				)
+			},
+		},
+		{
+			"RecognizeSpeech",
+			"error computing endpoint:",
+			func(opts ...hfopts.Option) (any, error) {
+				return hfgo.NewClient(opts...).RecognizeSpeech(
+					hftypes.SpeechRecognitionRequest{Input: "AAAA"},
 				)
 			},
 		},
