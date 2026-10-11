@@ -32,11 +32,14 @@ func main() {
 	fmt.Println("Fetching sample audio: " + audioURL)
 	fmt.Println("...")
 
-	audioInput, err := fetchAudio(audioURL)
+	audioInput, err := fetchAudio()
 	if err != nil {
 		log.Fatalf("Failed to fetch audio: %v\n", err)
 	}
 
+	// The codec auto-detects Content-Type from decoded bytes. The example audio
+	// (jfk.flac) is sniffed as application/octet-stream, so we set the correct
+	// type explicitly. Caller-supplied headers always take precedence.
 	resp, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
 		Input: audioInput,
 	}, hfopts.WithHeader("Content-Type", "audio/flac"))
@@ -48,8 +51,8 @@ func main() {
 	fmt.Println(resp.Text)
 }
 
-// fetchAudio retrieves the audio at audioURL and returns it as base64-encoded data.
-func fetchAudio(audioURL string) (string, error) {
+// fetchAudio retrieves the audio and returns it as base64-encoded data.
+func fetchAudio() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

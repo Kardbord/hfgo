@@ -277,6 +277,7 @@ records just those:
 | ImageClassification         | `ClassifyImage`        | `[]ImageClassification`         |
 | ImageSegmentation           | `SegmentImage`         | `[]ImageSegmentation`           |
 | TextToImage                 | `GenerateImage`        | `TextToImageResponse`           |
+| SpeechRecognition           | `RecognizeSpeech`      | `SpeechRecognitionResponse`     |
 
 `ChatStream` is an SDK streaming variant of the `Chat` task (server-sent
 events), not a separate entry in Hugging Face's task taxonomy.
@@ -858,6 +859,26 @@ Text-to-image generation for a single prompt.
 - `scheduler` (string): Override the scheduler with a compatible one
 - `seed` (int64): Seed for the random number generator
 
+### Speech Recognition
+
+#### RecognizeSpeech(req SpeechRecognitionRequest, opts ...hfopts.Option) (SpeechRecognitionResponse, error)
+Automatic speech recognition for a single audio clip.
+
+**Behavior**:
+- Applies per-request options
+- Validates that a model is configured
+- The request `inputs` field is a base64-encoded audio payload
+- When **Parameters are omitted**, the audio is sent as a raw byte payload with the Content-Type auto-detected from the decoded bytes via magic-byte sniffing
+- When **Parameters are present**, the request is sent as JSON with the base64-encoded audio in the `inputs` field and parameters in the `parameters` field
+- To override the auto-detected Content-Type for the raw path, set it via `hfopts.WithHeader`, e.g. `hfopts.WithHeader("Content-Type", "audio/wav")`; caller-supplied headers always take precedence over codec defaults
+
+**Parameters**:
+- `return_timestamps` (bool): When true, the response includes chunk-level timestamps via the `Chunks` field, each with `Text` and a two-element `Timestamp` array (`[start, end]` in seconds)
+
+**Response**:
+- `Text` (string): The full recognized transcript
+- `Chunks` (*[]SpeechRecognitionChunk, optional): Present only when `return_timestamps` is true; each chunk has a `Text` and a `Timestamp` array
+
 ### `hfraw.Client` (escape hatch)
 
 Created via `hfraw.NewClient(...)`. For raw HTTP requests without type-safe JSON handling. This is the advanced escape hatch for endpoints the SDK does not model. Its broader method matrix (`Do`/`DoRaw`/`DoReader`/`DoRawReader` and `Stream`/`StreamReader`/`StreamRaw`/`StreamRawReader`) is grouped under `hfraw.Client` rather than cluttering the root `Client` surface. `hfraw.Client`, `hfraw.Stream`, and `hfraw.Event` are defined in the `hfraw` package.
@@ -898,7 +919,7 @@ Endpoints are resolved by the configured provider (see
 - **Tasks**: text classification, zero-shot text classification, token
   classification, question answering, table question answering, fill mask,
   image classification, image segmentation, object detection, text to image,
-  summarization, translation
+  summarization, translation, speech recognition
 - **Method**: POST
 
 ### Pipeline endpoints

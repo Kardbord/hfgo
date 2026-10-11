@@ -62,7 +62,7 @@ func TestRecognizeSpeech_LiveAPI(t *testing.T) {
 
 	resp, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
 		Input: speechRecognitionInput(t),
-	})
+	}, hfopts.WithHeader("Content-Type", "audio/flac"))
 
 	require.NoError(t, err, "speech recognition should succeed")
 	require.NotNil(t, resp, "response should not be nil")

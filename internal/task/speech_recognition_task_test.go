@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"errors"
 	"net/http"
 	"testing"
 
@@ -146,4 +147,41 @@ func TestRecognizeSpeech_Errors(t *testing.T) {
 			})
 		},
 	)
+}
+
+func TestRecognizeSpeech_InvalidBase64(t *testing.T) {
+	t.Parallel()
+
+	client := hfgo.NewClient(hfopts.WithModel("test-model"))
+
+	_, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+		Input: "!!!not-valid-base64!!!",
+	})
+	require.Error(t, err)
+
+	var sdkErr *hferrors.SDKError
+	ok := errors.As(err, &sdkErr)
+	require.True(t, ok, "should be an SDKError")
+	require.Equal(t, hferrors.SDKErrorKindSerialization, sdkErr.Kind)
+	require.NotEmpty(t, sdkErr.Message)
+}
+
+func TestRecognizeSpeech_ContentTypeOverride(t *testing.T) {
+	t.Parallel()
+
+	mt := testutils.NewJSONMockTransport(http.StatusOK, `{"text":"hello"}`, nil)
+	client := hfgo.NewClient(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+	)
+
+	_, err := client.RecognizeSpeech(
+		hftypes.SpeechRecognitionRequest{Input: "AAAA"},
+		hfopts.WithHeader("Content-Type", "audio/wav"),
+	)
+	require.NoError(t, err)
+
+	// Caller-supplied Content-Type should override the codec's sniffed value
+	ct := mt.LastRequest.Header.Get("Content-Type")
+	require.Equal(t, "audio/wav", ct)
 }
