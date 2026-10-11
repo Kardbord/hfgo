@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
@@ -51,19 +50,21 @@ func main() {
 	fmt.Println(resp.Text)
 }
 
-// fetchAudio retrieves the audio and returns it as base64-encoded data.
-func fetchAudio() (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, audioURL, http.NoBody)
+// mustRequest creates an HTTP GET request with context. It panics if request creation fails.
+func mustRequest(url string) *http.Request {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
 	if err != nil {
-		return "", err
+		panic(err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	return req
+}
+
+// fetchAudio retrieves the audio and returns it as base64-encoded data.
+func fetchAudio() (string, error) {
+	resp, err := http.DefaultClient.Do(mustRequest(audioURL))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to fetch audio: %w", err)
 	}
 	defer resp.Body.Close()
 

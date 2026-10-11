@@ -312,6 +312,7 @@ func (hfSpeechRecognitionCodec) Encode(
 
 		headers = http.Header{}
 		headers.Set("Content-Type", http.DetectContentType(decoded))
+		headers.Set("Accept", "application/json")
 
 		return decoded, headers, nil
 	}

@@ -68,7 +68,7 @@ func TestRecognizeSpeech_RawBody(t *testing.T) {
 				require.Nil(t, resp.Chunks)
 			} else {
 				require.NotNil(t, resp.Chunks)
-				require.Len(t, *resp.Chunks, len(*tc.wantChunks))
+				require.Equal(t, *tc.wantChunks, *resp.Chunks, tc.description)
 			}
 
 			// Verify Content-Type was sniffed from decoded bytes
