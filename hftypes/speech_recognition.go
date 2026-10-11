@@ -34,7 +34,7 @@ type SpeechRecognitionResponse struct {
 
 	// Chunk-level transcription with optional timestamps.
 	// Present only when return_timestamps is true.
-	Chunks *[]SpeechRecognitionChunk `json:"chunks,omitempty"`
+	Chunks []SpeechRecognitionChunk `json:"chunks,omitempty"`
 }
 
 // SpeechRecognitionChunk represents a segment of the transcription with

@@ -877,7 +877,7 @@ Automatic speech recognition for a single audio clip.
 
 **Response**:
 - `Text` (string): The full recognized transcript
-- `Chunks` (*[]SpeechRecognitionChunk, optional): Present only when `return_timestamps` is true; each chunk has a `Text` and a `Timestamp` array
+- `Chunks` ([]SpeechRecognitionChunk, optional): Present only when `return_timestamps` is true; each chunk has a `Text` and a `Timestamp` array
 
 ### `hfraw.Client` (escape hatch)
 

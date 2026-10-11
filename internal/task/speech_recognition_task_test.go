@@ -24,7 +24,7 @@ func TestRecognizeSpeech_RawBody(t *testing.T) {
 		name         string
 		responseBody string
 		wantText     string
-		wantChunks   *[]hftypes.SpeechRecognitionChunk
+		wantChunks   []hftypes.SpeechRecognitionChunk
 		description  string
 	}{
 		{
@@ -37,7 +37,7 @@ func TestRecognizeSpeech_RawBody(t *testing.T) {
 			name:         "with chunks and timestamps",
 			responseBody: `{"text":"hello world","chunks":[{"text":"hello","timestamp":[0.0,0.5]},{"text":" world","timestamp":[0.5,1.0]}]}`,
 			wantText:     "hello world",
-			wantChunks: &[]hftypes.SpeechRecognitionChunk{
+			wantChunks: []hftypes.SpeechRecognitionChunk{
 				{Text: "hello", Timestamp: []float64{0.0, 0.5}},
 				{Text: " world", Timestamp: []float64{0.5, 1.0}},
 			},
@@ -68,7 +68,7 @@ func TestRecognizeSpeech_RawBody(t *testing.T) {
 				require.Nil(t, resp.Chunks)
 			} else {
 				require.NotNil(t, resp.Chunks)
-				require.Equal(t, *tc.wantChunks, *resp.Chunks, tc.description)
+				require.Equal(t, tc.wantChunks, resp.Chunks, tc.description)
 			}
 
 			// Verify Content-Type was sniffed from decoded bytes

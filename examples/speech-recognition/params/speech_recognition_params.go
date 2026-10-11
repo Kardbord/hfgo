@@ -53,7 +53,7 @@ func main() {
 	if resp.Chunks != nil {
 		fmt.Println("")
 		fmt.Println("Segments with timestamps:")
-		printJSON(*resp.Chunks)
+		printJSON(resp.Chunks)
 	}
 }
 
