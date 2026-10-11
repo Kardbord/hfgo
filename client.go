@@ -285,3 +285,23 @@ func (c Client) SegmentImage(
 ) ([]hftypes.ImageSegmentation, error) {
 	return task.SegmentImage(c.opts.With(opts...), req)
 }
+
+// RecognizeSpeech sends a speech recognition (automatic speech recognition)
+// request and returns the recognized text, optionally with chunk-level
+// timestamps.
+//
+// The request's Input field must be a base64-encoded audio payload. When no
+// Parameters are provided, the audio is sent as a raw byte payload with the
+// Content-Type auto-detected from the decoded bytes (via magic-byte sniffing).
+// When Parameters are present, the request is sent as JSON with the
+// base64-encoded audio in the inputs field.
+//
+// To override the auto-detected Content-Type for the raw path, set it via
+// hfopts.WithHeader, e.g. hfopts.WithHeader("Content-Type", "audio/wav").
+// Caller-supplied headers always take precedence over codec defaults.
+func (c Client) RecognizeSpeech(
+	req hftypes.SpeechRecognitionRequest,
+	opts ...hfopts.Option,
+) (hftypes.SpeechRecognitionResponse, error) {
+	return task.RecognizeSpeech(c.opts.With(opts...), req)
+}
