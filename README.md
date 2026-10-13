@@ -1,5 +1,7 @@
 # hfgo
 
+[Go Reference: hfproviders](https://pkg.go.dev/github.com/Kardbord/hfgo/v4)
+
 <p align="center">
   <a href="https://github.com/Kardbord/hfgo/actions/workflows/build.yml"><img src="https://github.com/Kardbord/hfgo/actions/workflows/build.yml/badge.svg" alt="Build"></a>
   <a href="https://github.com/Kardbord/hfgo/actions/workflows/unit-tests.yml"><img src="https://github.com/Kardbord/hfgo/actions/workflows/unit-tests.yml/badge.svg" alt="Unit Tests"></a>
