@@ -73,12 +73,20 @@ Run the build script to format, lint, and test:
 ./tools/build.sh
 ```
 
-Run the build script with `-i` to also include integration tests.
+Run the build script with `-f` to also include fuzz tests, and/or `-i` to
+also include integration tests. The flags may be combined.
 **Note**: Integration tests which will make API calls to Hugging Face
 and will incur costs on your account.
 
 ```bash
+# Include fuzz tests
+./tools/build.sh -f
+
+# Include integration tests
 ./tools/build.sh -i
+
+# Include both fuzz and integration tests
+./tools/build.sh -if
 
 ```
 Or run individual commands:
