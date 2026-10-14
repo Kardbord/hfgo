@@ -156,6 +156,8 @@ func (HuggingFaceCodecs) SpeechRecognitionCodec() SpeechRecognitionCodec {
 }
 
 // hfQuestionAnsweringCodec is a flexible Codec for question answering that handles both single object and array responses.
+// The API specification promises an array of objects as a response, but in reality there may only be a single object
+// returned if top_k is not greater than 1.
 type hfQuestionAnsweringCodec struct{}
 
 func (hfQuestionAnsweringCodec) Encode(
@@ -177,12 +179,14 @@ func (hfQuestionAnsweringCodec) Decode(params DecodeParams) ([]hftypes.QuestionA
 		}
 	}
 
+	// Spec-compliant response
 	var slice []hftypes.QuestionAnswering
 	sliceErr := json.Unmarshal(params.Body, &slice)
 	if sliceErr == nil {
 		return slice, nil
 	}
 
+	// Observed response for some inputs with top_k unset or equal to 1
 	var single hftypes.QuestionAnswering
 	singleErr := json.Unmarshal(params.Body, &single)
 	if singleErr == nil {
