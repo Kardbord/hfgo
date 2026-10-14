@@ -156,6 +156,8 @@ func (HuggingFaceCodecs) SpeechRecognitionCodec() SpeechRecognitionCodec {
 }
 
 // hfQuestionAnsweringCodec is a flexible Codec for question answering that handles both single object and array responses.
+// The API specification promises an array of objects as a response, but in reality there may only be a single object
+// returned if top_k is not greater than 1.
 type hfQuestionAnsweringCodec struct{}
 
 func (hfQuestionAnsweringCodec) Encode(
@@ -177,12 +179,14 @@ func (hfQuestionAnsweringCodec) Decode(params DecodeParams) ([]hftypes.QuestionA
 		}
 	}
 
+	// Spec-compliant response
 	var slice []hftypes.QuestionAnswering
 	sliceErr := json.Unmarshal(params.Body, &slice)
 	if sliceErr == nil {
 		return slice, nil
 	}
 
+	// Observed response for some inputs with top_k unset or equal to 1
 	var single hftypes.QuestionAnswering
 	singleErr := json.Unmarshal(params.Body, &single)
 	if singleErr == nil {
@@ -196,7 +200,30 @@ func (hfQuestionAnsweringCodec) Decode(params DecodeParams) ([]hftypes.QuestionA
 	}
 }
 
-// hfTextClassificationCodec is a flexible Codec for text classification that handles both flat and nested array responses.
+// hfTextClassificationCodec is a flexible Codec for text classification that
+// handles both the documented flat response and the nested response returned by
+// the hf-inference serverless API.
+//
+// The upstream API documentation declares a flat JSON array of classification
+// objects for a single input:
+//
+//	[{"label": "positive", "score": 0.95}, ...]
+//
+// In reality the shape depends on how the model is served. The hf-inference
+// serverless API returns a nested array: the outer array holds one entry per
+// input and each inner array holds that input's classification objects, while
+// dedicated Inference Endpoints return the documented flat array. The serverless
+// API also accepts a batch of inputs (a list of strings) even though batch input
+// is not part of the documented single-input schema, which is why results are
+// grouped per input. A single input therefore arrives as a one-element outer
+// array:
+//
+//	[[{"label": "positive", "score": 0.95}, ...]]
+//
+// A batch of N inputs yields an outer array of length N. The top_k parameter,
+// when set, limits how many classification objects appear in each inner array.
+// Decode accepts either shape and always returns the flat list of
+// classifications the SDK promises for a single input.
 type hfTextClassificationCodec struct{}
 
 func (hfTextClassificationCodec) Encode(
@@ -218,12 +245,17 @@ func (hfTextClassificationCodec) Decode(params DecodeParams) ([]hftypes.TextClas
 		}
 	}
 
+	// Documented/spec shape: a flat array of classification objects. Observed on
+	// dedicated Inference Endpoints.
 	var flat []hftypes.TextClassification
 	flatErr := json.Unmarshal(params.Body, &flat)
 	if flatErr == nil {
 		return flat, nil
 	}
 
+	// Observed hf-inference serverless shape: a nested array with one inner array
+	// per input. This single-input endpoint expects exactly one result set; more
+	// than one is ambiguous and rejected.
 	var nested [][]hftypes.TextClassification
 	nestedErr := json.Unmarshal(params.Body, &nested)
 	if nestedErr == nil {
