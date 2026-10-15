@@ -1,4 +1,3 @@
-// Package hfproviders defines the Provider interface and built-in provider implementations.
 package hfproviders
 
 import (
