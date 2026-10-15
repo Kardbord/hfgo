@@ -27,7 +27,7 @@ const (
 
 // Options captures the configuration shared across all requests in the SDK.
 //
-// Options are immutable by convention. Applying Option values via With
+// Options are immutable by convention. Applying [Option] values via [Options.With]
 // returns a new value and defensively clones headers so callers may retain
 // or mutate inputs independently.
 type Options struct {
@@ -178,7 +178,7 @@ func (o Options) clone() Options {
 	return o
 }
 
-// Option mutates request options. Options are applied in order; later options may override earlier ones.
+// Option mutates [Options]. Options are applied in order; later options may override earlier ones.
 type Option func(*Options)
 
 // WithBaseURL sets the base URL for API requests.
@@ -203,7 +203,7 @@ func WithModel(model string) Option {
 	}
 }
 
-// WithProvider sets the inference provider used for endpoint resolution and
+// WithProvider sets the [hfproviders.Provider] used for endpoint resolution and
 // wire-format transforms. Passing nil results in a configuration error when
 // the options are validated or used.
 func WithProvider(provider hfproviders.Provider) Option {

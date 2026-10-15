@@ -15,9 +15,9 @@
 </p>
 
 An unofficial Go SDK for the [Hugging Face Inference API](https://huggingface.co/docs/inference-providers/tasks/index).
-Directly call any model available in the [Model Hub](https://huggingface.co/models).
 
-An API key is required for authorized access. To get one, create a [Hugging Face](https://huggingface.co/) account and generate a [token](https://huggingface.co/settings/tokens).
+An API key is required. To get one, create a [Hugging Face](https://huggingface.co/) account and generate a [token](https://huggingface.co/settings/tokens).
+Examples and integration tests assume the token is stored in the `HF_TOKEN` environment variable.
 
 ## ⚠️ v4 Release Candidate
 
@@ -26,58 +26,11 @@ evolve before the final v4.0.0 release. **v3** and earlier are deprecated
 and no longer maintained. See [#72](https://github.com/Kardbord/hfgo/issues/72)
 for more information.
 
-## Usage
+## Getting Started
 
-```go
-package main
-
-import (
-	"fmt"
-	"log"
-	"os"
-
-	"github.com/Kardbord/hfgo/v4"
-	"github.com/Kardbord/hfgo/v4/hfopts"
-	"github.com/Kardbord/hfgo/v4/hftypes"
-)
-
-func main() {
-	token := os.Getenv("HF_TOKEN")
-	if token == "" {
-		log.Fatal("HF_TOKEN environment variable is not set")
-	}
-
-	client := hfgo.NewClient(
-		hfopts.WithToken(token),
-		hfopts.WithModel("deepseek-ai/DeepSeek-R1"),
-	)
-
-	request := hftypes.ChatRequest{
-		Messages: []hftypes.ChatMessage{
-			{
-				Role: "user",
-				Content: hftypes.ChatMessageContent{
-					Text: new("Hello! What is the capital of France?"),
-				},
-			},
-		},
-		MaxTokens: new(1024),
-	}
-
-	response, err := client.Chat(request)
-	if err != nil {
-		log.Fatalf("Failed to complete chat request: %v", err)
-	}
-
-	for _, choice := range response.Choices {
-		if choice.Message.Content != nil {
-			fmt.Println(*choice.Message.Content)
-		}
-	}
-}
-```
-
-See the [examples](./examples) directory for more.
+See the [API reference](https://pkg.go.dev/github.com/Kardbord/hfgo/v4) for
+full documentation and runnable examples, or browse the
+[examples](./examples) directory.
 
 ## Providers
 
@@ -85,24 +38,14 @@ Requests are routed through a pluggable inference-provider layer (the
 [`hfproviders`](./hfproviders) package). The default
 [`HuggingFaceProvider`](https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfproviders)
 speaks the HuggingFace wire format directly, so for most use cases nothing
-needs to be configured.
-
-- Use `hfopts.WithProvider(p)` to set an explicit provider on a client or a
-  single call, and `hfopts.WithDefaultProvider()` to use the default
-  HuggingFace provider.
-- On OpenAI-compatible endpoints (e.g. chat completions), a provider or
-  selection policy can be pinned by appending a suffix to the model string
-  (e.g. `model:sambanova`, `model:fastest`, `model:cheapest`,
-  `model:preferred`); otherwise the HF router selects the provider. See
-  https://huggingface.co/docs/inference-providers/main/en/index.
-
-```go
-client := hfgo.NewClient(
-	hfopts.WithToken(token),
-	hfopts.WithModel("deepseek-ai/DeepSeek-R1"),
-	hfopts.WithDefaultProvider(),
-)
-```
+needs to be configured. Use `hfopts.WithProvider(p)` to set an explicit
+provider on a client or a single call, and `hfopts.WithDefaultProvider()` to
+use the default HuggingFace provider. On OpenAI-compatible endpoints (e.g.
+chat completions), a provider or selection policy can be pinned by appending
+a suffix to the model string (e.g. `model:sambanova`, `model:fastest`,
+`model:cheapest`, `model:preferred`); otherwise the HF router selects the
+provider. See
+<https://huggingface.co/docs/inference-providers/main/en/index>.
 
 ## Inference Tasks
 
@@ -123,16 +66,8 @@ client := hfgo.NewClient(
 
 ## Contributing
 
-Contributions are welcome in many forms!
-
-- **Opening or commenting on issues** to suggest new features, clarify requirements, and report bugs
-- **Reviewing PRs** to help improve code quality
-- **Documentation improvements** (updating README, docs/, or examples/)
-- **Community engagement** (helping new contributors, answering questions)
-
-If you plan to contribute code, please open an issue first to discuss your proposed changes, coordinate with maintainers, and avoid duplicate work.
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
+Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md)
+before opening a PR.
 
 ## Resources
 

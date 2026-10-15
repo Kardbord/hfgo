@@ -8,7 +8,8 @@ import (
 
 // APIError represents an error returned by the HuggingFace API.
 // It includes the HTTP status code, error message, response body,
-// and request ID if available.
+// and request ID if available. For client-side errors produced before
+// an API response, see [SDKError].
 type APIError struct {
 	// StatusCode is the HTTP status code returned by the API
 	StatusCode int
@@ -84,7 +85,8 @@ const (
 
 // SDKError represents a client-side SDK error that occurred before
 // a response was received from the API, or while trying to unmarshal
-// the response from the API.
+// the response from the API. For errors returned by the API itself,
+// see [APIError].
 type SDKError struct {
 	// Kind is the category of error (configuration/serialization/etc).
 	Kind SDKErrorKind

@@ -6,7 +6,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/internal/task"
 )
 
-// Client represents a HuggingFace API client with configured request options.
+// Client represents a HuggingFace API client with configured [hfopts.Options].
 // Client instances are immutable; options are fixed at creation time and never mutated.
 // This keeps client usage safe across goroutines and avoids surprises from mutable state.
 // If options include externally-owned pointers, callers must avoid mutating them after creation
@@ -15,16 +15,17 @@ type Client struct {
 	opts hfopts.Options
 }
 
-// NewClient creates a new Client instance with the provided request options.
+// NewClient creates a new [Client] instance with the provided request options.
 // If no options are provided, default options will be used.
-// Clients are immutable; to change options, create a new Client to keep calls deterministic.
+// Clients are immutable in order to provide concurrency guarantees.
+// To change options, create a new [Client] or provide per-call [hfopts.Options].
 func NewClient(opts ...hfopts.Option) Client {
 	return Client{
 		opts: hfopts.NewOptions().With(opts...),
 	}
 }
 
-// Chat sends a chat completion request and returns a chat completion response.
+// Chat sends a chat completion request and returns a [hftypes.ChatResponse].
 //
 // The request is passed by value and the SDK never mutates the received
 // payload. The value copy shares the request's nested data (slices, maps, and
@@ -65,15 +66,15 @@ func NewClient(opts ...hfopts.Option) Client {
 //
 // Behavior:
 //   - Returns a configuration error if the request is missing a model or messages.
-//   - Returns a configuration error if *req.Stream is true; use ChatStream for streaming.
+//   - Returns a configuration error if *req.Stream is true; use [Client.ChatStream] for streaming.
 //
 //nolint:gocritic // hugeParam: Chat takes the request by value so the SDK never mutates the caller's payload
 func (c Client) Chat(req hftypes.ChatRequest, opts ...hfopts.Option) (hftypes.ChatResponse, error) {
 	return task.Chat(c.opts.With(opts...), req)
 }
 
-// ChatStream sends a chat completion request and returns a streaming response.
-// Callers should Close the returned ChatStream when finished so the underlying HTTP
+// ChatStream sends a chat completion request and returns a streaming [hftypes.ChatStream].
+// Callers should Close the returned [hftypes.ChatStream] when finished so the underlying HTTP
 // connection and decoder goroutine are released promptly.
 //
 // The request is passed by value and the SDK never mutates the received
