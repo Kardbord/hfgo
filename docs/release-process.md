@@ -30,17 +30,17 @@ prerelease pair.
 
 ### Stable Config
 
-| File | Purpose |
-|------|---------|
-| `.github/release-please-config.json` | Stable release-please config |
-| `.github/.release-please-manifest.json` | Tracks last stable version |
+| File                                    | Purpose                      |
+| --------------------------------------- | ---------------------------- |
+| `.github/release-please-config.json`    | Stable release-please config |
+| `.github/.release-please-manifest.json` | Tracks last stable version   |
 
 ### Prerelease Config
 
-| File | Purpose |
-|------|---------|
-| `.github/prerelease-please-config.json` | Prerelease config with `prerelease: true`, |
-| `.github/.prerelease-please-manifest.json` | Tracks last RC version |
+| File                                       | Purpose                                   |
+| ------------------------------------------ | ----------------------------------------- |
+| `.github/prerelease-please-config.json`    | Prerelease config with `prerelease: true` |
+| `.github/.prerelease-please-manifest.json` | Tracks last RC version                    |
 
 Both config files use the `packages` key (manifest mode) and include the
 same base options (`release-type: go`, `version-file`, `versioning`,
@@ -131,7 +131,7 @@ sequenceDiagram
 ### Version Determination
 
 | Bump  | Trigger                                     |
-|-------|---------------------------------------------|
+| ----- | ------------------------------------------- |
 | Major | Breaking change (`feat!:` or `fix!:` title) |
 | Minor | New feature (`feat:`)                       |
 | Patch | Bug fix (`fix:`) or refactoring             |
@@ -364,9 +364,9 @@ need for draft branches to create or modify their own config.
 
 ### Manifest Isolation
 
-| Branch | Manifest Used | Typical Contents |
-|--------|---------------|------------------|
-| `main` | `.release-please-manifest.json` | `{ ".": "4.0.0" }` |
+| Branch     | Manifest Used                      | Typical Contents       |
+| ---------- | ---------------------------------- | ---------------------- |
+| `main`     | `.release-please-manifest.json`    | `{ ".": "4.0.0" }`     |
 | `v5-draft` | `.prerelease-please-manifest.json` | `{ ".": "5.0.0-rc3" }` |
 
 Each manifest is branch-specific. The stable manifest on a draft branch is

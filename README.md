@@ -160,15 +160,15 @@ if errors.As(err, &sdkErr) {
 
 ## Packages
 
-| Package | Contents |
-|---------|----------|
-| [`hfgo`](https://pkg.go.dev/github.com/Kardbord/hfgo/v4) | `Client`, `NewClient`, and inference endpoint methods |
-| [`hfopts`](./hfopts) | `Options`, `Option`, and all `With*` helpers |
-| [`hftypes`](./hftypes) | Request, response, and parameter DTOs for every task |
-| [`hferrors`](./hferrors) | `APIError`, `SDKError`, and `SDKErrorKind` |
-| [`hfproviders`](./hfproviders) | `Provider` interface, per-task provider interfaces, codecs |
-| [`hfraw`](./hfraw) | Low-level HTTP/SSE escape hatch for endpoints the SDK does not model |
-| [`hfgoversion`](./hfgoversion) | `Version` constant and `UserAgent()` helper |
+| Package                                                  | Contents                                                             |
+| -------------------------------------------------------- | -------------------------------------------------------------------- |
+| [`hfgo`](https://pkg.go.dev/github.com/Kardbord/hfgo/v4) | `Client`, `NewClient`, and inference endpoint methods                |
+| [`hfopts`](./hfopts)                                     | `Options`, `Option`, and all `With*` helpers                         |
+| [`hftypes`](./hftypes)                                   | Request, response, and parameter DTOs for every task                 |
+| [`hferrors`](./hferrors)                                 | `APIError`, `SDKError`, and `SDKErrorKind`                           |
+| [`hfproviders`](./hfproviders)                           | `Provider` interface, per-task provider interfaces, codecs           |
+| [`hfraw`](./hfraw)                                       | Low-level HTTP/SSE escape hatch for endpoints the SDK does not model |
+| [`hfgoversion`](./hfgoversion)                           | `Version` constant and `UserAgent()` helper                          |
 
 See [docs/architecture.md](./docs/architecture.md) for design decisions.
 

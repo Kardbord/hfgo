@@ -13,15 +13,15 @@ and `examples/` for usage documentation, and the code itself for full detail.
 
 ## Package Layout
 
-| Package | Import path | Contents |
-|---------|-------------|----------|
-| `hfgo` | `github.com/Kardbord/hfgo/v4` | `Client`, `NewClient`, and inference endpoint methods |
-| `hfopts` | `github.com/Kardbord/hfgo/v4/hfopts` | `Options`, `Option`, and all `With*` helpers |
-| `hftypes` | `github.com/Kardbord/hfgo/v4/hftypes` | Request/response DTOs for every task |
-| `hferrors` | `github.com/Kardbord/hfgo/v4/hferrors` | `APIError`, `SDKError`, and `SDKErrorKind` |
+| Package       | Import path                               | Contents                                                                                            |
+| ------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `hfgo`        | `github.com/Kardbord/hfgo/v4`             | `Client`, `NewClient`, and inference endpoint methods                                               |
+| `hfopts`      | `github.com/Kardbord/hfgo/v4/hfopts`      | `Options`, `Option`, and all `With*` helpers                                                        |
+| `hftypes`     | `github.com/Kardbord/hfgo/v4/hftypes`     | Request/response DTOs for every task                                                                |
+| `hferrors`    | `github.com/Kardbord/hfgo/v4/hferrors`    | `APIError`, `SDKError`, and `SDKErrorKind`                                                          |
 | `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, `HuggingFaceProvider` |
-| `hfraw` | `github.com/Kardbord/hfgo/v4/hfraw` | Low-level HTTP/SSE escape hatch |
-| `hfgoversion` | `github.com/Kardbord/hfgo/v4/hfgoversion` | `Version` constant and `UserAgent()` helper |
+| `hfraw`       | `github.com/Kardbord/hfgo/v4/hfraw`       | Low-level HTTP/SSE escape hatch                                                                     |
+| `hfgoversion` | `github.com/Kardbord/hfgo/v4/hfgoversion` | `Version` constant and `UserAgent()` helper                                                         |
 
 Internal packages under `internal/` are implementation details and must only
 be imported from within the module.
@@ -157,13 +157,13 @@ observed, no further chunks are delivered.
 
 ## Where to Make Changes
 
-| Task | Location |
-|------|----------|
-| Request/response types | `hftypes/*` (no re-exports needed) |
-| Endpoint behavior | `internal/task/*` + `Client` method in `client.go` |
-| Provider / wire format | `hfproviders/*` |
-| Options | `hfopts/options.go` |
-| Raw HTTP/SSE | `hfraw/raw.go` |
-| Unit tests | Next to the code they exercise |
-| Integration tests | `internal/integration_tests/*_integration_test.go` |
-| Runnable examples | `examples/<task>/<variant>/` |
+| Task                   | Location                                           |
+| ---------------------- | -------------------------------------------------- |
+| Request/response types | `hftypes/*` (no re-exports needed)                 |
+| Endpoint behavior      | `internal/task/*` + `Client` method in `client.go` |
+| Provider / wire format | `hfproviders/*`                                    |
+| Options                | `hfopts/options.go`                                |
+| Raw HTTP/SSE           | `hfraw/raw.go`                                     |
+| Unit tests             | Next to the code they exercise                     |
+| Integration tests      | `internal/integration_tests/*_integration_test.go` |
+| Runnable examples      | `examples/<task>/<variant>/`                       |
