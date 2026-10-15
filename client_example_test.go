@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hftypes"
 )
@@ -26,8 +27,10 @@ func testClient() func() http.Client {
 
 // newMockJSONServer starts a local httptest.Server that always responds with
 // 200 OK and Content-Type: application/json, writing body to every request.
-// The response body is hard-coded so the example can run without a real token;
-// copying this into the Go Playground will still hit the mock, not Hugging Face.
+// The response body is hard-coded so the example can run without a real token.
+// The mock listens on loopback, which the Go Playground permits, so copying
+// this helper and an example into the Playground still hits the mock, not
+// Hugging Face.
 func newMockJSONServer(body string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -103,9 +106,10 @@ func Example() {
 	// Output: The capital of France is Paris.
 }
 
-// ExampleClient_Chat_withOptions demonstrates setting per-request options such
-// as temperature and max tokens via the request DTO.
-func ExampleClient_Chat_withOptions() {
+// ExampleClient_Chat_requestFields demonstrates tuning a chat completion with
+// request DTO fields such as temperature and max tokens. The request's Model
+// field overrides the client-level model for that call.
+func ExampleClient_Chat_requestFields() {
 	// The response body is hard-coded so the example can run without a real token.
 	const responseBody = `{"id":"chatcmpl-2","created":1,"model":"test-model",` +
 		`"system_fingerprint":"fp_2","choices":[` +
@@ -135,7 +139,7 @@ func ExampleClient_Chat_withOptions() {
 					},
 				},
 			},
-			Model:       new("per-request-model"),
+			Model:       new("model-override"),
 			Temperature: &temperature,
 			MaxTokens:   &maxTokens,
 		},
@@ -151,6 +155,7 @@ func ExampleClient_Chat_withOptions() {
 // ExampleClient_ChatStream demonstrates streaming chat completions.
 // Always close the stream when finished.
 func ExampleClient_ChatStream() {
+	// The event stream is hard-coded so the example can run without a real token.
 	const eventBody = "data: {" +
 		`"id":"chatcmpl-3","created":1,"model":"test-model",` +
 		`"choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"}}]` +
@@ -206,8 +211,54 @@ func ExampleClient_ChatStream() {
 	// Output: Hello, world!
 }
 
+// ExampleClient_Chat_apiError demonstrates inspecting a non-2xx API response.
+// Methods return an error wrapping *hferrors.APIError for API failures; extract
+// it with errors.As to branch on the status code or use helpers such as
+// IsRateLimitError. APIError.Body holds the raw response body and must be
+// closed by the caller.
+func ExampleClient_Chat_apiError() {
+	// The 429 response is hard-coded so the example can run without a real token.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusTooManyRequests)
+		fmt.Fprint(w, `{"error":"rate limit exceeded"}`)
+	}))
+	defer server.Close()
+
+	client := hfgo.NewClient(
+		hfopts.WithToken("test-token"),
+		hfopts.WithModel("test-model"),
+		hfopts.WithBaseURL(server.URL),
+		hfopts.WithHTTPClientFactory(testClient()),
+	)
+
+	_, err := client.Chat(hftypes.ChatRequest{
+		Messages: []hftypes.ChatMessage{
+			{
+				Role: "user",
+				Content: hftypes.ChatMessageContent{
+					Text: new("What is the capital of France?"),
+				},
+			},
+		},
+	})
+	if err == nil {
+		panic("expected an error")
+	}
+
+	var apiErr *hferrors.APIError
+	if !errors.As(err, &apiErr) {
+		panic(err)
+	}
+	defer apiErr.Body.Close()
+
+	fmt.Println(apiErr.StatusCode, apiErr.IsRateLimitError())
+	// Output: 429 true
+}
+
 // ExampleClient_ClassifyText demonstrates text classification.
 func ExampleClient_ClassifyText() {
+	// The response body is hard-coded so the example can run without a real token.
 	server := newMockJSONServer(`[[{"label":"positive","score":0.95}]]`)
 	defer server.Close()
 
@@ -257,6 +308,7 @@ func ExampleClient_ClassifyTokens() {
 
 // ExampleClient_ZeroShotClassifyText demonstrates zero-shot text classification.
 func ExampleClient_ZeroShotClassifyText() {
+	// The response body is hard-coded so the example can run without a real token.
 	server := newMockJSONServer(`[{"label":"positive","score":0.95}]`)
 	defer server.Close()
 
@@ -310,6 +362,7 @@ func ExampleClient_FillMask() {
 
 // ExampleClient_Summarize demonstrates text summarization.
 func ExampleClient_Summarize() {
+	// The response body is hard-coded so the example can run without a real token.
 	server := newMockJSONServer(`[{"summary_text":"A concise summary."}]`)
 	defer server.Close()
 
@@ -333,6 +386,7 @@ func ExampleClient_Summarize() {
 
 // ExampleClient_Translate demonstrates text translation.
 func ExampleClient_Translate() {
+	// The response body is hard-coded so the example can run without a real token.
 	server := newMockJSONServer(`[{"translation_text":"Bonjour le monde."}]`)
 	defer server.Close()
 
@@ -354,9 +408,10 @@ func ExampleClient_Translate() {
 	// Output: Bonjour le monde.
 }
 
-// ExampleClient_Translate_withOptions demonstrates translation with source and
-// target language parameters.
-func ExampleClient_Translate_withOptions() {
+// ExampleClient_Translate_withParameters demonstrates translation with source
+// and target language parameters.
+func ExampleClient_Translate_withParameters() {
+	// The response body is hard-coded so the example can run without a real token.
 	server := newMockJSONServer(`[{"translation_text":"Bonjour le monde."}]`)
 	defer server.Close()
 
@@ -449,6 +504,7 @@ func ExampleClient_AnswerTableQuestion() {
 
 // ExampleClient_ExtractFeatures demonstrates feature extraction (embeddings).
 func ExampleClient_ExtractFeatures() {
+	// The response body is hard-coded so the example can run without a real token.
 	server := newMockJSONServer("[0.1, 0.2, 0.3]")
 	defer server.Close()
 
@@ -472,6 +528,7 @@ func ExampleClient_ExtractFeatures() {
 
 // ExampleClient_ExtractFeaturesBatch demonstrates batched feature extraction.
 func ExampleClient_ExtractFeaturesBatch() {
+	// The response body is hard-coded so the example can run without a real token.
 	server := newMockJSONServer("[[0.1,0.2,0.3],[0.4,0.5,0.6]]")
 	defer server.Close()
 
@@ -495,6 +552,7 @@ func ExampleClient_ExtractFeaturesBatch() {
 
 // ExampleClient_ClassifyImage demonstrates image classification.
 func ExampleClient_ClassifyImage() {
+	// The response body is hard-coded so the example can run without a real token.
 	server := newMockJSONServer(`[{"label":"Egyptian cat","score":0.514}]`)
 	defer server.Close()
 
@@ -548,6 +606,7 @@ func ExampleClient_DetectObjects() {
 
 // ExampleClient_GenerateImage demonstrates text-to-image generation.
 func ExampleClient_GenerateImage() {
+	// The image bytes are hard-coded so the example can run without a real token.
 	server := newMockImageServer()
 	defer server.Close()
 
@@ -597,6 +656,7 @@ func ExampleClient_SegmentImage() {
 
 // ExampleClient_RecognizeSpeech demonstrates automatic speech recognition.
 func ExampleClient_RecognizeSpeech() {
+	// The response body is hard-coded so the example can run without a real token.
 	server := newMockJSONServer(`{"text":"hello world"}`)
 	defer server.Close()
 

@@ -1,13 +1,25 @@
 package hfproviders_test
 
 import (
-	"context"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 
+	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
 )
+
+// testClient returns a factory that produces an HTTP client with a dedicated
+// transport. This keeps the example isolated from environment proxy settings
+// and pointed at the local httptest.Server.
+func testClient() func() http.Client {
+	return func() http.Client {
+		//nolint:exhaustruct // Zero-value Transport uses no proxy and HTTP/1.1.
+		return http.Client{Transport: &http.Transport{}}
+	}
+}
 
 // EchoProvider is a minimal custom provider. It prepends a provider suffix to
 // model IDs for routing and reuses the built-in JSON codec for every task it
@@ -52,49 +64,40 @@ func (EchoProvider) SummarizationCodec() hfproviders.SummarizationCodec {
 	return hfproviders.JSONCodec[hftypes.SummarizationRequest, []hftypes.Summarization]{}
 }
 
-// ExampleAsProvider demonstrates type-safe casting of a provider to a
-// per-task interface.
-func ExampleAsProvider() {
-	p := hfproviders.NewHuggingFaceProvider()
+// Example_customProvider demonstrates registering a custom provider with a
+// client. Implement [hfproviders.Provider] plus the per-task interfaces you
+// support, pass the value to [hfopts.WithProvider], and use the client
+// normally: the SDK casts the provider and routes matching calls to it.
+func Example_customProvider() {
+	// The response body is hard-coded so the example can run without a real token.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// This provider routes text classification to a ":echo" path.
+		if r.URL.Path != "/models/my-model:echo" {
+			w.WriteHeader(http.StatusNotFound)
 
-	chatProvider, err := hfproviders.AsProvider[hfproviders.ChatProvider](p)
-	if err != nil {
-		panic(err)
-	}
+			return
+		}
 
-	endpoint, err := chatProvider.ChatEndpoint(hfproviders.EndpointParams{
-		Context: context.Background(),
-		Model:   "test-model",
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `[{"label":"positive","score":0.95}]`)
+	}))
+	defer server.Close()
+
+	client := hfgo.NewClient(
+		hfopts.WithToken("test-token"),
+		hfopts.WithModel("my-model"),
+		hfopts.WithProvider(EchoProvider{}),
+		hfopts.WithBaseURL(server.URL),
+		hfopts.WithHTTPClientFactory(testClient()),
+	)
+
+	result, err := client.ClassifyText(hftypes.TextClassificationRequest{
+		Input: "I love this product!",
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(endpoint.Path)
-	// Output: v1/chat/completions
-}
-
-// ExampleEchoProvider demonstrates implementing a custom provider by hand and
-// casting it to the task-specific interface consumed by the typed dispatch
-// layer.
-func ExampleEchoProvider() {
-	// Any value that implements Provider plus the relevant per-task
-	// interfaces can be supplied to hfgo.NewClient via hfopts.WithProvider.
-	custom := EchoProvider{}
-
-	tcProvider, err := hfproviders.AsProvider[hfproviders.TextClassificationProvider](custom)
-	if err != nil {
-		panic(err)
-	}
-
-	endpoint, err := tcProvider.TextClassificationEndpoint(hfproviders.EndpointParams{
-		Context: context.Background(),
-		Model:   "my-model",
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(endpoint.Path)
-	// Output: models/my-model:echo
+	fmt.Printf("%s (%.2f)\n", result[0].Label, result[0].Score)
+	// Output: positive (0.95)
 }
