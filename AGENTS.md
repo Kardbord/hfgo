@@ -88,16 +88,11 @@ go build ./...           # Build
 3. **Context Handling**: Nil contexts fall back to context.Background()
 4. **Breaking Changes**: SDK follows upstream API; breaking changes possible as API evolves
 
-## For Detailed Architecture
+## Architecture
 
-See `docs/architecture.md` for comprehensive technical documentation including:
-
-- Client-centric design patterns
-- Concurrency safety model
-- Detailed error handling
-- Complete API reference
-- Client method API
-- CI/CD workflows
+`docs/architecture.md` documents high-level design decisions and package
+layout. Detailed API behavior lives in the code's godoc comments,
+[pkg.go.dev](https://pkg.go.dev/github.com/Kardbord/hfgo/v4), and `examples/`.
 
 ## Global Instructions
 

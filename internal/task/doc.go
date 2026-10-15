@@ -1,3 +1,3 @@
-// Package task contains implementation details
-// for completing inference task API requests.
+// Package task implements the per-task inference pipelines called by the root
+// package's Client methods.
 package task

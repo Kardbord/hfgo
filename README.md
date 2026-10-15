@@ -15,9 +15,8 @@
 </p>
 
 An unofficial Go SDK for the [Hugging Face Inference API](https://huggingface.co/docs/inference-providers/tasks/index).
-Directly call any model available in the [Model Hub](https://huggingface.co/models).
-
-An API key is required for authorized access. To get one, create a [Hugging Face](https://huggingface.co/) account and generate a [token](https://huggingface.co/settings/tokens).
+It provides type-safe client methods for every supported inference task and a
+pluggable provider layer for alternate wire formats.
 
 ## ⚠️ v4 Release Candidate
 
@@ -26,7 +25,19 @@ evolve before the final v4.0.0 release. **v3** and earlier are deprecated
 and no longer maintained. See [#72](https://github.com/Kardbord/hfgo/issues/72)
 for more information.
 
-## Usage
+## Requirements
+
+- **Go 1.27 or later.**
+- A Hugging Face API key. To get one, create a
+  [Hugging Face](https://huggingface.co/) account and generate a
+  [token](https://huggingface.co/settings/tokens). Examples and integration
+  tests read the token from the `HF_TOKEN` environment variable.
+
+## Quickstart
+
+```bash
+go get github.com/Kardbord/hfgo/v4@latest
+```
 
 ```go
 package main
@@ -42,69 +53,68 @@ import (
 )
 
 func main() {
-	token := os.Getenv("HF_TOKEN")
-	if token == "" {
-		log.Fatal("HF_TOKEN environment variable is not set")
-	}
-
 	client := hfgo.NewClient(
-		hfopts.WithToken(token),
+		hfopts.WithToken(os.Getenv("HF_TOKEN")),
 		hfopts.WithModel("deepseek-ai/DeepSeek-R1"),
 	)
 
-	request := hftypes.ChatRequest{
+	response, err := client.Chat(hftypes.ChatRequest{
 		Messages: []hftypes.ChatMessage{
 			{
-				Role: "user",
+				Role:    "user",
 				Content: hftypes.ChatMessageContent{
 					Text: new("Hello! What is the capital of France?"),
 				},
 			},
 		},
-		MaxTokens: new(1024),
-	}
-
-	response, err := client.Chat(request)
+	})
 	if err != nil {
-		log.Fatalf("Failed to complete chat request: %v", err)
+		log.Fatal(err)
 	}
 
-	for _, choice := range response.Choices {
-		if choice.Message.Content != nil {
-			fmt.Println(*choice.Message.Content)
-		}
-	}
+	fmt.Println(*response.Choices[0].Message.Content)
+
+	// Other tasks follow this shape. See examples/speech-recognition,
+	// examples/text-classification, and the rest of examples/ for more.
 }
 ```
 
-See the [examples](./examples) directory for more.
+Every task works this way: build a client, send a typed request, read a typed
+response or error. The [examples](./examples) directory has a runnable program
+for each task and variant.
 
-## Providers
+### One client, many tasks
 
-Requests are routed through a pluggable inference-provider layer (the
-[`hfproviders`](./hfproviders) package). The default
-[`HuggingFaceProvider`](https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfproviders)
-speaks the HuggingFace wire format directly, so for most use cases nothing
-needs to be configured.
-
-- Use `hfopts.WithProvider(p)` to set an explicit provider on a client or a
-  single call, and `hfopts.WithDefaultProvider()` to use the default
-  HuggingFace provider.
-- On OpenAI-compatible endpoints (e.g. chat completions), a provider or
-  selection policy can be pinned by appending a suffix to the model string
-  (e.g. `model:sambanova`, `model:fastest`, `model:cheapest`,
-  `model:preferred`); otherwise the HF router selects the provider. See
-  https://huggingface.co/docs/inference-providers/main/en/index.
+A client is not tied to a single task or model. The token, base URL, provider,
+and HTTP configuration are shared, so the same client you use for speech
+recognition is the client you use for text classification. Because each task
+needs its own model, supply the model per call when it differs from the client
+default:
 
 ```go
-client := hfgo.NewClient(
-	hfopts.WithToken(token),
-	hfopts.WithModel("deepseek-ai/DeepSeek-R1"),
-	hfopts.WithDefaultProvider(),
+client := hfgo.NewClient(hfopts.WithToken(os.Getenv("HF_TOKEN")))
+
+// Automatic speech recognition — model supplied per call.
+transcript, err := client.RecognizeSpeech(
+	hftypes.SpeechRecognitionRequest{Input: audioBase64},
+	hfopts.WithModel("openai/whisper-large-v3"),
+)
+
+// Text classification — same client, different model.
+labels, err := client.ClassifyText(
+	hftypes.TextClassificationRequest{Input: "A delightful surprise."},
+	hfopts.WithModel("ProsusAI/finbert"),
 )
 ```
 
+Alternatively, create the client with a model and override it per call only
+where needed. See [Options precedence](./docs/architecture.md#options-precedence).
+
 ## Inference Tasks
+
+Each link points to a runnable example. Most tasks have several variants
+(`basic`, `params`, `batch`, `streaming`, `conversation`); see the
+[examples README](./examples/README.md) for the convention.
 
 - [Chat](./examples/chat)
 - [Feature Extraction](./examples/feature-extraction)
@@ -113,6 +123,7 @@ client := hfgo.NewClient(
 - [Image Segmentation](./examples/image-segmentation)
 - [Object Detection](./examples/object-detection)
 - [Question Answering](./examples/question-answering)
+- [Speech Recognition](./examples/speech-recognition)
 - [Summarization](./examples/summarization)
 - [Table Question Answering](./examples/table-question-answering)
 - [Text Classification](./examples/text-classification)
@@ -121,20 +132,85 @@ client := hfgo.NewClient(
 - [Translation](./examples/translation)
 - [Zero-Shot Text Classification](./examples/zero-shot-text-classification)
 
+## Error Handling
+
+Errors returned by client methods are one of two types in
+[`hferrors`](./hferrors):
+
+- **`APIError`** — a non-2xx response from the API. Carries the status code,
+  message, request ID, method, and URL. Helpers: `IsClientError()`,
+  `IsServerError()`, `IsAuthenticationError()`, and `IsRateLimitError()`.
+- **`SDKError`** — produced locally before or while decoding a response.
+  Carries a `SDKErrorKind` (`validation`, `configuration`, `serialization`,
+  `transport`, `internal`) and an optional wrapped error.
+
+Use `errors.As` to inspect either type:
+
+```go
+var apiErr *hferrors.APIError
+if errors.As(err, &apiErr) && apiErr.IsRateLimitError() {
+	// back off and retry
+}
+
+var sdkErr *hferrors.SDKError
+if errors.As(err, &sdkErr) {
+	log.Printf("sdk %s error: %v", sdkErr.Kind, sdkErr.Err)
+}
+```
+
+## Packages
+
+| Package                                                  | Contents                                                             |
+| -------------------------------------------------------- | -------------------------------------------------------------------- |
+| [`hfgo`](https://pkg.go.dev/github.com/Kardbord/hfgo/v4) | `Client`, `NewClient`, and inference endpoint methods                |
+| [`hfopts`](./hfopts)                                     | `Options`, `Option`, and all `With*` helpers                         |
+| [`hftypes`](./hftypes)                                   | Request, response, and parameter DTOs for every task                 |
+| [`hferrors`](./hferrors)                                 | `APIError`, `SDKError`, and `SDKErrorKind`                           |
+| [`hfproviders`](./hfproviders)                           | `Provider` interface, per-task provider interfaces, codecs           |
+| [`hfraw`](./hfraw)                                       | Low-level HTTP/SSE escape hatch for endpoints the SDK does not model |
+| [`hfgoversion`](./hfgoversion)                           | `Version` constant and `UserAgent()` helper                          |
+
+See [docs/architecture.md](./docs/architecture.md) for design decisions.
+
+## Providers
+
+Requests are routed through a pluggable inference-provider layer (the
+[`hfproviders`](./hfproviders) package). The default
+[`HuggingFaceProvider`](https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfproviders)
+speaks the Hugging Face wire format directly, so for most use cases nothing
+needs to be configured. Use `hfopts.WithProvider(p)` to set an explicit
+provider on a client or a single call, and `hfopts.WithDefaultProvider()` to
+use the default Hugging Face provider. On OpenAI-compatible endpoints (e.g.
+chat completions), a provider or selection policy can be pinned by appending
+a suffix to the model string (e.g. `model:sambanova`, `model:fastest`,
+`model:cheapest`, `model:preferred`); otherwise the HF router selects the
+provider. See
+<https://huggingface.co/docs/inference-providers/main/en/index>.
+
+## Documentation
+
+- [API reference](https://pkg.go.dev/github.com/Kardbord/hfgo/v4) — full godoc.
+- [examples/](./examples) — runnable programs for every task and variant.
+- [docs/](./docs) — documentation index, including
+  [architecture](./docs/architecture.md),
+  [release process](./docs/release-process.md), and the
+  [Bruno API collection](./docs/bruno.md).
+
 ## Contributing
 
-Contributions are welcome in many forms!
+Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md)
+before opening a PR. Security issues should follow [SECURITY.md](./SECURITY.md).
 
-- **Opening or commenting on issues** to suggest new features, clarify requirements, and report bugs
-- **Reviewing PRs** to help improve code quality
-- **Documentation improvements** (updating README, docs/, or examples/)
-- **Community engagement** (helping new contributors, answering questions)
+## Releases
 
-If you plan to contribute code, please open an issue first to discuss your proposed changes, coordinate with maintainers, and avoid duplicate work.
+See the [GitHub Releases](https://github.com/Kardbord/hfgo/releases) page for
+the changelog and published versions.
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
+## License
 
-## Resources
+MIT — see [LICENSE](./LICENSE).
+
+## Additional Resources
 
 - [Hugging Face](https://huggingface.co/)
 - [Inference API JSON Schemas](https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks)

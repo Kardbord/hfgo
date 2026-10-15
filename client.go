@@ -6,7 +6,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/internal/task"
 )
 
-// Client represents a HuggingFace API client with configured request options.
+// Client represents a Hugging Face API client with configured [hfopts.Options].
 // Client instances are immutable; options are fixed at creation time and never mutated.
 // This keeps client usage safe across goroutines and avoids surprises from mutable state.
 // If options include externally-owned pointers, callers must avoid mutating them after creation
@@ -15,16 +15,17 @@ type Client struct {
 	opts hfopts.Options
 }
 
-// NewClient creates a new Client instance with the provided request options.
+// NewClient creates a new [Client] instance with the provided request options.
 // If no options are provided, default options will be used.
-// Clients are immutable; to change options, create a new Client to keep calls deterministic.
+// Clients are immutable in order to provide concurrency guarantees.
+// To change options, create a new [Client] or provide per-call [hfopts.Options].
 func NewClient(opts ...hfopts.Option) Client {
 	return Client{
 		opts: hfopts.NewOptions().With(opts...),
 	}
 }
 
-// Chat sends a chat completion request and returns a chat completion response.
+// Chat sends a chat completion request and returns a [hftypes.ChatResponse].
 //
 // The request is passed by value and the SDK never mutates the received
 // payload. The value copy shares the request's nested data (slices, maps, and
@@ -48,7 +49,7 @@ func NewClient(opts ...hfopts.Option) Client {
 // The Provider option is used as a suffix appended to the model string for
 // routing in OpenAI-compatible endpoints. If the Model is in the format
 // "model:provider", the Provider option is ignored. When the provider is
-// the default HuggingFace provider, no suffix is appended and the router
+// the default Hugging Face provider, no suffix is appended and the router
 // selects a provider automatically.
 //
 // For example:
@@ -65,15 +66,15 @@ func NewClient(opts ...hfopts.Option) Client {
 //
 // Behavior:
 //   - Returns a configuration error if the request is missing a model or messages.
-//   - Returns a configuration error if *req.Stream is true; use ChatStream for streaming.
+//   - Returns a configuration error if *req.Stream is true; use [Client.ChatStream] for streaming.
 //
 //nolint:gocritic // hugeParam: Chat takes the request by value so the SDK never mutates the caller's payload
 func (c Client) Chat(req hftypes.ChatRequest, opts ...hfopts.Option) (hftypes.ChatResponse, error) {
 	return task.Chat(c.opts.With(opts...), req)
 }
 
-// ChatStream sends a chat completion request and returns a streaming response.
-// Callers should Close the returned ChatStream when finished so the underlying HTTP
+// ChatStream sends a chat completion request and returns a streaming [hftypes.ChatStream].
+// Callers should Close the returned [hftypes.ChatStream] when finished so the underlying HTTP
 // connection and decoder goroutine are released promptly.
 //
 // The request is passed by value and the SDK never mutates the received
@@ -98,7 +99,7 @@ func (c Client) Chat(req hftypes.ChatRequest, opts ...hfopts.Option) (hftypes.Ch
 // The Provider option is used as a suffix appended to the model string for
 // routing in OpenAI-compatible endpoints. If the Model is in the format
 // "model:provider", the Provider option is ignored. When the provider is
-// the default HuggingFace provider, no suffix is appended and the router
+// the default Hugging Face provider, no suffix is appended and the router
 // selects a provider automatically.
 //
 // For example:
@@ -199,7 +200,7 @@ func (c Client) Summarize(
 // The request must include both a question and a table. The model will
 // identify the answer to the question within the provided table data.
 //
-// NOTE: The HuggingFace API returns a bare JSON object for table question
+// NOTE: The Hugging Face API returns a bare JSON object for table question
 // answering, not an array — despite the upstream schema declaring an array
 // response. This method returns a single TableQuestionAnswer to match the
 // actual API behavior.
@@ -226,8 +227,6 @@ func (c Client) Translate(
 // vector for a single input.
 //
 // For multiple inputs, use ExtractFeaturesBatch.
-//
-// NOTE: hf-inference is NOT the only supported provider, add support for other providers.
 func (c Client) ExtractFeatures(
 	req hftypes.FeatureExtractionRequest,
 	opts ...hfopts.Option,
@@ -241,8 +240,6 @@ func (c Client) ExtractFeatures(
 // Batch input is part of the upstream inference schema for feature extraction:
 // the API accepts either a string or a list of strings. The response is a flat
 // list of embedding vectors in the same order as the inputs.
-//
-// NOTE: hf-inference is NOT the only supported provider, add support for other providers.
 func (c Client) ExtractFeaturesBatch(
 	req hftypes.FeatureExtractionBatchRequest,
 	opts ...hfopts.Option,

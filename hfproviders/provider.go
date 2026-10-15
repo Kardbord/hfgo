@@ -1,4 +1,3 @@
-// Package hfproviders defines the Provider interface and built-in provider implementations.
 package hfproviders
 
 import (
@@ -57,7 +56,7 @@ type Provider interface {
 	// model IDs for wire formats that carry the model in the request body. It
 	// is a general model-routing capability rather than a chat-specific one, so
 	// any task that adopts a model-in-body format can reuse it. An empty string
-	// means no suffix is appended (e.g. for the default HuggingFace provider,
+	// means no suffix is appended (e.g. for the default Hugging Face provider,
 	// where the router selects the provider server-side).
 	ProviderSuffix() string
 

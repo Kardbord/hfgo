@@ -54,7 +54,7 @@ func TestQuestionAnswering_LiveAPI(t *testing.T) {
 	t.Logf("Answer: %q (score: %.4f, span: [%d:%d])", answer.Answer, answer.Score, answer.Start, answer.End)
 }
 
-// TestQuestionAnswering_TopKResponseFormatQuirk documents the HuggingFace API quirk where
+// TestQuestionAnswering_TopKResponseFormatQuirk documents the Hugging Face API quirk where
 // the response format differs based on whether the top_k parameter is set.
 //
 // This test documents an important API quirk:

@@ -17,7 +17,7 @@ const (
 	hfModelPrefix      = "hf-inference/models/"
 )
 
-// HuggingFaceProvider implements Provider for the HuggingFace inference API.
+// HuggingFaceProvider implements Provider for the Hugging Face inference API.
 type HuggingFaceProvider struct {
 	HuggingFaceEndpoints
 	HuggingFaceCodecs
@@ -31,7 +31,7 @@ func NewHuggingFaceProvider() HuggingFaceProvider {
 
 // ProviderSuffix returns an empty string. On OpenAI-compatible endpoints
 // (e.g. chat completions), the HF router selects a provider server-side, so
-// the HuggingFace provider appends no routing pin to the model. A provider or
+// the Hugging Face provider appends no routing pin to the model. A provider or
 // selection policy can be pinned by appending a suffix to the model string
 // (e.g. "model:sambanova", "model:fastest", "model:cheapest",
 // "model:preferred"); see the Inference Providers docs for provider selection
@@ -46,7 +46,7 @@ func (p HuggingFaceProvider) Name() string {
 	return "huggingface"
 }
 
-// HuggingFaceCodecs provides default HuggingFace Codec implementations
+// HuggingFaceCodecs provides default Hugging Face Codec implementations
 // that custom providers or test mocks can embed.
 //
 // Embed it only if you support every task it covers: embedding hands you
@@ -364,7 +364,7 @@ func (hfSpeechRecognitionCodec) Decode(
 	]{}.Decode(params)
 }
 
-// HuggingFaceEndpoints provides default HuggingFace endpoint implementations
+// HuggingFaceEndpoints provides default Hugging Face endpoint implementations
 // that custom providers or test mocks can embed.
 //
 // Embed it only if you support every task it covers: embedding hands you

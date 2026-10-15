@@ -13,15 +13,15 @@ import (
 	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
-// Client sends raw HTTP requests using the configured request options.
+// Client sends raw HTTP requests using the configured [hfopts.Options].
 //
 // It is the deliberate exception to the rest of the SDK, where endpoints are
-// exposed as root Client methods: Client is the advanced escape hatch for
+// exposed as root Client methods: [Client] is the advanced escape hatch for
 // endpoints the SDK does not model type-safely. It combines byte-slice or
 // io.Reader bodies, typed error handling or raw HTTP responses, and one-shot
 // or SSE streaming into eight methods.
 //
-// Client is immutable and holds a snapshot of the provided options.
+// [Client] is immutable and holds a snapshot of the provided options.
 type Client struct {
 	opts hfopts.Options
 }

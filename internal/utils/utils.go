@@ -1,5 +1,3 @@
-// Package utils provides small helpers shared across hfgo module packages
-// for context normalization and defensive HTTP header manipulation.
 package utils
 
 import (
