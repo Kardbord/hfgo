@@ -1,7 +1,7 @@
-# hfgo - HuggingFace Inference API Bruno Collection
+# hfgo - Hugging Face Inference API Bruno Collection
 
 A collection of [Bruno](https://www.usebruno.com/) requests for exercising the
-HuggingFace Inference API (the `router.huggingface.co` endpoint used by the
+Hugging Face Inference API (the `router.huggingface.co` endpoint used by the
 hfgo Go SDK).
 
 ## Getting started
@@ -17,7 +17,7 @@ hfgo Go SDK).
 
 Defined in `environments/`:
 
-- `HF_TOKEN` - your HuggingFace access token, sent as `Authorization: Bearer`.
+- `HF_TOKEN` - your Hugging Face access token, sent as `Authorization: Bearer`.
 - `HF_BASE_URL` - the inference host (`https://router.huggingface.co`).
 - `model_*` - the model used per task (one per task folder).
 
@@ -37,7 +37,7 @@ memory (see [`scripts/samples.js`](./scripts/samples.js)):
   Whisper's test assets).
 
 These downloads mean the image/audio requests need network access to
-`picsum.photos` and `raw.githubusercontent.com` in addition to the HuggingFace
+`picsum.photos` and `raw.githubusercontent.com` in addition to the Hugging Face
 API.
 
 ## Developer Mode
@@ -53,7 +53,7 @@ fails with `fetch is not defined`.
 
 ## Binary request shapes
 
-The scripts set bodies matching the HuggingFace Inference API contract:
+The scripts set bodies matching the Hugging Face Inference API contract:
 
 - `*-single` (no `parameters`) - the sample bytes are sent as the raw request
   body (`req.setBody(bytes, { raw: true })`).

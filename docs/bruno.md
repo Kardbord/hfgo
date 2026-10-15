@@ -1,7 +1,7 @@
 # Bruno API Collection
 
 This project includes a [Bruno](https://www.usebruno.com/) collection used for
-manually exercising the HuggingFace Inference API endpoints that the SDK
+manually exercising the Hugging Face Inference API endpoints that the SDK
 targets. It lives in [`tools/bruno/hfgo/`](../tools/bruno/hfgo/).
 
 The collection is primarily useful to people developing this SDK: it lets you
@@ -12,5 +12,5 @@ for usage details.
 
 ## Cost notice
 
-These requests hit the live HuggingFace Inference API and may incur charges on
+These requests hit the live Hugging Face Inference API and may incur charges on
 your account, just like the integration tests.

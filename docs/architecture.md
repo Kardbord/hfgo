@@ -35,6 +35,11 @@ time. Options are never mutated after construction. To change configuration,
 create a new client. Each method call snapshots the client's options, so
 concurrent calls are independent and deterministic.
 
+A client is not bound to a task or model: the same client serves every method.
+Because models are task-specific, supply the model per call with
+`hfopts.WithModel(...)` when it differs from the client default; the client's
+token, base URL, provider, and transport are reused unchanged.
+
 Per-request options (variadic `hfopts.Option`) override client defaults for a
 single call. Options are applied by value with defensive header copies;
 contexts and HTTP clients are shared references.
@@ -82,7 +87,7 @@ thread-safe by design or properly synchronized externally.
 ### Provider abstraction
 
 Requests are routed through a pluggable provider layer defined in the
-`hfproviders` package. The HuggingFace Inference API is the reference wire
+`hfproviders` package. The Hugging Face Inference API is the reference wire
 format, so the built-in `HuggingFaceProvider` is a no-op transform;
 third-party providers can implement the same interfaces to serve HF-format
 requests from their own wire formats.

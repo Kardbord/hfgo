@@ -62,22 +62,8 @@ go test -race -timeout 600s -v ./... # Race detection
 
 ## Repository Structure
 
-| Path | Purpose |
-|------|---------|
-| `client.go` | `Client`, `NewClient`, and inference endpoint methods |
-| `hfopts/` | `Options`, `Option`, and `With*` helpers |
-| `hftypes/` | Request/response DTOs |
-| `hferrors/` | `APIError`, `SDKError`, `SDKErrorKind` |
-| `hfproviders/` | `Provider` interface, codecs, `HuggingFaceProvider` |
-| `hfraw/` | Low-level HTTP/SSE escape hatch |
-| `hfgoversion/` | `Version` constant and `UserAgent()` helper |
-| `internal/task/` | Task dispatch functions |
-| `internal/request/` | HTTP plumbing, JSON, SSE parsing |
-| `examples/` | Runnable examples, one folder per task |
-| `tools/bruno/` | Bruno collections for manual API testing |
-
-See [docs/architecture.md](./docs/architecture.md) for design decisions and
-[AGENTS.md](./AGENTS.md) for agent-oriented instructions.
+See [docs/architecture.md](./docs/architecture.md) for the package layout and
+design decisions, and [AGENTS.md](./AGENTS.md) for agent-oriented instructions.
 
 ## Pull Requests
 

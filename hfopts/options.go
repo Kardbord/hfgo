@@ -189,7 +189,7 @@ func WithBaseURL(baseURL string) Option {
 	}
 }
 
-// WithToken sets the HuggingFace API token.
+// WithToken sets the Hugging Face API token.
 func WithToken(token string) Option {
 	return func(cfg *Options) {
 		cfg.Token = token
@@ -212,7 +212,7 @@ func WithProvider(provider hfproviders.Provider) Option {
 	}
 }
 
-// WithDefaultProvider sets the default HuggingFace provider.
+// WithDefaultProvider sets the default Hugging Face provider.
 func WithDefaultProvider() Option {
 	return func(cfg *Options) {
 		cfg.Provider = hfproviders.NewHuggingFaceProvider()

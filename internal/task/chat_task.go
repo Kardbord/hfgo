@@ -14,7 +14,7 @@ import (
 // resolveModel resolves the model with precedence and applies the provider suffix.
 // Model precedence: request > options.
 // Provider suffix is appended only if the model doesn't already contain a provider
-// (indicated by ":") and the provider is not the default HuggingFace provider.
+// (indicated by ":") and the provider is not the default Hugging Face provider.
 // Returns the resolved model along with its suffix, or an error if no model could be resolved.
 func resolveModel(payload *hftypes.ChatRequest, opts hfopts.Options) (string, error) {
 	if payload.Model == nil || *payload.Model == "" {

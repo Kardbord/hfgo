@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-// APIError represents an error returned by the HuggingFace API.
+// APIError represents an error returned by the Hugging Face API.
 // It includes the HTTP status code, error message, response body,
 // and request ID if available. For client-side errors produced before
 // an API response, see [SDKError].

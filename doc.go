@@ -5,7 +5,7 @@
 //   - hfopts: client and per-request options (WithToken, WithModel, WithContext, etc.).
 //   - hftypes: request, response, and parameter DTOs for inference tasks.
 //   - hferrors: typed SDK and API errors.
-//   - hfproviders: pluggable inference hfproviders; wire-format encode/decode and endpoint resolution.
+//   - hfproviders: pluggable inference providers; wire-format encode/decode and endpoint resolution.
 //   - hfgoversion: runtime version information.
 //   - hfraw: low-level raw HTTP/SSE escape hatch for advanced use cases.
 //
