@@ -152,6 +152,10 @@ func TestStream_NilReceiver(t *testing.T) {
 
 	require.Equal(t, 0, stream.StatusCode())
 	require.Nil(t, stream.Header())
+
+	var nilStream *hfraw.Stream
+	require.Equal(t, 0, nilStream.StatusCode())
+	require.Nil(t, nilStream.Header())
 }
 
 func TestClient_Stream_NonSSEError(t *testing.T) {
