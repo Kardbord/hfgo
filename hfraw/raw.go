@@ -158,10 +158,6 @@ type Stream struct {
 // StatusCode returns the HTTP status code of the response that opened the
 // stream. It returns 0 for a zero-value Stream.
 func (s *Stream) StatusCode() int {
-	if s == nil {
-		return 0
-	}
-
 	return s.statusCode
 }
 
@@ -169,10 +165,6 @@ func (s *Stream) StatusCode() int {
 // stream, or nil for a zero-value Stream. The returned map is owned by the
 // SDK and must not be mutated.
 func (s *Stream) Header() http.Header {
-	if s == nil {
-		return nil
-	}
-
 	return s.header
 }
 
