@@ -684,3 +684,49 @@ func TestDo_IgnoresResponseOnTransportError(t *testing.T) {
 		t.Fatal("expected response body to remain open")
 	}
 }
+
+func TestAPIErrorFromResponse(t *testing.T) {
+	t.Parallel()
+
+	t.Run("maps response fields", func(t *testing.T) {
+		t.Parallel()
+
+		req, err := http.NewRequestWithContext(
+			context.Background(),
+			http.MethodPost,
+			"https://example.com/v1/chat/completions",
+			http.NoBody,
+		)
+		require.NoError(t, err)
+
+		body := io.NopCloser(strings.NewReader(`{"error":"nope"}`))
+		resp := &http.Response{
+			StatusCode: http.StatusUnauthorized,
+			Body:       body,
+			Header:     http.Header{"X-Request-Id": []string{"req-123"}},
+			Request:    req,
+		}
+
+		apiErr := APIErrorFromResponse(resp, req.Method)
+		require.Equal(t, http.StatusUnauthorized, apiErr.StatusCode)
+		require.Equal(t, http.StatusText(http.StatusUnauthorized), apiErr.Message)
+		require.Equal(t, body, apiErr.Body)
+		require.Equal(t, http.MethodPost, apiErr.Method)
+		require.Equal(t, "https://example.com/v1/chat/completions", apiErr.URL)
+		require.Equal(t, "req-123", apiErr.RequestID)
+	})
+
+	t.Run("tolerates missing request", func(t *testing.T) {
+		t.Parallel()
+
+		resp := &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       http.NoBody,
+			Header:     http.Header{},
+		}
+
+		apiErr := APIErrorFromResponse(resp, http.MethodGet)
+		require.Equal(t, http.StatusInternalServerError, apiErr.StatusCode)
+		require.Empty(t, apiErr.URL)
+	})
+}

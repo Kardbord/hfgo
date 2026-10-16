@@ -17,9 +17,7 @@ import (
 //
 // It is the deliberate exception to the rest of the SDK, where endpoints are
 // exposed as root Client methods: [Client] is the advanced escape hatch for
-// endpoints the SDK does not model type-safely. It combines byte-slice or
-// io.Reader bodies, typed error handling or raw HTTP responses, and one-shot
-// or SSE streaming into eight methods.
+// endpoints the SDK does not model type-safely.
 //
 // [Client] is immutable and holds a snapshot of the provided options.
 type Client struct {
@@ -88,6 +86,9 @@ func (c Client) DoRawReader(
 }
 
 // Stream performs a raw HTTP request and returns an SSE stream, applying SDK error interpretation on non-2xx responses.
+// A non-2xx response becomes an *hferrors.APIError whose Body the caller must close. A response that is not a
+// server-sent event stream is reported as an *hferrors.SDKError.
+// The status code and headers of the response that opened the stream are available via [Stream.StatusCode] and [Stream.Header].
 // Callers should close the returned Stream when finished to promptly release the HTTP connection and decoder goroutine.
 func (c Client) Stream(
 	requestBody []byte,
@@ -99,6 +100,9 @@ func (c Client) Stream(
 }
 
 // StreamReader performs a raw HTTP request with a streaming body and returns an SSE stream with SDK error interpretation.
+// A non-2xx response becomes an *hferrors.APIError whose Body the caller must close. A response that is not a
+// server-sent event stream is reported as an *hferrors.SDKError.
+// The status code and headers of the response that opened the stream are available via [Stream.StatusCode] and [Stream.Header].
 // Callers should close the returned Stream when finished to promptly release the HTTP connection and decoder goroutine.
 func (c Client) StreamReader(
 	requestBody io.Reader,
@@ -106,63 +110,25 @@ func (c Client) StreamReader(
 	path string,
 	opts ...hfopts.Option,
 ) (*Stream, error) {
-	return c.doStream(requestBody, method, path, opts, false)
-}
-
-// StreamRaw performs a raw HTTP request and returns an SSE stream without translating non-2xx responses into SDK errors.
-// This function is probably only interesting to advanced users.
-// Only use this when you need to inspect the raw response; callers are responsible for interpreting HTTP errors themselves.
-// Callers should close the returned Stream when finished to promptly release the HTTP connection and decoder goroutine.
-func (c Client) StreamRaw(
-	requestBody []byte,
-	method string,
-	path string,
-	opts ...hfopts.Option,
-) (*Stream, error) {
-	return c.StreamRawReader(bytes.NewReader(requestBody), method, path, opts...)
-}
-
-// StreamRawReader performs a raw HTTP request with a streaming body and returns an SSE stream without translating non-2xx responses into SDK errors.
-// This function is probably only interesting to advanced users.
-// Only use this when you need to inspect the raw response; callers are responsible for interpreting HTTP errors themselves.
-// Callers should close the returned Stream when finished to promptly release the HTTP connection and decoder goroutine.
-func (c Client) StreamRawReader(
-	requestBody io.Reader,
-	method string,
-	path string,
-	opts ...hfopts.Option,
-) (*Stream, error) {
-	return c.doStream(requestBody, method, path, opts, true)
-}
-
-// doStream performs the underlying HTTP request and SSE stream setup,
-// selecting between SDK-error-translating (Do) and raw (DoRaw) execution.
-func (c Client) doStream(
-	requestBody io.Reader,
-	method string,
-	path string,
-	opts []hfopts.Option,
-	raw bool,
-) (*Stream, error) {
-	var resp *http.Response
-	var err error
-
-	if raw {
-		resp, err = request.DoRaw(
-			c.opts.With(opts...),
-			method,
-			path,
-			requestBody,
-		)
-	} else {
-		resp, err = request.Do(
-			c.opts.With(opts...),
-			method,
-			path,
-			requestBody,
-		)
-	}
+	resp, err := request.Do(
+		c.opts.With(opts...),
+		method,
+		path,
+		requestBody,
+	)
 	if err != nil {
+		return nil, err
+	}
+
+	// A response that does not advertise an event stream cannot be consumed as
+	// SSE; the decoder would silently yield no events and report io.EOF, losing
+	// the response. A non-2xx response has already been translated into an
+	// *hferrors.APIError by request.Do, so a non-stream response here is a
+	// protocol violation reported as a serialization error with the body
+	// drained and closed.
+	if err := request.ValidateEventStreamResponseContentType(resp.Header); err != nil {
+		request.DrainAndCloseBody(resp.Body)
+
 		return nil, err
 	}
 
@@ -175,12 +141,39 @@ func (c Client) doStream(
 		return nil, err
 	}
 
-	return &Stream{stream: rawStream}, nil
+	return &Stream{
+		stream:     rawStream,
+		statusCode: resp.StatusCode,
+		header:     resp.Header,
+	}, nil
 }
 
 // Stream exposes a raw SSE stream returned by Client stream methods.
 type Stream struct {
-	stream *request.RawStream
+	stream     *request.RawStream
+	statusCode int
+	header     http.Header
+}
+
+// StatusCode returns the HTTP status code of the response that opened the
+// stream. It returns 0 for a zero-value Stream.
+func (s *Stream) StatusCode() int {
+	if s == nil {
+		return 0
+	}
+
+	return s.statusCode
+}
+
+// Header returns the HTTP response headers of the response that opened the
+// stream, or nil for a zero-value Stream. The returned map is owned by the
+// SDK and must not be mutated.
+func (s *Stream) Header() http.Header {
+	if s == nil {
+		return nil
+	}
+
+	return s.header
 }
 
 // Recv blocks until the next SSE event is available or the context is done.

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfraw"
 )
@@ -325,16 +326,16 @@ func ExampleClient_StreamReader() {
 	// Output: {"message":"Hello"}{"message":" from a reader"}
 }
 
-// ExampleClient_StreamRaw consumes an SSE stream without translating non-2xx
-// responses into errors. Where Stream reports a non-2xx status as an error,
-// StreamRaw hands the raw events over for you to interpret. This method is for
-// advanced users.
-func ExampleClient_StreamRaw() {
-	// The 404 event stream is hard-coded so the example can run without a real token.
+// ExampleClient_Stream_apiError shows how Stream surfaces a non-2xx response
+// that is not an event stream. Because a JSON response cannot be consumed as
+// SSE, Stream returns an *hferrors.APIError whose Body the caller owns, so the
+// error payload is not lost. Extract it with errors.As.
+func ExampleClient_Stream_apiError() {
+	// The 404 JSON response is hard-coded so the example can run without a real token.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprint(w, "data: {\"error\":\"model not found\"}\n\n")
+		fmt.Fprint(w, `{"error":"model not found"}`)
 	}))
 	defer server.Close()
 
@@ -344,59 +345,28 @@ func ExampleClient_StreamRaw() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	// The 404 status is not an error here; it arrives in the event payload.
-	stream, err := client.StreamRaw(
+	// A JSON (non-event-stream) response cannot be consumed as SSE, so the API
+	// error is returned instead of a stream.
+	_, err := client.Stream(
 		[]byte(`{"stream":true}`),
 		http.MethodPost,
 		"custom/stream",
 	)
-	if err != nil {
-		panic(err)
-	}
-	defer stream.Close()
-
-	event, err := stream.Recv(context.Background())
-	if err != nil {
-		panic(err)
+	if err == nil {
+		panic("expected an error")
 	}
 
-	fmt.Println(string(event.Data))
-	// Output: {"error":"model not found"}
-}
-
-// ExampleClient_StreamRawReader is the io.Reader-body counterpart of
-// StreamRaw. Raw events expose the full SSE framing — event name, ID, and
-// retry — that typed streams omit.
-func ExampleClient_StreamRawReader() {
-	// The event stream is hard-coded so the example can run without a real token.
-	const eventBody = "event: ping\n" +
-		"id: 1\n" +
-		"data: {\"message\":\"Hello\"}\n\n"
-
-	server := newMockEventStreamServer(eventBody)
-	defer server.Close()
-
-	client := hfraw.NewClient(
-		hfopts.WithToken("test-token"),
-		hfopts.WithBaseURL(server.URL),
-		hfopts.WithHTTPClientFactory(testClient()),
-	)
-
-	stream, err := client.StreamRawReader(
-		strings.NewReader(`{"stream":true}`),
-		http.MethodPost,
-		"custom/stream",
-	)
-	if err != nil {
+	var apiErr *hferrors.APIError
+	if !errors.As(err, &apiErr) {
 		panic(err)
 	}
-	defer stream.Close()
+	defer apiErr.Body.Close()
 
-	event, err := stream.Recv(context.Background())
-	if err != nil {
-		panic(err)
+	body, readErr := io.ReadAll(apiErr.Body)
+	if readErr != nil {
+		panic(readErr)
 	}
 
-	fmt.Printf("event=%s id=%s data=%s\n", event.Event, event.ID, event.Data)
-	// Output: event=ping id=1 data={"message":"Hello"}
+	fmt.Println(apiErr.StatusCode, string(body))
+	// Output: 404 {"error":"model not found"}
 }
