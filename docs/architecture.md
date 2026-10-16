@@ -143,9 +143,10 @@ Errors are categorized into two types in the `hferrors` package:
 
 The `hfraw` package is the deliberate exception to the typed Client surface.
 It exposes raw HTTP and SSE access to endpoints the SDK does not model
-type-safely, with six methods combining byte-slice or `io.Reader` bodies,
-typed error handling or raw responses, and one-shot or SSE streaming. It is
-kept separate to avoid cluttering the root `Client` API.
+type-safely, with methods combining byte-slice or `io.Reader` bodies and
+one-shot or SSE streaming. One-shot methods come in typed-error and
+raw-response variants; streams always apply typed error handling. It is kept
+separate to avoid cluttering the root `Client` API.
 
 `Do` and the stream methods translate non-2xx responses into
 `*hferrors.APIError`, whereas `DoRaw` returns the raw `*http.Response` so
