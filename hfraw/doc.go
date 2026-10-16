@@ -12,6 +12,16 @@
 // strings, and headers. Because it mirrors the underlying HTTP API, its surface
 // is more likely to change as the upstream API evolves.
 //
+// # Streaming
+//
+// The stream methods require the response to be a server-sent event stream.
+// The status code and headers of a stream response are available via
+// [Stream.StatusCode] and [Stream.Header]. A non-2xx response that is not
+// an event stream is returned as a [hferrors.APIError] whose Body the caller
+// must read and close; any other non-stream response is returned as a
+// [hferrors.SDKError]. Surfacing these responses keeps an API error from being
+// silently dropped when the body cannot be decoded as an event stream.
+//
 // # Concurrency
 //
 //   - A [Client] value is immutable and safe for concurrent use.

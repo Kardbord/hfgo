@@ -143,9 +143,22 @@ Errors are categorized into two types in the `hferrors` package:
 
 The `hfraw` package is the deliberate exception to the typed Client surface.
 It exposes raw HTTP and SSE access to endpoints the SDK does not model
-type-safely, with eight methods combining byte-slice or `io.Reader` bodies,
-typed error handling or raw responses, and one-shot or SSE streaming. It is
-kept separate to avoid cluttering the root `Client` API.
+type-safely, with methods combining byte-slice or `io.Reader` bodies and
+one-shot or SSE streaming. One-shot methods come in typed-error and
+raw-response variants; streams always apply typed error handling. It is kept
+separate to avoid cluttering the root `Client` API.
+
+`Do` and the stream methods translate non-2xx responses into
+`*hferrors.APIError`, whereas `DoRaw` returns the raw `*http.Response` so
+callers can inspect the status and headers themselves. Stream methods require
+the response to advertise `text/event-stream`; a response that does not is
+never handed to the SSE decoder, which would otherwise yield no events and
+report `io.EOF`, silently dropping the response. A non-2xx response that is not
+an event stream is returned as an `*hferrors.APIError` whose `Body` the caller
+owns, so the error payload is preserved; every other non-stream response is
+returned as an `*hferrors.SDKError` and its body is drained and closed. The
+status code and headers of a successfully opened stream are exposed via
+`Stream.StatusCode` and `Stream.Header`.
 
 ### Chat streaming
 

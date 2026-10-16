@@ -30,17 +30,28 @@ func Do(
 	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, &hferrors.APIError{
-			StatusCode: resp.StatusCode,
-			Message:    http.StatusText(resp.StatusCode),
-			Body:       resp.Body,
-			Method:     method,
-			URL:        resp.Request.URL.String(),
-			RequestID:  resp.Header.Get("X-Request-ID"),
-		}
+		return nil, APIErrorFromResponse(resp, method)
 	}
 
 	return resp, nil
+}
+
+// APIErrorFromResponse builds an *hferrors.APIError from a non-2xx response.
+// Ownership of resp.Body transfers to the caller, who must close it.
+func APIErrorFromResponse(resp *http.Response, method string) *hferrors.APIError {
+	reqURL := ""
+	if resp.Request != nil && resp.Request.URL != nil {
+		reqURL = resp.Request.URL.String()
+	}
+
+	return &hferrors.APIError{
+		StatusCode: resp.StatusCode,
+		Message:    http.StatusText(resp.StatusCode),
+		Body:       resp.Body,
+		Method:     method,
+		URL:        reqURL,
+		RequestID:  resp.Header.Get("X-Request-ID"),
+	}
 }
 
 // DoRaw performs an HTTP request with the provided options and returns the response

@@ -5,6 +5,7 @@ package hfraw_test
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -55,28 +56,6 @@ func TestClient_Stream_DoError(t *testing.T) {
 
 	_, err := client.Stream(nil, http.MethodGet, "/stream")
 	require.Error(t, err)
-}
-
-func TestClient_StreamRaw_AllowsNon2xx(t *testing.T) {
-	t.Parallel()
-
-	body := "data: hi\n\n"
-	mt := testutils.NewMockTransport(http.StatusUnauthorized, body, nil)
-	mt.Response.Header.Set("Content-Type", "text/event-stream")
-
-	client := hfraw.NewClient(
-		hfopts.WithHTTPClientFactory(
-			func() http.Client { return testutils.NewMockHTTPClient(mt) },
-		),
-	)
-
-	stream, err := client.StreamRaw(nil, http.MethodGet, "/stream")
-	require.NoError(t, err)
-	defer func() { _ = stream.Close() }()
-
-	event, err := stream.Recv(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, "hi", string(event.Data))
 }
 
 func TestClient_Do(t *testing.T) {
@@ -160,28 +139,6 @@ func TestClient_StreamReader(t *testing.T) {
 	require.Equal(t, "hi", string(event.Data))
 }
 
-func TestClient_StreamRawReader(t *testing.T) {
-	t.Parallel()
-
-	body := "data: hi\n\n"
-	mt := testutils.NewMockTransport(http.StatusUnauthorized, body, nil)
-	mt.Response.Header.Set("Content-Type", "text/event-stream")
-
-	client := hfraw.NewClient(
-		hfopts.WithHTTPClientFactory(
-			func() http.Client { return testutils.NewMockHTTPClient(mt) },
-		),
-	)
-
-	stream, err := client.StreamRawReader(strings.NewReader("payload"), http.MethodPost, "/stream")
-	require.NoError(t, err)
-	defer func() { _ = stream.Close() }()
-
-	event, err := stream.Recv(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, "hi", string(event.Data))
-}
-
 func TestStream_NilReceiver(t *testing.T) {
 	t.Parallel()
 
@@ -192,4 +149,128 @@ func TestStream_NilReceiver(t *testing.T) {
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindInternal)
 
 	require.NoError(t, stream.Close())
+
+	require.Equal(t, 0, stream.StatusCode())
+	require.Nil(t, stream.Header())
+}
+
+func TestClient_Stream_NonSSEError(t *testing.T) {
+	t.Parallel()
+
+	body := `{"error":"model not found"}`
+	mt := testutils.NewJSONMockTransport(http.StatusNotFound, body, nil)
+
+	client := hfraw.NewClient(
+		hfopts.WithHTTPClientFactory(
+			func() http.Client { return testutils.NewMockHTTPClient(mt) },
+		),
+	)
+
+	stream, err := client.Stream(nil, http.MethodPost, "/stream")
+	require.Error(t, err)
+	require.Nil(t, stream)
+
+	apiErr := testutils.AssertAPIErrorStatus(t, err, http.StatusNotFound)
+	require.Contains(t, apiErr.URL, "/stream")
+
+	got, readErr := io.ReadAll(apiErr.Body)
+	require.NoError(t, readErr)
+	require.JSONEq(t, body, string(got))
+	require.NoError(t, apiErr.Body.Close())
+}
+
+func TestClient_StreamReader_NonSSEError(t *testing.T) {
+	t.Parallel()
+
+	body := `{"error":"server exploded"}`
+	mt := testutils.NewJSONMockTransport(http.StatusInternalServerError, body, nil)
+
+	client := hfraw.NewClient(
+		hfopts.WithHTTPClientFactory(
+			func() http.Client { return testutils.NewMockHTTPClient(mt) },
+		),
+	)
+
+	stream, err := client.StreamReader(
+		strings.NewReader("payload"),
+		http.MethodPost,
+		"/stream",
+	)
+	require.Error(t, err)
+	require.Nil(t, stream)
+
+	apiErr := testutils.AssertAPIErrorStatus(t, err, http.StatusInternalServerError)
+
+	got, readErr := io.ReadAll(apiErr.Body)
+	require.NoError(t, readErr)
+	require.JSONEq(t, body, string(got))
+	require.NoError(t, apiErr.Body.Close())
+}
+
+func TestClient_Stream_NonSSE2xx(t *testing.T) {
+	t.Parallel()
+
+	mt := testutils.NewJSONMockTransport(http.StatusOK, `{"ok":true}`, nil)
+
+	client := hfraw.NewClient(
+		hfopts.WithHTTPClientFactory(
+			func() http.Client { return testutils.NewMockHTTPClient(mt) },
+		),
+	)
+
+	stream, err := client.Stream(nil, http.MethodGet, "/stream")
+	require.Error(t, err)
+	require.Nil(t, stream)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+}
+
+func TestClient_StreamReader_NonSSE2xx(t *testing.T) {
+	t.Parallel()
+
+	tracker := &testutils.ReadTracker{Data: []byte(`{"ok":true}`)}
+	mt := &testutils.MockTransport{
+		Response: &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       tracker,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+		},
+	}
+
+	client := hfraw.NewClient(
+		hfopts.WithHTTPClientFactory(
+			func() http.Client { return testutils.NewMockHTTPClient(mt) },
+		),
+	)
+
+	stream, err := client.StreamReader(nil, http.MethodGet, "/stream")
+	require.Error(t, err)
+	require.Nil(t, stream)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+
+	// The unusable body is drained and closed rather than leaked.
+	require.True(t, tracker.Closed)
+	require.Equal(t, len(tracker.Data), tracker.ReadBytes)
+}
+
+func TestStream_StatusCodeAndHeader(t *testing.T) {
+	t.Parallel()
+
+	body := "data: hi\n\n"
+	mt := testutils.NewMockTransport(http.StatusAccepted, body, nil)
+	mt.Response.Header.Set("Content-Type", "text/event-stream")
+	mt.Response.Header.Set("X-Test", "yes")
+
+	client := hfraw.NewClient(
+		hfopts.WithHTTPClientFactory(
+			func() http.Client { return testutils.NewMockHTTPClient(mt) },
+		),
+	)
+
+	stream, err := client.Stream(nil, http.MethodGet, "/stream")
+	require.NoError(t, err)
+	defer func() { _ = stream.Close() }()
+
+	require.Equal(t, http.StatusAccepted, stream.StatusCode())
+	require.Equal(t, "text/event-stream", stream.Header().Get("Content-Type"))
+	require.Equal(t, "yes", stream.Header().Get("X-Test"))
 }
