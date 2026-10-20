@@ -68,6 +68,51 @@ func TestJSONCodec_EncodeError(t *testing.T) {
 	require.Error(t, sdkErr.Err, "underlying marshal error must be preserved")
 }
 
+type sdkErrorReq struct{}
+
+func (sdkErrorReq) MarshalJSON() ([]byte, error) {
+	return nil, &hferrors.SDKError{
+		Kind:    hferrors.SDKErrorKindConfiguration,
+		Message: "request is invalid",
+	}
+}
+
+type sdkErrorResp struct{}
+
+func (*sdkErrorResp) UnmarshalJSON([]byte) error {
+	return &hferrors.SDKError{
+		Kind:    hferrors.SDKErrorKindValidation,
+		Message: "response is invalid",
+	}
+}
+
+func TestJSONCodec_EncodePreservesSDKError(t *testing.T) {
+	t.Parallel()
+
+	_, _, err := JSONCodec[sdkErrorReq, decodeResp]{}.Encode(
+		EncodeParams[sdkErrorReq]{Request: sdkErrorReq{}},
+	)
+	require.Error(t, err)
+
+	var sdkErr *hferrors.SDKError
+	require.ErrorAs(t, err, &sdkErr)
+	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
+}
+
+func TestJSONCodec_DecodePreservesSDKError(t *testing.T) {
+	t.Parallel()
+
+	_, err := JSONCodec[encodeReq, sdkErrorResp]{}.Decode(DecodeParams{
+		Headers: jsonHeaders(ctJSON),
+		Body:    []byte(`{}`),
+	})
+	require.Error(t, err)
+
+	var sdkErr *hferrors.SDKError
+	require.ErrorAs(t, err, &sdkErr)
+	require.Equal(t, hferrors.SDKErrorKindValidation, sdkErr.Kind)
+}
+
 func TestJSONCodec_Decode(t *testing.T) {
 	t.Parallel()
 

@@ -157,13 +157,19 @@ type (
 type JSONCodec[Req, Resp any] struct{}
 
 // Encode marshals params.Request into a JSON request body and returns it along
-// with Content-Type and Accept headers of "application/json". It returns an
-// *hferrors.SDKError of kind SDKErrorKindSerialization if marshaling fails.
+// with Content-Type and Accept headers of "application/json". If marshaling
+// returns an existing *hferrors.SDKError, such as a validation error from a
+// custom MarshalJSON method, it is returned unchanged. Other marshal failures
+// become an *hferrors.SDKError of kind SDKErrorKindSerialization.
 func (JSONCodec[Req, Resp]) Encode(
 	params EncodeParams[Req],
 ) (body []byte, headers http.Header, err error) {
 	body, err = json.Marshal(params.Request)
 	if err != nil {
+		if sdkErr, ok := errors.AsType[*hferrors.SDKError](err); ok {
+			return nil, nil, sdkErr
+		}
+
 		return nil, nil, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindSerialization,
 			Message: "failed to marshal request body",
@@ -184,8 +190,10 @@ func (JSONCodec[Req, Resp]) Encode(
 // of kind SDKErrorKindSerialization is returned. A missing or empty
 // Content-Type fails the same way — the media type is never inferred from the
 // body. Callers whose upstream omits Content-Type must synthesize
-// "application/json" before delegating to JSONCodec. A serialization error is
-// also returned if the body fails to unmarshal.
+// "application/json" before delegating to JSONCodec. If unmarshaling returns an
+// existing *hferrors.SDKError, such as a validation error from a custom
+// UnmarshalJSON method, it is returned unchanged. Other unmarshal failures
+// become an *hferrors.SDKError of kind SDKErrorKindSerialization.
 func (JSONCodec[Req, Resp]) Decode(params DecodeParams) (resp Resp, err error) {
 	contentType := params.Headers.Get("Content-Type")
 	if !isJSONContentType(contentType) {
@@ -197,6 +205,9 @@ func (JSONCodec[Req, Resp]) Decode(params DecodeParams) (resp Resp, err error) {
 	}
 
 	if err := json.Unmarshal(params.Body, &resp); err != nil {
+		if sdkErr, ok := errors.AsType[*hferrors.SDKError](err); ok {
+			return resp, sdkErr
+		}
 		if errors.Is(err, io.EOF) {
 			return resp, &hferrors.SDKError{
 				Kind:    hferrors.SDKErrorKindSerialization,
