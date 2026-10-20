@@ -6,41 +6,120 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/stretchr/testify/require"
 )
 
-func TestChatStreamDelta_UnmarshalValidation(t *testing.T) {
+func TestChatStreamDelta_UnmarshalTolerant(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
 		name      string
 		unmarshal string
-		wantErr   bool
 	}{
 		{
 			name:      "tool_calls with content",
 			unmarshal: `{"content":"hi","tool_calls":[{"id":"id","type":"function","index":0,"function":{"name":"fn","arguments":"{}"}}]}`,
-			wantErr:   true,
 		},
 		{
 			name:      "tool_calls with tool_call_id",
 			unmarshal: `{"tool_call_id":"id","tool_calls":[{"id":"id","type":"function","index":0,"function":{"name":"fn","arguments":"{}"}}]}`,
-			wantErr:   true,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var got ChatStreamDelta
-			err := json.Unmarshal([]byte(tc.unmarshal), &got)
+			require.NoError(t, json.Unmarshal([]byte(tc.unmarshal), &got))
+		})
+	}
+}
+
+func TestChatStreamDelta_Validate(t *testing.T) {
+	t.Parallel()
+
+	toolCalls := []ChatStreamToolCall{{
+		ID:    "id",
+		Type:  "function",
+		Index: 0,
+		Function: ChatStreamFunction{
+			Name:      "fn",
+			Arguments: "{}",
+		},
+	}}
+
+	cases := []struct {
+		name    string
+		delta   ChatStreamDelta
+		wantErr bool
+	}{
+		{
+			name: "tool_calls with content",
+			delta: ChatStreamDelta{
+				Content:   new("hi"),
+				ToolCalls: toolCalls,
+			},
+			wantErr: true,
+		},
+		{
+			name: "tool_calls with tool_call_id",
+			delta: ChatStreamDelta{
+				ToolCallID: new("id"),
+				ToolCalls:  toolCalls,
+			},
+			wantErr: true,
+		},
+		{
+			name:  "text delta",
+			delta: ChatStreamDelta{Content: new("hi")},
+		},
+		{
+			name:  "tool call delta",
+			delta: ChatStreamDelta{ToolCalls: toolCalls},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.delta.Validate()
 			if tc.wantErr {
 				require.Error(t, err)
+				var sdkErr *hferrors.SDKError
+				require.ErrorAs(t, err, &sdkErr)
+				require.Equal(t, hferrors.SDKErrorKindValidation, sdkErr.Kind)
 
 				return
 			}
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestChatStreamResponse_Validate(t *testing.T) {
+	t.Parallel()
+
+	valid := ChatStreamResponse{
+		Choices: []ChatStreamChoice{{
+			Delta: ChatStreamDelta{Content: new("hi")},
+		}},
+	}
+	require.NoError(t, valid.Validate())
+
+	invalid := ChatStreamResponse{
+		Choices: []ChatStreamChoice{{
+			Delta: ChatStreamDelta{
+				Content: new("hi"),
+				ToolCalls: []ChatStreamToolCall{{
+					Index: 0,
+				}},
+			},
+		}},
+	}
+	err := invalid.Validate()
+	require.Error(t, err)
+	var sdkErr *hferrors.SDKError
+	require.ErrorAs(t, err, &sdkErr)
+	require.Equal(t, hferrors.SDKErrorKindValidation, sdkErr.Kind)
 }
 
 func TestChatStreamDelta_UnmarshalSuccess(t *testing.T) {

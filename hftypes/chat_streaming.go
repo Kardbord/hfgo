@@ -2,13 +2,15 @@ package hftypes
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 )
 
 // ChatStreamResponse represents a streaming response chunk.
 // This is returned when Stream is true.
+//
+// Decoding is intentionally tolerant of provider variations. Use
+// [ChatStreamResponse.Validate] to enforce the Hugging Face streaming schema.
 type ChatStreamResponse struct {
 	ID string `json:"id"`
 	// Unix timestamp in seconds.
@@ -29,6 +31,9 @@ type ChatStreamChoice struct {
 
 // ChatStreamDelta holds incremental updates for a stream.
 // Deltas may include content/role/tool_call_id or role/tool_calls.
+//
+// Decoding accepts provider-specific variations. Use [ChatStreamDelta.Validate]
+// to enforce the Hugging Face schema's strict text-or-tool-call union.
 type ChatStreamDelta struct {
 	// Content is present for text deltas.
 	Content *string `json:"content,omitempty"`
@@ -40,24 +45,30 @@ type ChatStreamDelta struct {
 	ToolCalls []ChatStreamToolCall `json:"tool_calls,omitempty"`
 }
 
-// UnmarshalJSON enforces the union shape for ChatStreamDelta.
-func (d *ChatStreamDelta) UnmarshalJSON(data []byte) error {
-	type alias ChatStreamDelta
-	var tmp alias
-	if err := json.Unmarshal(data, &tmp); err != nil {
-		return err
+// Validate enforces the Hugging Face streaming union on all choices in the chunk.
+// It returns an [hferrors.SDKError] with [hferrors.SDKErrorKindValidation] when
+// a delta mixes text content with tool calls.
+//
+// Validation is opt-in because some inference providers return OpenAI-compatible
+// deltas where content and tool calls coexist. Decoding does not call Validate.
+func (r ChatStreamResponse) Validate() error {
+	for i := range r.Choices {
+		if err := r.Choices[i].Delta.Validate(); err != nil {
+			return err
+		}
 	}
-	out := ChatStreamDelta(tmp)
-	if err := out.validate(); err != nil {
-		return err
-	}
-	*d = out
 
 	return nil
 }
 
-// validate enforces the union shape for ChatStreamDelta.
-func (d ChatStreamDelta) validate() error {
+// Validate enforces the Hugging Face text-or-tool-call union on the delta.
+// It returns an [hferrors.SDKError] with [hferrors.SDKErrorKindValidation] when
+// tool calls are mixed with content or tool_call_id.
+//
+// Streaming deltas are incremental, so this validates only the union shape, not
+// every tool-call field. Validation is opt-in because some inference providers
+// return OpenAI-compatible deltas where content and tool calls coexist.
+func (d ChatStreamDelta) Validate() error {
 	if len(d.ToolCalls) > 0 {
 		if d.Content != nil || d.ToolCallID != nil {
 			return &hferrors.SDKError{

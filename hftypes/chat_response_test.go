@@ -8,40 +8,114 @@ import (
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
-func TestChatCompletionMessage_UnmarshalValidation(t *testing.T) {
+func TestChatCompletionMessage_UnmarshalTolerant(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
 		name      string
 		unmarshal string
-		wantErr   bool
 	}{
 		{
 			name:      "both content and tool_calls",
 			unmarshal: `{"role":"assistant","content":"hi","tool_calls":[{"id":"id","type":"function","function":{"name":"fn","arguments":"{}"}}]}`,
-			wantErr:   true,
 		},
 		{
 			name:      "neither content nor tool_calls",
 			unmarshal: `{"role":"assistant"}`,
-			wantErr:   true,
 		},
 		{
 			name:      "tool_call_id without content",
 			unmarshal: `{"role":"assistant","tool_call_id":"id"}`,
-			wantErr:   true,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var got hftypes.ChatCompletionMessage
-			err := json.Unmarshal([]byte(tc.unmarshal), &got)
+			require.NoError(t, json.Unmarshal([]byte(tc.unmarshal), &got))
+		})
+	}
+}
+
+func TestChatCompletionMessage_Validate(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		message hftypes.ChatCompletionMessage
+		wantErr bool
+	}{
+		{
+			name: "content and tool_calls",
+			message: hftypes.ChatCompletionMessage{
+				Content: new("hi"),
+				ToolCalls: []hftypes.ChatToolCallOutput{{
+					ID:   "id",
+					Type: "function",
+					Function: hftypes.ChatFunctionCall{
+						Name:      "fn",
+						Arguments: "{}",
+					},
+				}},
+			},
+			wantErr: true,
+		},
+		{
+			name:    "neither content nor tool_calls",
+			message: hftypes.ChatCompletionMessage{},
+			wantErr: true,
+		},
+		{
+			name: "tool_call_id without content",
+			message: hftypes.ChatCompletionMessage{
+				ToolCallID: new("id"),
+			},
+			wantErr: true,
+		},
+		{
+			name: "tool call missing id",
+			message: hftypes.ChatCompletionMessage{
+				ToolCalls: []hftypes.ChatToolCallOutput{{
+					Type: "function",
+					Function: hftypes.ChatFunctionCall{
+						Name:      "fn",
+						Arguments: "{}",
+					},
+				}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid text message",
+			message: hftypes.ChatCompletionMessage{
+				Content: new("hi"),
+			},
+		},
+		{
+			name: "valid tool call message",
+			message: hftypes.ChatCompletionMessage{
+				ToolCalls: []hftypes.ChatToolCallOutput{{
+					ID:   "id",
+					Type: "function",
+					Function: hftypes.ChatFunctionCall{
+						Name:      "fn",
+						Arguments: "{}",
+					},
+				}},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.message.Validate()
 			if tc.wantErr {
 				require.Error(t, err)
+				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindValidation)
 
 				return
 			}
@@ -50,45 +124,53 @@ func TestChatCompletionMessage_UnmarshalValidation(t *testing.T) {
 	}
 }
 
-func TestChatToolCallOutput_Validation(t *testing.T) {
+func TestChatResponse_Validate(t *testing.T) {
+	t.Parallel()
+
+	valid := hftypes.ChatResponse{
+		Choices: []hftypes.ChatChoice{{
+			Message: hftypes.ChatCompletionMessage{Content: new("hi")},
+		}},
+	}
+	require.NoError(t, valid.Validate())
+
+	invalid := hftypes.ChatResponse{
+		Choices: []hftypes.ChatChoice{{}},
+	}
+	err := invalid.Validate()
+	require.Error(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindValidation)
+}
+
+func TestChatToolCallOutput_UnmarshalTolerant(t *testing.T) {
 	t.Parallel()
 
 	cases := []toolCallDecodeCase{
 		{
-			name:        "type empty",
-			data:        []byte(`{"id":"id","type":"","function":{"name":"fn","arguments":"{}"}}`),
-			wantErr:     true,
-			wantErrKind: hferrors.SDKErrorKindValidation,
+			name: "type empty",
+			data: []byte(`{"id":"id","type":"","function":{"name":"fn","arguments":"{}"}}`),
 		},
 		{
-			name:        "type missing",
-			data:        []byte(`{"id":"id","function":{"name":"fn","arguments":"{}"}}`),
-			wantErr:     true,
-			wantErrKind: hferrors.SDKErrorKindValidation,
+			name: "type missing",
+			data: []byte(`{"id":"id","function":{"name":"fn","arguments":"{}"}}`),
 		},
 		{
 			name: "id missing",
 			data: []byte(
 				`{"type":"function","function":{"name":"fn","arguments":"{}"}}`,
 			),
-			wantErr:     true,
-			wantErrKind: hferrors.SDKErrorKindValidation,
 		},
 		{
 			name: "function name missing",
 			data: []byte(
 				`{"id":"id","type":"function","function":{"arguments":"{}"}}`,
 			),
-			wantErr:     true,
-			wantErrKind: hferrors.SDKErrorKindValidation,
 		},
 		{
 			name: "function arguments missing",
 			data: []byte(
 				`{"id":"id","type":"function","function":{"name":"fn"}}`,
 			),
-			wantErr:     true,
-			wantErrKind: hferrors.SDKErrorKindValidation,
 		},
 	}
 
