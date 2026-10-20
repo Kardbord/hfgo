@@ -43,11 +43,6 @@
 // For local failures, [hferrors.SDKErrorKind] distinguishes configuration,
 // validation, serialization, transport, and internal errors.
 //
-// # See also
-//
-//   - Runnable examples: https://github.com/Kardbord/hfgo/tree/main/examples
-//   - Design decisions: https://github.com/Kardbord/hfgo/blob/main/docs/architecture.md
-//
 // [hferrors]: https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hferrors
 // [hferrors.APIError]: https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hferrors#APIError
 // [hferrors.APIError.IsClientError]: https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hferrors#APIError.IsClientError
