@@ -85,10 +85,11 @@ type ChatStreamFunction struct {
 	Arguments string `json:"arguments"`
 }
 
-// ToolCallAccumulator tracks the last known metadata for a streamed tool call.
+// toolCallAccumulator tracks the last known metadata for a streamed tool call.
 // It fills in missing id/type/function-name fields across incremental deltas so
-// callers always observe complete tool-call identifiers.
-type ToolCallAccumulator struct {
+// the consumer always observes complete tool-call identifiers. It is owned by a
+// single consumer and is not safe for concurrent use.
+type toolCallAccumulator struct {
 	cache map[key]*toolCallState
 }
 
@@ -105,9 +106,9 @@ type toolCallState struct {
 	FunctionName string
 }
 
-// Merge records any provided metadata for a tool call and returns the
+// merge records any provided metadata for a tool call and returns the
 // accumulated values for that (choice, call) pair.
-func (a *ToolCallAccumulator) Merge(
+func (a *toolCallAccumulator) merge(
 	choiceIndex int,
 	callIndex int,
 	toolID string,
@@ -130,7 +131,7 @@ func (a *ToolCallAccumulator) Merge(
 
 // state returns the cached metadata for the provided tool call, creating a new
 // entry when this (choice, call) pair is observed for the first time.
-func (a *ToolCallAccumulator) state(choiceIndex, callIndex int) *toolCallState {
+func (a *toolCallAccumulator) state(choiceIndex, callIndex int) *toolCallState {
 	if a.cache == nil {
 		a.cache = make(map[key]*toolCallState)
 	}
@@ -155,18 +156,19 @@ type chatstreamer interface {
 
 // ChatStream wraps a streaming chat completion response.
 //
-// Recv is intended for a single consumer goroutine: concurrent consumers
-// are memory-safe, but which goroutine receives which chunk is undefined.
+// A ChatStream is not safe for concurrent Recv calls. Close may be called
+// concurrently with Recv. To fan out chunks, distribute them from a single
+// consumer loop.
 type ChatStream struct {
 	stream       chatstreamer
-	toolCallAccr ToolCallAccumulator
+	toolCallAccr toolCallAccumulator
 }
 
 // NewChatStream wraps a JSON chat completion stream with tool call accumulation.
 func NewChatStream(stream chatstreamer) *ChatStream {
 	return &ChatStream{
 		stream:       stream,
-		toolCallAccr: ToolCallAccumulator{cache: nil},
+		toolCallAccr: toolCallAccumulator{cache: nil},
 	}
 }
 
@@ -174,6 +176,8 @@ func NewChatStream(stream chatstreamer) *ChatStream {
 // It returns io.EOF when the stream ends. Termination is final: once io.EOF
 // is observed, no further chunks will be delivered, and every delivered
 // chunk precedes the stream's terminal frame.
+//
+// Recv is not safe to call concurrently on the same ChatStream.
 func (c *ChatStream) Recv(ctx context.Context) (ChatStreamResponse, error) {
 	if c == nil || c.stream == nil {
 		return ChatStreamResponse{}, &hferrors.SDKError{
@@ -193,7 +197,8 @@ func (c *ChatStream) Recv(ctx context.Context) (ChatStreamResponse, error) {
 	return chunk, nil
 }
 
-// Close releases the underlying stream resources.
+// Close releases the underlying stream resources. It may be called
+// concurrently with Recv.
 func (c *ChatStream) Close() error {
 	if c == nil || c.stream == nil {
 		return nil
@@ -215,7 +220,7 @@ func (c *ChatStream) mergeToolCallMetadata(resp *ChatStreamResponse) {
 		}
 		for j := range choice.Delta.ToolCalls {
 			call := &choice.Delta.ToolCalls[j]
-			toolID, callType, functionName := c.toolCallAccr.Merge(
+			toolID, callType, functionName := c.toolCallAccr.merge(
 				choice.Index,
 				call.Index,
 				call.ID,

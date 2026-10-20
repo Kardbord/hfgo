@@ -1,12 +1,11 @@
 //go:build !integration
 
-package hftypes_test
+package hftypes
 
 import (
 	"encoding/json"
 	"testing"
 
-	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,7 +31,7 @@ func TestChatStreamDelta_UnmarshalValidation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			var got hftypes.ChatStreamDelta
+			var got ChatStreamDelta
 			err := json.Unmarshal([]byte(tc.unmarshal), &got)
 			if tc.wantErr {
 				require.Error(t, err)
@@ -73,7 +72,7 @@ func TestChatStreamDelta_UnmarshalSuccess(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			var got hftypes.ChatStreamDelta
+			var got ChatStreamDelta
 			require.NoError(t, json.Unmarshal([]byte(tc.unmarshal), &got))
 			if tc.wantRole != nil {
 				if got.Role == nil || *got.Role != *tc.wantRole {
@@ -141,7 +140,7 @@ func TestChatStreamToolCall_UnmarshalPartial(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			var out hftypes.ChatStreamToolCall
+			var out ChatStreamToolCall
 			err := json.Unmarshal(tc.data, &out)
 			require.NoError(t, err)
 		})
@@ -154,7 +153,7 @@ func TestChatStreamToolCall_UnmarshalSuccess(t *testing.T) {
 	data := []byte(
 		`{"id":"id","type":"function","index":0,"function":{"name":"fn","arguments":"{}"}}`,
 	)
-	var got hftypes.ChatStreamToolCall
+	var got ChatStreamToolCall
 	require.NoError(t, json.Unmarshal(data, &got))
 	if got.ID != "id" || got.Type != "function" || got.Index != 0 || got.Function.Name != "fn" {
 		t.Fatalf("unexpected value: %+v", got)
@@ -167,7 +166,7 @@ func TestChatStreamResponse_UnmarshalSuccess(t *testing.T) {
 	data := []byte(
 		`{"id":"id","created":1,"model":"m","system_fingerprint":"s","choices":[{"delta":{"role":"assistant"},"index":0}]}`,
 	)
-	var got hftypes.ChatStreamResponse
+	var got ChatStreamResponse
 	require.NoError(t, json.Unmarshal(data, &got))
 	if got.ID != "id" || len(got.Choices) != 1 {
 		t.Fatalf("unexpected response: %+v", got)
@@ -181,7 +180,7 @@ func TestChatStreamFunction_UnmarshalSuccess(t *testing.T) {
 	t.Parallel()
 
 	data := []byte(`{"name":"fn","arguments":"{}"}`)
-	var got hftypes.ChatStreamFunction
+	var got ChatStreamFunction
 	require.NoError(t, json.Unmarshal(data, &got))
 	if got.Name != "fn" || got.Arguments != "{}" {
 		t.Fatalf("unexpected stream function: %+v", got)
@@ -192,7 +191,7 @@ func TestChatStreamChoice_UnmarshalSuccess(t *testing.T) {
 	t.Parallel()
 
 	data := []byte(`{"delta":{"role":"assistant"},"index":0}`)
-	var got hftypes.ChatStreamChoice
+	var got ChatStreamChoice
 	require.NoError(t, json.Unmarshal(data, &got))
 	if got.Index != 0 || got.Delta.Role == nil || *got.Delta.Role != "assistant" {
 		t.Fatalf("unexpected stream choice: %+v", got)
@@ -202,32 +201,32 @@ func TestChatStreamChoice_UnmarshalSuccess(t *testing.T) {
 func TestToolCallAccumulator_Merge(t *testing.T) {
 	t.Parallel()
 
-	acc := hftypes.ToolCallAccumulator{}
+	acc := toolCallAccumulator{}
 
 	// Initial update should store and return provided values.
-	id, typ, name := acc.Merge(0, 0, "call_1", "function", "fn")
+	id, typ, name := acc.merge(0, 0, "call_1", "function", "fn")
 	if id != "call_1" || typ != "function" || name != "fn" {
 		t.Fatalf("unexpected first merge: %q %q %q", id, typ, name)
 	}
 
 	// Missing fields should fall back to cached state.
-	id, typ, name = acc.Merge(0, 0, "", "", "")
+	id, typ, name = acc.merge(0, 0, "", "", "")
 	if id != "call_1" || typ != "function" || name != "fn" {
 		t.Fatalf("missing fields should reuse cache: %q %q %q", id, typ, name)
 	}
 
 	// Updating only one field should preserve others.
-	id, typ, name = acc.Merge(0, 0, "", "", "fn_override")
+	id, typ, name = acc.merge(0, 0, "", "", "fn_override")
 	if id != "call_1" || typ != "function" || name != "fn_override" {
 		t.Fatalf("partial update failed: %q %q %q", id, typ, name)
 	}
 
 	// Separate choice/call indices should keep isolated caches.
-	idB, typB, nameB := acc.Merge(1, 2, "call_2", "function", "fn2")
+	idB, typB, nameB := acc.merge(1, 2, "call_2", "function", "fn2")
 	if idB != "call_2" || typB != "function" || nameB != "fn2" {
 		t.Fatalf("unexpected second call: %q %q %q", idB, typB, nameB)
 	}
-	id, typ, name = acc.Merge(0, 0, "", "", "")
+	id, typ, name = acc.merge(0, 0, "", "", "")
 	if name != "fn_override" {
 		t.Fatalf("first call cache should remain untouched: %q %q %q", id, typ, name)
 	}
@@ -236,19 +235,19 @@ func TestToolCallAccumulator_Merge(t *testing.T) {
 func TestToolCallAccumulator_MergeWithoutMetadata(t *testing.T) {
 	t.Parallel()
 
-	acc := hftypes.ToolCallAccumulator{}
+	acc := toolCallAccumulator{}
 
-	id, typ, name := acc.Merge(0, 0, "", "", "")
+	id, typ, name := acc.merge(0, 0, "", "", "")
 	if id != "" || typ != "" || name != "" {
 		t.Fatalf("expected empty metadata, got %q %q %q", id, typ, name)
 	}
 
-	id, typ, name = acc.Merge(0, 0, "call_1", "", "")
+	id, typ, name = acc.merge(0, 0, "call_1", "", "")
 	if id != "call_1" || typ != "" || name != "" {
 		t.Fatalf("unexpected selective metadata: %q %q %q", id, typ, name)
 	}
 
-	id, typ, name = acc.Merge(0, 0, "", "", "")
+	id, typ, name = acc.merge(0, 0, "", "", "")
 	if id != "call_1" || typ != "" || name != "" {
 		t.Fatalf("expected cached id only: %q %q %q", id, typ, name)
 	}

@@ -97,9 +97,10 @@ func (s *JSONStream[T]) endStream() error {
 //
 // Termination is final: the terminating frame's own value is not surfaced,
 // frames after it are discarded, and anything a consumer receives precedes
-// the terminal frame. Recv is intended for a single consumer goroutine;
-// concurrent consumers are memory-safe (events partition over a channel)
-// but which goroutine receives which frame is undefined.
+// the terminal frame.
+//
+// A JSONStream is not safe for concurrent Recv calls. Close may be called
+// concurrently with Recv.
 func (s *JSONStream[T]) Recv(ctx context.Context) (out T, err error) {
 	if s.raw == nil {
 		return out, &hferrors.SDKError{
@@ -173,7 +174,8 @@ func (s *JSONStream[T]) processEvent(
 	}
 }
 
-// Close releases the underlying stream resources.
+// Close releases the underlying stream resources. It may be called
+// concurrently with Recv.
 func (s *JSONStream[T]) Close() error {
 	if s.raw == nil {
 		return &hferrors.SDKError{

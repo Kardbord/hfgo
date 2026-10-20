@@ -84,6 +84,10 @@ immutability:
 If you inject an HTTP client via `hfopts.WithHTTPClientFactory`, ensure it is
 thread-safe by design or properly synchronized externally.
 
+Stream objects are not clients. Typed streams such as `ChatStream` are not safe
+for concurrent `Recv` calls. `Close` may be called concurrently with `Recv`.
+Callers that need fan-out must distribute chunks from a single consumer loop.
+
 ### Provider abstraction
 
 Requests are routed through a pluggable provider layer defined in the
@@ -167,6 +171,9 @@ tool-call metadata across deltas so each chunk includes complete tool-call
 identifiers. Callers must `Close()` the stream to release the underlying HTTP
 connection and decoder goroutine. Termination is final: once `io.EOF` is
 observed, no further chunks are delivered.
+
+A `ChatStream` is not safe for concurrent `Recv` calls. Its accumulator is
+owned by the single consumer. `Close` may be called concurrently with `Recv`.
 
 ## Where to Make Changes
 
