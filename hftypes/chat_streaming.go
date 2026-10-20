@@ -21,12 +21,10 @@ type ChatStreamResponse struct {
 
 // ChatStreamChoice is a single streaming completion choice.
 type ChatStreamChoice struct {
-	// Required.
 	Delta        ChatStreamDelta `json:"delta"`
 	FinishReason *string         `json:"finish_reason,omitempty"`
-	// Required.
-	Index    int           `json:"index"`
-	LogProbs *ChatLogProbs `json:"logprobs,omitempty"`
+	Index        int             `json:"index"`
+	LogProbs     *ChatLogProbs   `json:"logprobs,omitempty"`
 }
 
 // ChatStreamDelta holds incremental updates for a stream.

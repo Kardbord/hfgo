@@ -14,6 +14,4 @@
 //
 // A per-request [Option] overrides the same setting on the client for that call
 // only; values that are not overridden fall back to the client's configuration.
-// See the architecture notes for details:
-// https://github.com/Kardbord/hfgo/blob/main/docs/architecture.md#options-precedence
 package hfopts

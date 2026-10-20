@@ -9,53 +9,40 @@ import (
 // ChatResponse represents a non-streaming completion response from the chat API.
 // This is returned when Stream is false (the default).
 type ChatResponse struct {
-	// Required.
 	ID string `json:"id"`
+
 	// Unix timestamp in seconds.
-	// Required.
 	Created int64 `json:"created"`
-	// Required.
-	Model string `json:"model"`
-	// Required.
-	SystemFingerprint string `json:"system_fingerprint"`
-	// Required.
-	Choices []ChatChoice `json:"choices"`
-	// Required.
-	Usage ChatUsage `json:"usage"`
+
+	Model             string       `json:"model"`
+	SystemFingerprint string       `json:"system_fingerprint"`
+	Choices           []ChatChoice `json:"choices"`
+	Usage             ChatUsage    `json:"usage"`
 }
 
 // ChatChoice is a single non-streaming completion choice.
 type ChatChoice struct {
-	// Required.
-	FinishReason string `json:"finish_reason"`
-	// Required.
-	Index    int           `json:"index"`
-	LogProbs *ChatLogProbs `json:"logprobs,omitempty"`
-	// Required.
-	Message ChatCompletionMessage `json:"message"`
+	FinishReason string                `json:"finish_reason"`
+	Index        int                   `json:"index"`
+	LogProbs     *ChatLogProbs         `json:"logprobs,omitempty"`
+	Message      ChatCompletionMessage `json:"message"`
 }
 
 // ChatLogProbs contains per-token log probabilities.
 type ChatLogProbs struct {
-	// Required.
 	Content []ChatLogProb `json:"content"`
 }
 
 // ChatLogProb contains logprob information for a token.
 type ChatLogProb struct {
-	// Required.
-	Token string `json:"token"`
-	// Required.
-	LogProb float64 `json:"logprob"`
-	// Required.
+	Token       string           `json:"token"`
+	LogProb     float64          `json:"logprob"`
 	TopLogProbs []ChatTopLogProb `json:"top_logprobs"`
 }
 
 // ChatTopLogProb is a top log probability entry for a token position.
 type ChatTopLogProb struct {
-	// Required.
-	Token string `json:"token"`
-	// Required.
+	Token   string  `json:"token"`
 	LogProb float64 `json:"logprob"`
 }
 
@@ -117,11 +104,8 @@ func (m ChatCompletionMessage) validate() error {
 
 // ChatToolCallOutput represents a tool call in a response message.
 type ChatToolCallOutput struct {
-	// Required.
-	ID string `json:"id"`
-	// Required.
-	Type string `json:"type"`
-	// Required.
+	ID       string           `json:"id"`
+	Type     string           `json:"type"`
 	Function ChatFunctionCall `json:"function"`
 }
 
@@ -163,10 +147,7 @@ func (c ChatToolCallOutput) validate() error {
 
 // ChatUsage contains token usage statistics.
 type ChatUsage struct {
-	// Required.
 	CompletionTokens int `json:"completion_tokens"`
-	// Required.
-	PromptTokens int `json:"prompt_tokens"`
-	// Required.
-	TotalTokens int `json:"total_tokens"`
+	PromptTokens     int `json:"prompt_tokens"`
+	TotalTokens      int `json:"total_tokens"`
 }
