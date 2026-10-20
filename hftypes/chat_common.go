@@ -8,9 +8,7 @@ import (
 
 // ChatFunctionCall represents a tool function call with arguments.
 type ChatFunctionCall struct {
-	// Required.
-	Name string `json:"name"`
-	// Required.
+	Name        string  `json:"name"`
 	Arguments   string  `json:"arguments"`
 	Description *string `json:"description,omitempty"`
 }
