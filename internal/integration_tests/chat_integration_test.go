@@ -54,8 +54,7 @@ func TestChatCompletion_LiveAPI(t *testing.T) {
 	require.NotEmpty(t, resp.Choices, "response should have choices")
 
 	choice := resp.Choices[0]
-	require.NotNil(t, choice.Message, "choice should have a message")
-	require.NotEmpty(t, choice.Message.Role, "message should have a role")
+	require.Equal(t, "assistant", choice.Message.Role, "message should have the assistant role")
 	require.NotNil(t, choice.Message.Content, "message should have content")
 	require.NotEmpty(t, *choice.Message.Content, "message content should not be empty")
 	require.NotEmpty(t, choice.FinishReason, "choice should have a finish reason")

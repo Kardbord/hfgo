@@ -4,6 +4,7 @@ package request
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"math"
 	"net/http"
@@ -59,6 +60,18 @@ func TestReadResponseBody(t *testing.T) {
 			body:     strings.NewReader("hi"),
 			maxBytes: 0,
 			wantBody: "hi",
+		},
+		{
+			name: "non-positive limit reports the effective default",
+			body: strings.NewReader(
+				strings.Repeat("a", int(hfopts.DefaultMaxResponseBodyBytes)+1),
+			),
+			maxBytes: 0,
+			wantErrContains: fmt.Sprintf(
+				"limit %d bytes",
+				hfopts.DefaultMaxResponseBodyBytes,
+			),
+			wantKind: &configKind,
 		},
 		{
 			name:     "max int64 limit does not overflow",

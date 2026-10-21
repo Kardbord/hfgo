@@ -18,7 +18,7 @@ type Client struct {
 // NewClient creates a new [Client] instance with the provided request options.
 // If no options are provided, default options will be used.
 // Clients are immutable in order to provide concurrency guarantees.
-// To change options, create a new [Client] or provide per-call [hfopts.Options].
+// To change options, create a new [Client] or provide per-call [hfopts.Option].
 func NewClient(opts ...hfopts.Option) Client {
 	return Client{
 		opts: hfopts.NewOptions().With(opts...),
