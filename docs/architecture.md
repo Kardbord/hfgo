@@ -169,6 +169,12 @@ returned as an `*hferrors.SDKError` and its body is drained and closed. The
 status code and headers of a successfully opened stream are exposed via
 `Stream.StatusCode` and `Stream.Header`.
 
+SSE parsing is bounded by `hfopts.Options.MaxResponseBodyBytes`. For streams it
+caps both each line and the accumulated event payload, defaulting to 1 MiB when
+unset. This prevents a malformed or hostile response from growing the decoder's
+buffers without bound while still allowing callers to raise the limit for larger
+frames.
+
 ### Chat streaming
 
 `ChatStream` wraps an SSE stream of `ChatStreamResponse` chunks. It merges

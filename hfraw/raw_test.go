@@ -139,6 +139,33 @@ func TestClient_StreamReader(t *testing.T) {
 	require.Equal(t, "hi", string(event.Data))
 }
 
+func TestClient_Stream_SSELimitUsesPerCallOption(t *testing.T) {
+	t.Parallel()
+
+	body := "data: " + strings.Repeat("a", 64) + "\n\n"
+	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
+	mt.Response.Header.Set("Content-Type", "text/event-stream")
+
+	client := hfraw.NewClient(
+		hfopts.WithHTTPClientFactory(
+			func() http.Client { return testutils.NewMockHTTPClient(mt) },
+		),
+	)
+
+	stream, err := client.Stream(
+		nil,
+		http.MethodGet,
+		"/stream",
+		hfopts.WithMaxResponseBodyBytes(16),
+	)
+	require.NoError(t, err)
+	defer func() { _ = stream.Close() }()
+
+	_, err = stream.Recv(context.Background())
+	require.Error(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindTransport)
+}
+
 func TestStream_NilReceiver(t *testing.T) {
 	t.Parallel()
 
@@ -250,6 +277,39 @@ func TestClient_StreamReader_NonSSE2xx(t *testing.T) {
 	// The unusable body is drained and closed rather than leaked.
 	require.True(t, tracker.Closed)
 	require.Equal(t, len(tracker.Data), tracker.ReadBytes)
+}
+
+func TestClient_StreamReader_NonSSE2xx_UsesPerCallBodyLimit(t *testing.T) {
+	t.Parallel()
+
+	tracker := &testutils.ReadTracker{Data: []byte(`{"ok":true}`)}
+	mt := &testutils.MockTransport{
+		Response: &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       tracker,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+		},
+	}
+
+	client := hfraw.NewClient(
+		hfopts.WithHTTPClientFactory(
+			func() http.Client { return testutils.NewMockHTTPClient(mt) },
+		),
+	)
+
+	stream, err := client.StreamReader(
+		nil,
+		http.MethodGet,
+		"/stream",
+		hfopts.WithMaxResponseBodyBytes(5),
+	)
+	require.Error(t, err)
+	require.Nil(t, stream)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+
+	// The per-call limit, not the client default, bounds the drain.
+	require.True(t, tracker.Closed)
+	require.Equal(t, 5, tracker.ReadBytes)
 }
 
 func TestStream_StatusCodeAndHeader(t *testing.T) {

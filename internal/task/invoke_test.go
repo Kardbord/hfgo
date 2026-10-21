@@ -477,6 +477,35 @@ func TestDoStreamingInference_Success(t *testing.T) {
 	require.Equal(t, "text/event-stream", mt.LastRequest.Header.Get("Accept"))
 }
 
+func TestDoStreamingInference_SSELimitUsesOptions(t *testing.T) {
+	t.Parallel()
+
+	body := "data: " + strings.Repeat("a", 64) + "\n\n"
+	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
+	mt.Response.Header.Set("Content-Type", "text/event-stream")
+
+	p := transformProvider{}
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(p),
+		hfopts.WithMaxResponseBodyBytes(16),
+	)
+
+	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
+		opts,
+		hfproviders.Endpoint{Path: "/test-endpoint"},
+		testCodec{p: p},
+		jsonInferenceReq{Inputs: "hi"},
+	)
+	require.NoError(t, err)
+	defer func() { _ = stream.Close() }()
+
+	_, err = stream.Recv(context.Background())
+	require.Error(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindTransport)
+}
+
 func TestDoStreamingInference_NonEventStream(t *testing.T) {
 	t.Parallel()
 

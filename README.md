@@ -72,7 +72,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println(*response.Choices[0].Message.Content)
+	if len(response.Choices) > 0 && response.Choices[0].Message.Content != nil {
+		fmt.Println(*response.Choices[0].Message.Content)
+	}
 
 	// Other tasks follow this shape. See examples/speech-recognition,
 	// examples/text-classification, and the rest of examples/ for more.

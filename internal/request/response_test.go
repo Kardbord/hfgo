@@ -5,6 +5,7 @@ package request
 import (
 	"context"
 	"io"
+	"math"
 	"net/http"
 	"strings"
 	"testing"
@@ -28,6 +29,8 @@ func TestReadResponseBody(t *testing.T) {
 	t.Parallel()
 
 	configKind := hferrors.SDKErrorKindConfiguration
+	transportKind := hferrors.SDKErrorKindTransport
+	internalKind := hferrors.SDKErrorKindInternal
 
 	tests := []struct {
 		name            string
@@ -35,6 +38,7 @@ func TestReadResponseBody(t *testing.T) {
 		maxBytes        int64
 		wantBody        string
 		wantErrContains string
+		wantErrIs       error
 		wantKind        *hferrors.SDKErrorKind
 	}{
 		{
@@ -57,10 +61,38 @@ func TestReadResponseBody(t *testing.T) {
 			wantBody: "hi",
 		},
 		{
-			name:            "propagates reader error",
+			name:     "max int64 limit does not overflow",
+			body:     strings.NewReader("hi"),
+			maxBytes: math.MaxInt64,
+			wantBody: "hi",
+		},
+		{
+			name:            "propagates reader error as transport error",
 			body:            testutils.ErrorReadCloser{},
 			maxBytes:        32,
 			wantErrContains: "read failed",
+			wantKind:        &transportKind,
+		},
+		{
+			name: "preserves context cancellation",
+			body: readerFunc(func([]byte) (int, error) {
+				return 0, context.Canceled
+			}),
+			maxBytes:        32,
+			wantErrContains: context.Canceled.Error(),
+			wantErrIs:       context.Canceled,
+		},
+		{
+			name: "preserves existing sdk error",
+			body: readerFunc(func([]byte) (int, error) {
+				return 0, &hferrors.SDKError{
+					Kind:    hferrors.SDKErrorKindInternal,
+					Message: "reader failed",
+				}
+			}),
+			maxBytes:        32,
+			wantErrContains: "reader failed",
+			wantKind:        &internalKind,
 		},
 	}
 
@@ -80,11 +112,20 @@ func TestReadResponseBody(t *testing.T) {
 
 			require.Error(t, err)
 			require.ErrorContains(t, err, tt.wantErrContains)
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+			}
 			if tt.wantKind != nil {
 				testutils.AssertSDKErrorKind(t, err, *tt.wantKind)
 			}
 		})
 	}
+}
+
+type readerFunc func([]byte) (int, error)
+
+func (f readerFunc) Read(p []byte) (int, error) {
+	return f(p)
 }
 
 func TestDrainAndCloseBody(t *testing.T) {

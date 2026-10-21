@@ -2,9 +2,11 @@ package request
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 
@@ -266,14 +268,39 @@ func readResponseBodyTruncated(
 	}
 	// LimitReader doesn't error on overflow; it just stops at the limit and returns EOF.
 	// Read one extra byte so we can detect truncation by checking len(b) > maxBytes.
-	limitReader := io.LimitReader(reader, maxBytes+1)
+	limit := maxBytes
+	if limit != math.MaxInt64 {
+		limit++
+	}
+	limitReader := io.LimitReader(reader, limit)
 	body, err = io.ReadAll(limitReader)
 	if err != nil {
-		return nil, false, err
+		return nil, false, wrapBodyReadError(err)
 	}
 	if int64(len(body)) > maxBytes {
 		return body[:maxBytes], true, nil
 	}
 
 	return body, false, nil
+}
+
+// wrapBodyReadError classifies an error encountered while reading a response
+// body. Context cancellation is preserved so callers can still match it with
+// errors.Is, and an existing *hferrors.SDKError is returned unchanged.
+func wrapBodyReadError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if sdkErr, ok := errors.AsType[*hferrors.SDKError](err); ok {
+		return sdkErr
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+
+	return &hferrors.SDKError{
+		Kind:    hferrors.SDKErrorKindTransport,
+		Message: "failed to read response body",
+		Err:     err,
+	}
 }
