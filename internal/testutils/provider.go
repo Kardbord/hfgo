@@ -3,13 +3,11 @@ package testutils
 import "github.com/Kardbord/hfgo/v4/hfproviders"
 
 // MockProvider is a reusable hfproviders.Provider implementation for tests.
-// It embeds [hfproviders.HuggingFaceEndpoints] and
-// [hfproviders.HuggingFaceCodecs], so it satisfies every per-task provider
-// interface with Hugging Face defaults. Override individual behavior by
-// embedding MockProvider in a local struct and shadowing methods.
+// It embeds [hfproviders.HuggingFaceProvider], so it satisfies every per-task
+// provider interface with Hugging Face defaults. Override individual behavior
+// by embedding MockProvider in a local struct and shadowing methods.
 type MockProvider struct {
-	hfproviders.HuggingFaceEndpoints
-	hfproviders.HuggingFaceCodecs
+	hfproviders.HuggingFaceProvider
 
 	mockName   string
 	mockSuffix string

@@ -168,7 +168,7 @@ if errors.As(err, &sdkErr) {
 | [`hfopts`](./hfopts)                                     | `Options`, `Option`, and all `With*` helpers                         |
 | [`hftypes`](./hftypes)                                   | Request, response, and parameter DTOs for every task                 |
 | [`hferrors`](./hferrors)                                 | `APIError`, `SDKError`, and `SDKErrorKind`                           |
-| [`hfproviders`](./hfproviders)                           | `Provider` interface, per-task provider interfaces, codecs           |
+| [`hfproviders`](./hfproviders)                           | `Provider` interface, per-task provider interfaces, codecs, mixins   |
 | [`hfraw`](./hfraw)                                       | Low-level HTTP/SSE escape hatch for endpoints the SDK does not model |
 | [`hfgoversion`](./hfgoversion)                           | `Version` constant and `UserAgent()` helper                          |
 
@@ -188,6 +188,13 @@ a suffix to the model string (e.g. `model:sambanova`, `model:fastest`,
 `model:cheapest`, `model:preferred`); otherwise the HF router selects the
 provider. See
 <https://huggingface.co/docs/inference-providers/main/en/index>.
+
+Advanced users who want custom providers should implement the `Provider` interface
+plus the per-task interfaces you want to support, as shown by the `EchoProvider`
+example in the `hfproviders` package docs. The optional `HuggingFace*Mixin` types
+exist as a convenience for reusing the built-in Hugging Face endpoint and codec
+defaults: embed the ones you want (for example `HuggingFaceTextClassificationMixin`).
+See [docs/architecture.md](./docs/architecture.md#per-task-provider-mixins).
 
 ## Documentation
 

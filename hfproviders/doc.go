@@ -31,11 +31,11 @@
 //
 // A [Codec] encodes a canonical request into a wire-format body plus
 // headers, and decodes a wire-format response into the canonical
-// response type. [JSONCodec] is the JSON implementation, and
-// [HuggingFaceCodecs] wires the built-in codecs for every task.
-// While streaming, a decoder may return [hferrors.EndOfStreamError]
-// to end the stream early or [hferrors.SkipEventError] to suppress a
-// frame.
+// response type. [JSONCodec] is the JSON implementation.
+// [HuggingFaceProvider] composes the built-in per-task mixins, each of
+// which supplies that task's endpoint and codec. While streaming, a
+// decoder may return [hferrors.EndOfStreamError] to end the stream
+// early or [hferrors.SkipEventError] to suppress a frame.
 //
 // # Extending
 //
@@ -43,6 +43,12 @@
 // one, implement [Provider] plus the per-task interfaces it serves and
 // pass it to [hfopts.WithProvider]; [hfopts.WithDefaultProvider]
 // restores the built-in default.
+//
+// To reuse the built-in Hugging Face behavior for a subset of tasks,
+// embed the relevant mixins (for example
+// [HuggingFaceTextClassificationMixin]) and implement [Provider.Name]
+// and [Provider.ProviderSuffix]. Mixins carry no provider identity, so
+// composing several is unambiguous.
 //
 // [hfopts.WithProvider]: https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfopts#WithProvider
 // [hfopts.WithDefaultProvider]: https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfopts#WithDefaultProvider

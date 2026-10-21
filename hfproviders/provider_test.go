@@ -78,3 +78,30 @@ func TestAsProvider_ExactType(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "minimal", p.Name())
 }
+
+// subsetProvider serves only text classification and summarization by
+// embedding the corresponding Hugging Face mixins.
+type subsetProvider struct {
+	HuggingFaceTextClassificationMixin
+	HuggingFaceSummarizationMixin
+}
+
+func (subsetProvider) ProviderSuffix() string { return "" }
+
+func (subsetProvider) Name() string { return "subset" }
+
+func TestAsProvider_MixinSubset(t *testing.T) {
+	t.Parallel()
+
+	p := subsetProvider{}
+
+	_, err := AsProvider[TextClassificationProvider](p)
+	require.NoError(t, err)
+
+	_, err = AsProvider[SummarizationProvider](p)
+	require.NoError(t, err)
+
+	_, err = AsProvider[ChatProvider](p)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "subset does not implement hfproviders.ChatProvider")
+}
