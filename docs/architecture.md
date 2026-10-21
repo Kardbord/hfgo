@@ -121,6 +121,11 @@ win. The exceptions: codec-returned `Authorization` values are dropped
 (authentication is caller-owned), and streaming forces
 `Accept: text/event-stream` (SSE framing is a transport concern).
 
+When a codec or streaming decode hook returns an existing
+`*hferrors.SDKError`, the SDK preserves that error and its `SDKErrorKind`
+instead of relabeling it as a serialization failure. This keeps validation and
+configuration failures distinguishable from malformed JSON.
+
 ### Naming convention
 
 Client methods use an **action verb** (what the caller does); provider
@@ -174,6 +179,23 @@ observed, no further chunks are delivered.
 
 A `ChatStream` is not safe for concurrent `Recv` calls. Its accumulator is
 owned by the single consumer. `Close` may be called concurrently with `Recv`.
+
+### Feature extraction output shapes
+
+Feature extraction supports two model-dependent output families:
+
+- **Pooled:** `ExtractFeatures` and `ExtractFeaturesBatch` return
+  `FeatureExtraction` / `[]FeatureExtraction` (`[]float64` per input). Use these
+  with sentence-transformers-style models for sentence embeddings, semantic
+  search, and similarity.
+- **Token-level:** `ExtractTokenFeatures` and `ExtractTokenFeaturesBatch`
+  return `FeatureExtractionTokens` / `FeatureExtractionBatchTokens`
+  (`[][]float64` for one input, `[][][]float64` for a batch). Use these with
+  transformers-style models such as BART when you need per-token hidden states
+  and will apply your own pooling.
+
+The shape is determined by the model, not the request, so callers choose the
+method that matches the model's output.
 
 ## Where to Make Changes
 

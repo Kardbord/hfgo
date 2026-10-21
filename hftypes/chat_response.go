@@ -1,6 +1,10 @@
 package hftypes
 
-import "github.com/Kardbord/hfgo/v4/hferrors"
+import (
+	"fmt"
+
+	"github.com/Kardbord/hfgo/v4/hferrors"
+)
 
 // ChatResponse represents a non-streaming completion response from the chat API.
 // This is returned when Stream is false (the default).
@@ -75,9 +79,16 @@ type ChatToolCallOutput struct {
 // Validation is opt-in because some inference providers return OpenAI-compatible
 // responses that do not follow the strict schema. Decoding does not call Validate.
 func (r ChatResponse) Validate() error {
+	if len(r.Choices) == 0 {
+		return &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindValidation,
+			Message: "completion response: no choices",
+			Err:     nil,
+		}
+	}
 	for i := range r.Choices {
 		if err := r.Choices[i].Message.Validate(); err != nil {
-			return err
+			return fmt.Errorf("choice %d: %w", i, err)
 		}
 	}
 

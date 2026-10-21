@@ -376,7 +376,9 @@ stale (carried from when the branch was created) but preserved for promotion.
 
 The `go.mod` major version on the draft branch may be different from `main`.
 This is intentional — the validation workflow (`validate-release-pr.yml`)
-verifies the match, and maintainers resolve it on merge.
+verifies the match, and maintainers resolve it on merge. release-please's Go
+strategy may also update `go.mod` during a major-version bump; the promotion
+workflow remains responsible for resolving the module path.
 
 ### Release Notes Overlap
 

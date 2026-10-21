@@ -98,6 +98,8 @@ func TestChatStreamDelta_Validate(t *testing.T) {
 func TestChatStreamResponse_Validate(t *testing.T) {
 	t.Parallel()
 
+	require.NoError(t, ChatStreamResponse{}.Validate())
+
 	valid := ChatStreamResponse{
 		Choices: []ChatStreamChoice{{
 			Delta: ChatStreamDelta{Content: new("hi")},
@@ -106,20 +108,24 @@ func TestChatStreamResponse_Validate(t *testing.T) {
 	require.NoError(t, valid.Validate())
 
 	invalid := ChatStreamResponse{
-		Choices: []ChatStreamChoice{{
-			Delta: ChatStreamDelta{
-				Content: new("hi"),
-				ToolCalls: []ChatStreamToolCall{{
-					Index: 0,
-				}},
+		Choices: []ChatStreamChoice{
+			{Delta: ChatStreamDelta{Content: new("hi")}},
+			{
+				Delta: ChatStreamDelta{
+					Content: new("hi"),
+					ToolCalls: []ChatStreamToolCall{{
+						Index: 0,
+					}},
+				},
 			},
-		}},
+		},
 	}
 	err := invalid.Validate()
 	require.Error(t, err)
 	var sdkErr *hferrors.SDKError
 	require.ErrorAs(t, err, &sdkErr)
 	require.Equal(t, hferrors.SDKErrorKindValidation, sdkErr.Kind)
+	require.ErrorContains(t, err, "choice 1")
 }
 
 func TestChatStreamDelta_UnmarshalSuccess(t *testing.T) {

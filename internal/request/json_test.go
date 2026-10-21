@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -333,10 +334,76 @@ func TestJSONStream_DoneTrailingFrameDiscarded(t *testing.T) {
 	require.Equal(t, 1, hookCalls, "frames after [DONE] must not reach the decoder")
 }
 
-func TestJSONStream_SSECloseCancelsRead(t *testing.T) {
+// blockingReadCloser blocks Read until Close is called.
+type blockingReadCloser struct {
+	started   chan struct{}
+	release   chan struct{}
+	closeOnce sync.Once
+}
+
+func (b *blockingReadCloser) Read([]byte) (int, error) {
+	select {
+	case b.started <- struct{}{}:
+	default:
+	}
+
+	<-b.release
+
+	return 0, io.EOF
+}
+
+func (b *blockingReadCloser) Close() error {
+	b.closeOnce.Do(func() { close(b.release) })
+
+	return nil
+}
+
+func TestJSONStream_CloseUnblocksRecv(t *testing.T) {
 	t.Parallel()
 
-	mt := testutils.NewMockTransport(http.StatusOK, "event: ping\n\n", nil)
+	body := &blockingReadCloser{
+		started: make(chan struct{}, 1),
+		release: make(chan struct{}),
+	}
+	raw, err := StreamRaw(context.Background(), body)
+	require.NoError(t, err)
+
+	stream := NewJSONStream[struct{}](raw, jsonDecode[struct{}])
+
+	recvErr := make(chan error, 1)
+	go func() {
+		_, err := stream.Recv(context.Background())
+		recvErr <- err
+	}()
+
+	<-body.started
+	require.NoError(t, stream.Close())
+
+	select {
+	case err := <-recvErr:
+		require.Error(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("Recv did not unblock after Close")
+	}
+}
+
+func TestJSONStream_NilReceiver(t *testing.T) {
+	t.Parallel()
+
+	var stream *JSONStream[struct{}]
+
+	_, err := stream.Recv(context.Background())
+	require.Error(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindInternal)
+
+	require.NoError(t, stream.Close())
+}
+
+func TestJSONStream_DecodeHookPreservesSDKError(t *testing.T) {
+	t.Parallel()
+
+	rawBody := "data: {}\n\n"
+	mt := testutils.NewMockTransport(http.StatusOK, rawBody, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
 	opts := hfopts.NewOptions().With(
@@ -352,15 +419,17 @@ func TestJSONStream_SSECloseCancelsRead(t *testing.T) {
 	raw, err := StreamRaw(opts.Context(), resp.Body)
 	require.NoError(t, err)
 
-	stream := NewJSONStream[struct{}](raw, jsonDecode[struct{}])
-
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		if err := stream.Close(); err != nil {
-			t.Error(err)
+	wantKind := hferrors.SDKErrorKindValidation
+	stream := NewJSONStream[struct{}](raw, func(context.Context, RawEvent) (struct{}, error) {
+		return struct{}{}, &hferrors.SDKError{
+			Kind:    wantKind,
+			Message: "custom decode validation failed",
+			Err:     nil,
 		}
-	}()
+	})
+	defer func() { _ = stream.Close() }()
 
 	_, err = stream.Recv(context.Background())
 	require.Error(t, err)
+	testutils.AssertSDKErrorKind(t, err, wantKind)
 }

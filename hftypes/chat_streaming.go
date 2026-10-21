@@ -2,6 +2,7 @@ package hftypes
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 )
@@ -52,9 +53,11 @@ type ChatStreamDelta struct {
 // Validation is opt-in because some inference providers return OpenAI-compatible
 // deltas where content and tool calls coexist. Decoding does not call Validate.
 func (r ChatStreamResponse) Validate() error {
+	// Empty choices are valid: providers may send usage-only or terminal
+	// chunks without a choice delta.
 	for i := range r.Choices {
 		if err := r.Choices[i].Delta.Validate(); err != nil {
-			return err
+			return fmt.Errorf("choice %d: %w", i, err)
 		}
 	}
 

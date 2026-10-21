@@ -12,7 +12,10 @@ import (
 	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
-const mimeEventStream = "text/event-stream"
+const (
+	mimeEventStream  = "text/event-stream"
+	errJSONStreamNil = "json stream is nil"
+)
 
 // DecodeHTTPResponse handles the common HTTP response decoding logic:
 // 204/205 status codes, body reading, and empty-body detection. It is
@@ -97,6 +100,14 @@ func (s *JSONStream[T]) endStream() error {
 // A JSONStream is not safe for concurrent Recv calls. Close may be called
 // concurrently with Recv.
 func (s *JSONStream[T]) Recv(ctx context.Context) (out T, err error) {
+	if s == nil {
+		return out, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindInternal,
+			Message: errJSONStreamNil,
+			Err:     nil,
+		}
+	}
+
 	if s.terminated {
 		return out, io.EOF
 	}
@@ -104,7 +115,7 @@ func (s *JSONStream[T]) Recv(ctx context.Context) (out T, err error) {
 	if s.raw == nil {
 		return out, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindInternal,
-			Message: "json stream is nil",
+			Message: errJSONStreamNil,
 			Err:     nil,
 		}
 	}
@@ -165,6 +176,10 @@ func (s *JSONStream[T]) processEvent(
 
 		return zero, false, s.endStream()
 	default:
+		if sdkErr, ok := errors.AsType[*hferrors.SDKError](err); ok {
+			return out, false, sdkErr
+		}
+
 		return out, false, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindSerialization,
 			Message: "failed to decode stream event",
@@ -176,10 +191,14 @@ func (s *JSONStream[T]) processEvent(
 // Close releases the underlying stream resources. It may be called
 // concurrently with Recv.
 func (s *JSONStream[T]) Close() error {
+	if s == nil {
+		return nil
+	}
+
 	if s.raw == nil {
 		return &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindInternal,
-			Message: "json stream is nil",
+			Message: errJSONStreamNil,
 			Err:     nil,
 		}
 	}

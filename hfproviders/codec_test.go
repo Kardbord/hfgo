@@ -4,6 +4,8 @@ package hfproviders
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -278,6 +280,23 @@ func TestQuestionAnsweringCodec_Decode(t *testing.T) {
 		require.Error(t, err)
 		assertSerializationError(t, err)
 	})
+}
+
+func TestExistingSDKError(t *testing.T) {
+	t.Parallel()
+
+	want := &hferrors.SDKError{
+		Kind:    hferrors.SDKErrorKindValidation,
+		Message: "invalid response",
+		Err:     nil,
+	}
+	require.Same(t, want, existingSDKError(fmt.Errorf("wrapped: %w", want)))
+	require.Same(
+		t,
+		want,
+		existingSDKError(errors.Join(errors.New("first"), want)),
+	)
+	require.NoError(t, existingSDKError(errors.New("plain error")))
 }
 
 func TestDecodeSingleQuestionAnswering(t *testing.T) {

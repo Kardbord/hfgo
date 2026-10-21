@@ -148,6 +148,8 @@ func doStreamingInference[Req, T any](
 
 	raw, err := request.StreamRaw(opts.Context(), httpResp.Body)
 	if err != nil {
+		// StreamRaw only rejects a nil body, which net/http does not surface
+		// through Client.Do. Keep the defensive close for future changes.
 		request.DrainAndCloseBody(httpResp.Body, opts.MaxResponseBodyBytes)
 
 		return nil, err

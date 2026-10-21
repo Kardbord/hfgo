@@ -212,10 +212,15 @@ func (hfQuestionAnsweringCodec) Decode(params DecodeParams) ([]hftypes.QuestionA
 		return []hftypes.QuestionAnswering{single}, nil
 	}
 
+	joinedErr := errors.Join(sliceErr, singleErr)
+	if sdkErr := existingSDKError(joinedErr); sdkErr != nil {
+		return nil, sdkErr
+	}
+
 	return nil, &hferrors.SDKError{
 		Kind:    hferrors.SDKErrorKindSerialization,
 		Message: errFailedToDecodeResponseBody,
-		Err:     errors.Join(sliceErr, singleErr),
+		Err:     joinedErr,
 	}
 }
 
@@ -257,6 +262,15 @@ func decodeSingleQuestionAnswering(data []byte) (hftypes.QuestionAnswering, erro
 
 func isJSONNull(raw json.RawMessage) bool {
 	return strings.TrimSpace(string(raw)) == "null"
+}
+
+// existingSDKError returns the first *hferrors.SDKError in err's chain, if any.
+func existingSDKError(err error) error {
+	if sdkErr, ok := errors.AsType[*hferrors.SDKError](err); ok {
+		return sdkErr
+	}
+
+	return nil
 }
 
 // hfTextClassificationCodec is a flexible Codec for text classification that
@@ -332,10 +346,15 @@ func (hfTextClassificationCodec) Decode(params DecodeParams) ([]hftypes.TextClas
 		return nested[0], nil
 	}
 
+	joinedErr := errors.Join(flatErr, nestedErr)
+	if sdkErr := existingSDKError(joinedErr); sdkErr != nil {
+		return nil, sdkErr
+	}
+
 	return nil, &hferrors.SDKError{
 		Kind:    hferrors.SDKErrorKindSerialization,
 		Message: errFailedToDecodeResponseBody,
-		Err:     errors.Join(flatErr, nestedErr),
+		Err:     joinedErr,
 	}
 }
 

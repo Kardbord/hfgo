@@ -134,12 +134,22 @@ func TestChatResponse_Validate(t *testing.T) {
 	}
 	require.NoError(t, valid.Validate())
 
-	invalid := hftypes.ChatResponse{
-		Choices: []hftypes.ChatChoice{{}},
-	}
-	err := invalid.Validate()
+	empty := hftypes.ChatResponse{}
+	err := empty.Validate()
 	require.Error(t, err)
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindValidation)
+	require.ErrorContains(t, err, "no choices")
+
+	invalid := hftypes.ChatResponse{
+		Choices: []hftypes.ChatChoice{
+			{Message: hftypes.ChatCompletionMessage{Content: new("hi")}},
+			{},
+		},
+	}
+	err = invalid.Validate()
+	require.Error(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindValidation)
+	require.ErrorContains(t, err, "choice 1")
 }
 
 func TestChatToolCallOutput_UnmarshalTolerant(t *testing.T) {
