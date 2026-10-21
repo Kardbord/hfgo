@@ -36,7 +36,7 @@ func Do(
 	return resp, nil
 }
 
-// APIErrorFromResponse builds an *hferrors.APIError from a non-2xx response.
+// APIErrorFromResponse builds an *hferrors.APIError from a 4xx/5xx response.
 // Ownership of resp.Body transfers to the caller, who must close it.
 func APIErrorFromResponse(resp *http.Response, method string) *hferrors.APIError {
 	reqURL := ""
@@ -55,7 +55,7 @@ func APIErrorFromResponse(resp *http.Response, method string) *hferrors.APIError
 }
 
 // DoRaw performs an HTTP request with the provided options and returns the response
-// without translating non-2xx status codes into SDK errors.
+// without translating 4xx/5xx status codes into SDK errors.
 // The caller must close resp.Body on success.
 func DoRaw(
 	opts hfopts.Options,

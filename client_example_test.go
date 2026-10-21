@@ -211,7 +211,7 @@ func ExampleClient_ChatStream() {
 	// Output: Hello, world!
 }
 
-// ExampleClient_Chat_apiError demonstrates inspecting a non-2xx API response.
+// ExampleClient_Chat_apiError demonstrates inspecting a 4xx/5xx API response.
 // Methods return an error wrapping *hferrors.APIError for API failures; extract
 // it with errors.As to branch on the status code or use helpers such as
 // IsRateLimitError. APIError.Body holds the raw response body and must be

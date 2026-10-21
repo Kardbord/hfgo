@@ -137,7 +137,7 @@ Each link points to a runnable example. Most tasks have several variants
 Errors returned by client methods are one of two types in
 [`hferrors`](./hferrors):
 
-- **`APIError`** — a non-2xx response from the API. Carries the status code,
+- **`APIError`** — a 4xx/5xx response from the API. Carries the status code,
   message, request ID, method, and URL. Helpers: `IsClientError()`,
   `IsServerError()`, `IsAuthenticationError()`, and `IsRateLimitError()`.
 - **`SDKError`** — produced locally before or while decoding a response.
@@ -204,7 +204,7 @@ before opening a PR. Security issues should follow [SECURITY.md](./SECURITY.md).
 ## Releases
 
 See the [GitHub Releases](https://github.com/Kardbord/hfgo/releases) page for
-the changelog and published versions.
+the release notes and published versions.
 
 ## License
 

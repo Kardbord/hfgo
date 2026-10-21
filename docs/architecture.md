@@ -134,7 +134,7 @@ task support is expressed structurally through the per-task interfaces.
 
 Errors are categorized into two types in the `hferrors` package:
 
-- **`APIError`**: returned by the API (non-2xx HTTP responses). Carries the
+- **`APIError`**: returned by the API (4xx/5xx HTTP responses). Carries the
   status code, message, body reader, request ID, method, and URL. Helper
   methods: `IsClientError()`, `IsServerError()`, `IsAuthenticationError()`,
   `IsRateLimitError()`.
@@ -152,12 +152,12 @@ one-shot or SSE streaming. One-shot methods come in typed-error and
 raw-response variants; streams always apply typed error handling. It is kept
 separate to avoid cluttering the root `Client` API.
 
-`Do` and the stream methods translate non-2xx responses into
+`Do` and the stream methods translate 4xx/5xx responses into
 `*hferrors.APIError`, whereas `DoRaw` returns the raw `*http.Response` so
 callers can inspect the status and headers themselves. Stream methods require
 the response to advertise `text/event-stream`; a response that does not is
 never handed to the SSE decoder, which would otherwise yield no events and
-report `io.EOF`, silently dropping the response. A non-2xx response that is not
+report `io.EOF`, silently dropping the response. A 4xx/5xx response that is not
 an event stream is returned as an `*hferrors.APIError` whose `Body` the caller
 owns, so the error payload is preserved; every other non-stream response is
 returned as an `*hferrors.SDKError` and its body is drained and closed. The

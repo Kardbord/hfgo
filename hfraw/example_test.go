@@ -85,8 +85,8 @@ func Example() {
 }
 
 // ExampleClient_DoRaw demonstrates calling an unimplemented endpoint while
-// keeping the raw HTTP response on non-2xx status codes. Unlike Do, DoRaw does
-// not translate non-2xx responses into errors, so the status and body are
+// keeping the raw HTTP response on 4xx/5xx status codes. Unlike Do, DoRaw does
+// not translate 4xx/5xx responses into errors, so the status and body are
 // yours to inspect.
 func ExampleClient_DoRaw() {
 	// The 404 response is hard-coded so the example can run without a real token.
@@ -156,7 +156,7 @@ func ExampleClient_DoReader() {
 }
 
 // ExampleClient_DoRawReader is the io.Reader-body counterpart of DoRaw: the
-// request body is streamed from a reader, and a non-2xx response is returned
+// request body is streamed from a reader, and a 4xx/5xx response is returned
 // as data rather than an error.
 func ExampleClient_DoRawReader() {
 	// The 404 response is hard-coded so the example can run without a real token.
@@ -326,7 +326,7 @@ func ExampleClient_StreamReader() {
 	// Output: {"message":"Hello"}{"message":" from a reader"}
 }
 
-// ExampleClient_Stream_apiError shows how Stream surfaces a non-2xx response
+// ExampleClient_Stream_apiError shows how Stream surfaces a 4xx/5xx response
 // that is not an event stream. Because a JSON response cannot be consumed as
 // SSE, Stream returns an *hferrors.APIError whose Body the caller owns, so the
 // error payload is not lost. Extract it with errors.As.

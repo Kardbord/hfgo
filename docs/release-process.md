@@ -49,7 +49,7 @@ same base options (`release-type: go`, `version-file`, `versioning`,
 differ.
 
 The `pull-request-footer` is set on both tracks to warn maintainers that the
-PR title and body are load-bearing for version calculation and changelog
+PR title and body are load-bearing for version calculation and release notes
 generation, and should not be manually edited.
 
 release-please automatically updates the `Version` const in
@@ -99,9 +99,9 @@ The workflow selects the **stable** config/manifest pair.
 4. A **draft release PR** is created/updated on `main` with:
    - Updated version in `hfgoversion/version.go`
    - Updated `.github/.release-please-manifest.json`
-   - Auto-generated changelog
+   - Auto-generated release notes
 5. A maintainer reviews and merges the release PR when ready.
-6. release-please creates a GitHub release with the tag and changelog.
+6. release-please creates a GitHub release with the tag and release notes.
 
 <details>
 
@@ -118,11 +118,11 @@ sequenceDiagram
     Maintainer->>Main: Squash merge feature/fix PR<br/>(conventional commit title)
     Main->>RP: Trigger Release workflow
     RP->>RP: Analyze commits since last release
-    RP->>ReleasePR: Create/update draft Release PR<br/>• Bump version.go<br/>• Update manifest<br/>• Generate changelog
+    RP->>ReleasePR: Create/update draft Release PR<br/>• Bump version.go<br/>• Update manifest<br/>• Generate release notes
     Maintainer->>ReleasePR: Review and squash merge Release PR
     ReleasePR->>Main: Squash merge commit
     Main->>RP: Trigger Release workflow
-    RP->>GitHub: Create GitHub Release<br/>with tag and changelog
+    RP->>GitHub: Create GitHub Release<br/>with tag and release notes
     GitHub->>Main: Tag pushed
 ```
 
@@ -237,7 +237,7 @@ sequenceDiagram
     Maintainer->>Draft: Squash merge feature/fix PR<br/>(conventional commit title)
     Draft->>RP: Trigger Release workflow
     RP->>RP: Analyze commits since last RC tag
-    RP->>RCPR: Create/update RC Release PR<br/>• Bump version.go (rcN)<br/>• Update prerelease manifest<br/>• Generate changelog
+    RP->>RCPR: Create/update RC Release PR<br/>• Bump version.go (rcN)<br/>• Update prerelease manifest<br/>• Generate release notes
     Maintainer->>RCPR: Review and squash merge RC Release PR
     RCPR->>Draft: Squash merge commit
     Draft->>RP: Trigger Release workflow
@@ -342,7 +342,7 @@ sequenceDiagram
     PromoPR->>Main: Squash merge commit
     Main->>RP: Trigger Release workflow
     RP->>RP: Analyze commits since last stable release
-    RP->>ReleasePR: Create/update draft Release PR<br/>• Bump version.go<br/>• Update manifest<br/>• Generate changelog
+    RP->>ReleasePR: Create/update draft Release PR<br/>• Bump version.go<br/>• Update manifest<br/>• Generate release notes
     Maintainer->>ReleasePR: Review and squash merge Release PR
     ReleasePR->>Main: Squash merge commit
     Main->>RP: Trigger Release workflow
@@ -378,7 +378,7 @@ The `go.mod` major version on the draft branch may be different from `main`.
 This is intentional — the validation workflow (`validate-release-pr.yml`)
 verifies the match, and maintainers resolve it on merge.
 
-### Changelog Overlap
+### Release Notes Overlap
 
-Fixes merged from `main` into the draft branch will appear in both changelogs.
+Fixes merged from `main` into the draft branch will appear in both sets of release notes.
 This is acceptable — the same commit fixed the same issue in both tracks.
