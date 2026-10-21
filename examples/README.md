@@ -42,7 +42,7 @@ Not every task has every variant. The full matrix:
 | Task                                                             | Variants                             |
 | ---------------------------------------------------------------- | ------------------------------------ |
 | [Chat](./chat)                                                   | `basic`, `streaming`, `conversation` |
-| [Feature Extraction](./feature-extraction)                       | `basic`, `params`, `batch`           |
+| [Feature Extraction](./feature-extraction)                       | `basic`, `params`, `batch`, `token-level`, `token-level-batch` |
 | [Fill Mask](./fill-mask)                                         | `basic`, `params`                    |
 | [Image Classification](./image-classification)                   | `basic`, `params`                    |
 | [Image Segmentation](./image-segmentation)                       | `basic`, `params`                    |

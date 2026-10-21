@@ -112,6 +112,20 @@ type (
 	// FeatureExtractionCodec is the Codec for the FeatureExtraction task.
 	FeatureExtractionCodec = Codec[hftypes.FeatureExtractionRequest, hftypes.FeatureExtraction]
 
+	// FeatureExtractionBatchTokenCodec is the Codec for token-level output from
+	// the FeatureExtractionBatch task.
+	FeatureExtractionBatchTokenCodec = Codec[
+		hftypes.FeatureExtractionBatchRequest,
+		hftypes.FeatureExtractionBatchTokens,
+	]
+
+	// FeatureExtractionTokenCodec is the Codec for token-level output from the
+	// FeatureExtraction task.
+	FeatureExtractionTokenCodec = Codec[
+		hftypes.FeatureExtractionRequest,
+		hftypes.FeatureExtractionTokens,
+	]
+
 	// FillMaskCodec is the Codec for the FillMask task.
 	FillMaskCodec = Codec[hftypes.FillMaskRequest, []hftypes.FillMaskPrediction]
 

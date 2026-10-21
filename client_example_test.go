@@ -550,6 +550,55 @@ func ExampleClient_ExtractFeaturesBatch() {
 	// Output: [0.1 0.2 0.3] [0.4 0.5 0.6]
 }
 
+// ExampleClient_ExtractTokenFeatures demonstrates token-level feature extraction.
+func ExampleClient_ExtractTokenFeatures() {
+	// The response body is hard-coded so the example can run without a real token.
+	server := newMockJSONServer("[[0.1,0.2],[0.3,0.4]]")
+	defer server.Close()
+
+	client := hfgo.NewClient(
+		hfopts.WithToken("test-token"),
+		hfopts.WithModel("test-model"),
+		hfopts.WithBaseURL(server.URL),
+		hfopts.WithHTTPClientFactory(testClient()),
+	)
+
+	tokens, err := client.ExtractTokenFeatures(hftypes.FeatureExtractionRequest{
+		Input: "Hello world",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(tokens)
+	// Output: [[0.1 0.2] [0.3 0.4]]
+}
+
+// ExampleClient_ExtractTokenFeaturesBatch demonstrates batched token-level
+// feature extraction.
+func ExampleClient_ExtractTokenFeaturesBatch() {
+	// The response body is hard-coded so the example can run without a real token.
+	server := newMockJSONServer("[[[0.1],[0.2]],[[0.3]]]")
+	defer server.Close()
+
+	client := hfgo.NewClient(
+		hfopts.WithToken("test-token"),
+		hfopts.WithModel("test-model"),
+		hfopts.WithBaseURL(server.URL),
+		hfopts.WithHTTPClientFactory(testClient()),
+	)
+
+	tokens, err := client.ExtractTokenFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
+		Inputs: []string{"hello", "world"},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(tokens)
+	// Output: [[[0.1] [0.2]] [[0.3]]]
+}
+
 // ExampleClient_ClassifyImage demonstrates image classification.
 func ExampleClient_ClassifyImage() {
 	// The response body is hard-coded so the example can run without a real token.

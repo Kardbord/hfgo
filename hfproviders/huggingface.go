@@ -78,9 +78,27 @@ func (HuggingFaceCodecs) FeatureExtractionBatchCodec() FeatureExtractionBatchCod
 }
 
 // FeatureExtractionCodec returns the JSON codec for feature-extraction
-// requests and responses.
+// requests and pooled responses.
 func (HuggingFaceCodecs) FeatureExtractionCodec() FeatureExtractionCodec {
 	return JSONCodec[hftypes.FeatureExtractionRequest, hftypes.FeatureExtraction]{}
+}
+
+// FeatureExtractionTokenCodec returns the JSON codec for feature-extraction
+// requests and token-level responses.
+func (HuggingFaceCodecs) FeatureExtractionTokenCodec() FeatureExtractionTokenCodec {
+	return JSONCodec[
+		hftypes.FeatureExtractionRequest,
+		hftypes.FeatureExtractionTokens,
+	]{}
+}
+
+// FeatureExtractionBatchTokenCodec returns the JSON codec for batch
+// feature-extraction requests and token-level responses.
+func (HuggingFaceCodecs) FeatureExtractionBatchTokenCodec() FeatureExtractionBatchTokenCodec {
+	return JSONCodec[
+		hftypes.FeatureExtractionBatchRequest,
+		hftypes.FeatureExtractionBatchTokens,
+	]{}
 }
 
 // FillMaskCodec returns the JSON codec for fill-mask requests and responses.

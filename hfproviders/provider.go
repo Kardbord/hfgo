@@ -131,6 +131,22 @@ type FeatureExtractionProvider interface {
 	FeatureExtractionCodec() FeatureExtractionCodec
 }
 
+// FeatureExtractionTokenProvider is a Provider that supplies an endpoint and
+// token-level Codec for the FeatureExtraction task.
+type FeatureExtractionTokenProvider interface {
+	Provider
+	FeatureExtractionEndpoint(params EndpointParams) (Endpoint, error)
+	FeatureExtractionTokenCodec() FeatureExtractionTokenCodec
+}
+
+// FeatureExtractionBatchTokenProvider is a Provider that supplies an endpoint
+// and token-level Codec for the FeatureExtractionBatch task.
+type FeatureExtractionBatchTokenProvider interface {
+	Provider
+	FeatureExtractionBatchEndpoint(params EndpointParams) (Endpoint, error)
+	FeatureExtractionBatchTokenCodec() FeatureExtractionBatchTokenCodec
+}
+
 // FillMaskProvider is a Provider that supplies an endpoint and Codec for the FillMask task.
 type FillMaskProvider interface {
 	Provider

@@ -151,6 +151,19 @@ func TestHuggingFaceCodecs_Wiring(t *testing.T) {
 	)
 	require.IsType(
 		t,
+		JSONCodec[
+			hftypes.FeatureExtractionBatchRequest,
+			hftypes.FeatureExtractionBatchTokens,
+		]{},
+		c.FeatureExtractionBatchTokenCodec(),
+	)
+	require.IsType(
+		t,
+		JSONCodec[hftypes.FeatureExtractionRequest, hftypes.FeatureExtractionTokens]{},
+		c.FeatureExtractionTokenCodec(),
+	)
+	require.IsType(
+		t,
 		JSONCodec[hftypes.FillMaskRequest, []hftypes.FillMaskPrediction]{},
 		c.FillMaskCodec(),
 	)

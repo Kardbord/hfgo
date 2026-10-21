@@ -210,3 +210,79 @@ func TestFeatureExtraction_BatchContextCancellation(t *testing.T) {
 	require.Error(t, err, "batch request with cancelled context should fail")
 	require.Nil(t, resp, "response should be nil for cancelled context")
 }
+
+// TestFeatureExtractionToken_LiveAPI tests token-level feature extraction
+// against the live HF API.
+// This test requires the HF_TOKEN environment variable to be set.
+func TestFeatureExtractionToken_LiveAPI(t *testing.T) {
+	apiToken := os.Getenv("HF_TOKEN")
+	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
+
+	const model = "facebook/bart-base"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	client := hfgo.NewClient(
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
+	)
+
+	resp, err := client.ExtractTokenFeatures(
+		hftypes.FeatureExtractionRequest{
+			Input: "Transformers is an awesome library!",
+		},
+	)
+	require.NoError(t, err, "token-level feature extraction should succeed")
+	require.NotEmpty(t, resp, "token embeddings should not be empty")
+	require.Greater(t, len(resp), 1, "input should produce multiple tokens")
+
+	hiddenSize := len(resp[0])
+	require.Positive(t, hiddenSize, "token embedding should not be empty")
+	for i, token := range resp {
+		require.Len(t, token, hiddenSize, "token %d should have the model hidden size", i)
+	}
+}
+
+// TestFeatureExtractionToken_BatchLiveAPI tests batched token-level feature
+// extraction against the live HF API.
+// This test requires the HF_TOKEN environment variable to be set.
+func TestFeatureExtractionToken_BatchLiveAPI(t *testing.T) {
+	apiToken := os.Getenv("HF_TOKEN")
+	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
+
+	const model = "facebook/bart-base"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	client := hfgo.NewClient(
+		hfopts.WithToken(apiToken),
+		hfopts.WithModel(model),
+		hfopts.WithContext(ctx),
+	)
+
+	resp, err := client.ExtractTokenFeaturesBatch(
+		hftypes.FeatureExtractionBatchRequest{
+			Inputs: []string{
+				"Transformers is an awesome library!",
+				"Token-level embeddings are returned for every token.",
+			},
+		},
+	)
+	require.NoError(t, err, "batch token-level feature extraction should succeed")
+	require.Len(t, resp, 2, "response should contain token embeddings for each input")
+
+	var hiddenSize int
+	for i, input := range resp {
+		require.Greater(t, len(input), 1, "input %d should produce multiple tokens", i)
+		for j, token := range input {
+			require.NotEmpty(t, token, "input %d token %d should not be empty", i, j)
+			if hiddenSize == 0 {
+				hiddenSize = len(token)
+			}
+			require.Len(t, token, hiddenSize, "all token vectors should share the hidden size")
+		}
+	}
+}
