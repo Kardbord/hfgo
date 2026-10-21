@@ -240,8 +240,12 @@ func TestStreamRaw_ReadError(t *testing.T) {
 func TestStreamRaw_LineTooLong(t *testing.T) {
 	t.Parallel()
 
-	line := "data: " + strings.Repeat("a", maxSSELineBytes) + "\n\n"
-	stream, err := StreamRaw(context.Background(), io.NopCloser(strings.NewReader(line)))
+	line := "data: " + strings.Repeat("a", 64) + "\n\n"
+	stream, err := StreamRawWithLimit(
+		context.Background(),
+		io.NopCloser(strings.NewReader(line)),
+		16,
+	)
 	require.NoError(t, err)
 	defer func() { _ = stream.Close() }()
 
@@ -252,4 +256,45 @@ func TestStreamRaw_LineTooLong(t *testing.T) {
 	require.ErrorAs(t, err, &sdkErr)
 	require.Equal(t, hferrors.SDKErrorKindTransport, sdkErr.Kind)
 	require.ErrorContains(t, err, "token too long")
+}
+
+func TestStreamRaw_CustomLimitAllowsLargerLine(t *testing.T) {
+	t.Parallel()
+
+	payload := strings.Repeat("a", 64)
+	body := "data: " + payload + "\n\n"
+	stream, err := StreamRawWithLimit(
+		context.Background(),
+		io.NopCloser(strings.NewReader(body)),
+		128,
+	)
+	require.NoError(t, err)
+	defer func() { _ = stream.Close() }()
+
+	event, err := stream.Recv(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, payload, string(event.Data))
+}
+
+func TestStreamRaw_EventTooLarge(t *testing.T) {
+	t.Parallel()
+
+	body := "data: 12345\n" +
+		"data: 67890\n" +
+		"data: abcde\n\n"
+	stream, err := StreamRawWithLimit(
+		context.Background(),
+		io.NopCloser(strings.NewReader(body)),
+		16,
+	)
+	require.NoError(t, err)
+	defer func() { _ = stream.Close() }()
+
+	_, err = stream.Recv(context.Background())
+	require.Error(t, err)
+
+	var sdkErr *hferrors.SDKError
+	require.ErrorAs(t, err, &sdkErr)
+	require.Equal(t, hferrors.SDKErrorKindTransport, sdkErr.Kind)
+	require.ErrorContains(t, err, "event exceeds maximum size")
 }

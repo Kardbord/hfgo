@@ -21,7 +21,8 @@ const (
 	DefaultToken = ""
 	// DefaultModel is the default (empty) model identifier.
 	DefaultModel = ""
-	// DefaultMaxResponseBodyBytes caps the amount of response data read into memory by default.
+	// DefaultMaxResponseBodyBytes caps the amount of response data the SDK
+	// buffers at once by default.
 	DefaultMaxResponseBodyBytes int64 = 1 << 20 // 1 MiB
 )
 
@@ -43,8 +44,10 @@ type Options struct {
 	Headers http.Header
 	// HTTPClient is the HTTP client used to send requests.
 	HTTPClient *http.Client
-	// MaxResponseBodyBytes caps the amount of response data read into memory.
-	// Values <= 0 fall back to DefaultMaxResponseBodyBytes.
+	// MaxResponseBodyBytes caps the amount of response data the SDK buffers at
+	// once. It bounds a unary response body and, for SSE streams, both each
+	// line and the accumulated event payload. Values <= 0 fall back to
+	// DefaultMaxResponseBodyBytes.
 	MaxResponseBodyBytes int64
 
 	//nolint:containedctx // The context is stored here so that it can be used in request options.
@@ -243,8 +246,10 @@ func WithUserAgentSuffix(suffix string) Option {
 	}
 }
 
-// WithMaxResponseBodyBytes sets a cap on the amount of response data read into memory.
-// Values <= 0 fall back to DefaultMaxResponseBodyBytes.
+// WithMaxResponseBodyBytes sets a cap on the amount of response data the SDK
+// buffers at once. It applies to unary response bodies and to SSE lines and
+// accumulated event payloads. Values <= 0 fall back to
+// DefaultMaxResponseBodyBytes.
 func WithMaxResponseBodyBytes(maxBytes int64) Option {
 	return func(cfg *Options) {
 		if maxBytes <= 0 {

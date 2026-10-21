@@ -139,6 +139,33 @@ func TestClient_StreamReader(t *testing.T) {
 	require.Equal(t, "hi", string(event.Data))
 }
 
+func TestClient_Stream_SSELimitUsesPerCallOption(t *testing.T) {
+	t.Parallel()
+
+	body := "data: " + strings.Repeat("a", 64) + "\n\n"
+	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
+	mt.Response.Header.Set("Content-Type", "text/event-stream")
+
+	client := hfraw.NewClient(
+		hfopts.WithHTTPClientFactory(
+			func() http.Client { return testutils.NewMockHTTPClient(mt) },
+		),
+	)
+
+	stream, err := client.Stream(
+		nil,
+		http.MethodGet,
+		"/stream",
+		hfopts.WithMaxResponseBodyBytes(16),
+	)
+	require.NoError(t, err)
+	defer func() { _ = stream.Close() }()
+
+	_, err = stream.Recv(context.Background())
+	require.Error(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindTransport)
+}
+
 func TestStream_NilReceiver(t *testing.T) {
 	t.Parallel()
 

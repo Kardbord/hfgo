@@ -6,19 +6,16 @@ import (
 	"context"
 	"errors"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
-
-// maxSSELineBytes caps the length of a single SSE line. Streamed payloads are
-// small JSON deltas; rejecting an oversized line prevents a malformed or
-// hostile response from growing the decoder's line buffer without bound.
-const maxSSELineBytes = 1 << 20 // 1 MiB
 
 // RawEvent represents a single parsed SSE event payload.
 //
@@ -61,11 +58,27 @@ type RawStream struct {
 	closeError error
 }
 
-// StreamRaw starts decoding Server-Sent Events from the provided body.
+// StreamRaw starts decoding Server-Sent Events from the provided body using
+// hfopts.DefaultMaxResponseBodyBytes as the frame size limit.
 // Callers should close the returned RawStream when they are done consuming it so
 // the background goroutine and HTTP body are released promptly (otherwise it
 // will only stop once the server closes the stream).
 func StreamRaw(ctx context.Context, body io.ReadCloser) (*RawStream, error) {
+	return StreamRawWithLimit(ctx, body, hfopts.DefaultMaxResponseBodyBytes)
+}
+
+// StreamRawWithLimit starts decoding Server-Sent Events from the provided body.
+// maxEventBytes bounds both a single SSE line and the accumulated event data
+// (the concatenated data fields). Values <= 0 fall back to
+// hfopts.DefaultMaxResponseBodyBytes.
+// Callers should close the returned RawStream when they are done consuming it so
+// the background goroutine and HTTP body are released promptly (otherwise it
+// will only stop once the server closes the stream).
+func StreamRawWithLimit(
+	ctx context.Context,
+	body io.ReadCloser,
+	maxEventBytes int64,
+) (*RawStream, error) {
 	if body == nil {
 		return nil, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
@@ -74,6 +87,7 @@ func StreamRaw(ctx context.Context, body io.ReadCloser) (*RawStream, error) {
 		}
 	}
 
+	maxLineBytes := normalizeSSELimit(maxEventBytes)
 	ctx, cancel := context.WithCancel(utils.NormalizeContext(ctx))
 
 	// Buffered with size 1 so the decoder goroutine can enqueue a single event or
@@ -89,9 +103,22 @@ func StreamRaw(ctx context.Context, body io.ReadCloser) (*RawStream, error) {
 		closeError: nil,
 	}
 
-	go stream.run(ctx, results)
+	go stream.run(ctx, results, maxLineBytes)
 
 	return stream, nil
+}
+
+// normalizeSSELimit converts the configured byte limit into the int limit
+// required by bufio.Scanner, clamping to the platform's maximum int.
+func normalizeSSELimit(maxBytes int64) int {
+	if maxBytes <= 0 {
+		maxBytes = hfopts.DefaultMaxResponseBodyBytes
+	}
+	if maxBytes > int64(math.MaxInt) {
+		maxBytes = int64(math.MaxInt)
+	}
+
+	return int(maxBytes)
 }
 
 // Recv blocks until the next event is available, the provided context is canceled,
@@ -138,23 +165,41 @@ func (s *RawStream) Close() error {
 // data or errors onto the results channel. The helper returns as soon as the
 // context is canceled, the body ends, or handleLine/emit report that no more
 // work should be performed (for example because the send path was canceled).
-func (s *RawStream) run(ctx context.Context, results chan<- rawResult) {
+func (s *RawStream) run(
+	ctx context.Context,
+	results chan<- rawResult,
+	maxLineBytes int,
+) {
 	defer close(results)
 	defer func() { _ = s.Close() }()
 
 	scanner := bufio.NewScanner(s.body)
-	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), maxSSELineBytes)
+	scanner.Buffer(nil, maxLineBytes)
 	state := &sseState{
-		data:      bytes.Buffer{},
-		eventType: "",
-		eventID:   "",
-		retrySet:  false,
-		retry:     0,
+		data:         bytes.Buffer{},
+		eventType:    "",
+		eventID:      "",
+		retrySet:     false,
+		retry:        0,
+		maxDataBytes: int64(maxLineBytes),
+		err:          nil,
 	}
 
 	for scanner.Scan() {
 		line := strings.TrimRight(scanner.Text(), "\r\n")
 		if !state.handleLine(ctx, line, results) {
+			if state.err != nil {
+				_ = sendResult(ctx, results, rawResult{
+					event: RawEvent{
+						Data:  nil,
+						Event: "",
+						ID:    "",
+						Retry: nil,
+					},
+					err: state.err,
+				})
+			}
+
 			return
 		}
 	}
@@ -220,16 +265,19 @@ func wrapStreamError(err error, kind hferrors.SDKErrorKind, contextMsg string) e
 
 // sseState holds SSE field values between flushes.
 type sseState struct {
-	data      bytes.Buffer
-	eventType string
-	eventID   string
-	retrySet  bool
-	retry     time.Duration
+	data         bytes.Buffer
+	eventType    string
+	eventID      string
+	retrySet     bool
+	retry        time.Duration
+	maxDataBytes int64
+	err          error
 }
 
 // handleLine processes a single SSE line and emits an event if needed. It
-// returns true when parsing should continue or false when the context has been
-// canceled and the caller should exit the read loop.
+// returns true when parsing should continue. It returns false when the context
+// has been canceled or the event exceeds maxDataBytes; callers should check
+// s.err for a terminal error.
 func (s *sseState) handleLine(ctx context.Context, line string, results chan<- rawResult) bool {
 	switch {
 	case line == "":
@@ -240,8 +288,9 @@ func (s *sseState) handleLine(ctx context.Context, line string, results chan<- r
 		field, value := parseSSEField(line)
 		switch field {
 		case "data":
-			s.data.WriteString(value)
-			s.data.WriteByte('\n')
+			if !s.appendData(value) {
+				return false
+			}
 		case "event":
 			s.eventType = value
 		case "id":
@@ -253,6 +302,26 @@ func (s *sseState) handleLine(ctx context.Context, line string, results chan<- r
 			}
 		}
 	}
+
+	return true
+}
+
+// appendData adds a data field to the current event, enforcing the configured
+// event payload limit. It reports false when the event would exceed the limit.
+func (s *sseState) appendData(value string) bool {
+	if s.maxDataBytes > 0 &&
+		int64(s.data.Len())+int64(len(value)) > s.maxDataBytes {
+		s.err = &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindTransport,
+			Message: "sse: event exceeds maximum size",
+			Err:     nil,
+		}
+
+		return false
+	}
+
+	s.data.WriteString(value)
+	s.data.WriteByte('\n')
 
 	return true
 }

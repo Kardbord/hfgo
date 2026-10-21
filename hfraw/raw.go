@@ -135,7 +135,11 @@ func (c Client) StreamReader(
 
 	ctx := utils.NormalizeContext(resp.Request.Context())
 
-	rawStream, err := request.StreamRaw(ctx, resp.Body)
+	rawStream, err := request.StreamRawWithLimit(
+		ctx,
+		resp.Body,
+		resolvedOpts.MaxResponseBodyBytes,
+	)
 	if err != nil {
 		_ = resp.Body.Close()
 
