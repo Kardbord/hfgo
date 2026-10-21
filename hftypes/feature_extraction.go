@@ -2,27 +2,68 @@ package hftypes
 
 import "slices"
 
-// FeatureExtraction is a single pooled embedding vector.
+// FeatureExtractionPooledEmbedding is a single pooled embedding vector.
 //
 // Use this with sentence-transformers-style models that reduce the model output
 // to one vector for the whole input. For models that return one vector per
-// token, use [FeatureExtractionTokens] instead.
-type FeatureExtraction = []float64
+// token, use [FeatureExtractionTokenEmbeddings] instead.
+//
+// FeatureExtractionPooledEmbedding is a defined slice type. It can be assigned
+// to and from []float64 without an explicit conversion.
+type FeatureExtractionPooledEmbedding []float64
 
-// FeatureExtractionTokens contains one embedding vector per token for a single
-// input.
+// Dimension returns the number of values in the embedding vector.
+func (e FeatureExtractionPooledEmbedding) Dimension() int {
+	return len(e)
+}
+
+// Clone returns a copy of the embedding vector.
+func (e FeatureExtractionPooledEmbedding) Clone() FeatureExtractionPooledEmbedding {
+	return slices.Clone(e)
+}
+
+// FeatureExtractionTokenEmbeddings contains one embedding vector per token for
+// a single input.
 //
 // Use this with transformers-style models such as BART that return hidden states
 // for every token. Each outer element corresponds to one token, and each inner
 // slice is the hidden-state vector for that token.
-type FeatureExtractionTokens = [][]float64
-
-// FeatureExtractionBatchTokens contains token-level embeddings for each input
-// in a batch.
 //
-// The outer slice corresponds to inputs, the middle slice to tokens within an
-// input, and the inner slice to the hidden-state vector for a token.
-type FeatureExtractionBatchTokens = [][][]float64
+// FeatureExtractionTokenEmbeddings is a defined slice type. It can be assigned
+// to and from [][]float64 without an explicit conversion. A batch of
+// token-level embeddings is represented as []FeatureExtractionTokenEmbeddings;
+// convert each element when interoperating with APIs that require raw slices.
+type FeatureExtractionTokenEmbeddings [][]float64
+
+// Dimension returns the hidden size of the token embeddings. It returns 0 when
+// there are no tokens.
+//
+// All token embeddings for a given model share the same hidden size; Dimension
+// reports the size of the first token embedding.
+func (e FeatureExtractionTokenEmbeddings) Dimension() int {
+	if len(e) == 0 {
+		return 0
+	}
+
+	return len(e[0])
+}
+
+// Clone returns a deep copy of the token embeddings.
+//
+// Each inner slice is copied, so mutations to the clone do not affect the
+// original.
+func (e FeatureExtractionTokenEmbeddings) Clone() FeatureExtractionTokenEmbeddings {
+	if e == nil {
+		return nil
+	}
+
+	out := make(FeatureExtractionTokenEmbeddings, len(e))
+	for i := range e {
+		out[i] = slices.Clone(e[i])
+	}
+
+	return out
+}
 
 // FeatureExtractionRequest represents a feature extraction
 // inference request to the API for a single input.

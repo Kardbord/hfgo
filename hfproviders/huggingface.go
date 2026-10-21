@@ -71,33 +71,39 @@ func (HuggingFaceCodecs) ObjectDetectionCodec() ObjectDetectionCodec {
 	return JSONCodec[hftypes.ObjectDetectionRequest, []hftypes.ObjectDetection]{}
 }
 
-// FeatureExtractionBatchCodec returns the JSON codec for batch
+// FeatureExtractionPooledBatchCodec returns the JSON codec for batch pooled
 // feature-extraction requests and responses.
-func (HuggingFaceCodecs) FeatureExtractionBatchCodec() FeatureExtractionBatchCodec {
-	return JSONCodec[hftypes.FeatureExtractionBatchRequest, []hftypes.FeatureExtraction]{}
-}
-
-// FeatureExtractionCodec returns the JSON codec for feature-extraction
-// requests and pooled responses.
-func (HuggingFaceCodecs) FeatureExtractionCodec() FeatureExtractionCodec {
-	return JSONCodec[hftypes.FeatureExtractionRequest, hftypes.FeatureExtraction]{}
-}
-
-// FeatureExtractionTokenCodec returns the JSON codec for feature-extraction
-// requests and token-level responses.
-func (HuggingFaceCodecs) FeatureExtractionTokenCodec() FeatureExtractionTokenCodec {
+func (HuggingFaceCodecs) FeatureExtractionPooledBatchCodec() FeatureExtractionPooledBatchCodec {
 	return JSONCodec[
-		hftypes.FeatureExtractionRequest,
-		hftypes.FeatureExtractionTokens,
+		hftypes.FeatureExtractionBatchRequest,
+		[]hftypes.FeatureExtractionPooledEmbedding,
 	]{}
 }
 
-// FeatureExtractionBatchTokenCodec returns the JSON codec for batch
-// feature-extraction requests and token-level responses.
-func (HuggingFaceCodecs) FeatureExtractionBatchTokenCodec() FeatureExtractionBatchTokenCodec {
+// FeatureExtractionPooledCodec returns the JSON codec for pooled
+// feature-extraction requests and responses.
+func (HuggingFaceCodecs) FeatureExtractionPooledCodec() FeatureExtractionPooledCodec {
+	return JSONCodec[
+		hftypes.FeatureExtractionRequest,
+		hftypes.FeatureExtractionPooledEmbedding,
+	]{}
+}
+
+// FeatureExtractionTokenCodec returns the JSON codec for token-level
+// feature-extraction requests and responses.
+func (HuggingFaceCodecs) FeatureExtractionTokenCodec() FeatureExtractionTokenCodec {
+	return JSONCodec[
+		hftypes.FeatureExtractionRequest,
+		hftypes.FeatureExtractionTokenEmbeddings,
+	]{}
+}
+
+// FeatureExtractionTokenBatchCodec returns the JSON codec for batch
+// token-level feature-extraction requests and responses.
+func (HuggingFaceCodecs) FeatureExtractionTokenBatchCodec() FeatureExtractionTokenBatchCodec {
 	return JSONCodec[
 		hftypes.FeatureExtractionBatchRequest,
-		hftypes.FeatureExtractionBatchTokens,
+		[]hftypes.FeatureExtractionTokenEmbeddings,
 	]{}
 }
 
@@ -183,11 +189,11 @@ func (hfQuestionAnsweringCodec) Encode(
 ) (body []byte, headers http.Header, err error) {
 	return JSONCodec[
 		hftypes.QuestionAnsweringRequest,
-		[]hftypes.QuestionAnswering,
+		[]hftypes.QuestionAnswer,
 	]{}.Encode(params)
 }
 
-func (hfQuestionAnsweringCodec) Decode(params DecodeParams) ([]hftypes.QuestionAnswering, error) {
+func (hfQuestionAnsweringCodec) Decode(params DecodeParams) ([]hftypes.QuestionAnswer, error) {
 	contentType := params.Headers.Get("Content-Type")
 	if !isJSONContentType(contentType) {
 		return nil, &hferrors.SDKError{
@@ -198,7 +204,7 @@ func (hfQuestionAnsweringCodec) Decode(params DecodeParams) ([]hftypes.QuestionA
 	}
 
 	// Spec-compliant response
-	var slice []hftypes.QuestionAnswering
+	var slice []hftypes.QuestionAnswer
 	sliceErr := json.Unmarshal(params.Body, &slice)
 	if sliceErr == nil {
 		return slice, nil
@@ -209,7 +215,7 @@ func (hfQuestionAnsweringCodec) Decode(params DecodeParams) ([]hftypes.QuestionA
 	// accepted as zero-valued answers.
 	single, singleErr := decodeSingleQuestionAnswering(params.Body)
 	if singleErr == nil {
-		return []hftypes.QuestionAnswering{single}, nil
+		return []hftypes.QuestionAnswer{single}, nil
 	}
 
 	joinedErr := errors.Join(sliceErr, singleErr)
@@ -224,37 +230,37 @@ func (hfQuestionAnsweringCodec) Decode(params DecodeParams) ([]hftypes.QuestionA
 	}
 }
 
-func decodeSingleQuestionAnswering(data []byte) (hftypes.QuestionAnswering, error) {
+func decodeSingleQuestionAnswering(data []byte) (hftypes.QuestionAnswer, error) {
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(data, &fields); err != nil {
-		return hftypes.QuestionAnswering{}, err
+		return hftypes.QuestionAnswer{}, err
 	}
 	answerRaw, answerPresent := fields["answer"]
 	if !answerPresent {
-		return hftypes.QuestionAnswering{}, errors.New(
+		return hftypes.QuestionAnswer{}, errors.New(
 			"single answer object missing answer",
 		)
 	}
 	if isJSONNull(answerRaw) {
-		return hftypes.QuestionAnswering{}, errors.New(
+		return hftypes.QuestionAnswer{}, errors.New(
 			"single answer object answer is null",
 		)
 	}
 	scoreRaw, scorePresent := fields["score"]
 	if !scorePresent {
-		return hftypes.QuestionAnswering{}, errors.New(
+		return hftypes.QuestionAnswer{}, errors.New(
 			"single answer object missing score",
 		)
 	}
 	if isJSONNull(scoreRaw) {
-		return hftypes.QuestionAnswering{}, errors.New(
+		return hftypes.QuestionAnswer{}, errors.New(
 			"single answer object score is null",
 		)
 	}
 
-	var answer hftypes.QuestionAnswering
+	var answer hftypes.QuestionAnswer
 	if err := json.Unmarshal(data, &answer); err != nil {
-		return hftypes.QuestionAnswering{}, err
+		return hftypes.QuestionAnswer{}, err
 	}
 
 	return answer, nil

@@ -7,16 +7,16 @@ import (
 	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
-// ExtractFeatures sends a feature extraction request for a single input.
-func ExtractFeatures(
+// ExtractPooledFeatures sends a feature extraction request for a single input.
+func ExtractPooledFeatures(
 	opts hfopts.Options,
 	req hftypes.FeatureExtractionRequest,
-) (hftypes.FeatureExtraction, error) {
+) (hftypes.FeatureExtractionPooledEmbedding, error) {
 	if err := validateDispatch(opts); err != nil {
 		return nil, err
 	}
 
-	prov, err := hfproviders.AsProvider[hfproviders.FeatureExtractionProvider](opts.Provider)
+	prov, err := hfproviders.AsProvider[hfproviders.FeatureExtractionPooledProvider](opts.Provider)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func ExtractFeatures(
 		}
 	}
 
-	return doInference(opts, endpoint, prov.FeatureExtractionCodec(), req)
+	return doInference(opts, endpoint, prov.FeatureExtractionPooledCodec(), req)
 }
 
 // ExtractTokenFeatures sends a feature extraction request for a single input
@@ -41,7 +41,7 @@ func ExtractFeatures(
 func ExtractTokenFeatures(
 	opts hfopts.Options,
 	req hftypes.FeatureExtractionRequest,
-) (hftypes.FeatureExtractionTokens, error) {
+) (hftypes.FeatureExtractionTokenEmbeddings, error) {
 	if err := validateDispatch(opts); err != nil {
 		return nil, err
 	}
@@ -66,46 +66,17 @@ func ExtractTokenFeatures(
 	return doInference(opts, endpoint, prov.FeatureExtractionTokenCodec(), req)
 }
 
-// ExtractFeaturesBatch sends a feature extraction request for a batch of inputs.
-func ExtractFeaturesBatch(
+// ExtractPooledFeaturesBatch sends a feature extraction request for a batch of
+// inputs.
+func ExtractPooledFeaturesBatch(
 	opts hfopts.Options,
 	req hftypes.FeatureExtractionBatchRequest,
-) ([]hftypes.FeatureExtraction, error) {
+) ([]hftypes.FeatureExtractionPooledEmbedding, error) {
 	if err := validateDispatch(opts); err != nil {
 		return nil, err
 	}
 
-	prov, err := hfproviders.AsProvider[hfproviders.FeatureExtractionBatchProvider](opts.Provider)
-	if err != nil {
-		return nil, err
-	}
-
-	endpoint, err := prov.FeatureExtractionBatchEndpoint(hfproviders.EndpointParams{
-		Context: opts.Context(),
-		Model:   opts.Model,
-	})
-	if err != nil {
-		return nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: "error computing endpoint: " + err.Error(),
-			Err:     err,
-		}
-	}
-
-	return doInference(opts, endpoint, prov.FeatureExtractionBatchCodec(), req)
-}
-
-// ExtractTokenFeaturesBatch sends a feature extraction request for a batch of
-// inputs and returns token-level embeddings.
-func ExtractTokenFeaturesBatch(
-	opts hfopts.Options,
-	req hftypes.FeatureExtractionBatchRequest,
-) (hftypes.FeatureExtractionBatchTokens, error) {
-	if err := validateDispatch(opts); err != nil {
-		return nil, err
-	}
-
-	prov, err := hfproviders.AsProvider[hfproviders.FeatureExtractionBatchTokenProvider](
+	prov, err := hfproviders.AsProvider[hfproviders.FeatureExtractionPooledBatchProvider](
 		opts.Provider,
 	)
 	if err != nil {
@@ -124,5 +95,37 @@ func ExtractTokenFeaturesBatch(
 		}
 	}
 
-	return doInference(opts, endpoint, prov.FeatureExtractionBatchTokenCodec(), req)
+	return doInference(opts, endpoint, prov.FeatureExtractionPooledBatchCodec(), req)
+}
+
+// ExtractTokenFeaturesBatch sends a feature extraction request for a batch of
+// inputs and returns token-level embeddings.
+func ExtractTokenFeaturesBatch(
+	opts hfopts.Options,
+	req hftypes.FeatureExtractionBatchRequest,
+) ([]hftypes.FeatureExtractionTokenEmbeddings, error) {
+	if err := validateDispatch(opts); err != nil {
+		return nil, err
+	}
+
+	prov, err := hfproviders.AsProvider[hfproviders.FeatureExtractionTokenBatchProvider](
+		opts.Provider,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	endpoint, err := prov.FeatureExtractionBatchEndpoint(hfproviders.EndpointParams{
+		Context: opts.Context(),
+		Model:   opts.Model,
+	})
+	if err != nil {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "error computing endpoint: " + err.Error(),
+			Err:     err,
+		}
+	}
+
+	return doInference(opts, endpoint, prov.FeatureExtractionTokenBatchCodec(), req)
 }

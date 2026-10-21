@@ -502,8 +502,8 @@ func ExampleClient_AnswerTableQuestion() {
 	// Output: 30
 }
 
-// ExampleClient_ExtractFeatures demonstrates feature extraction (embeddings).
-func ExampleClient_ExtractFeatures() {
+// ExampleClient_ExtractPooledFeatures demonstrates feature extraction (embeddings).
+func ExampleClient_ExtractPooledFeatures() {
 	// The response body is hard-coded so the example can run without a real token.
 	server := newMockJSONServer("[0.1, 0.2, 0.3]")
 	defer server.Close()
@@ -515,7 +515,7 @@ func ExampleClient_ExtractFeatures() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	embedding, err := client.ExtractFeatures(hftypes.FeatureExtractionRequest{
+	embedding, err := client.ExtractPooledFeatures(hftypes.FeatureExtractionRequest{
 		Input: "Hello world",
 	})
 	if err != nil {
@@ -526,8 +526,8 @@ func ExampleClient_ExtractFeatures() {
 	// Output: [0.1 0.2 0.3]
 }
 
-// ExampleClient_ExtractFeaturesBatch demonstrates batched feature extraction.
-func ExampleClient_ExtractFeaturesBatch() {
+// ExampleClient_ExtractPooledFeaturesBatch demonstrates batched feature extraction.
+func ExampleClient_ExtractPooledFeaturesBatch() {
 	// The response body is hard-coded so the example can run without a real token.
 	server := newMockJSONServer("[[0.1,0.2,0.3],[0.4,0.5,0.6]]")
 	defer server.Close()
@@ -539,7 +539,7 @@ func ExampleClient_ExtractFeaturesBatch() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	embeddings, err := client.ExtractFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
+	embeddings, err := client.ExtractPooledFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
 		Inputs: []string{"hello", "world"},
 	})
 	if err != nil {

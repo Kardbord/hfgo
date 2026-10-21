@@ -42,7 +42,7 @@ func main() {
 
 	fmt.Printf("Results: %d tokens\n", len(tokens))
 	if len(tokens) > 0 {
-		fmt.Printf("  hidden size: %d\n", len(tokens[0]))
+		fmt.Printf("  hidden size: %d\n", tokens.Dimension())
 	}
 	PrintJSON(tokens)
 }

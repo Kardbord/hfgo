@@ -36,7 +36,7 @@ func main() {
 	fmt.Println("...")
 
 	// Make the feature extraction request with parameters
-	embedding, err := client.ExtractFeatures(
+	embedding, err := client.ExtractPooledFeatures(
 		hftypes.FeatureExtractionRequest{
 			Input:      input,
 			Parameters: &params,
@@ -46,7 +46,7 @@ func main() {
 		log.Fatalf("error extracting features: %v\n", err)
 	}
 
-	fmt.Printf("Results: embedding with %d dimensions\n", len(embedding))
+	fmt.Printf("Results: embedding with %d dimensions\n", embedding.Dimension())
 	PrintJSON(embedding)
 }
 

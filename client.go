@@ -161,7 +161,7 @@ func (c Client) ClassifyImage(
 func (c Client) AnswerQuestion(
 	req hftypes.QuestionAnsweringRequest,
 	opts ...hfopts.Option,
-) ([]hftypes.QuestionAnswering, error) {
+) ([]hftypes.QuestionAnswer, error) {
 	return task.AnswerQuestion(c.opts.With(opts...), req)
 }
 
@@ -223,32 +223,32 @@ func (c Client) Translate(
 	return task.Translate(c.opts.With(opts...), req)
 }
 
-// ExtractFeatures sends a feature extraction request and returns the pooled
-// embedding vector for a single input.
+// ExtractPooledFeatures sends a feature extraction request and returns the
+// pooled embedding vector for a single input.
 //
 // This method is for sentence-transformers-style models that reduce the output
 // to one vector for the whole input. For transformers-style models that return
-// one vector per token, use ExtractTokenFeatures. For multiple inputs, use
-// ExtractFeaturesBatch.
-func (c Client) ExtractFeatures(
+// one vector per token, use [Client.ExtractTokenFeatures]. For multiple inputs,
+// use [Client.ExtractPooledFeaturesBatch].
+func (c Client) ExtractPooledFeatures(
 	req hftypes.FeatureExtractionRequest,
 	opts ...hfopts.Option,
-) (hftypes.FeatureExtraction, error) {
-	return task.ExtractFeatures(c.opts.With(opts...), req)
+) (hftypes.FeatureExtractionPooledEmbedding, error) {
+	return task.ExtractPooledFeatures(c.opts.With(opts...), req)
 }
 
-// ExtractFeaturesBatch sends a feature extraction request for a batch of inputs
-// and returns pooled embedding vectors for each input in the batch.
+// ExtractPooledFeaturesBatch sends a feature extraction request for a batch of
+// inputs and returns pooled embedding vectors for each input in the batch.
 //
 // This method is for sentence-transformers-style models that reduce each input
 // to one vector. For transformers-style models that return one vector per token,
-// use ExtractTokenFeaturesBatch. Batch input is part of the upstream inference
-// schema: the API accepts either a string or a list of strings.
-func (c Client) ExtractFeaturesBatch(
+// use [Client.ExtractTokenFeaturesBatch]. Batch input is part of the upstream
+// inference schema: the API accepts either a string or a list of strings.
+func (c Client) ExtractPooledFeaturesBatch(
 	req hftypes.FeatureExtractionBatchRequest,
 	opts ...hfopts.Option,
-) ([]hftypes.FeatureExtraction, error) {
-	return task.ExtractFeaturesBatch(c.opts.With(opts...), req)
+) ([]hftypes.FeatureExtractionPooledEmbedding, error) {
+	return task.ExtractPooledFeaturesBatch(c.opts.With(opts...), req)
 }
 
 // ExtractTokenFeatures sends a feature extraction request and returns one
@@ -257,11 +257,11 @@ func (c Client) ExtractFeaturesBatch(
 // Use this with transformers-style models such as BART that return per-token
 // hidden states. The outer slice corresponds to tokens; each inner slice is the
 // hidden-state vector for that token. For pooled sentence embeddings, use
-// ExtractFeatures.
+// [Client.ExtractPooledFeatures].
 func (c Client) ExtractTokenFeatures(
 	req hftypes.FeatureExtractionRequest,
 	opts ...hfopts.Option,
-) (hftypes.FeatureExtractionTokens, error) {
+) (hftypes.FeatureExtractionTokenEmbeddings, error) {
 	return task.ExtractTokenFeatures(c.opts.With(opts...), req)
 }
 
@@ -271,11 +271,11 @@ func (c Client) ExtractTokenFeatures(
 // Use this with transformers-style models that return per-token hidden states.
 // The outer slice corresponds to inputs, the middle slice to tokens within an
 // input, and the inner slice to the hidden-state vector for a token. For pooled
-// batch embeddings, use ExtractFeaturesBatch.
+// batch embeddings, use [Client.ExtractPooledFeaturesBatch].
 func (c Client) ExtractTokenFeaturesBatch(
 	req hftypes.FeatureExtractionBatchRequest,
 	opts ...hfopts.Option,
-) (hftypes.FeatureExtractionBatchTokens, error) {
+) ([]hftypes.FeatureExtractionTokenEmbeddings, error) {
 	return task.ExtractTokenFeaturesBatch(c.opts.With(opts...), req)
 }
 

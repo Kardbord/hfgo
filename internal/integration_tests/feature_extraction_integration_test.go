@@ -14,9 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFeatureExtraction_LiveAPI tests a basic feature extraction request against the live HF API.
+// TestFeatureExtractionPooled_LiveAPI tests a basic pooled feature extraction
+// request against the live HF API.
 // This test requires the HF_TOKEN environment variable to be set.
-func TestFeatureExtraction_LiveAPI(t *testing.T) {
+func TestFeatureExtractionPooled_LiveAPI(t *testing.T) {
 	apiToken := os.Getenv("HF_TOKEN")
 	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
 
@@ -31,7 +32,7 @@ func TestFeatureExtraction_LiveAPI(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.ExtractFeatures(
+	resp, err := client.ExtractPooledFeatures(
 		hftypes.FeatureExtractionRequest{
 			Input: "What is the capital of France?",
 		},
@@ -42,9 +43,10 @@ func TestFeatureExtraction_LiveAPI(t *testing.T) {
 	require.NotEmpty(t, resp, "embedding should not be empty")
 }
 
-// TestFeatureExtraction_BatchLiveAPI tests batch feature extraction against the live HF API.
+// TestFeatureExtractionPooledBatch_LiveAPI tests batch pooled feature
+// extraction against the live HF API.
 // This test requires the HF_TOKEN environment variable to be set.
-func TestFeatureExtraction_BatchLiveAPI(t *testing.T) {
+func TestFeatureExtractionPooledBatch_LiveAPI(t *testing.T) {
 	apiToken := os.Getenv("HF_TOKEN")
 	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
 
@@ -64,7 +66,7 @@ func TestFeatureExtraction_BatchLiveAPI(t *testing.T) {
 		"I love programming in Go.",
 	}
 
-	resp, err := client.ExtractFeaturesBatch(
+	resp, err := client.ExtractPooledFeaturesBatch(
 		hftypes.FeatureExtractionBatchRequest{
 			Inputs: inputs,
 		},
@@ -80,9 +82,10 @@ func TestFeatureExtraction_BatchLiveAPI(t *testing.T) {
 	}
 }
 
-// TestFeatureExtraction_WithParameters tests feature extraction with various parameters.
+// TestFeatureExtractionPooled_WithParameters tests pooled feature extraction
+// with various parameters.
 // This test requires the HF_TOKEN environment variable to be set.
-func TestFeatureExtraction_WithParameters(t *testing.T) {
+func TestFeatureExtractionPooled_WithParameters(t *testing.T) {
 	apiToken := os.Getenv("HF_TOKEN")
 	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
 
@@ -100,7 +103,7 @@ func TestFeatureExtraction_WithParameters(t *testing.T) {
 	normalize := true
 	truncate := true
 	truncDir := hftypes.FeatureExtractionTruncationRight
-	resp, err := client.ExtractFeatures(
+	resp, err := client.ExtractPooledFeatures(
 		hftypes.FeatureExtractionRequest{
 			Input: "The capital of France is Paris, a city on the Seine.",
 			Parameters: &hftypes.FeatureExtractionParameters{
@@ -116,9 +119,10 @@ func TestFeatureExtraction_WithParameters(t *testing.T) {
 	require.NotEmpty(t, resp, "embedding should not be empty")
 }
 
-// TestFeatureExtraction_ContextCancellation tests that context cancellation is respected.
+// TestFeatureExtractionPooled_ContextCancellation tests that context
+// cancellation is respected.
 // This test requires the HF_TOKEN environment variable to be set.
-func TestFeatureExtraction_ContextCancellation(t *testing.T) {
+func TestFeatureExtractionPooled_ContextCancellation(t *testing.T) {
 	apiToken := os.Getenv("HF_TOKEN")
 	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
 
@@ -131,7 +135,7 @@ func TestFeatureExtraction_ContextCancellation(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.ExtractFeatures(
+	resp, err := client.ExtractPooledFeatures(
 		hftypes.FeatureExtractionRequest{
 			Input: "What is the capital of France?",
 		},
@@ -141,9 +145,10 @@ func TestFeatureExtraction_ContextCancellation(t *testing.T) {
 	require.Nil(t, resp, "response should be nil for cancelled context")
 }
 
-// TestFeatureExtraction_BatchWithParameters tests batch feature extraction with parameters.
+// TestFeatureExtractionPooledBatch_WithParameters tests batch pooled feature
+// extraction with parameters.
 // This test requires the HF_TOKEN environment variable to be set.
-func TestFeatureExtraction_BatchWithParameters(t *testing.T) {
+func TestFeatureExtractionPooledBatch_WithParameters(t *testing.T) {
 	apiToken := os.Getenv("HF_TOKEN")
 	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
 
@@ -161,7 +166,7 @@ func TestFeatureExtraction_BatchWithParameters(t *testing.T) {
 	normalize := true
 	truncate := true
 	truncDir := hftypes.FeatureExtractionTruncationRight
-	resp, err := client.ExtractFeaturesBatch(
+	resp, err := client.ExtractPooledFeaturesBatch(
 		hftypes.FeatureExtractionBatchRequest{
 			Inputs: []string{
 				"The weather is nice today.",
@@ -185,10 +190,10 @@ func TestFeatureExtraction_BatchWithParameters(t *testing.T) {
 	}
 }
 
-// TestFeatureExtraction_BatchContextCancellation tests that context cancellation is respected
-// for batch feature extraction.
+// TestFeatureExtractionPooledBatch_ContextCancellation tests that context
+// cancellation is respected for batch pooled feature extraction.
 // This test requires the HF_TOKEN environment variable to be set.
-func TestFeatureExtraction_BatchContextCancellation(t *testing.T) {
+func TestFeatureExtractionPooledBatch_ContextCancellation(t *testing.T) {
 	apiToken := os.Getenv("HF_TOKEN")
 	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
 
@@ -201,7 +206,7 @@ func TestFeatureExtraction_BatchContextCancellation(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.ExtractFeaturesBatch(
+	resp, err := client.ExtractPooledFeaturesBatch(
 		hftypes.FeatureExtractionBatchRequest{
 			Inputs: []string{"The weather is nice today.", "I love programming in Go."},
 		},

@@ -183,19 +183,19 @@ func dispatchErrorCases() []dispatchErrorCase {
 			},
 		},
 		{
-			"ExtractFeatures",
+			"ExtractPooledFeatures",
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).
-					ExtractFeatures(hftypes.FeatureExtractionRequest{Input: "test input"})
+					ExtractPooledFeatures(hftypes.FeatureExtractionRequest{Input: "test input"})
 			},
 		},
 		{
-			"ExtractFeaturesBatch",
+			"ExtractPooledFeaturesBatch",
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).
-					ExtractFeaturesBatch(hftypes.FeatureExtractionBatchRequest{Inputs: []string{"hi"}})
+					ExtractPooledFeaturesBatch(hftypes.FeatureExtractionBatchRequest{Inputs: []string{"hi"}})
 			},
 		},
 		{

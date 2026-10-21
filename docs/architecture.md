@@ -129,11 +129,33 @@ configuration failures distinguishable from malformed JSON.
 ### Naming convention
 
 Client methods use an **action verb** (what the caller does); provider
-interfaces, endpoints, codecs, and DTOs use the **upstream task noun**
+interfaces, endpoints, codecs, and request DTOs use the **upstream task noun**
 (matching Hugging Face's task taxonomy). For example, the client method is
 `ClassifyText` but the DTO is `TextClassificationRequest` and the provider
 interface is `TextClassificationProvider`. There are no task-name constants —
 task support is expressed structurally through the per-task interfaces.
+
+When a task has multiple output families, codec and provider names include the
+family qualifier. Feature extraction, for example, uses
+`FeatureExtractionPooledCodec`, `FeatureExtractionPooledBatchCodec`,
+`FeatureExtractionTokenCodec`, and `FeatureExtractionTokenBatchCodec`.
+
+Response DTOs are named by what they contain:
+
+- **Result nouns** are the default when the upstream result has a natural noun,
+  for example `Summarization`, `Translation`, `QuestionAnswer`, and
+  `FillMaskPrediction`.
+- **`Response`** is reserved for whole response envelopes whose bare name would
+  otherwise be a task/verb or collide with another type, for example
+  `ChatResponse`, `ChatStreamResponse`, `SpeechRecognitionResponse`, and
+  `TextToImageResponse`.
+- Value and element types do not take a `Response` suffix. Nested records use
+  their contextual prefix instead, for example `ChatChoice`.
+- Feature-extraction outputs use `...PooledEmbedding` for one vector per input
+  and `...TokenEmbeddings` for one vector per token.
+
+`ChatStream` is the stream handle; `ChatStreamResponse` is the per-chunk DTO
+returned by `Recv`.
 
 ### Error model
 
@@ -177,31 +199,45 @@ frames.
 
 ### Chat streaming
 
-`ChatStream` wraps an SSE stream of `ChatStreamResponse` chunks. It merges
-tool-call metadata across deltas so each chunk includes complete tool-call
-identifiers. Callers must `Close()` the stream to release the underlying HTTP
-connection and decoder goroutine. Termination is final: once `io.EOF` is
-observed, no further chunks are delivered.
+`ChatStream` is the stream handle that wraps an SSE stream of
+`ChatStreamResponse` chunks. `ChatStreamResponse` is the per-chunk DTO returned
+by `Recv`; `ChatStream` itself is not a response type. It merges tool-call
+metadata across deltas so each chunk includes complete tool-call identifiers.
+Callers must `Close()` the stream to release the underlying HTTP connection and
+decoder goroutine. Termination is final: once `io.EOF` is observed, no further
+chunks are delivered.
 
 A `ChatStream` is not safe for concurrent `Recv` calls. Its accumulator is
 owned by the single consumer. `Close` may be called concurrently with `Recv`.
 
 ### Feature extraction output shapes
 
+Feature extraction converts an input into numerical vectors (**embeddings**).
+Each embedding has a fixed length, its **dimension**, and represents the input
+in a space where semantically similar inputs are close together. Embeddings are
+commonly used for semantic search, retrieval-augmented generation (RAG),
+clustering, classification, deduplication, and recommendation.
+
 Feature extraction supports two model-dependent output families:
 
-- **Pooled:** `ExtractFeatures` and `ExtractFeaturesBatch` return
-  `FeatureExtraction` / `[]FeatureExtraction` (`[]float64` per input). Use these
-  with sentence-transformers-style models for sentence embeddings, semantic
-  search, and similarity.
+- **Pooled:** `ExtractPooledFeatures` and `ExtractPooledFeaturesBatch` return
+  `FeatureExtractionPooledEmbedding` / `[]FeatureExtractionPooledEmbedding`
+  (`[]float64` per input). Use these with sentence-transformers-style models
+  that reduce the model output to one vector for the whole input.
 - **Token-level:** `ExtractTokenFeatures` and `ExtractTokenFeaturesBatch`
-  return `FeatureExtractionTokens` / `FeatureExtractionBatchTokens`
-  (`[][]float64` for one input, `[][][]float64` for a batch). Use these with
-  transformers-style models such as BART when you need per-token hidden states
-  and will apply your own pooling.
+  return `FeatureExtractionTokenEmbeddings` /
+  `[]FeatureExtractionTokenEmbeddings` (`[][]float64` for one input,
+  `[][][]float64` for a batch). Use these with transformers-style models such as
+  BART when you need per-token hidden states and will apply your own pooling.
 
 The shape is determined by the model, not the request, so callers choose the
 method that matches the model's output.
+
+`FeatureExtractionPooledEmbedding` and `FeatureExtractionTokenEmbeddings` are
+defined slice types. Each is assignable to and from its raw slice type
+(`[]float64` and `[][]float64` respectively). Batch results are slices of these
+named types, so converting a whole batch to a raw nested slice requires
+converting each element.
 
 ## Where to Make Changes
 

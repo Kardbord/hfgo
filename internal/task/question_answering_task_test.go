@@ -200,7 +200,7 @@ func TestAnswerQuestion_Errors(t *testing.T) {
 				description:  "API error for model not yet loaded",
 			},
 		},
-		func(opts ...hfopts.Option) ([]hftypes.QuestionAnswering, error) {
+		func(opts ...hfopts.Option) ([]hftypes.QuestionAnswer, error) {
 			return hfgo.NewClient(opts...).AnswerQuestion(hftypes.QuestionAnsweringRequest{
 				Input: hftypes.QuestionAnsweringInput{
 					Question: "What is the capital of France?",

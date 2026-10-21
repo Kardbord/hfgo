@@ -115,20 +115,20 @@ type ChatStreamProvider interface {
 	ChatStreamCodec() ChatStreamCodec
 }
 
-// FeatureExtractionBatchProvider is a Provider that supplies an endpoint and Codec for the
-// FeatureExtractionBatch task.
-type FeatureExtractionBatchProvider interface {
+// FeatureExtractionPooledBatchProvider is a Provider that supplies an endpoint
+// and pooled Codec for the FeatureExtractionBatch task.
+type FeatureExtractionPooledBatchProvider interface {
 	Provider
 	FeatureExtractionBatchEndpoint(params EndpointParams) (Endpoint, error)
-	FeatureExtractionBatchCodec() FeatureExtractionBatchCodec
+	FeatureExtractionPooledBatchCodec() FeatureExtractionPooledBatchCodec
 }
 
-// FeatureExtractionProvider is a Provider that supplies an endpoint and Codec for the
-// FeatureExtraction task.
-type FeatureExtractionProvider interface {
+// FeatureExtractionPooledProvider is a Provider that supplies an endpoint and
+// pooled Codec for the FeatureExtraction task.
+type FeatureExtractionPooledProvider interface {
 	Provider
 	FeatureExtractionEndpoint(params EndpointParams) (Endpoint, error)
-	FeatureExtractionCodec() FeatureExtractionCodec
+	FeatureExtractionPooledCodec() FeatureExtractionPooledCodec
 }
 
 // FeatureExtractionTokenProvider is a Provider that supplies an endpoint and
@@ -139,12 +139,12 @@ type FeatureExtractionTokenProvider interface {
 	FeatureExtractionTokenCodec() FeatureExtractionTokenCodec
 }
 
-// FeatureExtractionBatchTokenProvider is a Provider that supplies an endpoint
+// FeatureExtractionTokenBatchProvider is a Provider that supplies an endpoint
 // and token-level Codec for the FeatureExtractionBatch task.
-type FeatureExtractionBatchTokenProvider interface {
+type FeatureExtractionTokenBatchProvider interface {
 	Provider
 	FeatureExtractionBatchEndpoint(params EndpointParams) (Endpoint, error)
-	FeatureExtractionBatchTokenCodec() FeatureExtractionBatchTokenCodec
+	FeatureExtractionTokenBatchCodec() FeatureExtractionTokenBatchCodec
 }
 
 // FillMaskProvider is a Provider that supplies an endpoint and Codec for the FillMask task.
