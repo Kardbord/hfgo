@@ -71,33 +71,39 @@ func (HuggingFaceCodecs) ObjectDetectionCodec() ObjectDetectionCodec {
 	return JSONCodec[hftypes.ObjectDetectionRequest, []hftypes.ObjectDetection]{}
 }
 
-// FeatureExtractionBatchCodec returns the JSON codec for batch
+// FeatureExtractionPooledBatchCodec returns the JSON codec for batch pooled
 // feature-extraction requests and responses.
-func (HuggingFaceCodecs) FeatureExtractionBatchCodec() FeatureExtractionBatchCodec {
-	return JSONCodec[hftypes.FeatureExtractionBatchRequest, []hftypes.FeatureExtraction]{}
-}
-
-// FeatureExtractionCodec returns the JSON codec for feature-extraction
-// requests and pooled responses.
-func (HuggingFaceCodecs) FeatureExtractionCodec() FeatureExtractionCodec {
-	return JSONCodec[hftypes.FeatureExtractionRequest, hftypes.FeatureExtraction]{}
-}
-
-// FeatureExtractionTokenCodec returns the JSON codec for feature-extraction
-// requests and token-level responses.
-func (HuggingFaceCodecs) FeatureExtractionTokenCodec() FeatureExtractionTokenCodec {
+func (HuggingFaceCodecs) FeatureExtractionPooledBatchCodec() FeatureExtractionPooledBatchCodec {
 	return JSONCodec[
-		hftypes.FeatureExtractionRequest,
-		hftypes.FeatureExtractionTokens,
+		hftypes.FeatureExtractionBatchRequest,
+		[]hftypes.FeatureExtractionPooledEmbedding,
 	]{}
 }
 
-// FeatureExtractionBatchTokenCodec returns the JSON codec for batch
-// feature-extraction requests and token-level responses.
-func (HuggingFaceCodecs) FeatureExtractionBatchTokenCodec() FeatureExtractionBatchTokenCodec {
+// FeatureExtractionPooledCodec returns the JSON codec for pooled
+// feature-extraction requests and responses.
+func (HuggingFaceCodecs) FeatureExtractionPooledCodec() FeatureExtractionPooledCodec {
+	return JSONCodec[
+		hftypes.FeatureExtractionRequest,
+		hftypes.FeatureExtractionPooledEmbedding,
+	]{}
+}
+
+// FeatureExtractionTokenCodec returns the JSON codec for token-level
+// feature-extraction requests and responses.
+func (HuggingFaceCodecs) FeatureExtractionTokenCodec() FeatureExtractionTokenCodec {
+	return JSONCodec[
+		hftypes.FeatureExtractionRequest,
+		hftypes.FeatureExtractionTokenEmbeddings,
+	]{}
+}
+
+// FeatureExtractionTokenBatchCodec returns the JSON codec for batch
+// token-level feature-extraction requests and responses.
+func (HuggingFaceCodecs) FeatureExtractionTokenBatchCodec() FeatureExtractionTokenBatchCodec {
 	return JSONCodec[
 		hftypes.FeatureExtractionBatchRequest,
-		hftypes.FeatureExtractionBatchTokens,
+		[]hftypes.FeatureExtractionTokenEmbeddings,
 	]{}
 }
 

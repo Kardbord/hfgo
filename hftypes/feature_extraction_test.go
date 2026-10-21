@@ -81,3 +81,55 @@ func TestFeatureExtractionParametersClone_Deep(t *testing.T) {
 	require.False(t, *cloned.Truncate)
 	require.Equal(t, hftypes.FeatureExtractionTruncationLeft, *cloned.TruncationDirection)
 }
+
+func TestFeatureExtractionPooledEmbedding_Dimension(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, 0, hftypes.FeatureExtractionPooledEmbedding(nil).Dimension())
+	require.Equal(t, 0, hftypes.FeatureExtractionPooledEmbedding{}.Dimension())
+	require.Equal(t, 3, hftypes.FeatureExtractionPooledEmbedding{0.1, 0.2, 0.3}.Dimension())
+}
+
+func TestFeatureExtractionPooledEmbedding_Clone(t *testing.T) {
+	t.Parallel()
+
+	require.Nil(t, hftypes.FeatureExtractionPooledEmbedding(nil).Clone())
+
+	original := hftypes.FeatureExtractionPooledEmbedding{0.1, 0.2}
+	cloned := original.Clone()
+	require.Equal(t, original, cloned)
+
+	cloned[0] = 9.9
+	require.InDelta(t, 0.1, original[0], 0.0001)
+}
+
+func TestFeatureExtractionTokenEmbeddings_Dimension(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, 0, hftypes.FeatureExtractionTokenEmbeddings(nil).Dimension())
+	require.Equal(t, 0, hftypes.FeatureExtractionTokenEmbeddings{}.Dimension())
+	require.Equal(
+		t,
+		3,
+		hftypes.FeatureExtractionTokenEmbeddings{
+			{0.1, 0.2, 0.3},
+			{0.4, 0.5, 0.6},
+		}.Dimension(),
+	)
+}
+
+func TestFeatureExtractionTokenEmbeddings_Clone(t *testing.T) {
+	t.Parallel()
+
+	require.Nil(t, hftypes.FeatureExtractionTokenEmbeddings(nil).Clone())
+
+	original := hftypes.FeatureExtractionTokenEmbeddings{
+		{0.1, 0.2},
+		{0.3, 0.4},
+	}
+	cloned := original.Clone()
+	require.Equal(t, original, cloned)
+
+	cloned[0][0] = 9.9
+	require.InDelta(t, 0.1, original[0][0], 0.0001)
+}

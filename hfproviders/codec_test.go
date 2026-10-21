@@ -377,20 +377,20 @@ func TestFeatureExtractionTokenCodec_Decode(t *testing.T) {
 		Headers: jsonHeaders(mimeTypeJSON),
 	})
 	require.NoError(t, err)
-	require.Equal(t, hftypes.FeatureExtractionTokens{{0.1, 0.2}, {0.3, 0.4}}, got)
+	require.Equal(t, hftypes.FeatureExtractionTokenEmbeddings{{0.1, 0.2}, {0.3, 0.4}}, got)
 }
 
-func TestFeatureExtractionBatchTokenCodec_Decode(t *testing.T) {
+func TestFeatureExtractionTokenBatchCodec_Decode(t *testing.T) {
 	t.Parallel()
 
-	got, err := HuggingFaceCodecs{}.FeatureExtractionBatchTokenCodec().Decode(DecodeParams{
+	got, err := HuggingFaceCodecs{}.FeatureExtractionTokenBatchCodec().Decode(DecodeParams{
 		Body:    []byte(`[[[0.1],[0.2]],[[0.3]]]`),
 		Headers: jsonHeaders(mimeTypeJSON),
 	})
 	require.NoError(t, err)
 	require.Equal(
 		t,
-		hftypes.FeatureExtractionBatchTokens{{{0.1}, {0.2}}, {{0.3}}},
+		[]hftypes.FeatureExtractionTokenEmbeddings{{{0.1}, {0.2}}, {{0.3}}},
 		got,
 	)
 }

@@ -386,11 +386,11 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			},
 		},
 		{
-			name:     "ExtractFeatures",
+			name:     "ExtractPooledFeatures",
 			response: `[0.1,0.2,0.3]`,
 			wantPath: pipelinePath,
 			call: func(client Client) error {
-				_, err := client.ExtractFeatures(
+				_, err := client.ExtractPooledFeatures(
 					hftypes.FeatureExtractionRequest{Input: "hello"},
 				)
 
@@ -398,11 +398,11 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			},
 		},
 		{
-			name:     "ExtractFeaturesBatch",
+			name:     "ExtractPooledFeaturesBatch",
 			response: `[[0.1,0.2,0.3]]`,
 			wantPath: pipelinePath,
 			call: func(client Client) error {
-				_, err := client.ExtractFeaturesBatch(
+				_, err := client.ExtractPooledFeaturesBatch(
 					hftypes.FeatureExtractionBatchRequest{Inputs: []string{"hello"}},
 				)
 

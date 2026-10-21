@@ -7,7 +7,8 @@ import (
 	"github.com/Kardbord/hfgo/v4/hferrors"
 )
 
-// ChatStreamResponse represents a streaming response chunk.
+// ChatStreamResponse represents a single streaming response chunk. It is the
+// DTO returned by [ChatStream.Recv]; [ChatStream] itself is the stream handle.
 // This is returned when Stream is true.
 //
 // Decoding is intentionally tolerant of provider variations. Use
@@ -168,7 +169,9 @@ type chatstreamer interface {
 	Close() error
 }
 
-// ChatStream wraps a streaming chat completion response.
+// ChatStream is a handle for consuming a streaming chat completion response.
+// Each [ChatStream.Recv] call returns a [ChatStreamResponse] chunk; ChatStream
+// is not itself a response DTO.
 //
 // A ChatStream is not safe for concurrent Recv calls. Close may be called
 // concurrently with Recv. To fan out chunks, distribute them from a single

@@ -36,7 +36,7 @@ func main() {
 	fmt.Println("...")
 
 	// Make the feature extraction request with parameters
-	embedding, err := client.ExtractFeatures(
+	embedding, err := client.ExtractPooledFeatures(
 		hftypes.FeatureExtractionRequest{
 			Input:      input,
 			Parameters: &params,

@@ -106,24 +106,32 @@ type (
 	// ObjectDetectionCodec is the Codec for the ObjectDetection task.
 	ObjectDetectionCodec = Codec[hftypes.ObjectDetectionRequest, []hftypes.ObjectDetection]
 
-	// FeatureExtractionBatchCodec is the Codec for the FeatureExtractionBatch task.
-	FeatureExtractionBatchCodec = Codec[hftypes.FeatureExtractionBatchRequest, []hftypes.FeatureExtraction]
-
-	// FeatureExtractionCodec is the Codec for the FeatureExtraction task.
-	FeatureExtractionCodec = Codec[hftypes.FeatureExtractionRequest, hftypes.FeatureExtraction]
-
-	// FeatureExtractionBatchTokenCodec is the Codec for token-level output from
-	// the FeatureExtractionBatch task.
-	FeatureExtractionBatchTokenCodec = Codec[
+	// FeatureExtractionPooledBatchCodec is the Codec for pooled output from the
+	// FeatureExtractionBatch task.
+	FeatureExtractionPooledBatchCodec = Codec[
 		hftypes.FeatureExtractionBatchRequest,
-		hftypes.FeatureExtractionBatchTokens,
+		[]hftypes.FeatureExtractionPooledEmbedding,
+	]
+
+	// FeatureExtractionPooledCodec is the Codec for pooled output from the
+	// FeatureExtraction task.
+	FeatureExtractionPooledCodec = Codec[
+		hftypes.FeatureExtractionRequest,
+		hftypes.FeatureExtractionPooledEmbedding,
+	]
+
+	// FeatureExtractionTokenBatchCodec is the Codec for token-level output from
+	// the FeatureExtractionBatch task.
+	FeatureExtractionTokenBatchCodec = Codec[
+		hftypes.FeatureExtractionBatchRequest,
+		[]hftypes.FeatureExtractionTokenEmbeddings,
 	]
 
 	// FeatureExtractionTokenCodec is the Codec for token-level output from the
 	// FeatureExtraction task.
 	FeatureExtractionTokenCodec = Codec[
 		hftypes.FeatureExtractionRequest,
-		hftypes.FeatureExtractionTokens,
+		hftypes.FeatureExtractionTokenEmbeddings,
 	]
 
 	// FillMaskCodec is the Codec for the FillMask task.

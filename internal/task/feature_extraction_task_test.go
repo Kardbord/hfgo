@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestExtractFeatures_ResponseDecoding(t *testing.T) {
+func TestExtractPooledFeatures_ResponseDecoding(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -63,7 +63,7 @@ func TestExtractFeatures_ResponseDecoding(t *testing.T) {
 				hfopts.WithModel("test-model"),
 			)
 
-			result, err := client.ExtractFeatures(hftypes.FeatureExtractionRequest{
+			result, err := client.ExtractPooledFeatures(hftypes.FeatureExtractionRequest{
 				Input: "What is the capital of France?",
 			})
 			require.NoError(t, err, tc.description)
@@ -152,7 +152,7 @@ func featureExtractionParameterCases() []struct {
 	}
 }
 
-func TestExtractFeatures_ParameterSerialization(t *testing.T) {
+func TestExtractPooledFeatures_ParameterSerialization(t *testing.T) {
 	t.Parallel()
 
 	for i := range featureExtractionParameterCases() {
@@ -175,7 +175,7 @@ func TestExtractFeatures_ParameterSerialization(t *testing.T) {
 				req.Parameters = tc.params
 			}
 
-			result, err := client.ExtractFeatures(req)
+			result, err := client.ExtractPooledFeatures(req)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, result, tc.description)
 
@@ -192,7 +192,7 @@ func TestExtractFeatures_ParameterSerialization(t *testing.T) {
 	}
 }
 
-func TestExtractFeatures_Errors(t *testing.T) {
+func TestExtractPooledFeatures_Errors(t *testing.T) {
 	t.Parallel()
 
 	runErrorCases(t,
@@ -222,8 +222,8 @@ func TestExtractFeatures_Errors(t *testing.T) {
 				description:  "API error for model not yet loaded",
 			},
 		},
-		func(opts ...hfopts.Option) (hftypes.FeatureExtraction, error) {
-			return hfgo.NewClient(opts...).ExtractFeatures(hftypes.FeatureExtractionRequest{
+		func(opts ...hfopts.Option) (hftypes.FeatureExtractionPooledEmbedding, error) {
+			return hfgo.NewClient(opts...).ExtractPooledFeatures(hftypes.FeatureExtractionRequest{
 				Input: "What is the capital of France?",
 			})
 		},
@@ -260,7 +260,7 @@ func TestExtractTokenFeatures_Errors(t *testing.T) {
 				description:  "API error for model not yet loaded",
 			},
 		},
-		func(opts ...hfopts.Option) (hftypes.FeatureExtractionTokens, error) {
+		func(opts ...hfopts.Option) (hftypes.FeatureExtractionTokenEmbeddings, error) {
 			return hfgo.NewClient(opts...).ExtractTokenFeatures(hftypes.FeatureExtractionRequest{
 				Input: "What is the capital of France?",
 			})
@@ -298,7 +298,7 @@ func TestExtractTokenFeaturesBatch_Errors(t *testing.T) {
 				description:  "API error for model not yet loaded",
 			},
 		},
-		func(opts ...hfopts.Option) (hftypes.FeatureExtractionBatchTokens, error) {
+		func(opts ...hfopts.Option) ([]hftypes.FeatureExtractionTokenEmbeddings, error) {
 			return hfgo.NewClient(opts...).ExtractTokenFeaturesBatch(
 				hftypes.FeatureExtractionBatchRequest{
 					Inputs: []string{"What is the capital of France?"},
@@ -308,7 +308,7 @@ func TestExtractTokenFeaturesBatch_Errors(t *testing.T) {
 	)
 }
 
-func TestExtractFeaturesBatch_ResponseDecoding(t *testing.T) {
+func TestExtractPooledFeaturesBatch_ResponseDecoding(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -376,7 +376,7 @@ func TestExtractFeaturesBatch_ResponseDecoding(t *testing.T) {
 				hfopts.WithModel("test-model"),
 			)
 
-			result, err := client.ExtractFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
+			result, err := client.ExtractPooledFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
 				Inputs: tc.inputs,
 			})
 			require.NoError(t, err, tc.description)
@@ -393,7 +393,7 @@ func TestExtractFeaturesBatch_ResponseDecoding(t *testing.T) {
 	}
 }
 
-func TestExtractFeaturesBatch_Errors(t *testing.T) {
+func TestExtractPooledFeaturesBatch_Errors(t *testing.T) {
 	t.Parallel()
 
 	runErrorCases(t,
@@ -423,16 +423,16 @@ func TestExtractFeaturesBatch_Errors(t *testing.T) {
 				description:  "API error for model not yet loaded",
 			},
 		},
-		func(opts ...hfopts.Option) ([]hftypes.FeatureExtraction, error) {
+		func(opts ...hfopts.Option) ([]hftypes.FeatureExtractionPooledEmbedding, error) {
 			return hfgo.NewClient(opts...).
-				ExtractFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
+				ExtractPooledFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
 					Inputs: []string{"hello", "world"},
 				})
 		},
 	)
 }
 
-func TestExtractFeaturesBatch_ParameterSerialization(t *testing.T) {
+func TestExtractPooledFeaturesBatch_ParameterSerialization(t *testing.T) {
 	t.Parallel()
 
 	for i := range featureExtractionParameterCases() {
@@ -457,7 +457,7 @@ func TestExtractFeaturesBatch_ParameterSerialization(t *testing.T) {
 				req.Parameters = tc.params
 			}
 
-			result, err := client.ExtractFeaturesBatch(req)
+			result, err := client.ExtractPooledFeaturesBatch(req)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, result, tc.description)
 
@@ -474,7 +474,7 @@ func TestExtractFeaturesBatch_ParameterSerialization(t *testing.T) {
 	}
 }
 
-func TestExtractFeaturesBatch_NoModel(t *testing.T) {
+func TestExtractPooledFeaturesBatch_NoModel(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(
@@ -486,7 +486,7 @@ func TestExtractFeaturesBatch_NoModel(t *testing.T) {
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	result, err := client.ExtractFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
+	result, err := client.ExtractPooledFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
 		Inputs: []string{"hello"},
 	})
 	require.Error(t, err)
@@ -497,7 +497,7 @@ func TestExtractFeaturesBatch_NoModel(t *testing.T) {
 	require.Nil(t, mt.LastRequest)
 }
 
-func TestExtractFeaturesBatch_ModelFromOptions(t *testing.T) {
+func TestExtractPooledFeaturesBatch_ModelFromOptions(t *testing.T) {
 	t.Parallel()
 
 	mt := testutils.NewJSONMockTransport(
@@ -509,7 +509,7 @@ func TestExtractFeaturesBatch_ModelFromOptions(t *testing.T) {
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	result, err := client.ExtractFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
+	result, err := client.ExtractPooledFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
 		Inputs: []string{"hello"},
 	}, hfopts.WithModel("override-model"))
 	require.NoError(t, err)

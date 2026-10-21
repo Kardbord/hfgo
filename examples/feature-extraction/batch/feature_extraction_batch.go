@@ -34,7 +34,7 @@ func main() {
 	fmt.Println("...")
 
 	// Make the batched feature extraction request
-	embeddings, err := client.ExtractFeaturesBatch(
+	embeddings, err := client.ExtractPooledFeaturesBatch(
 		hftypes.FeatureExtractionBatchRequest{
 			Inputs: inputs,
 		},
