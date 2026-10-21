@@ -213,6 +213,10 @@ func DoBytes(
 // if the body is larger. If maxBytes is <= 0, hfopts.DefaultMaxResponseBodyBytes is used.
 // The caller is still responsible for closing resp.Body.
 func ReadResponseBody(resp *http.Response, maxBytes int64) ([]byte, error) {
+	if maxBytes <= 0 {
+		maxBytes = hfopts.DefaultMaxResponseBodyBytes
+	}
+
 	bodyBytes, truncated, err := readResponseBodyTruncated(resp.Body, maxBytes)
 	if err != nil {
 		return nil, err
