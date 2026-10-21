@@ -54,7 +54,7 @@ func main() {
 			"  input %d: %d tokens, hidden size %d\n",
 			inputIndex,
 			len(tokens),
-			len(tokens[0]),
+			tokens.Dimension(),
 		)
 	}
 	PrintJSON(embeddings)

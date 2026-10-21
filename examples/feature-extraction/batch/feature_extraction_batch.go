@@ -45,7 +45,7 @@ func main() {
 
 	fmt.Printf("Results: %d embeddings\n", len(embeddings))
 	for i, emb := range embeddings {
-		fmt.Printf("  embedding %d: %d dimensions\n", i, len(emb))
+		fmt.Printf("  embedding %d: %d dimensions\n", i, emb.Dimension())
 	}
 	PrintJSON(embeddings)
 }

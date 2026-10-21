@@ -46,7 +46,7 @@ func main() {
 		log.Fatalf("error extracting features: %v\n", err)
 	}
 
-	fmt.Printf("Results: embedding with %d dimensions\n", len(embedding))
+	fmt.Printf("Results: embedding with %d dimensions\n", embedding.Dimension())
 	PrintJSON(embedding)
 }
 
