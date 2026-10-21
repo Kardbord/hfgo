@@ -107,18 +107,7 @@ func (e HuggingFaceFeatureExtractionMixin) FeatureExtractionBatchEndpoint(
 func (HuggingFaceFeatureExtractionMixin) FeatureExtractionEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{
-		Method: http.MethodPost,
-		Path:   hfModelPrefix + params.Model + "/pipeline/feature-extraction",
-	}, nil
+	return hfModelEndpoint(params, "/pipeline/feature-extraction")
 }
 
 // FeatureExtractionPooledBatchCodec returns the JSON codec for batch pooled
@@ -164,15 +153,7 @@ type HuggingFaceFillMaskMixin struct{}
 
 // FillMaskEndpoint returns the endpoint for fill mask.
 func (HuggingFaceFillMaskMixin) FillMaskEndpoint(params EndpointParams) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+	return hfModelEndpoint(params, "")
 }
 
 // FillMaskCodec returns the JSON codec for fill-mask requests and responses.
@@ -190,18 +171,7 @@ type HuggingFaceImageClassificationMixin struct{}
 func (HuggingFaceImageClassificationMixin) ImageClassificationEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{
-		Method: http.MethodPost,
-		Path:   hfModelPrefix + params.Model,
-	}, nil
+	return hfModelEndpoint(params, "")
 }
 
 // ImageClassificationCodec returns the JSON codec for image-classification
@@ -220,15 +190,7 @@ type HuggingFaceImageSegmentationMixin struct{}
 func (HuggingFaceImageSegmentationMixin) ImageSegmentationEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+	return hfModelEndpoint(params, "")
 }
 
 // ImageSegmentationCodec returns the JSON codec for image-segmentation
@@ -246,18 +208,7 @@ type HuggingFaceObjectDetectionMixin struct{}
 func (HuggingFaceObjectDetectionMixin) ObjectDetectionEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{
-		Method: http.MethodPost,
-		Path:   hfModelPrefix + params.Model,
-	}, nil
+	return hfModelEndpoint(params, "")
 }
 
 // ObjectDetectionCodec returns the JSON codec for object-detection requests and responses.
@@ -275,15 +226,7 @@ type HuggingFaceQuestionAnsweringMixin struct{}
 func (HuggingFaceQuestionAnsweringMixin) QuestionAnsweringEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+	return hfModelEndpoint(params, "")
 }
 
 // QuestionAnsweringCodec returns the flexible question-answering codec, which
@@ -302,15 +245,7 @@ type HuggingFaceSpeechRecognitionMixin struct{}
 func (HuggingFaceSpeechRecognitionMixin) SpeechRecognitionEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+	return hfModelEndpoint(params, "")
 }
 
 // SpeechRecognitionCodec returns the speech recognition codec, which encodes
@@ -329,15 +264,7 @@ type HuggingFaceSummarizationMixin struct{}
 func (HuggingFaceSummarizationMixin) SummarizationEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+	return hfModelEndpoint(params, "")
 }
 
 // SummarizationCodec returns the JSON codec for summarization requests and
@@ -356,15 +283,7 @@ type HuggingFaceTableQuestionAnsweringMixin struct{}
 func (HuggingFaceTableQuestionAnsweringMixin) TableQuestionAnsweringEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+	return hfModelEndpoint(params, "")
 }
 
 // TableQuestionAnsweringCodec returns the JSON codec for table
@@ -383,15 +302,7 @@ type HuggingFaceTextClassificationMixin struct{}
 func (HuggingFaceTextClassificationMixin) TextClassificationEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+	return hfModelEndpoint(params, "")
 }
 
 // TextClassificationCodec returns the flexible text-classification codec,
@@ -410,15 +321,7 @@ type HuggingFaceTextToImageMixin struct{}
 func (HuggingFaceTextToImageMixin) TextToImageEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+	return hfModelEndpoint(params, "")
 }
 
 // TextToImageCodec returns the text-to-image codec, which encodes requests as
@@ -437,15 +340,7 @@ type HuggingFaceTokenClassificationMixin struct{}
 func (HuggingFaceTokenClassificationMixin) TokenClassificationEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+	return hfModelEndpoint(params, "")
 }
 
 // TokenClassificationCodec returns the JSON codec for token-classification
@@ -463,15 +358,7 @@ type HuggingFaceTranslationMixin struct{}
 func (HuggingFaceTranslationMixin) TranslationEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+	return hfModelEndpoint(params, "")
 }
 
 // TranslationCodec returns the JSON codec for translation requests and
@@ -490,15 +377,7 @@ type HuggingFaceZeroShotTextClassificationMixin struct{}
 func (HuggingFaceZeroShotTextClassificationMixin) ZeroShotTextClassificationEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+	return hfModelEndpoint(params, "")
 }
 
 // ZeroShotTextClassificationCodec returns the JSON codec for zero-shot
@@ -605,6 +484,23 @@ func existingSDKError(err error) error {
 	}
 
 	return nil
+}
+
+// hfModelEndpoint returns a POST endpoint scoped to the given model. The suffix
+// is appended to the model path and may be empty.
+func hfModelEndpoint(params EndpointParams, suffix string) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{
+		Method: http.MethodPost,
+		Path:   hfModelPrefix + params.Model + suffix,
+	}, nil
 }
 
 // hfTextClassificationCodec is a flexible Codec for text classification that
