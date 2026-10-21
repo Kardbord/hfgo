@@ -21,7 +21,7 @@ func TestHuggingFaceProvider_NameAndSuffix(t *testing.T) {
 }
 
 // endpointCase pairs a display name with an endpoint method so every
-// HuggingFaceEndpoints method can be exercised through one table.
+// HuggingFaceProvider endpoint can be exercised through one table.
 type endpointCase struct {
 	name string
 	call func(EndpointParams) (Endpoint, error)
@@ -35,7 +35,7 @@ type endpointCase struct {
 func endpointCases() []endpointCase {
 	modelPath := func(m string) string { return hfModelPrefix + m }
 
-	e := HuggingFaceEndpoints{}
+	e := NewHuggingFaceProvider()
 	pipeline := func(m string) string { return hfModelPrefix + m + "/pipeline/feature-extraction" }
 
 	// ep builds a model-dependent case for the endpoints whose path is the
@@ -81,7 +81,7 @@ func endpointCases() []endpointCase {
 	}
 }
 
-func TestHuggingFaceEndpoints_ValidModel(t *testing.T) {
+func TestHuggingFaceProvider_ValidModel(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range endpointCases() {
@@ -96,7 +96,7 @@ func TestHuggingFaceEndpoints_ValidModel(t *testing.T) {
 	}
 }
 
-func TestHuggingFaceEndpoints_EmptyModel(t *testing.T) {
+func TestHuggingFaceProvider_EmptyModel(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range endpointCases() {
@@ -120,13 +120,13 @@ func TestHuggingFaceEndpoints_EmptyModel(t *testing.T) {
 	}
 }
 
-// TestHuggingFaceCodecs_Wiring asserts every codec accessor returns the
+// TestHuggingFaceProvider_CodecWiring asserts every codec accessor returns the
 // expected built-in codec implementation, pinning the type wiring of the
-// embeddable defaults.
-func TestHuggingFaceCodecs_Wiring(t *testing.T) {
+// provider and its mixins.
+func TestHuggingFaceProvider_CodecWiring(t *testing.T) {
 	t.Parallel()
 
-	c := HuggingFaceCodecs{}
+	c := NewHuggingFaceProvider()
 
 	require.IsType(t, JSONCodec[hftypes.ChatRequest, hftypes.ChatResponse]{}, c.ChatCodec())
 	require.IsType(
@@ -300,4 +300,34 @@ func TestSpeechRecognitionCodec_Decode(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "hello world", resp.Text)
 	require.Nil(t, resp.Chunks)
+}
+
+// TestHuggingFaceProvider_ImplementsEveryTaskProvider pins the aggregate's
+// method promotion. Because every per-task method name is unique to its mixin,
+// these assertions also confirm each mixin carries the methods its interface
+// requires.
+func TestHuggingFaceProvider_ImplementsEveryTaskProvider(t *testing.T) {
+	t.Parallel()
+
+	var (
+		_ ChatProvider                         = HuggingFaceProvider{}
+		_ ChatStreamProvider                   = HuggingFaceProvider{}
+		_ FeatureExtractionPooledBatchProvider = HuggingFaceProvider{}
+		_ FeatureExtractionPooledProvider      = HuggingFaceProvider{}
+		_ FeatureExtractionTokenProvider       = HuggingFaceProvider{}
+		_ FeatureExtractionTokenBatchProvider  = HuggingFaceProvider{}
+		_ FillMaskProvider                     = HuggingFaceProvider{}
+		_ ImageClassificationProvider          = HuggingFaceProvider{}
+		_ ObjectDetectionProvider              = HuggingFaceProvider{}
+		_ ImageSegmentationProvider            = HuggingFaceProvider{}
+		_ QuestionAnsweringProvider            = HuggingFaceProvider{}
+		_ SummarizationProvider                = HuggingFaceProvider{}
+		_ TableQuestionAnsweringProvider       = HuggingFaceProvider{}
+		_ TextClassificationProvider           = HuggingFaceProvider{}
+		_ TextToImageProvider                  = HuggingFaceProvider{}
+		_ TokenClassificationProvider          = HuggingFaceProvider{}
+		_ TranslationProvider                  = HuggingFaceProvider{}
+		_ ZeroShotTextClassificationProvider   = HuggingFaceProvider{}
+		_ SpeechRecognitionProvider            = HuggingFaceProvider{}
+	)
 }

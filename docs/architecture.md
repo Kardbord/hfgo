@@ -13,15 +13,15 @@ and `examples/` for usage documentation, and the code itself for full detail.
 
 ## Package Layout
 
-| Package       | Import path                               | Contents                                                                                            |
-| ------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `hfgo`        | `github.com/Kardbord/hfgo/v4`             | `Client`, `NewClient`, and inference endpoint methods                                               |
-| `hfopts`      | `github.com/Kardbord/hfgo/v4/hfopts`      | `Options`, `Option`, and all `With*` helpers                                                        |
-| `hftypes`     | `github.com/Kardbord/hfgo/v4/hftypes`     | Request/response DTOs for every task                                                                |
-| `hferrors`    | `github.com/Kardbord/hfgo/v4/hferrors`    | `APIError`, `SDKError`, and `SDKErrorKind`                                                          |
-| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, `HuggingFaceProvider` |
-| `hfraw`       | `github.com/Kardbord/hfgo/v4/hfraw`       | Low-level HTTP/SSE escape hatch                                                                     |
-| `hfgoversion` | `github.com/Kardbord/hfgo/v4/hfgoversion` | `Version` constant and `UserAgent()` helper                                                         |
+| Package       | Import path                               | Contents                                                                                                                          |
+| ------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `hfgo`        | `github.com/Kardbord/hfgo/v4`             | `Client`, `NewClient`, and inference endpoint methods                                                                             |
+| `hfopts`      | `github.com/Kardbord/hfgo/v4/hfopts`      | `Options`, `Option`, and all `With*` helpers                                                                                      |
+| `hftypes`     | `github.com/Kardbord/hfgo/v4/hftypes`     | Request/response DTOs for every task                                                                                              |
+| `hferrors`    | `github.com/Kardbord/hfgo/v4/hferrors`    | `APIError`, `SDKError`, and `SDKErrorKind`                                                                                        |
+| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, per-task Hugging Face mixins, `HuggingFaceProvider` |
+| `hfraw`       | `github.com/Kardbord/hfgo/v4/hfraw`       | Low-level HTTP/SSE escape hatch                                                                                                   |
+| `hfgoversion` | `github.com/Kardbord/hfgo/v4/hfgoversion` | `Version` constant and `UserAgent()` helper                                                                                       |
 
 Internal packages under `internal/` are implementation details and must only
 be imported from within the module.
@@ -94,7 +94,9 @@ Requests are routed through a pluggable provider layer defined in the
 `hfproviders` package. The Hugging Face Inference API is the reference wire
 format, so the built-in `HuggingFaceProvider` is a no-op transform;
 third-party providers can implement the same interfaces to serve HF-format
-requests from their own wire formats.
+requests from their own wire formats. The built-in defaults are composed from
+per-task mixins, so a custom provider can reuse only the tasks it serves (see
+[Per-task provider mixins](#per-task-provider-mixins)).
 
 A provider advertises task support structurally through per-task interfaces
 (e.g. `ChatProvider`, `SummarizationProvider`). Each interface pairs a task's
@@ -107,6 +109,38 @@ configuration error when the cast fails.
 never redirect a request (and its bearer token) to a host the caller did not
 choose. Authentication is owned by the caller via `Options.Token` /
 `Options.Headers`; providers and codecs must not set `Authorization`.
+
+### Per-task provider mixins
+
+The Hugging Face defaults are split into one zero-byte mixin per upstream task,
+for example `HuggingFaceTextClassificationMixin` or
+`HuggingFaceSummarizationMixin`. Each mixin pairs that task's
+endpoint-resolution method with its codec accessor(s). `HuggingFaceProvider`
+composes every mixin and adds the provider identity (`Name`,
+`ProviderSuffix`). Mixins deliberately do not implement `Provider`, so a custom
+provider embeds only the tasks it serves and supplies its own identity:
+
+```go
+type MyProvider struct {
+    hfproviders.HuggingFaceTextClassificationMixin
+    hfproviders.HuggingFaceSummarizationMixin
+}
+
+func (MyProvider) Name() string           { return "my-provider" }
+func (MyProvider) ProviderSuffix() string { return "" }
+```
+
+Chat and feature extraction intentionally remain single mixins. Their sibling
+variants share endpoint methods, so splitting them would either duplicate those
+methods (`ChatStreamEndpoint`, `FeatureExtractionTokenEndpoint`, etc.) or
+require new shared endpoint interfaces. The tradeoff is that embedding
+`HuggingFaceChatMixin` advertises streaming as well as unary chat, and
+embedding `HuggingFaceFeatureExtractionMixin` advertises every output family.
+This is acceptable because the siblings belong to one upstream task and share
+the same endpoint; a provider that supports only one variant can implement the
+handful of methods directly. If sibling-level precision is needed later,
+granular mixins and shared endpoint interfaces can be added additively without
+changing the grouped mixins.
 
 ### Codecs
 

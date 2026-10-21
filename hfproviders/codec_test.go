@@ -202,7 +202,7 @@ func TestJSONCodec_Decode(t *testing.T) {
 func TestQuestionAnsweringCodec_Decode(t *testing.T) {
 	t.Parallel()
 
-	c := HuggingFaceCodecs{}.QuestionAnsweringCodec()
+	c := HuggingFaceQuestionAnsweringMixin{}.QuestionAnsweringCodec()
 	params := func(body string) DecodeParams {
 		return DecodeParams{
 			Body:    []byte(body),
@@ -372,7 +372,8 @@ func TestDecodeSingleQuestionAnswering(t *testing.T) {
 func TestFeatureExtractionTokenCodec_Decode(t *testing.T) {
 	t.Parallel()
 
-	got, err := HuggingFaceCodecs{}.FeatureExtractionTokenCodec().Decode(DecodeParams{
+	codec := HuggingFaceFeatureExtractionMixin{}
+	got, err := codec.FeatureExtractionTokenCodec().Decode(DecodeParams{
 		Body:    []byte(`[[0.1,0.2],[0.3,0.4]]`),
 		Headers: jsonHeaders(mimeTypeJSON),
 	})
@@ -383,7 +384,8 @@ func TestFeatureExtractionTokenCodec_Decode(t *testing.T) {
 func TestFeatureExtractionTokenBatchCodec_Decode(t *testing.T) {
 	t.Parallel()
 
-	got, err := HuggingFaceCodecs{}.FeatureExtractionTokenBatchCodec().Decode(DecodeParams{
+	codec := HuggingFaceFeatureExtractionMixin{}
+	got, err := codec.FeatureExtractionTokenBatchCodec().Decode(DecodeParams{
 		Body:    []byte(`[[[0.1],[0.2]],[[0.3]]]`),
 		Headers: jsonHeaders(mimeTypeJSON),
 	})
@@ -398,7 +400,7 @@ func TestFeatureExtractionTokenBatchCodec_Decode(t *testing.T) {
 func TestQuestionAnsweringCodec_EncodePassesHeaders(t *testing.T) {
 	t.Parallel()
 
-	body, headers, err := HuggingFaceCodecs{}.QuestionAnsweringCodec().Encode(
+	body, headers, err := HuggingFaceQuestionAnsweringMixin{}.QuestionAnsweringCodec().Encode(
 		EncodeParams[hftypes.QuestionAnsweringRequest]{
 			Request: hftypes.QuestionAnsweringRequest{
 				Input: hftypes.QuestionAnsweringInput{Question: "q", Context: "c"},
@@ -414,7 +416,7 @@ func TestQuestionAnsweringCodec_EncodePassesHeaders(t *testing.T) {
 func TestTextToImageCodec_Encode(t *testing.T) {
 	t.Parallel()
 
-	body, headers, err := HuggingFaceCodecs{}.TextToImageCodec().Encode(
+	body, headers, err := HuggingFaceTextToImageMixin{}.TextToImageCodec().Encode(
 		EncodeParams[hftypes.TextToImageRequest]{
 			Context: context.Background(),
 			Request: hftypes.TextToImageRequest{
@@ -440,7 +442,7 @@ func TestTextToImageCodec_Encode(t *testing.T) {
 func TestTextToImageCodec_Decode(t *testing.T) {
 	t.Parallel()
 
-	c := HuggingFaceCodecs{}.TextToImageCodec()
+	c := HuggingFaceTextToImageMixin{}.TextToImageCodec()
 	imageBytes := []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}
 
 	cases := []struct {
@@ -576,7 +578,7 @@ func TestParseMediaType(t *testing.T) {
 func TestTextClassificationCodec_Decode(t *testing.T) {
 	t.Parallel()
 
-	c := HuggingFaceCodecs{}.TextClassificationCodec()
+	c := HuggingFaceTextClassificationMixin{}.TextClassificationCodec()
 	params := func(body string) DecodeParams {
 		return DecodeParams{
 			Body:    []byte(body),

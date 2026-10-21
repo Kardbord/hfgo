@@ -18,9 +18,24 @@ const (
 )
 
 // HuggingFaceProvider implements Provider for the Hugging Face inference API.
+// It composes every built-in per-task mixin, so it serves all tasks with the
+// Hugging Face endpoints and wire formats.
 type HuggingFaceProvider struct {
-	HuggingFaceEndpoints
-	HuggingFaceCodecs
+	HuggingFaceChatMixin
+	HuggingFaceFeatureExtractionMixin
+	HuggingFaceFillMaskMixin
+	HuggingFaceImageClassificationMixin
+	HuggingFaceImageSegmentationMixin
+	HuggingFaceObjectDetectionMixin
+	HuggingFaceQuestionAnsweringMixin
+	HuggingFaceSpeechRecognitionMixin
+	HuggingFaceSummarizationMixin
+	HuggingFaceTableQuestionAnsweringMixin
+	HuggingFaceTextClassificationMixin
+	HuggingFaceTextToImageMixin
+	HuggingFaceTokenClassificationMixin
+	HuggingFaceTranslationMixin
+	HuggingFaceZeroShotTextClassificationMixin
 }
 
 // NewHuggingFaceProvider returns a HuggingFaceProvider with the default
@@ -46,34 +61,69 @@ func (p HuggingFaceProvider) Name() string {
 	return "huggingface"
 }
 
-// HuggingFaceCodecs provides default Hugging Face Codec implementations
-// that custom providers or test mocks can embed.
+// HuggingFaceChatMixin provides the Hugging Face endpoint and codecs for chat
+// completion, including streaming. It is a mixin: embed it in a type that also
+// implements Provider.Name and Provider.ProviderSuffix to serve only chat.
 //
-// Embed it only if you support every task it covers: embedding hands you
-// codec methods for tasks you may not intend to serve. Providers supporting
-// a subset of tasks should implement just the relevant per-task codec
-// methods instead.
-type HuggingFaceCodecs struct{}
+// Unary and streaming chat share the same endpoint, so embedding this mixin
+// satisfies both ChatProvider and ChatStreamProvider.
+type HuggingFaceChatMixin struct{}
+
+// ChatEndpoint returns the endpoint for chat completion. Chat completions are
+// served from a fixed OpenAI-compatible path, so this endpoint is
+// model-independent: an empty params.Model is legal.
+func (HuggingFaceChatMixin) ChatEndpoint(_ EndpointParams) (Endpoint, error) {
+	return Endpoint{Method: http.MethodPost, Path: "v1/chat/completions"}, nil
+}
 
 // ChatCodec returns the JSON codec for chat completion requests and responses.
-func (HuggingFaceCodecs) ChatCodec() ChatCodec {
+func (HuggingFaceChatMixin) ChatCodec() ChatCodec {
 	return JSONCodec[hftypes.ChatRequest, hftypes.ChatResponse]{}
 }
 
 // ChatStreamCodec returns the JSON codec for streaming chat completion
 // requests and responses.
-func (HuggingFaceCodecs) ChatStreamCodec() ChatStreamCodec {
+func (HuggingFaceChatMixin) ChatStreamCodec() ChatStreamCodec {
 	return JSONCodec[hftypes.ChatRequest, hftypes.ChatStreamResponse]{}
 }
 
-// ObjectDetectionCodec returns the JSON codec for object-detection requests and responses.
-func (HuggingFaceCodecs) ObjectDetectionCodec() ObjectDetectionCodec {
-	return JSONCodec[hftypes.ObjectDetectionRequest, []hftypes.ObjectDetection]{}
+// HuggingFaceFeatureExtractionMixin provides the Hugging Face endpoints and
+// codecs for pooled and token-level feature extraction, including their batch
+// variants. It is a mixin: embed it in a type that also implements
+// Provider.Name and Provider.ProviderSuffix to serve only feature extraction.
+//
+// All feature-extraction variants share the same endpoints, so embedding this
+// mixin satisfies every feature-extraction provider interface.
+type HuggingFaceFeatureExtractionMixin struct{}
+
+// FeatureExtractionBatchEndpoint returns the endpoint for batch feature extraction.
+func (e HuggingFaceFeatureExtractionMixin) FeatureExtractionBatchEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
+	return e.FeatureExtractionEndpoint(params)
+}
+
+// FeatureExtractionEndpoint returns the endpoint for feature extraction.
+func (HuggingFaceFeatureExtractionMixin) FeatureExtractionEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{
+		Method: http.MethodPost,
+		Path:   hfModelPrefix + params.Model + "/pipeline/feature-extraction",
+	}, nil
 }
 
 // FeatureExtractionPooledBatchCodec returns the JSON codec for batch pooled
 // feature-extraction requests and responses.
-func (HuggingFaceCodecs) FeatureExtractionPooledBatchCodec() FeatureExtractionPooledBatchCodec {
+func (HuggingFaceFeatureExtractionMixin) FeatureExtractionPooledBatchCodec() FeatureExtractionPooledBatchCodec {
 	return JSONCodec[
 		hftypes.FeatureExtractionBatchRequest,
 		[]hftypes.FeatureExtractionPooledEmbedding,
@@ -82,7 +132,7 @@ func (HuggingFaceCodecs) FeatureExtractionPooledBatchCodec() FeatureExtractionPo
 
 // FeatureExtractionPooledCodec returns the JSON codec for pooled
 // feature-extraction requests and responses.
-func (HuggingFaceCodecs) FeatureExtractionPooledCodec() FeatureExtractionPooledCodec {
+func (HuggingFaceFeatureExtractionMixin) FeatureExtractionPooledCodec() FeatureExtractionPooledCodec {
 	return JSONCodec[
 		hftypes.FeatureExtractionRequest,
 		hftypes.FeatureExtractionPooledEmbedding,
@@ -91,7 +141,7 @@ func (HuggingFaceCodecs) FeatureExtractionPooledCodec() FeatureExtractionPooledC
 
 // FeatureExtractionTokenCodec returns the JSON codec for token-level
 // feature-extraction requests and responses.
-func (HuggingFaceCodecs) FeatureExtractionTokenCodec() FeatureExtractionTokenCodec {
+func (HuggingFaceFeatureExtractionMixin) FeatureExtractionTokenCodec() FeatureExtractionTokenCodec {
 	return JSONCodec[
 		hftypes.FeatureExtractionRequest,
 		hftypes.FeatureExtractionTokenEmbeddings,
@@ -100,83 +150,361 @@ func (HuggingFaceCodecs) FeatureExtractionTokenCodec() FeatureExtractionTokenCod
 
 // FeatureExtractionTokenBatchCodec returns the JSON codec for batch
 // token-level feature-extraction requests and responses.
-func (HuggingFaceCodecs) FeatureExtractionTokenBatchCodec() FeatureExtractionTokenBatchCodec {
+func (HuggingFaceFeatureExtractionMixin) FeatureExtractionTokenBatchCodec() FeatureExtractionTokenBatchCodec {
 	return JSONCodec[
 		hftypes.FeatureExtractionBatchRequest,
 		[]hftypes.FeatureExtractionTokenEmbeddings,
 	]{}
 }
 
+// HuggingFaceFillMaskMixin provides the Hugging Face endpoint and codec for
+// fill-mask. It is a mixin: embed it in a type that also implements
+// Provider.Name and Provider.ProviderSuffix to serve only fill-mask.
+type HuggingFaceFillMaskMixin struct{}
+
+// FillMaskEndpoint returns the endpoint for fill mask.
+func (HuggingFaceFillMaskMixin) FillMaskEndpoint(params EndpointParams) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+}
+
 // FillMaskCodec returns the JSON codec for fill-mask requests and responses.
-func (HuggingFaceCodecs) FillMaskCodec() FillMaskCodec {
+func (HuggingFaceFillMaskMixin) FillMaskCodec() FillMaskCodec {
 	return JSONCodec[hftypes.FillMaskRequest, []hftypes.FillMaskPrediction]{}
+}
+
+// HuggingFaceImageClassificationMixin provides the Hugging Face endpoint and
+// codec for image classification. It is a mixin: embed it in a type that also
+// implements Provider.Name and Provider.ProviderSuffix to serve only image
+// classification.
+type HuggingFaceImageClassificationMixin struct{}
+
+// ImageClassificationEndpoint returns the endpoint for image classification.
+func (HuggingFaceImageClassificationMixin) ImageClassificationEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{
+		Method: http.MethodPost,
+		Path:   hfModelPrefix + params.Model,
+	}, nil
 }
 
 // ImageClassificationCodec returns the JSON codec for image-classification
 // requests and responses.
-func (HuggingFaceCodecs) ImageClassificationCodec() ImageClassificationCodec {
+func (HuggingFaceImageClassificationMixin) ImageClassificationCodec() ImageClassificationCodec {
 	return JSONCodec[hftypes.ImageClassificationRequest, []hftypes.ImageClassification]{}
+}
+
+// HuggingFaceImageSegmentationMixin provides the Hugging Face endpoint and
+// codec for image segmentation. It is a mixin: embed it in a type that also
+// implements Provider.Name and Provider.ProviderSuffix to serve only image
+// segmentation.
+type HuggingFaceImageSegmentationMixin struct{}
+
+// ImageSegmentationEndpoint returns the endpoint for image segmentation.
+func (HuggingFaceImageSegmentationMixin) ImageSegmentationEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }
 
 // ImageSegmentationCodec returns the JSON codec for image-segmentation
 // requests and responses.
-func (HuggingFaceCodecs) ImageSegmentationCodec() ImageSegmentationCodec {
+func (HuggingFaceImageSegmentationMixin) ImageSegmentationCodec() ImageSegmentationCodec {
 	return JSONCodec[hftypes.ImageSegmentationRequest, []hftypes.ImageSegmentation]{}
+}
+
+// HuggingFaceObjectDetectionMixin provides the Hugging Face endpoint and codec
+// for object detection. It is a mixin: embed it in a type that also implements
+// Provider.Name and Provider.ProviderSuffix to serve only object detection.
+type HuggingFaceObjectDetectionMixin struct{}
+
+// ObjectDetectionEndpoint returns the endpoint for object detection.
+func (HuggingFaceObjectDetectionMixin) ObjectDetectionEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{
+		Method: http.MethodPost,
+		Path:   hfModelPrefix + params.Model,
+	}, nil
+}
+
+// ObjectDetectionCodec returns the JSON codec for object-detection requests and responses.
+func (HuggingFaceObjectDetectionMixin) ObjectDetectionCodec() ObjectDetectionCodec {
+	return JSONCodec[hftypes.ObjectDetectionRequest, []hftypes.ObjectDetection]{}
+}
+
+// HuggingFaceQuestionAnsweringMixin provides the Hugging Face endpoint and
+// codec for question answering. It is a mixin: embed it in a type that also
+// implements Provider.Name and Provider.ProviderSuffix to serve only question
+// answering.
+type HuggingFaceQuestionAnsweringMixin struct{}
+
+// QuestionAnsweringEndpoint returns the endpoint for question answering.
+func (HuggingFaceQuestionAnsweringMixin) QuestionAnsweringEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }
 
 // QuestionAnsweringCodec returns the flexible question-answering codec, which
 // accepts both single-object and array response shapes.
-func (HuggingFaceCodecs) QuestionAnsweringCodec() QuestionAnsweringCodec {
+func (HuggingFaceQuestionAnsweringMixin) QuestionAnsweringCodec() QuestionAnsweringCodec {
 	return hfQuestionAnsweringCodec{}
 }
 
-// SummarizationCodec returns the JSON codec for summarization requests and
-// responses.
-func (HuggingFaceCodecs) SummarizationCodec() SummarizationCodec {
-	return JSONCodec[hftypes.SummarizationRequest, []hftypes.Summarization]{}
-}
+// HuggingFaceSpeechRecognitionMixin provides the Hugging Face endpoint and
+// codec for speech recognition. It is a mixin: embed it in a type that also
+// implements Provider.Name and Provider.ProviderSuffix to serve only speech
+// recognition.
+type HuggingFaceSpeechRecognitionMixin struct{}
 
-// TableQuestionAnsweringCodec returns the JSON codec for table
-// question-answering requests and responses.
-func (HuggingFaceCodecs) TableQuestionAnsweringCodec() TableQuestionAnsweringCodec {
-	return JSONCodec[hftypes.TableQuestionAnsweringRequest, hftypes.TableQuestionAnswer]{}
-}
+// SpeechRecognitionEndpoint returns the endpoint for speech recognition.
+func (HuggingFaceSpeechRecognitionMixin) SpeechRecognitionEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
 
-// TextClassificationCodec returns the flexible text-classification codec,
-// which accepts both flat and single-element nested array response shapes.
-func (HuggingFaceCodecs) TextClassificationCodec() TextClassificationCodec {
-	return hfTextClassificationCodec{}
-}
-
-// TextToImageCodec returns the text-to-image codec, which encodes requests as
-// JSON and returns the generated image as raw bytes.
-func (HuggingFaceCodecs) TextToImageCodec() TextToImageCodec {
-	return hfTextToImageCodec{}
-}
-
-// TokenClassificationCodec returns the JSON codec for token-classification
-// requests and responses.
-func (HuggingFaceCodecs) TokenClassificationCodec() TokenClassificationCodec {
-	return JSONCodec[hftypes.TokenClassificationRequest, []hftypes.TokenClassification]{}
-}
-
-// TranslationCodec returns the JSON codec for translation requests and
-// responses.
-func (HuggingFaceCodecs) TranslationCodec() TranslationCodec {
-	return JSONCodec[hftypes.TranslationRequest, []hftypes.Translation]{}
-}
-
-// ZeroShotTextClassificationCodec returns the JSON codec for zero-shot
-// text-classification requests and responses.
-func (HuggingFaceCodecs) ZeroShotTextClassificationCodec() ZeroShotTextClassificationCodec {
-	return JSONCodec[hftypes.ZeroShotTextClassificationRequest, []hftypes.ZeroShotTextClassification]{}
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }
 
 // SpeechRecognitionCodec returns the speech recognition codec, which encodes
 // requests as raw bytes when no parameters are present and as JSON when
 // parameters are provided, always decoding the JSON response.
-func (HuggingFaceCodecs) SpeechRecognitionCodec() SpeechRecognitionCodec {
+func (HuggingFaceSpeechRecognitionMixin) SpeechRecognitionCodec() SpeechRecognitionCodec {
 	return hfSpeechRecognitionCodec{}
+}
+
+// HuggingFaceSummarizationMixin provides the Hugging Face endpoint and codec
+// for summarization. It is a mixin: embed it in a type that also implements
+// Provider.Name and Provider.ProviderSuffix to serve only summarization.
+type HuggingFaceSummarizationMixin struct{}
+
+// SummarizationEndpoint returns the endpoint for summarization.
+func (HuggingFaceSummarizationMixin) SummarizationEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+}
+
+// SummarizationCodec returns the JSON codec for summarization requests and
+// responses.
+func (HuggingFaceSummarizationMixin) SummarizationCodec() SummarizationCodec {
+	return JSONCodec[hftypes.SummarizationRequest, []hftypes.Summarization]{}
+}
+
+// HuggingFaceTableQuestionAnsweringMixin provides the Hugging Face endpoint and
+// codec for table question answering. It is a mixin: embed it in a type that
+// also implements Provider.Name and Provider.ProviderSuffix to serve only table
+// question answering.
+type HuggingFaceTableQuestionAnsweringMixin struct{}
+
+// TableQuestionAnsweringEndpoint returns the endpoint for table question answering.
+func (HuggingFaceTableQuestionAnsweringMixin) TableQuestionAnsweringEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+}
+
+// TableQuestionAnsweringCodec returns the JSON codec for table
+// question-answering requests and responses.
+func (HuggingFaceTableQuestionAnsweringMixin) TableQuestionAnsweringCodec() TableQuestionAnsweringCodec {
+	return JSONCodec[hftypes.TableQuestionAnsweringRequest, hftypes.TableQuestionAnswer]{}
+}
+
+// HuggingFaceTextClassificationMixin provides the Hugging Face endpoint and
+// codec for text classification. It is a mixin: embed it in a type that also
+// implements Provider.Name and Provider.ProviderSuffix to serve only text
+// classification.
+type HuggingFaceTextClassificationMixin struct{}
+
+// TextClassificationEndpoint returns the endpoint for text classification.
+func (HuggingFaceTextClassificationMixin) TextClassificationEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+}
+
+// TextClassificationCodec returns the flexible text-classification codec,
+// which accepts both flat and single-element nested array response shapes.
+func (HuggingFaceTextClassificationMixin) TextClassificationCodec() TextClassificationCodec {
+	return hfTextClassificationCodec{}
+}
+
+// HuggingFaceTextToImageMixin provides the Hugging Face endpoint and codec for
+// text-to-image generation. It is a mixin: embed it in a type that also
+// implements Provider.Name and Provider.ProviderSuffix to serve only
+// text-to-image.
+type HuggingFaceTextToImageMixin struct{}
+
+// TextToImageEndpoint returns the endpoint for text-to-image generation.
+func (HuggingFaceTextToImageMixin) TextToImageEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+}
+
+// TextToImageCodec returns the text-to-image codec, which encodes requests as
+// JSON and returns the generated image as raw bytes.
+func (HuggingFaceTextToImageMixin) TextToImageCodec() TextToImageCodec {
+	return hfTextToImageCodec{}
+}
+
+// HuggingFaceTokenClassificationMixin provides the Hugging Face endpoint and
+// codec for token classification. It is a mixin: embed it in a type that also
+// implements Provider.Name and Provider.ProviderSuffix to serve only token
+// classification.
+type HuggingFaceTokenClassificationMixin struct{}
+
+// TokenClassificationEndpoint returns the endpoint for token classification.
+func (HuggingFaceTokenClassificationMixin) TokenClassificationEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+}
+
+// TokenClassificationCodec returns the JSON codec for token-classification
+// requests and responses.
+func (HuggingFaceTokenClassificationMixin) TokenClassificationCodec() TokenClassificationCodec {
+	return JSONCodec[hftypes.TokenClassificationRequest, []hftypes.TokenClassification]{}
+}
+
+// HuggingFaceTranslationMixin provides the Hugging Face endpoint and codec for
+// translation. It is a mixin: embed it in a type that also implements
+// Provider.Name and Provider.ProviderSuffix to serve only translation.
+type HuggingFaceTranslationMixin struct{}
+
+// TranslationEndpoint returns the endpoint for translation.
+func (HuggingFaceTranslationMixin) TranslationEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+}
+
+// TranslationCodec returns the JSON codec for translation requests and
+// responses.
+func (HuggingFaceTranslationMixin) TranslationCodec() TranslationCodec {
+	return JSONCodec[hftypes.TranslationRequest, []hftypes.Translation]{}
+}
+
+// HuggingFaceZeroShotTextClassificationMixin provides the Hugging Face
+// endpoint and codec for zero-shot text classification. It is a mixin: embed it
+// in a type that also implements Provider.Name and Provider.ProviderSuffix to
+// serve only zero-shot text classification.
+type HuggingFaceZeroShotTextClassificationMixin struct{}
+
+// ZeroShotTextClassificationEndpoint returns the endpoint for zero-shot text classification.
+func (HuggingFaceZeroShotTextClassificationMixin) ZeroShotTextClassificationEndpoint(
+	params EndpointParams,
+) (Endpoint, error) {
+	if params.Model == "" {
+		return Endpoint{}, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: errModelIsRequired,
+			Err:     nil,
+		}
+	}
+
+	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
+}
+
+// ZeroShotTextClassificationCodec returns the JSON codec for zero-shot
+// text-classification requests and responses.
+func (HuggingFaceZeroShotTextClassificationMixin) ZeroShotTextClassificationCodec() ZeroShotTextClassificationCodec {
+	return JSONCodec[hftypes.ZeroShotTextClassificationRequest, []hftypes.ZeroShotTextClassification]{}
 }
 
 // hfQuestionAnsweringCodec is a flexible Codec for question answering that handles both single object and array responses.
@@ -446,226 +774,4 @@ func (hfSpeechRecognitionCodec) Decode(
 		hftypes.SpeechRecognitionRequest,
 		hftypes.SpeechRecognitionResponse,
 	]{}.Decode(params)
-}
-
-// HuggingFaceEndpoints provides default Hugging Face endpoint implementations
-// that custom providers or test mocks can embed.
-//
-// Embed it only if you support every task it covers: embedding hands you
-// endpoint methods for tasks you may not intend to serve. Providers
-// supporting a subset of tasks should implement just the relevant per-task
-// endpoint methods instead.
-type HuggingFaceEndpoints struct{}
-
-// ChatEndpoint returns the endpoint for chat completion. Chat completions are
-// served from a fixed OpenAI-compatible path, so this endpoint is
-// model-independent: an empty params.Model is legal.
-func (HuggingFaceEndpoints) ChatEndpoint(_ EndpointParams) (Endpoint, error) {
-	return Endpoint{Method: http.MethodPost, Path: "v1/chat/completions"}, nil
-}
-
-// ObjectDetectionEndpoint returns the endpoint for object detection.
-func (HuggingFaceEndpoints) ObjectDetectionEndpoint(params EndpointParams) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{
-		Method: http.MethodPost,
-		Path:   hfModelPrefix + params.Model,
-	}, nil
-}
-
-// ImageClassificationEndpoint returns the endpoint for image classification.
-func (HuggingFaceEndpoints) ImageClassificationEndpoint(
-	params EndpointParams,
-) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{
-		Method: http.MethodPost,
-		Path:   hfModelPrefix + params.Model,
-	}, nil
-}
-
-// FeatureExtractionBatchEndpoint returns the endpoint for batch feature extraction.
-func (e HuggingFaceEndpoints) FeatureExtractionBatchEndpoint(
-	params EndpointParams,
-) (Endpoint, error) {
-	return e.FeatureExtractionEndpoint(params)
-}
-
-// FeatureExtractionEndpoint returns the endpoint for feature extraction.
-func (HuggingFaceEndpoints) FeatureExtractionEndpoint(params EndpointParams) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{
-		Method: http.MethodPost,
-		Path:   hfModelPrefix + params.Model + "/pipeline/feature-extraction",
-	}, nil
-}
-
-// ImageSegmentationEndpoint returns the endpoint for image segmentation.
-func (HuggingFaceEndpoints) ImageSegmentationEndpoint(params EndpointParams) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
-}
-
-// TextClassificationEndpoint returns the endpoint for text classification.
-func (HuggingFaceEndpoints) TextClassificationEndpoint(params EndpointParams) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
-}
-
-// ZeroShotTextClassificationEndpoint returns the endpoint for zero-shot text classification.
-func (HuggingFaceEndpoints) ZeroShotTextClassificationEndpoint(
-	params EndpointParams,
-) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
-}
-
-// TokenClassificationEndpoint returns the endpoint for token classification.
-func (HuggingFaceEndpoints) TokenClassificationEndpoint(params EndpointParams) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
-}
-
-// QuestionAnsweringEndpoint returns the endpoint for question answering.
-func (HuggingFaceEndpoints) QuestionAnsweringEndpoint(params EndpointParams) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
-}
-
-// TableQuestionAnsweringEndpoint returns the endpoint for table question answering.
-func (HuggingFaceEndpoints) TableQuestionAnsweringEndpoint(
-	params EndpointParams,
-) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
-}
-
-// TextToImageEndpoint returns the endpoint for text-to-image generation.
-func (HuggingFaceEndpoints) TextToImageEndpoint(params EndpointParams) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
-}
-
-// FillMaskEndpoint returns the endpoint for fill mask.
-func (HuggingFaceEndpoints) FillMaskEndpoint(params EndpointParams) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
-}
-
-// SummarizationEndpoint returns the endpoint for summarization.
-func (HuggingFaceEndpoints) SummarizationEndpoint(params EndpointParams) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
-}
-
-// TranslationEndpoint returns the endpoint for translation.
-func (HuggingFaceEndpoints) TranslationEndpoint(params EndpointParams) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
-}
-
-// SpeechRecognitionEndpoint returns the endpoint for speech recognition.
-func (HuggingFaceEndpoints) SpeechRecognitionEndpoint(
-	params EndpointParams,
-) (Endpoint, error) {
-	if params.Model == "" {
-		return Endpoint{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: errModelIsRequired,
-			Err:     nil,
-		}
-	}
-
-	return Endpoint{Method: http.MethodPost, Path: hfModelPrefix + params.Model}, nil
 }
