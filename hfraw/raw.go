@@ -127,7 +127,7 @@ func (c Client) StreamReader(
 	// protocol violation reported as a serialization error with the body
 	// drained and closed.
 	if err := request.ValidateEventStreamResponseContentType(resp.Header); err != nil {
-		request.DrainAndCloseBody(resp.Body)
+		request.DrainAndCloseBody(resp.Body, c.opts.MaxResponseBodyBytes)
 
 		return nil, err
 	}

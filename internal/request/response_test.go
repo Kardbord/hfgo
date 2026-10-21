@@ -90,14 +90,38 @@ func TestReadResponseBody(t *testing.T) {
 func TestDrainAndCloseBody(t *testing.T) {
 	t.Parallel()
 
-	require.NotPanics(t, func() { DrainAndCloseBody(nil) })
-	require.NotPanics(t, func() { DrainAndCloseBody(http.NoBody) })
+	require.NotPanics(t, func() { DrainAndCloseBody(nil, 0) })
+	require.NotPanics(t, func() { DrainAndCloseBody(http.NoBody, 0) })
 
-	tracker := &testutils.ReadTracker{Data: []byte("hello")}
-	DrainAndCloseBody(tracker)
+	t.Run("drains small body fully", func(t *testing.T) {
+		t.Parallel()
 
-	require.True(t, tracker.Closed)
-	require.Equal(t, len("hello"), tracker.ReadBytes)
+		tracker := &testutils.ReadTracker{Data: []byte("hello")}
+		DrainAndCloseBody(tracker, 0)
+
+		require.True(t, tracker.Closed)
+		require.Equal(t, len("hello"), tracker.ReadBytes)
+	})
+
+	t.Run("uses configured limit when smaller than cap", func(t *testing.T) {
+		t.Parallel()
+
+		tracker := &testutils.ReadTracker{Data: []byte("hello world")}
+		DrainAndCloseBody(tracker, 5)
+
+		require.True(t, tracker.Closed)
+		require.Equal(t, 5, tracker.ReadBytes)
+	})
+
+	t.Run("caps drain at maxDrainBytes", func(t *testing.T) {
+		t.Parallel()
+
+		tracker := &testutils.ReadTracker{Data: make([]byte, maxDrainBytes+1)}
+		DrainAndCloseBody(tracker, hfopts.DefaultMaxResponseBodyBytes)
+
+		require.True(t, tracker.Closed)
+		require.Equal(t, int(maxDrainBytes), tracker.ReadBytes)
+	})
 }
 
 func TestDecodeHTTPResponse(t *testing.T) {

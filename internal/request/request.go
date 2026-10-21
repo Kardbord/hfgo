@@ -226,13 +226,34 @@ func ReadResponseBody(resp *http.Response, maxBytes int64) ([]byte, error) {
 	return bodyBytes, nil
 }
 
-// DrainAndCloseBody drains any remaining data and closes the body.
-func DrainAndCloseBody(body io.ReadCloser) {
+// maxDrainBytes bounds how much of an abandoned response body is drained
+// before closing it. Fully draining a body allows the HTTP connection to be
+// reused; draining only a bounded amount avoids reading an arbitrarily large
+// response after it has already been rejected.
+const maxDrainBytes int64 = 32 << 10
+
+// drainLimit returns the number of bytes to drain for the configured maximum
+// response body size, capped at maxDrainBytes.
+func drainLimit(maxResponseBodyBytes int64) int64 {
+	if maxResponseBodyBytes <= 0 {
+		maxResponseBodyBytes = hfopts.DefaultMaxResponseBodyBytes
+	}
+	if maxResponseBodyBytes > maxDrainBytes {
+		return maxDrainBytes
+	}
+
+	return maxResponseBodyBytes
+}
+
+// DrainAndCloseBody drains at most the configured limit and closes the body.
+// The limit is the smaller of maxResponseBodyBytes and maxDrainBytes. If the
+// remaining body fits within that budget, the underlying HTTP connection can be
+// reused; otherwise it is abandoned.
+func DrainAndCloseBody(body io.ReadCloser, maxResponseBodyBytes int64) {
 	if body == nil || body == http.NoBody {
 		return
 	}
-	// Drain the remainder so the underlying HTTP connection can be reused.
-	_, _ = io.Copy(io.Discard, body)
+	_, _ = io.CopyN(io.Discard, body, drainLimit(maxResponseBodyBytes))
 	_ = body.Close()
 }
 
