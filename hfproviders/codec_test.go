@@ -262,6 +262,22 @@ func TestQuestionAnsweringCodec_Decode(t *testing.T) {
 		require.ErrorAs(t, err, &sdkErr)
 		require.Error(t, sdkErr.Err, "both unmarshal failures must be joined")
 	})
+
+	t.Run("empty object rejected", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := c.Decode(params(`{}`))
+		require.Error(t, err)
+		assertSerializationError(t, err)
+	})
+
+	t.Run("unrelated object rejected", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := c.Decode(params(`{"error":"model failed"}`))
+		require.Error(t, err)
+		assertSerializationError(t, err)
+	})
 }
 
 func TestQuestionAnsweringCodec_EncodePassesHeaders(t *testing.T) {

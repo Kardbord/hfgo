@@ -204,9 +204,10 @@ func (hfQuestionAnsweringCodec) Decode(params DecodeParams) ([]hftypes.QuestionA
 		return slice, nil
 	}
 
-	// Observed response for some inputs with top_k unset or equal to 1
-	var single hftypes.QuestionAnswering
-	singleErr := json.Unmarshal(params.Body, &single)
+	// Observed response for some inputs with top_k unset or equal to 1.
+	// Require the expected answer fields so unrelated objects are not
+	// accepted as zero-valued answers.
+	single, singleErr := decodeSingleQuestionAnswering(params.Body)
 	if singleErr == nil {
 		return []hftypes.QuestionAnswering{single}, nil
 	}
@@ -216,6 +217,30 @@ func (hfQuestionAnsweringCodec) Decode(params DecodeParams) ([]hftypes.QuestionA
 		Message: errFailedToDecodeResponseBody,
 		Err:     errors.Join(sliceErr, singleErr),
 	}
+}
+
+func decodeSingleQuestionAnswering(data []byte) (hftypes.QuestionAnswering, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return hftypes.QuestionAnswering{}, err
+	}
+	if _, ok := fields["answer"]; !ok {
+		return hftypes.QuestionAnswering{}, errors.New(
+			"single answer object missing answer",
+		)
+	}
+	if _, ok := fields["score"]; !ok {
+		return hftypes.QuestionAnswering{}, errors.New(
+			"single answer object missing score",
+		)
+	}
+
+	var answer hftypes.QuestionAnswering
+	if err := json.Unmarshal(data, &answer); err != nil {
+		return hftypes.QuestionAnswering{}, err
+	}
+
+	return answer, nil
 }
 
 // hfTextClassificationCodec is a flexible Codec for text classification that
