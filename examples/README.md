@@ -29,35 +29,35 @@ go run ./examples/feature-extraction/batch
 
 Variant directories are named for what they add over the `basic` example:
 
-| Variant        | Meaning                                                                            |
-| -------------- | ---------------------------------------------------------------------------------- |
-| `basic`        | The smallest complete call for the task. Start here.                               |
-| `params`       | Passes a `*Parameters` struct to tune the request (e.g. `TopK`, `Temperature`).    |
-| `batch`        | Sends multiple inputs in one request. Only for tasks the API supports batching on. |
-| `streaming`    | Consumes a server-sent-events stream. Currently chat only.                         |
-| `conversation` | Maintains multi-turn message history. Currently chat only.                         |
-| `token-level`  | Returns token-level embeddings instead of pooled vectors. Feature extraction only. |
-| `token-level-batch` | Returns token-level embeddings for multiple inputs. Feature extraction only.  |
+| Variant             | Meaning                                                                            |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| `basic`             | The smallest complete call for the task. Start here.                               |
+| `params`            | Passes a `*Parameters` struct to tune the request (e.g. `TopK`, `Temperature`).    |
+| `batch`             | Sends multiple inputs in one request. Only for tasks the API supports batching on. |
+| `streaming`         | Consumes a server-sent-events stream. Currently chat only.                         |
+| `conversation`      | Maintains multi-turn message history. Currently chat only.                         |
+| `token-level`       | Returns token-level embeddings instead of pooled vectors. Feature extraction only. |
+| `token-level-batch` | Returns token-level embeddings for multiple inputs. Feature extraction only.       |
 
 Not every task has every variant. The full matrix:
 
-| Task                                                             | Variants                             |
-| ---------------------------------------------------------------- | ------------------------------------ |
-| [Chat](./chat)                                                   | `basic`, `streaming`, `conversation` |
+| Task                                                             | Variants                                                       |
+| ---------------------------------------------------------------- | -------------------------------------------------------------- |
+| [Chat](./chat)                                                   | `basic`, `streaming`, `conversation`                           |
 | [Feature Extraction](./feature-extraction)                       | `basic`, `params`, `batch`, `token-level`, `token-level-batch` |
-| [Fill Mask](./fill-mask)                                         | `basic`, `params`                    |
-| [Image Classification](./image-classification)                   | `basic`, `params`                    |
-| [Image Segmentation](./image-segmentation)                       | `basic`, `params`                    |
-| [Object Detection](./object-detection)                           | `basic`, `params`                    |
-| [Question Answering](./question-answering)                       | `basic`, `params`                    |
-| [Speech Recognition](./speech-recognition)                       | `basic`, `params`                    |
-| [Summarization](./summarization)                                 | `basic`, `params`                    |
-| [Table Question Answering](./table-question-answering)           | `basic`, `params`                    |
-| [Text Classification](./text-classification)                     | `basic`                              |
-| [Text to Image](./text-to-image)                                 | `basic`, `params`                    |
-| [Token Classification](./token-classification)                   | `basic`, `params`                    |
-| [Translation](./translation)                                     | `basic`, `params`                    |
-| [Zero-Shot Text Classification](./zero-shot-text-classification) | `basic`                              |
+| [Fill Mask](./fill-mask)                                         | `basic`, `params`                                              |
+| [Image Classification](./image-classification)                   | `basic`, `params`                                              |
+| [Image Segmentation](./image-segmentation)                       | `basic`, `params`                                              |
+| [Object Detection](./object-detection)                           | `basic`, `params`                                              |
+| [Question Answering](./question-answering)                       | `basic`, `params`                                              |
+| [Speech Recognition](./speech-recognition)                       | `basic`, `params`                                              |
+| [Summarization](./summarization)                                 | `basic`, `params`                                              |
+| [Table Question Answering](./table-question-answering)           | `basic`, `params`                                              |
+| [Text Classification](./text-classification)                     | `basic`                                                        |
+| [Text to Image](./text-to-image)                                 | `basic`, `params`                                              |
+| [Token Classification](./token-classification)                   | `basic`, `params`                                              |
+| [Translation](./translation)                                     | `basic`, `params`                                              |
+| [Zero-Shot Text Classification](./zero-shot-text-classification) | `basic`                                                        |
 
 ## See also
 

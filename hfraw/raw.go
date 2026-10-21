@@ -110,8 +110,9 @@ func (c Client) StreamReader(
 	path string,
 	opts ...hfopts.Option,
 ) (*Stream, error) {
+	resolvedOpts := c.opts.With(opts...)
 	resp, err := request.Do(
-		c.opts.With(opts...),
+		resolvedOpts,
 		method,
 		path,
 		requestBody,
@@ -127,7 +128,7 @@ func (c Client) StreamReader(
 	// protocol violation reported as a serialization error with the body
 	// drained and closed.
 	if err := request.ValidateEventStreamResponseContentType(resp.Header); err != nil {
-		request.DrainAndCloseBody(resp.Body, c.opts.MaxResponseBodyBytes)
+		request.DrainAndCloseBody(resp.Body, resolvedOpts.MaxResponseBodyBytes)
 
 		return nil, err
 	}

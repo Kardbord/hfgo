@@ -236,3 +236,20 @@ func TestStreamRaw_ReadError(t *testing.T) {
 	require.ErrorAs(t, err, &sdkErr)
 	require.Equal(t, hferrors.SDKErrorKindTransport, sdkErr.Kind)
 }
+
+func TestStreamRaw_LineTooLong(t *testing.T) {
+	t.Parallel()
+
+	line := "data: " + strings.Repeat("a", maxSSELineBytes) + "\n\n"
+	stream, err := StreamRaw(context.Background(), io.NopCloser(strings.NewReader(line)))
+	require.NoError(t, err)
+	defer func() { _ = stream.Close() }()
+
+	_, err = stream.Recv(context.Background())
+	require.Error(t, err)
+
+	var sdkErr *hferrors.SDKError
+	require.ErrorAs(t, err, &sdkErr)
+	require.Equal(t, hferrors.SDKErrorKindTransport, sdkErr.Kind)
+	require.ErrorContains(t, err, "token too long")
+}

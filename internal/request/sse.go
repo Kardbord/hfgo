@@ -15,6 +15,11 @@ import (
 	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
+// maxSSELineBytes caps the length of a single SSE line. Streamed payloads are
+// small JSON deltas; rejecting an oversized line prevents a malformed or
+// hostile response from growing the decoder's line buffer without bound.
+const maxSSELineBytes = 1 << 20 // 1 MiB
+
 // RawEvent represents a single parsed SSE event payload.
 //
 // It is an internal detail of the module's SSE wiring: codecs never see it,
@@ -137,7 +142,8 @@ func (s *RawStream) run(ctx context.Context, results chan<- rawResult) {
 	defer close(results)
 	defer func() { _ = s.Close() }()
 
-	reader := bufio.NewReader(s.body)
+	scanner := bufio.NewScanner(s.body)
+	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), maxSSELineBytes)
 	state := &sseState{
 		data:      bytes.Buffer{},
 		eventType: "",
@@ -146,41 +152,35 @@ func (s *RawStream) run(ctx context.Context, results chan<- rawResult) {
 		retry:     0,
 	}
 
-	for {
-		line, err := reader.ReadString('\n')
-		if line != "" {
-			line = strings.TrimRight(line, "\r\n")
-			if !state.handleLine(ctx, line, results) {
-				return
-			}
-		}
-
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				_ = state.emit(ctx, results)
-
-				return
-			}
-			if ctxErr := ctx.Err(); ctxErr != nil {
-				err = ctxErr
-			}
-			// Any data parsed before the error has already been emitted, so
-			// callers just observe the terminal error once they drain the queue.
-			if !sendResult(ctx, results, rawResult{
-				event: RawEvent{
-					Data:  nil,
-					Event: "",
-					ID:    "",
-					Retry: nil,
-				},
-				err: wrapStreamError(err, hferrors.SDKErrorKindTransport, "read sse line"),
-			}) {
-				return
-			}
-
+	for scanner.Scan() {
+		line := strings.TrimRight(scanner.Text(), "\r\n")
+		if !state.handleLine(ctx, line, results) {
 			return
 		}
 	}
+
+	if err := scanner.Err(); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			err = ctxErr
+		}
+		// Any data parsed before the error has already been emitted, so
+		// callers just observe the terminal error once they drain the queue.
+		if !sendResult(ctx, results, rawResult{
+			event: RawEvent{
+				Data:  nil,
+				Event: "",
+				ID:    "",
+				Retry: nil,
+			},
+			err: wrapStreamError(err, hferrors.SDKErrorKindTransport, "read sse line"),
+		}) {
+			return
+		}
+
+		return
+	}
+
+	_ = state.emit(ctx, results)
 }
 
 func parseSSEField(line string) (field, value string) {

@@ -252,6 +252,39 @@ func TestClient_StreamReader_NonSSE2xx(t *testing.T) {
 	require.Equal(t, len(tracker.Data), tracker.ReadBytes)
 }
 
+func TestClient_StreamReader_NonSSE2xx_UsesPerCallBodyLimit(t *testing.T) {
+	t.Parallel()
+
+	tracker := &testutils.ReadTracker{Data: []byte(`{"ok":true}`)}
+	mt := &testutils.MockTransport{
+		Response: &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       tracker,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+		},
+	}
+
+	client := hfraw.NewClient(
+		hfopts.WithHTTPClientFactory(
+			func() http.Client { return testutils.NewMockHTTPClient(mt) },
+		),
+	)
+
+	stream, err := client.StreamReader(
+		nil,
+		http.MethodGet,
+		"/stream",
+		hfopts.WithMaxResponseBodyBytes(5),
+	)
+	require.Error(t, err)
+	require.Nil(t, stream)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+
+	// The per-call limit, not the client default, bounds the drain.
+	require.True(t, tracker.Closed)
+	require.Equal(t, 5, tracker.ReadBytes)
+}
+
 func TestStream_StatusCodeAndHeader(t *testing.T) {
 	t.Parallel()
 
