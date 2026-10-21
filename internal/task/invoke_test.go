@@ -477,6 +477,40 @@ func TestDoStreamingInference_Success(t *testing.T) {
 	require.Equal(t, "text/event-stream", mt.LastRequest.Header.Get("Accept"))
 }
 
+func TestDoStreamingInference_NonEventStream(t *testing.T) {
+	t.Parallel()
+
+	body := `{"error":"not an event stream"}`
+	tracker := &testutils.ReadTracker{Data: []byte(body)}
+	mt := &testutils.MockTransport{
+		Response: &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       tracker,
+			Header:     http.Header{"Content-Type": {"application/json"}},
+		},
+	}
+
+	p := transformProvider{}
+	opts := hfopts.NewOptions().With(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+		hfopts.WithProvider(p),
+	)
+
+	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
+		opts,
+		hfproviders.Endpoint{Path: "/test-endpoint"},
+		testCodec{p: p},
+		jsonInferenceReq{Inputs: "hi"},
+	)
+	require.Nil(t, stream)
+	require.Error(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+	require.ErrorContains(t, err, "must be text/event-stream")
+	require.True(t, tracker.Closed, "non-event-stream body should be closed")
+	require.Equal(t, len(body), tracker.ReadBytes, "non-event-stream body should be drained")
+}
+
 func TestDoStreamingInference_ProviderTransformsPerEvent(t *testing.T) {
 	t.Parallel()
 

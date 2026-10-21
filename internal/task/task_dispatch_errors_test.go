@@ -199,6 +199,24 @@ func dispatchErrorCases() []dispatchErrorCase {
 			},
 		},
 		{
+			"ExtractTokenFeatures",
+			"error computing endpoint:",
+			func(opts ...hfopts.Option) (any, error) {
+				return hfgo.NewClient(opts...).
+					ExtractTokenFeatures(hftypes.FeatureExtractionRequest{Input: "test input"})
+			},
+		},
+		{
+			"ExtractTokenFeaturesBatch",
+			"error computing endpoint:",
+			func(opts ...hfopts.Option) (any, error) {
+				return hfgo.NewClient(opts...).
+					ExtractTokenFeaturesBatch(
+						hftypes.FeatureExtractionBatchRequest{Inputs: []string{"hi"}},
+					)
+			},
+		},
+		{
 			"FillMask",
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {

@@ -230,6 +230,84 @@ func TestExtractFeatures_Errors(t *testing.T) {
 	)
 }
 
+func TestExtractTokenFeatures_Errors(t *testing.T) {
+	t.Parallel()
+
+	runErrorCases(t,
+		[]errorCase{
+			{
+				name:         "no model configured",
+				statusCode:   http.StatusOK,
+				responseBody: `[[0.1,0.2]]`,
+				want:         testutils.WantErrSDK,
+				sdkErrKind:   hferrors.SDKErrorKindConfiguration,
+				description:  "SDK error when model is missing",
+			},
+			{
+				name:         "API error on 404",
+				withModel:    true,
+				statusCode:   http.StatusNotFound,
+				responseBody: `{"error":"Model not found"}`,
+				want:         testutils.WantErrAPI,
+				description:  "API error for nonexistent model",
+			},
+			{
+				name:         "API error on 503",
+				withModel:    true,
+				statusCode:   http.StatusServiceUnavailable,
+				responseBody: `{"error":"Model loading"}`,
+				want:         testutils.WantErrAPI,
+				description:  "API error for model not yet loaded",
+			},
+		},
+		func(opts ...hfopts.Option) (hftypes.FeatureExtractionTokens, error) {
+			return hfgo.NewClient(opts...).ExtractTokenFeatures(hftypes.FeatureExtractionRequest{
+				Input: "What is the capital of France?",
+			})
+		},
+	)
+}
+
+func TestExtractTokenFeaturesBatch_Errors(t *testing.T) {
+	t.Parallel()
+
+	runErrorCases(t,
+		[]errorCase{
+			{
+				name:         "no model configured",
+				statusCode:   http.StatusOK,
+				responseBody: `[[[0.1,0.2]]]`,
+				want:         testutils.WantErrSDK,
+				sdkErrKind:   hferrors.SDKErrorKindConfiguration,
+				description:  "SDK error when model is missing",
+			},
+			{
+				name:         "API error on 404",
+				withModel:    true,
+				statusCode:   http.StatusNotFound,
+				responseBody: `{"error":"Model not found"}`,
+				want:         testutils.WantErrAPI,
+				description:  "API error for nonexistent model",
+			},
+			{
+				name:         "API error on 503",
+				withModel:    true,
+				statusCode:   http.StatusServiceUnavailable,
+				responseBody: `{"error":"Model loading"}`,
+				want:         testutils.WantErrAPI,
+				description:  "API error for model not yet loaded",
+			},
+		},
+		func(opts ...hfopts.Option) (hftypes.FeatureExtractionBatchTokens, error) {
+			return hfgo.NewClient(opts...).ExtractTokenFeaturesBatch(
+				hftypes.FeatureExtractionBatchRequest{
+					Inputs: []string{"What is the capital of France?"},
+				},
+			)
+		},
+	)
+}
+
 func TestExtractFeaturesBatch_ResponseDecoding(t *testing.T) {
 	t.Parallel()
 

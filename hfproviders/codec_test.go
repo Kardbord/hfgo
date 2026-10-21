@@ -280,6 +280,87 @@ func TestQuestionAnsweringCodec_Decode(t *testing.T) {
 	})
 }
 
+func TestDecodeSingleQuestionAnswering(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		body    string
+		want    hftypes.QuestionAnswering
+		wantErr string
+	}{
+		{
+			name: "valid answer",
+			body: `{"answer":"Paris","score":0.9,"start":0,"end":5}`,
+			want: hftypes.QuestionAnswering{
+				Answer: "Paris",
+				Score:  0.9,
+				Start:  0,
+				End:    5,
+			},
+		},
+		{
+			name:    "missing answer",
+			body:    `{"score":0.9}`,
+			wantErr: "missing answer",
+		},
+		{
+			name:    "missing score",
+			body:    `{"answer":"Paris"}`,
+			wantErr: "missing score",
+		},
+		{
+			name:    "invalid score type",
+			body:    `{"answer":"Paris","score":"high"}`,
+			wantErr: "cannot unmarshal string",
+		},
+		{
+			name:    "invalid json",
+			body:    `not json`,
+			wantErr: "invalid character",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := decodeSingleQuestionAnswering([]byte(tc.body))
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestFeatureExtractionTokenCodec_Decode(t *testing.T) {
+	t.Parallel()
+
+	got, err := HuggingFaceCodecs{}.FeatureExtractionTokenCodec().Decode(DecodeParams{
+		Body:    []byte(`[[0.1,0.2],[0.3,0.4]]`),
+		Headers: jsonHeaders(mimeTypeJSON),
+	})
+	require.NoError(t, err)
+	require.Equal(t, hftypes.FeatureExtractionTokens{{0.1, 0.2}, {0.3, 0.4}}, got)
+}
+
+func TestFeatureExtractionBatchTokenCodec_Decode(t *testing.T) {
+	t.Parallel()
+
+	got, err := HuggingFaceCodecs{}.FeatureExtractionBatchTokenCodec().Decode(DecodeParams{
+		Body:    []byte(`[[[0.1],[0.2]],[[0.3]]]`),
+		Headers: jsonHeaders(mimeTypeJSON),
+	})
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		hftypes.FeatureExtractionBatchTokens{{{0.1}, {0.2}}, {{0.3}}},
+		got,
+	)
+}
+
 func TestQuestionAnsweringCodec_EncodePassesHeaders(t *testing.T) {
 	t.Parallel()
 
