@@ -224,14 +224,26 @@ func decodeSingleQuestionAnswering(data []byte) (hftypes.QuestionAnswering, erro
 	if err := json.Unmarshal(data, &fields); err != nil {
 		return hftypes.QuestionAnswering{}, err
 	}
-	if _, ok := fields["answer"]; !ok {
+	answerRaw, answerPresent := fields["answer"]
+	if !answerPresent {
 		return hftypes.QuestionAnswering{}, errors.New(
 			"single answer object missing answer",
 		)
 	}
-	if _, ok := fields["score"]; !ok {
+	if isJSONNull(answerRaw) {
+		return hftypes.QuestionAnswering{}, errors.New(
+			"single answer object answer is null",
+		)
+	}
+	scoreRaw, scorePresent := fields["score"]
+	if !scorePresent {
 		return hftypes.QuestionAnswering{}, errors.New(
 			"single answer object missing score",
+		)
+	}
+	if isJSONNull(scoreRaw) {
+		return hftypes.QuestionAnswering{}, errors.New(
+			"single answer object score is null",
 		)
 	}
 
@@ -241,6 +253,10 @@ func decodeSingleQuestionAnswering(data []byte) (hftypes.QuestionAnswering, erro
 	}
 
 	return answer, nil
+}
+
+func isJSONNull(raw json.RawMessage) bool {
+	return strings.TrimSpace(string(raw)) == "null"
 }
 
 // hfTextClassificationCodec is a flexible Codec for text classification that

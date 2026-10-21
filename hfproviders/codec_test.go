@@ -310,6 +310,21 @@ func TestDecodeSingleQuestionAnswering(t *testing.T) {
 			wantErr: "missing score",
 		},
 		{
+			name:    "null answer",
+			body:    `{"answer":null,"score":0.9}`,
+			wantErr: "answer is null",
+		},
+		{
+			name:    "null score",
+			body:    `{"answer":"Paris","score":null}`,
+			wantErr: "score is null",
+		},
+		{
+			name:    "null answer and score",
+			body:    `{"answer":null,"score":null}`,
+			wantErr: "answer is null",
+		},
+		{
 			name:    "invalid score type",
 			body:    `{"answer":"Paris","score":"high"}`,
 			wantErr: "cannot unmarshal string",
