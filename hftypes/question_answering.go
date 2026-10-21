@@ -58,8 +58,8 @@ type QuestionAnsweringParameters struct {
 	AlignToWords *bool `json:"align_to_words,omitempty"`
 }
 
-// QuestionAnswering represents a question answering output.
-type QuestionAnswering struct {
+// QuestionAnswer represents a question answering output.
+type QuestionAnswer struct {
 	// The answer to the question.
 	Answer string `json:"answer"`
 

@@ -63,7 +63,7 @@ func TestQuestionAnswering_LiveAPI(t *testing.T) {
 //
 // The SDK handles both shapes transparently: the HuggingFace
 // question-answering codec accepts a bare object or an array and
-// normalizes either response to []hftypes.QuestionAnswering.
+// normalizes either response to []hftypes.QuestionAnswer.
 //
 // This test requires the HF_TOKEN environment variable to be set.
 func TestQuestionAnswering_TopKResponseFormatQuirk(t *testing.T) {

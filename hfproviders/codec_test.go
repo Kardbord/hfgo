@@ -305,13 +305,13 @@ func TestDecodeSingleQuestionAnswering(t *testing.T) {
 	cases := []struct {
 		name    string
 		body    string
-		want    hftypes.QuestionAnswering
+		want    hftypes.QuestionAnswer
 		wantErr string
 	}{
 		{
 			name: "valid answer",
 			body: `{"answer":"Paris","score":0.9,"start":0,"end":5}`,
-			want: hftypes.QuestionAnswering{
+			want: hftypes.QuestionAnswer{
 				Answer: "Paris",
 				Score:  0.9,
 				Start:  0,

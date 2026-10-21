@@ -139,7 +139,7 @@ type (
 	ImageSegmentationCodec = Codec[hftypes.ImageSegmentationRequest, []hftypes.ImageSegmentation]
 
 	// QuestionAnsweringCodec is the Codec for the QuestionAnswering task.
-	QuestionAnsweringCodec = Codec[hftypes.QuestionAnsweringRequest, []hftypes.QuestionAnswering]
+	QuestionAnsweringCodec = Codec[hftypes.QuestionAnsweringRequest, []hftypes.QuestionAnswer]
 
 	// SummarizationCodec is the Codec for the Summarization task.
 	SummarizationCodec = Codec[hftypes.SummarizationRequest, []hftypes.Summarization]

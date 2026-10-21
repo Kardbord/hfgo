@@ -11,7 +11,7 @@ import (
 func AnswerQuestion(
 	opts hfopts.Options,
 	req hftypes.QuestionAnsweringRequest,
-) ([]hftypes.QuestionAnswering, error) {
+) ([]hftypes.QuestionAnswer, error) {
 	if err := validateDispatch(opts); err != nil {
 		return nil, err
 	}

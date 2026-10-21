@@ -161,7 +161,7 @@ func (c Client) ClassifyImage(
 func (c Client) AnswerQuestion(
 	req hftypes.QuestionAnsweringRequest,
 	opts ...hfopts.Option,
-) ([]hftypes.QuestionAnswering, error) {
+) ([]hftypes.QuestionAnswer, error) {
 	return task.AnswerQuestion(c.opts.With(opts...), req)
 }
 
