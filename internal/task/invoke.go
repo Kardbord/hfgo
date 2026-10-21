@@ -89,7 +89,7 @@ func doInference[Req, Resp any](
 	if err != nil {
 		return zero, err
 	}
-	defer request.DrainAndCloseBody(httpResp.Body)
+	defer request.DrainAndCloseBody(httpResp.Body, opts.MaxResponseBodyBytes)
 
 	respBody, err := request.DecodeHTTPResponse(httpResp, opts.MaxResponseBodyBytes)
 	if err != nil {
@@ -141,14 +141,16 @@ func doStreamingInference[Req, T any](
 	}
 
 	if err := request.ValidateEventStreamResponseContentType(httpResp.Header); err != nil {
-		request.DrainAndCloseBody(httpResp.Body)
+		request.DrainAndCloseBody(httpResp.Body, opts.MaxResponseBodyBytes)
 
 		return nil, err
 	}
 
 	raw, err := request.StreamRaw(opts.Context(), httpResp.Body)
 	if err != nil {
-		request.DrainAndCloseBody(httpResp.Body)
+		// StreamRaw only rejects a nil body, which net/http does not surface
+		// through Client.Do. Keep the defensive close for future changes.
+		request.DrainAndCloseBody(httpResp.Body, opts.MaxResponseBodyBytes)
 
 		return nil, err
 	}

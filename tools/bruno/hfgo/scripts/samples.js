@@ -14,7 +14,7 @@ const AUDIO_SAMPLE_URL = 'https://raw.githubusercontent.com/openai/whisper/main/
 const IMAGE_SAMPLE_URL = 'https://picsum.photos/512/512';
 
 // download fetches url and returns its body as a Buffer along with the
-// response media type. Throws on non-2xx responses.
+// response media type. Throws on 4xx/5xx responses.
 // Requires the developer sandbox: Safe Mode has no fetch (see README.md).
 async function download(url) {
   if (bru.isSafeMode()) {

@@ -211,7 +211,7 @@ func ExampleClient_ChatStream() {
 	// Output: Hello, world!
 }
 
-// ExampleClient_Chat_apiError demonstrates inspecting a non-2xx API response.
+// ExampleClient_Chat_apiError demonstrates inspecting a 4xx/5xx API response.
 // Methods return an error wrapping *hferrors.APIError for API failures; extract
 // it with errors.As to branch on the status code or use helpers such as
 // IsRateLimitError. APIError.Body holds the raw response body and must be
@@ -548,6 +548,55 @@ func ExampleClient_ExtractFeaturesBatch() {
 
 	fmt.Println(embeddings[0], embeddings[1])
 	// Output: [0.1 0.2 0.3] [0.4 0.5 0.6]
+}
+
+// ExampleClient_ExtractTokenFeatures demonstrates token-level feature extraction.
+func ExampleClient_ExtractTokenFeatures() {
+	// The response body is hard-coded so the example can run without a real token.
+	server := newMockJSONServer("[[0.1,0.2],[0.3,0.4]]")
+	defer server.Close()
+
+	client := hfgo.NewClient(
+		hfopts.WithToken("test-token"),
+		hfopts.WithModel("test-model"),
+		hfopts.WithBaseURL(server.URL),
+		hfopts.WithHTTPClientFactory(testClient()),
+	)
+
+	tokens, err := client.ExtractTokenFeatures(hftypes.FeatureExtractionRequest{
+		Input: "Hello world",
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(tokens)
+	// Output: [[0.1 0.2] [0.3 0.4]]
+}
+
+// ExampleClient_ExtractTokenFeaturesBatch demonstrates batched token-level
+// feature extraction.
+func ExampleClient_ExtractTokenFeaturesBatch() {
+	// The response body is hard-coded so the example can run without a real token.
+	server := newMockJSONServer("[[[0.1],[0.2]],[[0.3]]]")
+	defer server.Close()
+
+	client := hfgo.NewClient(
+		hfopts.WithToken("test-token"),
+		hfopts.WithModel("test-model"),
+		hfopts.WithBaseURL(server.URL),
+		hfopts.WithHTTPClientFactory(testClient()),
+	)
+
+	tokens, err := client.ExtractTokenFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
+		Inputs: []string{"hello", "world"},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(tokens)
+	// Output: [[[0.1] [0.2]] [[0.3]]]
 }
 
 // ExampleClient_ClassifyImage demonstrates image classification.

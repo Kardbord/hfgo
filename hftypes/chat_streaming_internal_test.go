@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/stretchr/testify/require"
@@ -35,6 +36,30 @@ func (m *mockChatStreamer) Close() error {
 	m.closed = true
 
 	return m.closeErr
+}
+
+// blockingChatStreamer blocks in Recv until Close is called, allowing tests to
+// exercise Close concurrently with an in-flight Recv.
+type blockingChatStreamer struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (m *blockingChatStreamer) Recv(ctx context.Context) (ChatStreamResponse, error) {
+	close(m.started)
+
+	select {
+	case <-ctx.Done():
+		return ChatStreamResponse{}, ctx.Err()
+	case <-m.release:
+		return ChatStreamResponse{}, io.EOF
+	}
+}
+
+func (m *blockingChatStreamer) Close() error {
+	close(m.release)
+
+	return nil
 }
 
 func TestChatStream_Recv_MergesToolCallMetadata(t *testing.T) {
@@ -209,4 +234,30 @@ func TestChatStream_Close_CallsUnderlying(t *testing.T) {
 	err := stream.Close()
 	require.ErrorIs(t, err, wantErr)
 	require.True(t, mock.closed)
+}
+
+func TestChatStream_CloseUnblocksRecv(t *testing.T) {
+	t.Parallel()
+
+	mock := &blockingChatStreamer{
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	stream := NewChatStream(mock)
+
+	recvErr := make(chan error, 1)
+	go func() {
+		_, err := stream.Recv(context.Background())
+		recvErr <- err
+	}()
+
+	<-mock.started
+	require.NoError(t, stream.Close())
+
+	select {
+	case err := <-recvErr:
+		require.ErrorIs(t, err, io.EOF)
+	case <-time.After(time.Second):
+		t.Fatal("Recv did not unblock after Close")
+	}
 }

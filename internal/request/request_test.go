@@ -175,7 +175,7 @@ func TestDo(t *testing.T) {
 			},
 		},
 		{
-			name: "returns API error on non-2xx response",
+			name: "returns API error on 4xx/5xx response",
 			setupOpts: func() hfopts.Options {
 				mt := testutils.NewMockTransport(http.StatusUnauthorized, `unauthorized`, nil)
 
@@ -514,7 +514,7 @@ func TestDoBytes(t *testing.T) {
 func TestDoRaw(t *testing.T) {
 	t.Parallel()
 
-	t.Run("returns response on non-2xx without closing body", func(t *testing.T) {
+	t.Run("returns response on 4xx/5xx without closing body", func(t *testing.T) {
 		tracker := &testutils.CloseTracker{}
 		mt := &testutils.MockTransport{
 			Response: &http.Response{

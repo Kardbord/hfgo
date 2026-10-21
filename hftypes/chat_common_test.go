@@ -78,9 +78,9 @@ func TestChatFunctionCall_Validation(t *testing.T) {
 	}
 
 	var got hftypes.ChatFunctionCall
-	err := json.Unmarshal([]byte(`{"name":"fn","arguments":""}`), &got)
-	require.Error(t, err)
-	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindValidation)
+	require.NoError(t, json.Unmarshal([]byte(`{"name":"fn","arguments":""}`), &got))
+	require.Equal(t, "fn", got.Name)
+	require.Empty(t, got.Arguments)
 }
 
 func TestChatFunctionCallClone_Deep(t *testing.T) {

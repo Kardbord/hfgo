@@ -2,13 +2,16 @@ package hftypes
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 )
 
 // ChatStreamResponse represents a streaming response chunk.
 // This is returned when Stream is true.
+//
+// Decoding is intentionally tolerant of provider variations. Use
+// [ChatStreamResponse.Validate] to enforce the Hugging Face streaming schema.
 type ChatStreamResponse struct {
 	ID string `json:"id"`
 	// Unix timestamp in seconds.
@@ -29,6 +32,9 @@ type ChatStreamChoice struct {
 
 // ChatStreamDelta holds incremental updates for a stream.
 // Deltas may include content/role/tool_call_id or role/tool_calls.
+//
+// Decoding accepts provider-specific variations. Use [ChatStreamDelta.Validate]
+// to enforce the Hugging Face schema's strict text-or-tool-call union.
 type ChatStreamDelta struct {
 	// Content is present for text deltas.
 	Content *string `json:"content,omitempty"`
@@ -40,24 +46,32 @@ type ChatStreamDelta struct {
 	ToolCalls []ChatStreamToolCall `json:"tool_calls,omitempty"`
 }
 
-// UnmarshalJSON enforces the union shape for ChatStreamDelta.
-func (d *ChatStreamDelta) UnmarshalJSON(data []byte) error {
-	type alias ChatStreamDelta
-	var tmp alias
-	if err := json.Unmarshal(data, &tmp); err != nil {
-		return err
+// Validate enforces the Hugging Face streaming union on all choices in the chunk.
+// It returns an [hferrors.SDKError] with [hferrors.SDKErrorKindValidation] when
+// a delta mixes text content with tool calls.
+//
+// Validation is opt-in because some inference providers return OpenAI-compatible
+// deltas where content and tool calls coexist. Decoding does not call Validate.
+func (r ChatStreamResponse) Validate() error {
+	// Empty choices are valid: providers may send usage-only or terminal
+	// chunks without a choice delta.
+	for i := range r.Choices {
+		if err := r.Choices[i].Delta.Validate(); err != nil {
+			return fmt.Errorf("choice %d: %w", i, err)
+		}
 	}
-	out := ChatStreamDelta(tmp)
-	if err := out.validate(); err != nil {
-		return err
-	}
-	*d = out
 
 	return nil
 }
 
-// validate enforces the union shape for ChatStreamDelta.
-func (d ChatStreamDelta) validate() error {
+// Validate enforces the Hugging Face text-or-tool-call union on the delta.
+// It returns an [hferrors.SDKError] with [hferrors.SDKErrorKindValidation] when
+// tool calls are mixed with content or tool_call_id.
+//
+// Streaming deltas are incremental, so this validates only the union shape, not
+// every tool-call field. Validation is opt-in because some inference providers
+// return OpenAI-compatible deltas where content and tool calls coexist.
+func (d ChatStreamDelta) Validate() error {
 	if len(d.ToolCalls) > 0 {
 		if d.Content != nil || d.ToolCallID != nil {
 			return &hferrors.SDKError{
@@ -85,10 +99,11 @@ type ChatStreamFunction struct {
 	Arguments string `json:"arguments"`
 }
 
-// ToolCallAccumulator tracks the last known metadata for a streamed tool call.
+// toolCallAccumulator tracks the last known metadata for a streamed tool call.
 // It fills in missing id/type/function-name fields across incremental deltas so
-// callers always observe complete tool-call identifiers.
-type ToolCallAccumulator struct {
+// the consumer always observes complete tool-call identifiers. It is owned by a
+// single consumer and is not safe for concurrent use.
+type toolCallAccumulator struct {
 	cache map[key]*toolCallState
 }
 
@@ -105,9 +120,9 @@ type toolCallState struct {
 	FunctionName string
 }
 
-// Merge records any provided metadata for a tool call and returns the
+// merge records any provided metadata for a tool call and returns the
 // accumulated values for that (choice, call) pair.
-func (a *ToolCallAccumulator) Merge(
+func (a *toolCallAccumulator) merge(
 	choiceIndex int,
 	callIndex int,
 	toolID string,
@@ -130,7 +145,7 @@ func (a *ToolCallAccumulator) Merge(
 
 // state returns the cached metadata for the provided tool call, creating a new
 // entry when this (choice, call) pair is observed for the first time.
-func (a *ToolCallAccumulator) state(choiceIndex, callIndex int) *toolCallState {
+func (a *toolCallAccumulator) state(choiceIndex, callIndex int) *toolCallState {
 	if a.cache == nil {
 		a.cache = make(map[key]*toolCallState)
 	}
@@ -155,18 +170,19 @@ type chatstreamer interface {
 
 // ChatStream wraps a streaming chat completion response.
 //
-// Recv is intended for a single consumer goroutine: concurrent consumers
-// are memory-safe, but which goroutine receives which chunk is undefined.
+// A ChatStream is not safe for concurrent Recv calls. Close may be called
+// concurrently with Recv. To fan out chunks, distribute them from a single
+// consumer loop.
 type ChatStream struct {
 	stream       chatstreamer
-	toolCallAccr ToolCallAccumulator
+	toolCallAccr toolCallAccumulator
 }
 
 // NewChatStream wraps a JSON chat completion stream with tool call accumulation.
 func NewChatStream(stream chatstreamer) *ChatStream {
 	return &ChatStream{
 		stream:       stream,
-		toolCallAccr: ToolCallAccumulator{cache: nil},
+		toolCallAccr: toolCallAccumulator{cache: nil},
 	}
 }
 
@@ -174,6 +190,8 @@ func NewChatStream(stream chatstreamer) *ChatStream {
 // It returns io.EOF when the stream ends. Termination is final: once io.EOF
 // is observed, no further chunks will be delivered, and every delivered
 // chunk precedes the stream's terminal frame.
+//
+// Recv is not safe to call concurrently on the same ChatStream.
 func (c *ChatStream) Recv(ctx context.Context) (ChatStreamResponse, error) {
 	if c == nil || c.stream == nil {
 		return ChatStreamResponse{}, &hferrors.SDKError{
@@ -193,7 +211,8 @@ func (c *ChatStream) Recv(ctx context.Context) (ChatStreamResponse, error) {
 	return chunk, nil
 }
 
-// Close releases the underlying stream resources.
+// Close releases the underlying stream resources. It may be called
+// concurrently with Recv.
 func (c *ChatStream) Close() error {
 	if c == nil || c.stream == nil {
 		return nil
@@ -215,7 +234,7 @@ func (c *ChatStream) mergeToolCallMetadata(resp *ChatStreamResponse) {
 		}
 		for j := range choice.Delta.ToolCalls {
 			call := &choice.Delta.ToolCalls[j]
-			toolID, callType, functionName := c.toolCallAccr.Merge(
+			toolID, callType, functionName := c.toolCallAccr.merge(
 				choice.Index,
 				call.Index,
 				call.ID,

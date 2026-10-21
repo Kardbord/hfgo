@@ -36,13 +36,15 @@ Variant directories are named for what they add over the `basic` example:
 | `batch`        | Sends multiple inputs in one request. Only for tasks the API supports batching on. |
 | `streaming`    | Consumes a server-sent-events stream. Currently chat only.                         |
 | `conversation` | Maintains multi-turn message history. Currently chat only.                         |
+| `token-level`  | Returns token-level embeddings instead of pooled vectors. Feature extraction only. |
+| `token-level-batch` | Returns token-level embeddings for multiple inputs. Feature extraction only.  |
 
 Not every task has every variant. The full matrix:
 
 | Task                                                             | Variants                             |
 | ---------------------------------------------------------------- | ------------------------------------ |
 | [Chat](./chat)                                                   | `basic`, `streaming`, `conversation` |
-| [Feature Extraction](./feature-extraction)                       | `basic`, `params`, `batch`           |
+| [Feature Extraction](./feature-extraction)                       | `basic`, `params`, `batch`, `token-level`, `token-level-batch` |
 | [Fill Mask](./fill-mask)                                         | `basic`, `params`                    |
 | [Image Classification](./image-classification)                   | `basic`, `params`                    |
 | [Image Segmentation](./image-segmentation)                       | `basic`, `params`                    |

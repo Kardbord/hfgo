@@ -2,9 +2,27 @@ package hftypes
 
 import "slices"
 
-// FeatureExtraction is a type alias for a single embedding vector
-// returned by the feature extraction endpoint.
+// FeatureExtraction is a single pooled embedding vector.
+//
+// Use this with sentence-transformers-style models that reduce the model output
+// to one vector for the whole input. For models that return one vector per
+// token, use [FeatureExtractionTokens] instead.
 type FeatureExtraction = []float64
+
+// FeatureExtractionTokens contains one embedding vector per token for a single
+// input.
+//
+// Use this with transformers-style models such as BART that return hidden states
+// for every token. Each outer element corresponds to one token, and each inner
+// slice is the hidden-state vector for that token.
+type FeatureExtractionTokens = [][]float64
+
+// FeatureExtractionBatchTokens contains token-level embeddings for each input
+// in a batch.
+//
+// The outer slice corresponds to inputs, the middle slice to tokens within an
+// input, and the inner slice to the hidden-state vector for a token.
+type FeatureExtractionBatchTokens = [][][]float64
 
 // FeatureExtractionRequest represents a feature extraction
 // inference request to the API for a single input.

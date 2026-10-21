@@ -78,9 +78,27 @@ func (HuggingFaceCodecs) FeatureExtractionBatchCodec() FeatureExtractionBatchCod
 }
 
 // FeatureExtractionCodec returns the JSON codec for feature-extraction
-// requests and responses.
+// requests and pooled responses.
 func (HuggingFaceCodecs) FeatureExtractionCodec() FeatureExtractionCodec {
 	return JSONCodec[hftypes.FeatureExtractionRequest, hftypes.FeatureExtraction]{}
+}
+
+// FeatureExtractionTokenCodec returns the JSON codec for feature-extraction
+// requests and token-level responses.
+func (HuggingFaceCodecs) FeatureExtractionTokenCodec() FeatureExtractionTokenCodec {
+	return JSONCodec[
+		hftypes.FeatureExtractionRequest,
+		hftypes.FeatureExtractionTokens,
+	]{}
+}
+
+// FeatureExtractionBatchTokenCodec returns the JSON codec for batch
+// feature-extraction requests and token-level responses.
+func (HuggingFaceCodecs) FeatureExtractionBatchTokenCodec() FeatureExtractionBatchTokenCodec {
+	return JSONCodec[
+		hftypes.FeatureExtractionBatchRequest,
+		hftypes.FeatureExtractionBatchTokens,
+	]{}
 }
 
 // FillMaskCodec returns the JSON codec for fill-mask requests and responses.
@@ -186,18 +204,73 @@ func (hfQuestionAnsweringCodec) Decode(params DecodeParams) ([]hftypes.QuestionA
 		return slice, nil
 	}
 
-	// Observed response for some inputs with top_k unset or equal to 1
-	var single hftypes.QuestionAnswering
-	singleErr := json.Unmarshal(params.Body, &single)
+	// Observed response for some inputs with top_k unset or equal to 1.
+	// Require the expected answer fields so unrelated objects are not
+	// accepted as zero-valued answers.
+	single, singleErr := decodeSingleQuestionAnswering(params.Body)
 	if singleErr == nil {
 		return []hftypes.QuestionAnswering{single}, nil
+	}
+
+	joinedErr := errors.Join(sliceErr, singleErr)
+	if sdkErr := existingSDKError(joinedErr); sdkErr != nil {
+		return nil, sdkErr
 	}
 
 	return nil, &hferrors.SDKError{
 		Kind:    hferrors.SDKErrorKindSerialization,
 		Message: errFailedToDecodeResponseBody,
-		Err:     errors.Join(sliceErr, singleErr),
+		Err:     joinedErr,
 	}
+}
+
+func decodeSingleQuestionAnswering(data []byte) (hftypes.QuestionAnswering, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return hftypes.QuestionAnswering{}, err
+	}
+	answerRaw, answerPresent := fields["answer"]
+	if !answerPresent {
+		return hftypes.QuestionAnswering{}, errors.New(
+			"single answer object missing answer",
+		)
+	}
+	if isJSONNull(answerRaw) {
+		return hftypes.QuestionAnswering{}, errors.New(
+			"single answer object answer is null",
+		)
+	}
+	scoreRaw, scorePresent := fields["score"]
+	if !scorePresent {
+		return hftypes.QuestionAnswering{}, errors.New(
+			"single answer object missing score",
+		)
+	}
+	if isJSONNull(scoreRaw) {
+		return hftypes.QuestionAnswering{}, errors.New(
+			"single answer object score is null",
+		)
+	}
+
+	var answer hftypes.QuestionAnswering
+	if err := json.Unmarshal(data, &answer); err != nil {
+		return hftypes.QuestionAnswering{}, err
+	}
+
+	return answer, nil
+}
+
+func isJSONNull(raw json.RawMessage) bool {
+	return strings.TrimSpace(string(raw)) == "null"
+}
+
+// existingSDKError returns the first *hferrors.SDKError in err's chain, if any.
+func existingSDKError(err error) error {
+	if sdkErr, ok := errors.AsType[*hferrors.SDKError](err); ok {
+		return sdkErr
+	}
+
+	return nil
 }
 
 // hfTextClassificationCodec is a flexible Codec for text classification that
@@ -273,10 +346,15 @@ func (hfTextClassificationCodec) Decode(params DecodeParams) ([]hftypes.TextClas
 		return nested[0], nil
 	}
 
+	joinedErr := errors.Join(flatErr, nestedErr)
+	if sdkErr := existingSDKError(joinedErr); sdkErr != nil {
+		return nil, sdkErr
+	}
+
 	return nil, &hferrors.SDKError{
 		Kind:    hferrors.SDKErrorKindSerialization,
 		Message: errFailedToDecodeResponseBody,
-		Err:     errors.Join(flatErr, nestedErr),
+		Err:     joinedErr,
 	}
 }
 

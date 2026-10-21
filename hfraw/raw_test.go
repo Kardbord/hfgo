@@ -80,7 +80,7 @@ func TestClient_Do(t *testing.T) {
 		require.Equal(t, "/raw", mt.LastRequest.URL.Path)
 	})
 
-	t.Run("non-2xx becomes API error", func(t *testing.T) {
+	t.Run("4xx/5xx becomes API error", func(t *testing.T) {
 		t.Parallel()
 
 		mt := testutils.NewMockTransport(http.StatusUnauthorized, `nope`, nil)

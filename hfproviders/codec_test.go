@@ -4,6 +4,8 @@ package hfproviders
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -66,6 +68,51 @@ func TestJSONCodec_EncodeError(t *testing.T) {
 	require.ErrorAs(t, err, &sdkErr)
 	require.Equal(t, hferrors.SDKErrorKindSerialization, sdkErr.Kind)
 	require.Error(t, sdkErr.Err, "underlying marshal error must be preserved")
+}
+
+type sdkErrorReq struct{}
+
+func (sdkErrorReq) MarshalJSON() ([]byte, error) {
+	return nil, &hferrors.SDKError{
+		Kind:    hferrors.SDKErrorKindConfiguration,
+		Message: "request is invalid",
+	}
+}
+
+type sdkErrorResp struct{}
+
+func (*sdkErrorResp) UnmarshalJSON([]byte) error {
+	return &hferrors.SDKError{
+		Kind:    hferrors.SDKErrorKindValidation,
+		Message: "response is invalid",
+	}
+}
+
+func TestJSONCodec_EncodePreservesSDKError(t *testing.T) {
+	t.Parallel()
+
+	_, _, err := JSONCodec[sdkErrorReq, decodeResp]{}.Encode(
+		EncodeParams[sdkErrorReq]{Request: sdkErrorReq{}},
+	)
+	require.Error(t, err)
+
+	var sdkErr *hferrors.SDKError
+	require.ErrorAs(t, err, &sdkErr)
+	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
+}
+
+func TestJSONCodec_DecodePreservesSDKError(t *testing.T) {
+	t.Parallel()
+
+	_, err := JSONCodec[encodeReq, sdkErrorResp]{}.Decode(DecodeParams{
+		Headers: jsonHeaders(ctJSON),
+		Body:    []byte(`{}`),
+	})
+	require.Error(t, err)
+
+	var sdkErr *hferrors.SDKError
+	require.ErrorAs(t, err, &sdkErr)
+	require.Equal(t, hferrors.SDKErrorKindValidation, sdkErr.Kind)
 }
 
 func TestJSONCodec_Decode(t *testing.T) {
@@ -217,6 +264,135 @@ func TestQuestionAnsweringCodec_Decode(t *testing.T) {
 		require.ErrorAs(t, err, &sdkErr)
 		require.Error(t, sdkErr.Err, "both unmarshal failures must be joined")
 	})
+
+	t.Run("empty object rejected", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := c.Decode(params(`{}`))
+		require.Error(t, err)
+		assertSerializationError(t, err)
+	})
+
+	t.Run("unrelated object rejected", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := c.Decode(params(`{"error":"model failed"}`))
+		require.Error(t, err)
+		assertSerializationError(t, err)
+	})
+}
+
+func TestExistingSDKError(t *testing.T) {
+	t.Parallel()
+
+	want := &hferrors.SDKError{
+		Kind:    hferrors.SDKErrorKindValidation,
+		Message: "invalid response",
+		Err:     nil,
+	}
+	require.Same(t, want, existingSDKError(fmt.Errorf("wrapped: %w", want)))
+	require.Same(
+		t,
+		want,
+		existingSDKError(errors.Join(errors.New("first"), want)),
+	)
+	require.NoError(t, existingSDKError(errors.New("plain error")))
+}
+
+func TestDecodeSingleQuestionAnswering(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name    string
+		body    string
+		want    hftypes.QuestionAnswering
+		wantErr string
+	}{
+		{
+			name: "valid answer",
+			body: `{"answer":"Paris","score":0.9,"start":0,"end":5}`,
+			want: hftypes.QuestionAnswering{
+				Answer: "Paris",
+				Score:  0.9,
+				Start:  0,
+				End:    5,
+			},
+		},
+		{
+			name:    "missing answer",
+			body:    `{"score":0.9}`,
+			wantErr: "missing answer",
+		},
+		{
+			name:    "missing score",
+			body:    `{"answer":"Paris"}`,
+			wantErr: "missing score",
+		},
+		{
+			name:    "null answer",
+			body:    `{"answer":null,"score":0.9}`,
+			wantErr: "answer is null",
+		},
+		{
+			name:    "null score",
+			body:    `{"answer":"Paris","score":null}`,
+			wantErr: "score is null",
+		},
+		{
+			name:    "null answer and score",
+			body:    `{"answer":null,"score":null}`,
+			wantErr: "answer is null",
+		},
+		{
+			name:    "invalid score type",
+			body:    `{"answer":"Paris","score":"high"}`,
+			wantErr: "cannot unmarshal string",
+		},
+		{
+			name:    "invalid json",
+			body:    `not json`,
+			wantErr: "invalid character",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := decodeSingleQuestionAnswering([]byte(tc.body))
+			if tc.wantErr != "" {
+				require.ErrorContains(t, err, tc.wantErr)
+
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestFeatureExtractionTokenCodec_Decode(t *testing.T) {
+	t.Parallel()
+
+	got, err := HuggingFaceCodecs{}.FeatureExtractionTokenCodec().Decode(DecodeParams{
+		Body:    []byte(`[[0.1,0.2],[0.3,0.4]]`),
+		Headers: jsonHeaders(mimeTypeJSON),
+	})
+	require.NoError(t, err)
+	require.Equal(t, hftypes.FeatureExtractionTokens{{0.1, 0.2}, {0.3, 0.4}}, got)
+}
+
+func TestFeatureExtractionBatchTokenCodec_Decode(t *testing.T) {
+	t.Parallel()
+
+	got, err := HuggingFaceCodecs{}.FeatureExtractionBatchTokenCodec().Decode(DecodeParams{
+		Body:    []byte(`[[[0.1],[0.2]],[[0.3]]]`),
+		Headers: jsonHeaders(mimeTypeJSON),
+	})
+	require.NoError(t, err)
+	require.Equal(
+		t,
+		hftypes.FeatureExtractionBatchTokens{{{0.1}, {0.2}}, {{0.3}}},
+		got,
+	)
 }
 
 func TestQuestionAnsweringCodec_EncodePassesHeaders(t *testing.T) {

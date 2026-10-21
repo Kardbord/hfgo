@@ -177,6 +177,16 @@ func TestChat_Validation(t *testing.T) {
 		require.Error(t, err)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	})
+
+	t.Run("returns configuration error when messages are missing", func(t *testing.T) {
+		opts := hfopts.NewOptions().With(
+			hfopts.WithModel("model"),
+			hfopts.WithProvider(hfproviders.NewHuggingFaceProvider()),
+		)
+		_, err := Chat(opts, hftypes.ChatRequest{})
+		require.Error(t, err)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+	})
 }
 
 const chatServiceResponseBody = `{"id":"id","created":1,"model":"m","system_fingerprint":"s","choices":[{"finish_reason":"stop","index":0,"message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`

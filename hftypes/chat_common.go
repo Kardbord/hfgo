@@ -25,22 +25,6 @@ func (f ChatFunctionCall) MarshalJSON() ([]byte, error) {
 	return json.Marshal(alias(f))
 }
 
-// UnmarshalJSON enforces required fields on ChatFunctionCall.
-func (f *ChatFunctionCall) UnmarshalJSON(data []byte) error {
-	type alias ChatFunctionCall
-	var tmp alias
-	if err := json.Unmarshal(data, &tmp); err != nil {
-		return err
-	}
-	out := ChatFunctionCall(tmp)
-	if err := out.validate(); err != nil {
-		return err
-	}
-	*f = out
-
-	return nil
-}
-
 // Clone returns a deep defensive copy of the function call.
 func (f *ChatFunctionCall) Clone() ChatFunctionCall {
 	if f == nil {

@@ -36,7 +36,7 @@
 //
 // # Errors
 //
-// Methods return [hferrors.APIError] for non-2xx API responses and
+// Methods return [hferrors.APIError] for 4xx/5xx API responses and
 // [hferrors.SDKError] for local failures. Inspect them with errors.As. For API
 // responses, [hferrors.APIError] classifies the failure with helpers such as
 // [hferrors.APIError.IsClientError] and [hferrors.APIError.IsRateLimitError].

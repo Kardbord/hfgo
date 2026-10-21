@@ -223,10 +223,13 @@ func (c Client) Translate(
 	return task.Translate(c.opts.With(opts...), req)
 }
 
-// ExtractFeatures sends a feature extraction request and returns the embedding
-// vector for a single input.
+// ExtractFeatures sends a feature extraction request and returns the pooled
+// embedding vector for a single input.
 //
-// For multiple inputs, use ExtractFeaturesBatch.
+// This method is for sentence-transformers-style models that reduce the output
+// to one vector for the whole input. For transformers-style models that return
+// one vector per token, use ExtractTokenFeatures. For multiple inputs, use
+// ExtractFeaturesBatch.
 func (c Client) ExtractFeatures(
 	req hftypes.FeatureExtractionRequest,
 	opts ...hfopts.Option,
@@ -235,16 +238,45 @@ func (c Client) ExtractFeatures(
 }
 
 // ExtractFeaturesBatch sends a feature extraction request for a batch of inputs
-// and returns embedding vectors for each input in the batch.
+// and returns pooled embedding vectors for each input in the batch.
 //
-// Batch input is part of the upstream inference schema for feature extraction:
-// the API accepts either a string or a list of strings. The response is a flat
-// list of embedding vectors in the same order as the inputs.
+// This method is for sentence-transformers-style models that reduce each input
+// to one vector. For transformers-style models that return one vector per token,
+// use ExtractTokenFeaturesBatch. Batch input is part of the upstream inference
+// schema: the API accepts either a string or a list of strings.
 func (c Client) ExtractFeaturesBatch(
 	req hftypes.FeatureExtractionBatchRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.FeatureExtraction, error) {
 	return task.ExtractFeaturesBatch(c.opts.With(opts...), req)
+}
+
+// ExtractTokenFeatures sends a feature extraction request and returns one
+// embedding vector per token for a single input.
+//
+// Use this with transformers-style models such as BART that return per-token
+// hidden states. The outer slice corresponds to tokens; each inner slice is the
+// hidden-state vector for that token. For pooled sentence embeddings, use
+// ExtractFeatures.
+func (c Client) ExtractTokenFeatures(
+	req hftypes.FeatureExtractionRequest,
+	opts ...hfopts.Option,
+) (hftypes.FeatureExtractionTokens, error) {
+	return task.ExtractTokenFeatures(c.opts.With(opts...), req)
+}
+
+// ExtractTokenFeaturesBatch sends a feature extraction request for a batch of
+// inputs and returns token-level embeddings for each input.
+//
+// Use this with transformers-style models that return per-token hidden states.
+// The outer slice corresponds to inputs, the middle slice to tokens within an
+// input, and the inner slice to the hidden-state vector for a token. For pooled
+// batch embeddings, use ExtractFeaturesBatch.
+func (c Client) ExtractTokenFeaturesBatch(
+	req hftypes.FeatureExtractionBatchRequest,
+	opts ...hfopts.Option,
+) (hftypes.FeatureExtractionBatchTokens, error) {
+	return task.ExtractTokenFeaturesBatch(c.opts.With(opts...), req)
 }
 
 // DetectObjects sends an object detection request and returns a list

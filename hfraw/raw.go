@@ -31,7 +31,7 @@ func NewClient(opts ...hfopts.Option) Client {
 	}
 }
 
-// Do performs a raw HTTP request with a byte slice body and applies SDK error interpretation on non-2xx responses.
+// Do performs a raw HTTP request with a byte slice body and applies SDK error interpretation on 4xx/5xx responses.
 // The caller must close resp.Body on success.
 func (c Client) Do(
 	requestBody []byte,
@@ -42,7 +42,7 @@ func (c Client) Do(
 	return c.DoReader(bytes.NewReader(requestBody), method, path, opts...)
 }
 
-// DoRaw performs a raw HTTP request with a byte slice body without translating non-2xx responses into SDK errors.
+// DoRaw performs a raw HTTP request with a byte slice body without translating 4xx/5xx responses into SDK errors.
 // The caller must close resp.Body on success.
 func (c Client) DoRaw(
 	requestBody []byte,
@@ -53,7 +53,7 @@ func (c Client) DoRaw(
 	return c.DoRawReader(bytes.NewReader(requestBody), method, path, opts...)
 }
 
-// DoReader performs a raw HTTP request with a streaming body and applies SDK error interpretation on non-2xx responses.
+// DoReader performs a raw HTTP request with a streaming body and applies SDK error interpretation on 4xx/5xx responses.
 // The caller must close resp.Body on success.
 func (c Client) DoReader(
 	requestBody io.Reader,
@@ -69,7 +69,7 @@ func (c Client) DoReader(
 	)
 }
 
-// DoRawReader performs a raw HTTP request with a streaming body without translating non-2xx responses into SDK errors.
+// DoRawReader performs a raw HTTP request with a streaming body without translating 4xx/5xx responses into SDK errors.
 // The caller must close resp.Body on success.
 func (c Client) DoRawReader(
 	requestBody io.Reader,
@@ -85,8 +85,8 @@ func (c Client) DoRawReader(
 	)
 }
 
-// Stream performs a raw HTTP request and returns an SSE stream, applying SDK error interpretation on non-2xx responses.
-// A non-2xx response becomes an *hferrors.APIError whose Body the caller must close. A response that is not a
+// Stream performs a raw HTTP request and returns an SSE stream, applying SDK error interpretation on 4xx/5xx responses.
+// A 4xx/5xx response becomes an *hferrors.APIError whose Body the caller must close. A response that is not a
 // server-sent event stream is reported as an *hferrors.SDKError.
 // The status code and headers of the response that opened the stream are available via [Stream.StatusCode] and [Stream.Header].
 // Callers should close the returned Stream when finished to promptly release the HTTP connection and decoder goroutine.
@@ -100,7 +100,7 @@ func (c Client) Stream(
 }
 
 // StreamReader performs a raw HTTP request with a streaming body and returns an SSE stream with SDK error interpretation.
-// A non-2xx response becomes an *hferrors.APIError whose Body the caller must close. A response that is not a
+// A 4xx/5xx response becomes an *hferrors.APIError whose Body the caller must close. A response that is not a
 // server-sent event stream is reported as an *hferrors.SDKError.
 // The status code and headers of the response that opened the stream are available via [Stream.StatusCode] and [Stream.Header].
 // Callers should close the returned Stream when finished to promptly release the HTTP connection and decoder goroutine.
@@ -122,12 +122,12 @@ func (c Client) StreamReader(
 
 	// A response that does not advertise an event stream cannot be consumed as
 	// SSE; the decoder would silently yield no events and report io.EOF, losing
-	// the response. A non-2xx response has already been translated into an
+	// the response. A 4xx/5xx response has already been translated into an
 	// *hferrors.APIError by request.Do, so a non-stream response here is a
 	// protocol violation reported as a serialization error with the body
 	// drained and closed.
 	if err := request.ValidateEventStreamResponseContentType(resp.Header); err != nil {
-		request.DrainAndCloseBody(resp.Body)
+		request.DrainAndCloseBody(resp.Body, c.opts.MaxResponseBodyBytes)
 
 		return nil, err
 	}

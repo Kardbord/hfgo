@@ -1,13 +1,16 @@
 package hftypes
 
 import (
-	"encoding/json"
+	"fmt"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 )
 
 // ChatResponse represents a non-streaming completion response from the chat API.
 // This is returned when Stream is false (the default).
+//
+// Decoding is intentionally tolerant of provider variations. Use [ChatResponse.Validate]
+// to enforce the strict Hugging Face chat-completion schema.
 type ChatResponse struct {
 	ID string `json:"id"`
 
@@ -47,7 +50,10 @@ type ChatTopLogProb struct {
 }
 
 // ChatCompletionMessage is a message returned by the model.
-// It is either a text message (Content) or a tool call message (ToolCalls).
+// It may contain text content, tool calls, or both.
+//
+// Decoding accepts provider-specific variations. Use [ChatCompletionMessage.Validate]
+// to enforce the Hugging Face schema's strict text-or-tool-call union.
 type ChatCompletionMessage struct {
 	Role string `json:"role"`
 	// Content is present for text responses.
@@ -58,24 +64,44 @@ type ChatCompletionMessage struct {
 	ToolCalls []ChatToolCallOutput `json:"tool_calls,omitempty"`
 }
 
-// UnmarshalJSON enforces the union shape for ChatCompletionMessage.
-func (m *ChatCompletionMessage) UnmarshalJSON(data []byte) error {
-	type alias ChatCompletionMessage
-	var tmp alias
-	if err := json.Unmarshal(data, &tmp); err != nil {
-		return err
+// ChatToolCallOutput represents a tool call in a response message.
+type ChatToolCallOutput struct {
+	ID       string           `json:"id"`
+	Type     string           `json:"type"`
+	Function ChatFunctionCall `json:"function"`
+}
+
+// Validate enforces the Hugging Face chat-completion schema on the response.
+// It returns an [hferrors.SDKError] with [hferrors.SDKErrorKindValidation] when
+// a choice does not contain exactly one of text content or tool calls, or when
+// tool-call metadata is invalid.
+//
+// Validation is opt-in because some inference providers return OpenAI-compatible
+// responses that do not follow the strict schema. Decoding does not call Validate.
+func (r ChatResponse) Validate() error {
+	if len(r.Choices) == 0 {
+		return &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindValidation,
+			Message: "completion response: no choices",
+			Err:     nil,
+		}
 	}
-	out := ChatCompletionMessage(tmp)
-	if err := out.validate(); err != nil {
-		return err
+	for i := range r.Choices {
+		if err := r.Choices[i].Message.Validate(); err != nil {
+			return fmt.Errorf("choice %d: %w", i, err)
+		}
 	}
-	*m = out
 
 	return nil
 }
 
-// validate enforces the union shape for ChatCompletionMessage.
-func (m ChatCompletionMessage) validate() error {
+// Validate enforces the Hugging Face text-or-tool-call union on the message.
+// It returns an [hferrors.SDKError] with [hferrors.SDKErrorKindValidation] when
+// the message does not match either variant.
+//
+// Validation is opt-in because some inference providers return OpenAI-compatible
+// responses where content and tool calls coexist. Decoding does not call Validate.
+func (m ChatCompletionMessage) Validate() error {
 	if m.Content != nil {
 		if len(m.ToolCalls) > 0 {
 			return &hferrors.SDKError{
@@ -98,34 +124,15 @@ func (m ChatCompletionMessage) validate() error {
 			Err:     nil,
 		}
 	}
+	for i := range m.ToolCalls {
+		if err := m.ToolCalls[i].validate(); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
 
-// ChatToolCallOutput represents a tool call in a response message.
-type ChatToolCallOutput struct {
-	ID       string           `json:"id"`
-	Type     string           `json:"type"`
-	Function ChatFunctionCall `json:"function"`
-}
-
-// UnmarshalJSON enforces the tool call shape for ChatToolCallOutput.
-func (c *ChatToolCallOutput) UnmarshalJSON(data []byte) error {
-	type alias ChatToolCallOutput
-	var tmp alias
-	if err := json.Unmarshal(data, &tmp); err != nil {
-		return err
-	}
-	out := ChatToolCallOutput(tmp)
-	if err := out.validate(); err != nil {
-		return err
-	}
-	*c = out
-
-	return nil
-}
-
-// validate enforces the tool call shape for ChatToolCallOutput.
 func (c ChatToolCallOutput) validate() error {
 	if c.ID == "" {
 		return &hferrors.SDKError{
@@ -142,7 +149,7 @@ func (c ChatToolCallOutput) validate() error {
 		}
 	}
 
-	return nil
+	return c.Function.validate()
 }
 
 // ChatUsage contains token usage statistics.

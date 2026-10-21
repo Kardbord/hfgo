@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -335,58 +334,76 @@ func TestJSONStream_DoneTrailingFrameDiscarded(t *testing.T) {
 	require.Equal(t, 1, hookCalls, "frames after [DONE] must not reach the decoder")
 }
 
-func TestJSONStream_SSECloseCancelsRead(t *testing.T) {
+// blockingReadCloser blocks Read until Close is called.
+type blockingReadCloser struct {
+	started   chan struct{}
+	release   chan struct{}
+	closeOnce sync.Once
+}
+
+func (b *blockingReadCloser) Read([]byte) (int, error) {
+	select {
+	case b.started <- struct{}{}:
+	default:
+	}
+
+	<-b.release
+
+	return 0, io.EOF
+}
+
+func (b *blockingReadCloser) Close() error {
+	b.closeOnce.Do(func() { close(b.release) })
+
+	return nil
+}
+
+func TestJSONStream_CloseUnblocksRecv(t *testing.T) {
 	t.Parallel()
 
-	mt := testutils.NewMockTransport(http.StatusOK, "event: ping\n\n", nil)
-	mt.Response.Header.Set("Content-Type", "text/event-stream")
-
-	opts := hfopts.NewOptions().With(
-		hfopts.WithHTTPClientFactory(func() http.Client {
-			return testutils.NewMockHTTPClient(mt)
-		}),
-	)
-
-	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
-	require.NoError(t, err)
-	require.NoError(t, ValidateEventStreamResponseContentType(resp.Header))
-
-	raw, err := StreamRaw(opts.Context(), resp.Body)
+	body := &blockingReadCloser{
+		started: make(chan struct{}, 1),
+		release: make(chan struct{}),
+	}
+	raw, err := StreamRaw(context.Background(), body)
 	require.NoError(t, err)
 
 	stream := NewJSONStream[struct{}](raw, jsonDecode[struct{}])
 
+	recvErr := make(chan error, 1)
 	go func() {
-		time.Sleep(50 * time.Millisecond)
-		if err := stream.Close(); err != nil {
-			t.Error(err)
-		}
+		_, err := stream.Recv(context.Background())
+		recvErr <- err
 	}()
 
-	_, err = stream.Recv(context.Background())
-	require.Error(t, err)
+	<-body.started
+	require.NoError(t, stream.Close())
+
+	select {
+	case err := <-recvErr:
+		require.Error(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("Recv did not unblock after Close")
+	}
 }
 
-func TestJSONStream_RecvConcurrentConsumers(t *testing.T) {
+func TestJSONStream_NilReceiver(t *testing.T) {
 	t.Parallel()
 
-	// Recv is documented for a single consumer goroutine; this test pins
-	// the concurrent-consumer contract: concurrent calls are memory-safe,
-	// frames partition across the goroutines (which goroutine receives
-	// which frame is undefined), and every consumer observes io.EOF once
-	// the stream ends. Run with the race detector enabled.
-	const frames = 8
-	const consumers = 4
+	var stream *JSONStream[struct{}]
 
-	var body strings.Builder
-	want := make([]string, 0, frames)
-	for i := range frames {
-		text := fmt.Sprintf("frame-%d", i)
-		want = append(want, text)
-		fmt.Fprintf(&body, "data: {\"text\":%q}\n\n", text)
-	}
+	_, err := stream.Recv(context.Background())
+	require.Error(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindInternal)
 
-	mt := testutils.NewMockTransport(http.StatusOK, body.String(), nil)
+	require.NoError(t, stream.Close())
+}
+
+func TestJSONStream_DecodeHookPreservesSDKError(t *testing.T) {
+	t.Parallel()
+
+	rawBody := "data: {}\n\n"
+	mt := testutils.NewMockTransport(http.StatusOK, rawBody, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
 	opts := hfopts.NewOptions().With(
@@ -402,38 +419,17 @@ func TestJSONStream_RecvConcurrentConsumers(t *testing.T) {
 	raw, err := StreamRaw(opts.Context(), resp.Body)
 	require.NoError(t, err)
 
-	type event struct {
-		Text string `json:"text"`
-	}
-
-	stream := NewJSONStream[event](raw, jsonDecode[event])
+	wantKind := hferrors.SDKErrorKindValidation
+	stream := NewJSONStream[struct{}](raw, func(context.Context, RawEvent) (struct{}, error) {
+		return struct{}{}, &hferrors.SDKError{
+			Kind:    wantKind,
+			Message: "custom decode validation failed",
+			Err:     nil,
+		}
+	})
 	defer func() { _ = stream.Close() }()
 
-	// Per-consumer slots are disjoint, so no synchronization is needed
-	// between consumers; asserts run after the WaitGroup joins them all.
-	results := make([][]string, consumers)
-	errs := make([]error, consumers)
-
-	var wg sync.WaitGroup
-	for i := range consumers {
-		wg.Go(func() {
-			for {
-				chunk, err := stream.Recv(context.Background())
-				if err != nil {
-					errs[i] = err
-
-					return
-				}
-				results[i] = append(results[i], chunk.Text)
-			}
-		})
-	}
-	wg.Wait()
-
-	var got []string
-	for i := range consumers {
-		require.ErrorIs(t, errs[i], io.EOF)
-		got = append(got, results[i]...)
-	}
-	require.ElementsMatch(t, want, got)
+	_, err = stream.Recv(context.Background())
+	require.Error(t, err)
+	testutils.AssertSDKErrorKind(t, err, wantKind)
 }

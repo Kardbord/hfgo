@@ -12,7 +12,10 @@ import (
 	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
-const mimeEventStream = "text/event-stream"
+const (
+	mimeEventStream  = "text/event-stream"
+	errJSONStreamNil = "json stream is nil"
+)
 
 // DecodeHTTPResponse handles the common HTTP response decoding logic:
 // 204/205 status codes, body reading, and empty-body detection. It is
@@ -46,6 +49,9 @@ type JSONStream[T any] struct {
 	// decode produces a value from each raw event. It is required and must
 	// not be nil.
 	decode func(context.Context, RawEvent) (T, error)
+	// terminated records that the terminating frame has been observed. It is
+	// only accessed by the single Recv reader.
+	terminated bool
 }
 
 // NewJSONStream returns a JSONStream backed by the given RawStream.
@@ -55,7 +61,7 @@ func NewJSONStream[T any](
 	raw *RawStream,
 	decode func(context.Context, RawEvent) (T, error),
 ) *JSONStream[T] {
-	return &JSONStream[T]{raw: raw, decode: decode}
+	return &JSONStream[T]{raw: raw, decode: decode, terminated: false}
 }
 
 // classifyHookError maps a decode-hook error onto stream control behavior.
@@ -70,23 +76,15 @@ func classifyHookError(err error) (skip, terminate bool) {
 	}
 }
 
-// endStream releases the raw stream and drains any buffered frames so the
-// results channel ends closed and empty: the channel itself records
-// termination, with no JSONStream state, and every later receive yields
-// io.EOF. The drain cannot block unboundedly — Close cancels the producer's
-// context and closes the body, so the producer returns promptly and closes
-// the channel. Frames the server sent after the terminating frame are
-// discarded here and never delivered. The drain deliberately uses a
-// non-cancelable context: a caller-canceled ctx could stop the drain while
-// a frame is still buffered, breaking the post-EOF terminal guarantee.
+// endStream marks the stream terminated and releases the raw stream. Later
+// Recv calls return io.EOF without touching the raw stream, so frames after
+// the terminal frame are never delivered. Close cancels the raw producer and
+// closes the body, so no drain loop is needed.
 func (s *JSONStream[T]) endStream() error {
+	s.terminated = true
 	_ = s.raw.Close()
 
-	for {
-		if _, err := s.raw.Recv(context.Background()); err != nil {
-			return io.EOF
-		}
-	}
+	return io.EOF
 }
 
 // Recv blocks until the next event is available or the stream ends.
@@ -97,14 +95,27 @@ func (s *JSONStream[T]) endStream() error {
 //
 // Termination is final: the terminating frame's own value is not surfaced,
 // frames after it are discarded, and anything a consumer receives precedes
-// the terminal frame. Recv is intended for a single consumer goroutine;
-// concurrent consumers are memory-safe (events partition over a channel)
-// but which goroutine receives which frame is undefined.
+// the terminal frame.
+//
+// A JSONStream is not safe for concurrent Recv calls. Close may be called
+// concurrently with Recv.
 func (s *JSONStream[T]) Recv(ctx context.Context) (out T, err error) {
+	if s == nil {
+		return out, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindInternal,
+			Message: errJSONStreamNil,
+			Err:     nil,
+		}
+	}
+
+	if s.terminated {
+		return out, io.EOF
+	}
+
 	if s.raw == nil {
 		return out, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindInternal,
-			Message: "json stream is nil",
+			Message: errJSONStreamNil,
 			Err:     nil,
 		}
 	}
@@ -146,7 +157,7 @@ func (s *JSONStream[T]) processEvent(
 	}
 
 	if bytes.Equal(data, []byte("[DONE]")) {
-		return out, false, s.endStream() //nolint:contextcheck // drain uses its own bounded ctx
+		return out, false, s.endStream()
 	}
 
 	// Normalize like RawStream.Recv so decode hooks always receive a
@@ -163,8 +174,12 @@ func (s *JSONStream[T]) processEvent(
 	case hookTerminate:
 		var zero T
 
-		return zero, false, s.endStream() //nolint:contextcheck // drain uses its own bounded ctx
+		return zero, false, s.endStream()
 	default:
+		if sdkErr, ok := errors.AsType[*hferrors.SDKError](err); ok {
+			return out, false, sdkErr
+		}
+
 		return out, false, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindSerialization,
 			Message: "failed to decode stream event",
@@ -173,12 +188,17 @@ func (s *JSONStream[T]) processEvent(
 	}
 }
 
-// Close releases the underlying stream resources.
+// Close releases the underlying stream resources. It may be called
+// concurrently with Recv.
 func (s *JSONStream[T]) Close() error {
+	if s == nil {
+		return nil
+	}
+
 	if s.raw == nil {
 		return &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindInternal,
-			Message: "json stream is nil",
+			Message: errJSONStreamNil,
 			Err:     nil,
 		}
 	}

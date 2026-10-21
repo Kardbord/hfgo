@@ -230,6 +230,84 @@ func TestExtractFeatures_Errors(t *testing.T) {
 	)
 }
 
+func TestExtractTokenFeatures_Errors(t *testing.T) {
+	t.Parallel()
+
+	runErrorCases(t,
+		[]errorCase{
+			{
+				name:         "no model configured",
+				statusCode:   http.StatusOK,
+				responseBody: `[[0.1,0.2]]`,
+				want:         testutils.WantErrSDK,
+				sdkErrKind:   hferrors.SDKErrorKindConfiguration,
+				description:  "SDK error when model is missing",
+			},
+			{
+				name:         "API error on 404",
+				withModel:    true,
+				statusCode:   http.StatusNotFound,
+				responseBody: `{"error":"Model not found"}`,
+				want:         testutils.WantErrAPI,
+				description:  "API error for nonexistent model",
+			},
+			{
+				name:         "API error on 503",
+				withModel:    true,
+				statusCode:   http.StatusServiceUnavailable,
+				responseBody: `{"error":"Model loading"}`,
+				want:         testutils.WantErrAPI,
+				description:  "API error for model not yet loaded",
+			},
+		},
+		func(opts ...hfopts.Option) (hftypes.FeatureExtractionTokens, error) {
+			return hfgo.NewClient(opts...).ExtractTokenFeatures(hftypes.FeatureExtractionRequest{
+				Input: "What is the capital of France?",
+			})
+		},
+	)
+}
+
+func TestExtractTokenFeaturesBatch_Errors(t *testing.T) {
+	t.Parallel()
+
+	runErrorCases(t,
+		[]errorCase{
+			{
+				name:         "no model configured",
+				statusCode:   http.StatusOK,
+				responseBody: `[[[0.1,0.2]]]`,
+				want:         testutils.WantErrSDK,
+				sdkErrKind:   hferrors.SDKErrorKindConfiguration,
+				description:  "SDK error when model is missing",
+			},
+			{
+				name:         "API error on 404",
+				withModel:    true,
+				statusCode:   http.StatusNotFound,
+				responseBody: `{"error":"Model not found"}`,
+				want:         testutils.WantErrAPI,
+				description:  "API error for nonexistent model",
+			},
+			{
+				name:         "API error on 503",
+				withModel:    true,
+				statusCode:   http.StatusServiceUnavailable,
+				responseBody: `{"error":"Model loading"}`,
+				want:         testutils.WantErrAPI,
+				description:  "API error for model not yet loaded",
+			},
+		},
+		func(opts ...hfopts.Option) (hftypes.FeatureExtractionBatchTokens, error) {
+			return hfgo.NewClient(opts...).ExtractTokenFeaturesBatch(
+				hftypes.FeatureExtractionBatchRequest{
+					Inputs: []string{"What is the capital of France?"},
+				},
+			)
+		},
+	)
+}
+
 func TestExtractFeaturesBatch_ResponseDecoding(t *testing.T) {
 	t.Parallel()
 
@@ -445,4 +523,50 @@ func TestExtractFeaturesBatch_ModelFromOptions(t *testing.T) {
 	require.True(t, ok, "inputs should be an array for batched requests")
 	require.Len(t, inputs, 1)
 	require.Equal(t, "hello", inputs[0])
+}
+
+func TestExtractTokenFeatures_ResponseDecoding(t *testing.T) {
+	t.Parallel()
+
+	mt := testutils.NewJSONMockTransport(
+		http.StatusOK,
+		`[[0.1,0.2],[0.3,0.4],[0.5,0.6]]`,
+		nil,
+	)
+	client := hfgo.NewClient(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+	)
+
+	result, err := client.ExtractTokenFeatures(hftypes.FeatureExtractionRequest{
+		Input: "hello world",
+	})
+	require.NoError(t, err)
+	require.Len(t, result, 3)
+	require.Equal(t, []float64{0.1, 0.2}, result[0])
+	require.Equal(t, []float64{0.5, 0.6}, result[2])
+}
+
+func TestExtractTokenFeaturesBatch_ResponseDecoding(t *testing.T) {
+	t.Parallel()
+
+	mt := testutils.NewJSONMockTransport(
+		http.StatusOK,
+		`[[[0.1],[0.2]],[[0.3],[0.4],[0.5]]]`,
+		nil,
+	)
+	client := hfgo.NewClient(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("test-model"),
+	)
+
+	result, err := client.ExtractTokenFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
+		Inputs: []string{"hello", "hello world"},
+	})
+	require.NoError(t, err)
+	require.Len(t, result, 2)
+	require.Len(t, result[0], 2)
+	require.Len(t, result[1], 3)
+	require.Equal(t, []float64{0.1}, result[0][0])
+	require.Equal(t, []float64{0.5}, result[1][2])
 }

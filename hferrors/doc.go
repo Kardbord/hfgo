@@ -2,7 +2,7 @@
 //
 // Errors fall into two categories:
 //
-//   - [APIError] reports a non-2xx response from the Hugging Face API. It carries
+//   - [APIError] reports a 4xx/5xx response from the Hugging Face API. It carries
 //     the status code, message, response body, and request ID, and classifies the
 //     failure with helpers such as [APIError.IsClientError],
 //     [APIError.IsServerError], [APIError.IsAuthenticationError], and

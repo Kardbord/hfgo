@@ -84,6 +84,10 @@ immutability:
 If you inject an HTTP client via `hfopts.WithHTTPClientFactory`, ensure it is
 thread-safe by design or properly synchronized externally.
 
+Stream objects are not clients. Typed streams such as `ChatStream` are not safe
+for concurrent `Recv` calls. `Close` may be called concurrently with `Recv`.
+Callers that need fan-out must distribute chunks from a single consumer loop.
+
 ### Provider abstraction
 
 Requests are routed through a pluggable provider layer defined in the
@@ -117,6 +121,11 @@ win. The exceptions: codec-returned `Authorization` values are dropped
 (authentication is caller-owned), and streaming forces
 `Accept: text/event-stream` (SSE framing is a transport concern).
 
+When a codec or streaming decode hook returns an existing
+`*hferrors.SDKError`, the SDK preserves that error and its `SDKErrorKind`
+instead of relabeling it as a serialization failure. This keeps validation and
+configuration failures distinguishable from malformed JSON.
+
 ### Naming convention
 
 Client methods use an **action verb** (what the caller does); provider
@@ -130,7 +139,7 @@ task support is expressed structurally through the per-task interfaces.
 
 Errors are categorized into two types in the `hferrors` package:
 
-- **`APIError`**: returned by the API (non-2xx HTTP responses). Carries the
+- **`APIError`**: returned by the API (4xx/5xx HTTP responses). Carries the
   status code, message, body reader, request ID, method, and URL. Helper
   methods: `IsClientError()`, `IsServerError()`, `IsAuthenticationError()`,
   `IsRateLimitError()`.
@@ -148,12 +157,12 @@ one-shot or SSE streaming. One-shot methods come in typed-error and
 raw-response variants; streams always apply typed error handling. It is kept
 separate to avoid cluttering the root `Client` API.
 
-`Do` and the stream methods translate non-2xx responses into
+`Do` and the stream methods translate 4xx/5xx responses into
 `*hferrors.APIError`, whereas `DoRaw` returns the raw `*http.Response` so
 callers can inspect the status and headers themselves. Stream methods require
 the response to advertise `text/event-stream`; a response that does not is
 never handed to the SSE decoder, which would otherwise yield no events and
-report `io.EOF`, silently dropping the response. A non-2xx response that is not
+report `io.EOF`, silently dropping the response. A 4xx/5xx response that is not
 an event stream is returned as an `*hferrors.APIError` whose `Body` the caller
 owns, so the error payload is preserved; every other non-stream response is
 returned as an `*hferrors.SDKError` and its body is drained and closed. The
@@ -167,6 +176,26 @@ tool-call metadata across deltas so each chunk includes complete tool-call
 identifiers. Callers must `Close()` the stream to release the underlying HTTP
 connection and decoder goroutine. Termination is final: once `io.EOF` is
 observed, no further chunks are delivered.
+
+A `ChatStream` is not safe for concurrent `Recv` calls. Its accumulator is
+owned by the single consumer. `Close` may be called concurrently with `Recv`.
+
+### Feature extraction output shapes
+
+Feature extraction supports two model-dependent output families:
+
+- **Pooled:** `ExtractFeatures` and `ExtractFeaturesBatch` return
+  `FeatureExtraction` / `[]FeatureExtraction` (`[]float64` per input). Use these
+  with sentence-transformers-style models for sentence embeddings, semantic
+  search, and similarity.
+- **Token-level:** `ExtractTokenFeatures` and `ExtractTokenFeaturesBatch`
+  return `FeatureExtractionTokens` / `FeatureExtractionBatchTokens`
+  (`[][]float64` for one input, `[][][]float64` for a batch). Use these with
+  transformers-style models such as BART when you need per-token hidden states
+  and will apply your own pooling.
+
+The shape is determined by the model, not the request, so callers choose the
+method that matches the model's output.
 
 ## Where to Make Changes
 
