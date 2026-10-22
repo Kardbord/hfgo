@@ -38,6 +38,14 @@ type ChatRequest struct {
 	// likelihood to talk about new topics.
 	PresencePenalty *float64 `json:"presence_penalty,omitempty"`
 
+	// Constrains effort on reasoning for models that support reasoning. Reducing
+	// reasoning effort can result in faster responses and fewer tokens used on
+	// reasoning. Common values are exposed as [ReasoningEffortNone],
+	// [ReasoningEffortMinimal], [ReasoningEffortLow], [ReasoningEffortMedium],
+	// [ReasoningEffortHigh], and [ReasoningEffortXHigh]. Support and defaults are
+	// provider and model-dependent; provider-specific values are also accepted.
+	ReasoningEffort *string `json:"reasoning_effort,omitempty"`
+
 	// Response format configuration. Known types: text, json_schema, json_object.
 	// Non-empty provider-specific values are also accepted.
 	ResponseFormat *ChatResponseFormat `json:"response_format,omitempty"`
@@ -88,6 +96,23 @@ type ChatRequest struct {
 	TopP *float64 `json:"top_p,omitempty"`
 }
 
+// Common reasoning effort values. Support and defaults are provider and
+// model-dependent, so callers may also supply provider-specific values.
+const (
+	// ReasoningEffortNone disables reasoning effort constraints.
+	ReasoningEffortNone = "none"
+	// ReasoningEffortMinimal requests minimal reasoning effort.
+	ReasoningEffortMinimal = "minimal"
+	// ReasoningEffortLow requests low reasoning effort.
+	ReasoningEffortLow = "low"
+	// ReasoningEffortMedium requests medium reasoning effort.
+	ReasoningEffortMedium = "medium"
+	// ReasoningEffortHigh requests high reasoning effort.
+	ReasoningEffortHigh = "high"
+	// ReasoningEffortXHigh requests extra-high reasoning effort.
+	ReasoningEffortXHigh = "xhigh"
+)
+
 // MarshalJSON enforces required fields for ChatRequest.
 //
 //nolint:gocritic // hugeParam: using a value receiver guarantees no modifications to the caller
@@ -115,6 +140,7 @@ func (r *ChatRequest) Clone() ChatRequest {
 	out.MaxTokens = clonePtr(r.MaxTokens)
 	out.Messages = cloneSlice(r.Messages, (*ChatMessage).Clone)
 	out.PresencePenalty = clonePtr(r.PresencePenalty)
+	out.ReasoningEffort = clonePtr(r.ReasoningEffort)
 	out.ResponseFormat = cloneStructPtr(r.ResponseFormat, (*ChatResponseFormat).Clone)
 	out.Seed = clonePtr(r.Seed)
 	out.Stop = slices.Clone(r.Stop)

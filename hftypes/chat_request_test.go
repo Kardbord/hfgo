@@ -246,6 +246,7 @@ func TestChatRequestClone_Deep_Scalars(t *testing.T) {
 		LogProbs:         new(true),
 		MaxTokens:        new(100),
 		PresencePenalty:  new(-0.2),
+		ReasoningEffort:  new("high"),
 		Seed:             new(int64(42)),
 		Stop:             []string{"x"},
 		Stream:           new(false),
@@ -262,6 +263,7 @@ func TestChatRequestClone_Deep_Scalars(t *testing.T) {
 	*cloned.LogProbs = false
 	*cloned.MaxTokens = 200
 	*cloned.PresencePenalty = 0.5
+	*cloned.ReasoningEffort = "low"
 	*cloned.Seed = 7
 	cloned.Stop[0] = "y"
 	*cloned.Stream = true
@@ -275,6 +277,7 @@ func TestChatRequestClone_Deep_Scalars(t *testing.T) {
 	require.True(t, *req.LogProbs)
 	require.Equal(t, 100, *req.MaxTokens)
 	require.InEpsilon(t, -0.2, *req.PresencePenalty, 0.001)
+	require.Equal(t, "high", *req.ReasoningEffort)
 	require.Equal(t, int64(42), *req.Seed)
 	require.Equal(t, []string{"x"}, req.Stop)
 	require.False(t, *req.Stream)
@@ -501,6 +504,57 @@ func TestChatRequest_MarshalSuccess(t *testing.T) {
 	imageURL, ok := chunk["image_url"].(map[string]any)
 	if !ok || imageURL["url"] != imgURL {
 		t.Fatalf("unexpected image_url: %#v", chunk["image_url"])
+	}
+}
+
+func TestChatRequest_ReasoningEffort_Marshal(t *testing.T) {
+	t.Parallel()
+
+	model := "model"
+	text := "hi"
+	messages := []hftypes.ChatMessage{
+		{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
+	}
+
+	cases := []struct {
+		name      string
+		value     *string
+		wantValue string
+		wantOmit  bool
+	}{
+		{name: "none", value: new(hftypes.ReasoningEffortNone), wantValue: "none"},
+		{name: "minimal", value: new(hftypes.ReasoningEffortMinimal), wantValue: "minimal"},
+		{name: "low", value: new(hftypes.ReasoningEffortLow), wantValue: "low"},
+		{name: "medium", value: new(hftypes.ReasoningEffortMedium), wantValue: "medium"},
+		{name: "high", value: new(hftypes.ReasoningEffortHigh), wantValue: "high"},
+		{name: "xhigh", value: new(hftypes.ReasoningEffortXHigh), wantValue: "xhigh"},
+		{name: "provider-specific", value: new("custom"), wantValue: "custom"},
+		{name: "nil", value: nil, wantOmit: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := hftypes.ChatRequest{
+				Model:           &model,
+				Messages:        messages,
+				ReasoningEffort: tc.value,
+			}
+
+			data, err := json.Marshal(req)
+			require.NoError(t, err)
+
+			var got map[string]any
+			require.NoError(t, json.Unmarshal(data, &got))
+
+			value, ok := got["reasoning_effort"]
+			if tc.wantOmit {
+				require.False(t, ok, "expected reasoning_effort to be omitted")
+
+				return
+			}
+			require.True(t, ok, "expected reasoning_effort to be present")
+			require.Equal(t, tc.wantValue, value)
+		})
 	}
 }
 
