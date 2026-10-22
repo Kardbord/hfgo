@@ -2,7 +2,9 @@
 
 Runnable programs demonstrating each inference task, one directory per task and
 one subdirectory per variant. Each `main` package is self-contained and reads
-its token from the `HF_TOKEN` environment variable.
+its token from the `HF_TOKEN` environment variable, with the exception of the
+[`chat/openai-compatibility`](./chat/openai-compatibility) example, which
+necessarily reads its token from `OPENROUTER_TOKEN`.
 
 Each program constructs its own client for clarity, but that is not required:
 one client can be reused across every task — only the model changes. See
@@ -43,7 +45,7 @@ Not every task has every variant. The full matrix:
 
 | Task                                                             | Variants                                                       |
 | ---------------------------------------------------------------- | -------------------------------------------------------------- |
-| [Chat](./chat)                                                   | `basic`, `streaming`, `conversation`                           |
+| [Chat](./chat)                                                   | `basic`, `streaming`, `conversation`, `openai-compatibility`   |
 | [Feature Extraction](./feature-extraction)                       | `basic`, `params`, `batch`, `token-level`, `token-level-batch` |
 | [Fill Mask](./fill-mask)                                         | `basic`, `params`                                              |
 | [Image Classification](./image-classification)                   | `basic`, `params`                                              |
