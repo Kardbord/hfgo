@@ -17,6 +17,10 @@ import (
 
 const Model = "openrouter/free"
 
+// This example demonstrates using the SDK with an OpenAI-compatible
+// endpoint (OpenRouter) for multi-turn streaming chat.
+// Note that it depends on a different environment variable than
+// most other examples (OPENROUTER_TOKEN vs HF_TOKEN).
 func main() {
 	chatClient := NewChatClient(
 		"You are a friendly chat bot whose purpose is to chat banally with users. Always respond in no more than two brief sentences.",
