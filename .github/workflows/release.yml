@@ -1,15 +1,11 @@
----
 name: Release
-
 on:
   push:
     branches:
       - main
       - v*-draft
-
 permissions:
   contents: read
-
 jobs:
   release-please:
     name: Release Please
@@ -34,7 +30,6 @@ jobs:
             echo "config-file=.github/prerelease-please-config.json" >> "$GITHUB_OUTPUT"
             echo "manifest-file=.github/.prerelease-please-manifest.json" >> "$GITHUB_OUTPUT"
           fi
-
       # ====================================================================
       # Run Release Please
       # ====================================================================
@@ -50,10 +45,13 @@ jobs:
       #    - Git tag
       #    - GitHub release with release notes
       # ====================================================================
+      # Use a PAT or GitHub App token instead of the default GITHUB_TOKEN so
+      # that pushes and PR updates made by release-please trigger the other
+      # workflows (including the checks the release PR must pass).
+      # See https://github.com/googleapis/release-please-action#other-actions-on-release-please-prs
       - name: Run Release Please
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
+          token: ${{ secrets.HFGO_RELEASE_PLEASE_TOKEN }}
           config-file: ${{ steps.config.outputs.config-file }}
           manifest-file: ${{ steps.config.outputs.manifest-file }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -11,9 +11,12 @@ permissions:
 
 jobs:
   validate-release:
-    # Only run on Release Please PRs (created by the release-please-action bot)
-    # 41898282 is the USER ID for the github-actions[bot] account
-    if: github.event.pull_request.user.id == 41898282 && github.event.pull_request.user.type == 'Bot'
+    # Release PRs are created from a branch in this repository, so restrict
+    # this job to same-repo PRs: resolving local actions from untrusted fork
+    # commits is not safe. The step below then identifies release PRs by their
+    # runtime label, so the workflow works whether release-please uses
+    # GITHUB_TOKEN, a PAT, or a GitHub App token.
+    if: github.event.pull_request.head.repo.full_name == github.repository
     name: Validate go.mod for Release
     runs-on: ubuntu-latest
     steps:
