@@ -41,8 +41,8 @@ func NewChatClient(sysPrompt string) ChatClient {
 
 	chatClient := ChatClient{
 		hfClient: hfgo.NewClient(
-			// Because HuggingFace chat completions endpoint is OpenAI-compatible,
-			// We can use the SDK with other OpenAI-compatible endpoints.
+			// Because the HuggingFace chat completions endpoint is OpenAI-compatible,
+			// we can use the SDK with other OpenAI-compatible endpoints.
 			hfopts.WithBaseURL("https://openrouter.ai/api"),
 			hfopts.WithToken(token),
 			hfopts.WithModel(Model),
