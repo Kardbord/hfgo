@@ -140,6 +140,7 @@ func (r *ChatRequest) Clone() ChatRequest {
 	out.MaxTokens = clonePtr(r.MaxTokens)
 	out.Messages = cloneSlice(r.Messages, (*ChatMessage).Clone)
 	out.PresencePenalty = clonePtr(r.PresencePenalty)
+	out.ReasoningEffort = clonePtr(r.ReasoningEffort)
 	out.ResponseFormat = cloneStructPtr(r.ResponseFormat, (*ChatResponseFormat).Clone)
 	out.Seed = clonePtr(r.Seed)
 	out.Stop = slices.Clone(r.Stop)

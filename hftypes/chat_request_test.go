@@ -246,6 +246,7 @@ func TestChatRequestClone_Deep_Scalars(t *testing.T) {
 		LogProbs:         new(true),
 		MaxTokens:        new(100),
 		PresencePenalty:  new(-0.2),
+		ReasoningEffort:  new("high"),
 		Seed:             new(int64(42)),
 		Stop:             []string{"x"},
 		Stream:           new(false),
@@ -262,6 +263,7 @@ func TestChatRequestClone_Deep_Scalars(t *testing.T) {
 	*cloned.LogProbs = false
 	*cloned.MaxTokens = 200
 	*cloned.PresencePenalty = 0.5
+	*cloned.ReasoningEffort = "low"
 	*cloned.Seed = 7
 	cloned.Stop[0] = "y"
 	*cloned.Stream = true
@@ -275,6 +277,7 @@ func TestChatRequestClone_Deep_Scalars(t *testing.T) {
 	require.True(t, *req.LogProbs)
 	require.Equal(t, 100, *req.MaxTokens)
 	require.InEpsilon(t, -0.2, *req.PresencePenalty, 0.001)
+	require.Equal(t, "high", *req.ReasoningEffort)
 	require.Equal(t, int64(42), *req.Seed)
 	require.Equal(t, []string{"x"}, req.Stop)
 	require.False(t, *req.Stream)
