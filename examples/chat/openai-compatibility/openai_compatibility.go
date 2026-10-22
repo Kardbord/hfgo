@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/Kardbord/hfgo/v4"
@@ -70,7 +71,7 @@ func (chatClient *ChatClient) Chat() error {
 	fmt.Println("Initializing...")
 	stream, err := chatClient.hfClient.ChatStream(
 		hftypes.ChatRequest{
-			Messages: chatClient.history, // Initialize with the system prompt given to NewChatClient
+			Messages: slices.Clone(chatClient.history),
 		},
 	)
 	if err != nil {
@@ -98,7 +99,9 @@ func (chatClient *ChatClient) Chat() error {
 
 		stream, err := chatClient.prompt(input)
 		if err != nil {
-			_ = stream.Close()
+			if stream != nil {
+				_ = stream.Close()
+			}
 
 			return err
 		}
@@ -126,7 +129,7 @@ func (chatClient *ChatClient) prompt(input string) (*hftypes.ChatStream, error) 
 
 	return chatClient.hfClient.ChatStream(
 		hftypes.ChatRequest{
-			Messages: chatClient.history,
+			Messages: slices.Clone(chatClient.history),
 		},
 		hfopts.WithContext(context.Background()),
 	)
