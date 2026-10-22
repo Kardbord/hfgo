@@ -74,7 +74,9 @@ func (chatClient *ChatClient) Chat() error {
 		},
 	)
 	if err != nil {
-		_ = stream.Close()
+		if stream != nil {
+			_ = stream.Close()
+		}
 
 		return err
 	}

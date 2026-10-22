@@ -89,7 +89,9 @@ func (chatClient *ChatClient) Chat() error {
 
 		stream, err := chatClient.prompt(input)
 		if err != nil {
-			_ = stream.Close()
+			if stream != nil {
+				_ = stream.Close()
+			}
 
 			return err
 		}
