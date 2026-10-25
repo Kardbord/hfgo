@@ -10,6 +10,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testproviders"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +20,7 @@ func TestApplyProvider(t *testing.T) {
 
 	t.Run("applies provider suffix", func(t *testing.T) {
 		model := new("mistral-7b")
-		provider := testutils.NewMockProvider("sambanova", "sambanova")
+		provider := testproviders.NewMockProvider("sambanova", "sambanova")
 		want := "mistral-7b:sambanova"
 		got := applyProvider(model, provider)
 		require.NotNil(t, got)
@@ -34,13 +35,13 @@ func TestApplyProvider(t *testing.T) {
 	})
 
 	t.Run("returns nil when model is nil", func(t *testing.T) {
-		got := applyProvider(nil, testutils.NewMockProvider("sambanova", "sambanova"))
+		got := applyProvider(nil, testproviders.NewMockProvider("sambanova", "sambanova"))
 		require.Nil(t, got)
 	})
 
 	t.Run("returns model unchanged when model is empty", func(t *testing.T) {
 		model := new("")
-		got := applyProvider(model, testutils.NewMockProvider("sambanova", "sambanova"))
+		got := applyProvider(model, testproviders.NewMockProvider("sambanova", "sambanova"))
 		require.NotNil(t, got)
 		require.Empty(t, *got)
 	})
@@ -62,14 +63,14 @@ func TestApplyProvider(t *testing.T) {
 
 	t.Run("ignores provider when model already has suffix", func(t *testing.T) {
 		model := new("mistral-7b:mistral")
-		got := applyProvider(model, testutils.NewMockProvider("sambanova", "sambanova"))
+		got := applyProvider(model, testproviders.NewMockProvider("sambanova", "sambanova"))
 		require.NotNil(t, got)
 		require.Equal(t, "mistral-7b:mistral", *got)
 	})
 
 	t.Run("ignores provider when model has multiple colons", func(t *testing.T) {
 		model := new("org:model:variant")
-		got := applyProvider(model, testutils.NewMockProvider("sambanova", "sambanova"))
+		got := applyProvider(model, testproviders.NewMockProvider("sambanova", "sambanova"))
 		require.NotNil(t, got)
 		require.Equal(t, "org:model:variant", *got)
 	})
@@ -78,7 +79,7 @@ func TestApplyProvider(t *testing.T) {
 		model := new("mistral-7b")
 		got := applyProvider(
 			model,
-			testutils.NewMockProvider("provider-name_v1.0", "provider-name_v1.0"),
+			testproviders.NewMockProvider("provider-name_v1.0", "provider-name_v1.0"),
 		)
 		require.NotNil(t, got)
 		require.Equal(t, "mistral-7b:provider-name_v1.0", *got)
@@ -128,7 +129,7 @@ func TestResolveModel(t *testing.T) {
 		payload := &hftypes.ChatRequest{}
 		model, err := resolveModel(payload, hfopts.NewOptions().With(
 			hfopts.WithModel("mistral-7b"),
-			hfopts.WithProvider(testutils.NewMockProvider("sambanova", "sambanova")),
+			hfopts.WithProvider(testproviders.NewMockProvider("sambanova", "sambanova")),
 		))
 		require.NoError(t, err)
 		require.NotNil(t, payload.Model)
@@ -140,7 +141,7 @@ func TestResolveModel(t *testing.T) {
 		payload := &hftypes.ChatRequest{Model: new("mistral-7b:mistral")}
 		model, err := resolveModel(payload, hfopts.NewOptions().With(
 			hfopts.WithModel("client-model"),
-			hfopts.WithProvider(testutils.NewMockProvider("sambanova", "sambanova")),
+			hfopts.WithProvider(testproviders.NewMockProvider("sambanova", "sambanova")),
 		))
 		require.NoError(t, err)
 		require.NotNil(t, payload.Model)

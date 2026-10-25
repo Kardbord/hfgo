@@ -85,7 +85,13 @@ func doInference[Req, Resp any](
 	opts = applyCodecHeaders(opts, providerHeaders)
 
 	//nolint:bodyclose // DrainAndCloseBody closes the body.
-	httpResp, err := request.DoBytes(opts, endpointMethod(endpoint), endpoint.Path, providerBody)
+	httpResp, err := request.DoBytes(
+		opts.Context(),
+		opts.TransportParams(),
+		endpointMethod(endpoint),
+		endpoint.Path,
+		providerBody,
+	)
 	if err != nil {
 		return zero, err
 	}
@@ -135,7 +141,13 @@ func doStreamingInference[Req, T any](
 	opts = opts.With(hfopts.WithHeader("Accept", "text/event-stream"))
 
 	//nolint:bodyclose // Body ownership transferred to RawStream.
-	httpResp, err := request.DoBytes(opts, endpointMethod(endpoint), endpoint.Path, providerBody)
+	httpResp, err := request.DoBytes(
+		opts.Context(),
+		opts.TransportParams(),
+		endpointMethod(endpoint),
+		endpoint.Path,
+		providerBody,
+	)
 	if err != nil {
 		return nil, err
 	}

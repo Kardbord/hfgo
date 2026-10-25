@@ -61,6 +61,10 @@ Not every task has every variant. The full matrix:
 | [Translation](./translation)                                     | `basic`, `params`                                              |
 | [Zero-Shot Text Classification](./zero-shot-text-classification) | `basic`                                                        |
 
+In addition to per-task examples, [custom-provider](./custom-provider) shows
+how to plug in a partner provider that maps Hugging Face model IDs to its own
+model identifiers through an explicitly injected model resolver.
+
 ## See also
 
 - [Main README](../README.md) — install and quickstart.

@@ -12,18 +12,18 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
-	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
-// newStreamOptions builds Options whose HTTP client uses the provided mock transport.
-func newStreamOptions(mt *testutils.MockTransport) hfopts.Options {
-	return hfopts.NewOptions().With(
-		hfopts.WithHTTPClientFactory(func() http.Client {
-			return testutils.NewMockHTTPClient(mt)
-		}),
-	)
+// newStreamParams builds Params whose HTTP client uses the provided mock transport.
+func newStreamParams(mt *testutils.MockTransport) Params {
+	client := testutils.NewMockHTTPClient(mt)
+
+	return Params{
+		HTTPClient: &client,
+		BaseURL:    "https://example.com",
+	}
 }
 
 func TestReadResponseBody(t *testing.T) {
@@ -64,12 +64,12 @@ func TestReadResponseBody(t *testing.T) {
 		{
 			name: "non-positive limit reports the effective default",
 			body: strings.NewReader(
-				strings.Repeat("a", int(hfopts.DefaultMaxResponseBodyBytes)+1),
+				strings.Repeat("a", int(DefaultMaxResponseBodyBytes)+1),
 			),
 			maxBytes: 0,
 			wantErrContains: fmt.Sprintf(
 				"limit %d bytes",
-				hfopts.DefaultMaxResponseBodyBytes,
+				DefaultMaxResponseBodyBytes,
 			),
 			wantKind: &configKind,
 		},
@@ -171,7 +171,7 @@ func TestDrainAndCloseBody(t *testing.T) {
 		t.Parallel()
 
 		tracker := &testutils.ReadTracker{Data: make([]byte, maxDrainBytes+1)}
-		DrainAndCloseBody(tracker, hfopts.DefaultMaxResponseBodyBytes)
+		DrainAndCloseBody(tracker, DefaultMaxResponseBodyBytes)
 
 		require.True(t, tracker.Closed)
 		require.Equal(t, int(maxDrainBytes), tracker.ReadBytes)
@@ -325,13 +325,13 @@ func TestJSONStream_KeepaliveSkipped(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := newStreamOptions(mt)
+	params := newStreamParams(mt)
 
-	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
+	resp, err := DoBytes(context.Background(), params, http.MethodPost, "/stream", nil)
 	require.NoError(t, err)
 	require.NoError(t, ValidateEventStreamResponseContentType(resp.Header))
 
-	raw, err := StreamRaw(opts.Context(), resp.Body)
+	raw, err := StreamRaw(context.Background(), resp.Body)
 	require.NoError(t, err)
 
 	stream := NewJSONStream[event](raw, jsonDecode[event])

@@ -61,8 +61,11 @@ func (c Client) DoReader(
 	path string,
 	opts ...hfopts.Option,
 ) (*http.Response, error) {
+	resolvedOpts := c.opts.With(opts...)
+
 	return request.Do(
-		c.opts.With(opts...),
+		resolvedOpts.Context(),
+		resolvedOpts.TransportParams(),
 		method,
 		path,
 		requestBody,
@@ -77,8 +80,11 @@ func (c Client) DoRawReader(
 	path string,
 	opts ...hfopts.Option,
 ) (*http.Response, error) {
+	resolvedOpts := c.opts.With(opts...)
+
 	return request.DoRaw(
-		c.opts.With(opts...),
+		resolvedOpts.Context(),
+		resolvedOpts.TransportParams(),
 		method,
 		path,
 		requestBody,
@@ -112,7 +118,8 @@ func (c Client) StreamReader(
 ) (*Stream, error) {
 	resolvedOpts := c.opts.With(opts...)
 	resp, err := request.Do(
-		resolvedOpts,
+		resolvedOpts.Context(),
+		resolvedOpts.TransportParams(),
 		method,
 		path,
 		requestBody,

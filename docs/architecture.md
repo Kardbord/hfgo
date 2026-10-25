@@ -142,6 +142,50 @@ handful of methods directly. If sibling-level precision is needed later,
 granular mixins and shared endpoint interfaces can be added additively without
 changing the grouped mixins.
 
+### External provider model resolution
+
+Third-party providers frequently serve models under different identifiers than
+the Hugging Face Hub does. The chat task does not surface this: its payload
+carries the model in the request body and the router performs provider mapping
+server-side. Every other task routes through the endpoint path, so the
+provider-specific model identifier must be known at endpoint-construction
+time — but callers think in Hugging Face model IDs.
+
+Resolution lives where the model ID is consumed. A provider that needs mapping
+receives a [ModelResolver] as an explicit constructor dependency and calls it
+from its endpoint methods (or, for model-in-body wire formats, from its
+codecs). Dispatch, options, and the `Provider` interface carry no resolution
+machinery, so a lookup can only happen inside a provider the caller
+constructed for that purpose — there are no hidden network calls.
+
+- `hfproviders.ModelResolver` maps a Hugging Face model ID, provider slug,
+  and upstream task to the provider-specific model identifier.
+- `hfproviders.StaticModelResolver` resolves from a caller-supplied mapping
+  and performs no network I/O — suitable for tests and for deployments that
+  pin the mapping themselves.
+- `hfproviders.HubModelResolver` resolves by querying the Hub's
+  `inferenceProviderMapping` data for the model. Its base URL is independent
+  of the inference base URL (`DefaultHubBaseURL`), it never inherits the
+  caller's inference token (pass `WithHubToken` explicitly), and results are
+  cached per resolver instance with a TTL and LRU cap; a stale entry can
+  optionally be served when a fresh lookup fails transiently (transport
+  error or 5xx; `WithHubStaleOnError`).
+
+The resolver contract is deliberately narrow: fail with an error when a model
+cannot be resolved rather than silently falling back to the original model ID
+— an unresolvable model would otherwise surface later as a confusing provider
+API error. A mapping's `status` is not gated; a present-but-unhealthy mapping
+fails honestly at the inference call. See `examples/custom-provider` for a
+minimal partner provider that resolves models through the Hub-backed resolver.
+
+The transport layer (`internal/request`) takes a transport-only `Params`
+projected from `hfopts.Options` via `Options.TransportParams`, and never
+imports `hfopts`: transport has no knowledge of providers, models, or
+resolvers. That keeps the dependency graph acyclic —
+`hfproviders → internal/hub → internal/request`.
+
+[ModelResolver]: https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfproviders#ModelResolver
+
 ### Codecs
 
 The `Codec` interface is the wire-format transform. `Encode` receives the

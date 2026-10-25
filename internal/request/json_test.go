@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
-	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -33,17 +32,13 @@ func TestJSONStream_InvalidChunk(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := hfopts.NewOptions().With(
-		hfopts.WithHTTPClientFactory(func() http.Client {
-			return testutils.NewMockHTTPClient(mt)
-		}),
-	)
+	params := newTestParams(mt, nil)
 
-	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
+	resp, err := DoBytes(context.Background(), params, http.MethodPost, "/stream", nil)
 	require.NoError(t, err)
 	require.NoError(t, ValidateEventStreamResponseContentType(resp.Header))
 
-	raw, err := StreamRaw(opts.Context(), resp.Body)
+	raw, err := StreamRaw(context.Background(), resp.Body)
 	require.NoError(t, err)
 	stream := NewJSONStream[map[string]any](raw, jsonDecode[map[string]any])
 	defer func() { _ = stream.Close() }()
@@ -59,16 +54,12 @@ func TestJSONStream_NilDecodeGuarded(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := hfopts.NewOptions().With(
-		hfopts.WithHTTPClientFactory(func() http.Client {
-			return testutils.NewMockHTTPClient(mt)
-		}),
-	)
+	params := newTestParams(mt, nil)
 
-	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
+	resp, err := DoBytes(context.Background(), params, http.MethodPost, "/stream", nil)
 	require.NoError(t, err)
 
-	raw, err := StreamRaw(opts.Context(), resp.Body)
+	raw, err := StreamRaw(context.Background(), resp.Body)
 	require.NoError(t, err)
 
 	// A nil decode hook violates the documented contract; it must surface
@@ -87,17 +78,13 @@ func TestJSONStream_RecvNilContext(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := hfopts.NewOptions().With(
-		hfopts.WithHTTPClientFactory(func() http.Client {
-			return testutils.NewMockHTTPClient(mt)
-		}),
-	)
+	params := newTestParams(mt, nil)
 
-	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
+	resp, err := DoBytes(context.Background(), params, http.MethodPost, "/stream", nil)
 	require.NoError(t, err)
 	require.NoError(t, ValidateEventStreamResponseContentType(resp.Header))
 
-	raw, err := StreamRaw(opts.Context(), resp.Body)
+	raw, err := StreamRaw(context.Background(), resp.Body)
 	require.NoError(t, err)
 	type textChunk struct {
 		Text string `json:"text"`
@@ -118,17 +105,13 @@ func TestJSONStream_DecodeHookReceivesNormalizedContext(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := hfopts.NewOptions().With(
-		hfopts.WithHTTPClientFactory(func() http.Client {
-			return testutils.NewMockHTTPClient(mt)
-		}),
-	)
+	params := newTestParams(mt, nil)
 
-	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
+	resp, err := DoBytes(context.Background(), params, http.MethodPost, "/stream", nil)
 	require.NoError(t, err)
 	require.NoError(t, ValidateEventStreamResponseContentType(resp.Header))
 
-	raw, err := StreamRaw(opts.Context(), resp.Body)
+	raw, err := StreamRaw(context.Background(), resp.Body)
 	require.NoError(t, err)
 
 	type event struct {
@@ -162,17 +145,13 @@ func TestJSONStream_DecodeHookReceivesEventName(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := hfopts.NewOptions().With(
-		hfopts.WithHTTPClientFactory(func() http.Client {
-			return testutils.NewMockHTTPClient(mt)
-		}),
-	)
+	params := newTestParams(mt, nil)
 
-	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
+	resp, err := DoBytes(context.Background(), params, http.MethodPost, "/stream", nil)
 	require.NoError(t, err)
 	require.NoError(t, ValidateEventStreamResponseContentType(resp.Header))
 
-	raw, err := StreamRaw(opts.Context(), resp.Body)
+	raw, err := StreamRaw(context.Background(), resp.Body)
 	require.NoError(t, err)
 
 	type event struct {
@@ -205,17 +184,13 @@ func TestJSONStream_DecodeHookSkipEventError(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := hfopts.NewOptions().With(
-		hfopts.WithHTTPClientFactory(func() http.Client {
-			return testutils.NewMockHTTPClient(mt)
-		}),
-	)
+	params := newTestParams(mt, nil)
 
-	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
+	resp, err := DoBytes(context.Background(), params, http.MethodPost, "/stream", nil)
 	require.NoError(t, err)
 	require.NoError(t, ValidateEventStreamResponseContentType(resp.Header))
 
-	raw, err := StreamRaw(opts.Context(), resp.Body)
+	raw, err := StreamRaw(context.Background(), resp.Body)
 	require.NoError(t, err)
 
 	type event struct {
@@ -247,17 +222,13 @@ func TestJSONStream_DecodeHookEndOfStreamError(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := hfopts.NewOptions().With(
-		hfopts.WithHTTPClientFactory(func() http.Client {
-			return testutils.NewMockHTTPClient(mt)
-		}),
-	)
+	params := newTestParams(mt, nil)
 
-	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
+	resp, err := DoBytes(context.Background(), params, http.MethodPost, "/stream", nil)
 	require.NoError(t, err)
 	require.NoError(t, ValidateEventStreamResponseContentType(resp.Header))
 
-	raw, err := StreamRaw(opts.Context(), resp.Body)
+	raw, err := StreamRaw(context.Background(), resp.Body)
 	require.NoError(t, err)
 
 	type event struct {
@@ -293,17 +264,13 @@ func TestJSONStream_DoneTrailingFrameDiscarded(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := hfopts.NewOptions().With(
-		hfopts.WithHTTPClientFactory(func() http.Client {
-			return testutils.NewMockHTTPClient(mt)
-		}),
-	)
+	params := newTestParams(mt, nil)
 
-	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
+	resp, err := DoBytes(context.Background(), params, http.MethodPost, "/stream", nil)
 	require.NoError(t, err)
 	require.NoError(t, ValidateEventStreamResponseContentType(resp.Header))
 
-	raw, err := StreamRaw(opts.Context(), resp.Body)
+	raw, err := StreamRaw(context.Background(), resp.Body)
 	require.NoError(t, err)
 
 	type event struct {
@@ -406,17 +373,13 @@ func TestJSONStream_DecodeHookPreservesSDKError(t *testing.T) {
 	mt := testutils.NewMockTransport(http.StatusOK, rawBody, nil)
 	mt.Response.Header.Set("Content-Type", "text/event-stream")
 
-	opts := hfopts.NewOptions().With(
-		hfopts.WithHTTPClientFactory(func() http.Client {
-			return testutils.NewMockHTTPClient(mt)
-		}),
-	)
+	params := newTestParams(mt, nil)
 
-	resp, err := DoBytes(opts, http.MethodPost, "/stream", nil)
+	resp, err := DoBytes(context.Background(), params, http.MethodPost, "/stream", nil)
 	require.NoError(t, err)
 	require.NoError(t, ValidateEventStreamResponseContentType(resp.Header))
 
-	raw, err := StreamRaw(opts.Context(), resp.Body)
+	raw, err := StreamRaw(context.Background(), resp.Body)
 	require.NoError(t, err)
 
 	wantKind := hferrors.SDKErrorKindValidation

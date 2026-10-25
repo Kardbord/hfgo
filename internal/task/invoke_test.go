@@ -14,6 +14,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
+	"github.com/Kardbord/hfgo/v4/internal/testproviders"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -23,7 +24,7 @@ import (
 // endpoint plus optional request/response transform hooks consumed by
 // testCodec.
 type transformProvider struct {
-	testutils.MockProvider
+	testproviders.MockProvider
 
 	encodeFunc func(body []byte) ([]byte, http.Header, error)
 	decodeFunc func(body []byte, ct string) ([]byte, error)

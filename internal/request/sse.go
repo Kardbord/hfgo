@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
-	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
@@ -59,18 +58,18 @@ type RawStream struct {
 }
 
 // StreamRaw starts decoding Server-Sent Events from the provided body using
-// hfopts.DefaultMaxResponseBodyBytes as the frame size limit.
+// DefaultMaxResponseBodyBytes as the frame size limit.
 // Callers should close the returned RawStream when they are done consuming it so
 // the background goroutine and HTTP body are released promptly (otherwise it
 // will only stop once the server closes the stream).
 func StreamRaw(ctx context.Context, body io.ReadCloser) (*RawStream, error) {
-	return StreamRawWithLimit(ctx, body, hfopts.DefaultMaxResponseBodyBytes)
+	return StreamRawWithLimit(ctx, body, DefaultMaxResponseBodyBytes)
 }
 
 // StreamRawWithLimit starts decoding Server-Sent Events from the provided body.
 // maxEventBytes bounds both a single SSE line and the accumulated event data
 // (the concatenated data fields). Values <= 0 fall back to
-// hfopts.DefaultMaxResponseBodyBytes.
+// DefaultMaxResponseBodyBytes.
 // Callers should close the returned RawStream when they are done consuming it so
 // the background goroutine and HTTP body are released promptly (otherwise it
 // will only stop once the server closes the stream).
@@ -112,7 +111,7 @@ func StreamRawWithLimit(
 // required by bufio.Scanner, clamping to the platform's maximum int.
 func normalizeSSELimit(maxBytes int64) int {
 	if maxBytes <= 0 {
-		maxBytes = hfopts.DefaultMaxResponseBodyBytes
+		maxBytes = DefaultMaxResponseBodyBytes
 	}
 	if maxBytes > int64(math.MaxInt) {
 		maxBytes = int64(math.MaxInt)

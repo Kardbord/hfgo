@@ -14,6 +14,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testproviders"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -257,7 +258,7 @@ func TestClientChat_ProviderSuffix(t *testing.T) {
 	client := NewClient(
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 		hfopts.WithModel("mistral-7b"),
-		hfopts.WithProvider(testutils.NewMockProvider("sambanova", "sambanova")),
+		hfopts.WithProvider(testproviders.NewMockProvider("sambanova", "sambanova")),
 	)
 
 	text := "hi"

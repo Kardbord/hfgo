@@ -11,22 +11,103 @@ import (
 	"net/url"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
-	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
-// Do performs an HTTP request with the provided options and returns the response.
-// It creates a new HTTP request with the given method, path, and body, adds authorization
-// and custom headers, and executes the request using the configured HTTP client.
+// Params carries the transport-level configuration for one HTTP request.
+// It is the transport's only view of caller configuration: provider, model,
+// and other task-level settings live in hfopts.Options and are projected
+// into Params by the layers that own them. The per-request context is passed
+// explicitly to the request functions and is not carried by Params.
+//
+// Params is a value type; Headers is defensively copied when the request is
+// built, so callers may retain or mutate their header maps independently.
+type Params struct {
+	// HTTPClient is the client used to send the request. A nil client is a
+	// configuration error reported by [Params.Validate].
+	HTTPClient *http.Client
+
+	// BaseURL is the base URL that request paths are joined against.
+	BaseURL string
+
+	// UserAgent is sent as the User-Agent header when non-empty.
+	UserAgent string
+
+	// Token is sent as a Bearer Authorization header when non-empty.
+	Token string
+
+	// Headers are additional request headers applied over the built-in
+	// ones. Values for the same key set here replace the built-in values.
+	Headers http.Header
+}
+
+// Validate performs the transport-level sanity checks that must hold before
+// any HTTP request is dispatched: the HTTP client must not be nil, and
+// BaseURL must parse with a scheme and host, without query parameters or a
+// fragment.
+func (p Params) Validate() error {
+	if p.HTTPClient == nil {
+		return &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "http client must not be nil",
+			Err:     nil,
+		}
+	}
+
+	parsedURL, err := url.Parse(p.BaseURL)
+	if err != nil {
+		return &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: fmt.Sprintf("invalid base URL %q", p.BaseURL),
+			Err:     err,
+		}
+	}
+	if parsedURL.Scheme == "" {
+		return &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: fmt.Sprintf("base URL %q is missing a scheme (e.g. https://)", p.BaseURL),
+			Err:     nil,
+		}
+	}
+	if parsedURL.Host == "" {
+		return &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: fmt.Sprintf("base URL %q is missing a host", p.BaseURL),
+			Err:     nil,
+		}
+	}
+	if parsedURL.RawQuery != "" {
+		return &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "base URL must not contain query parameters",
+			Err:     errors.New("query params not allowed in BaseURL"),
+		}
+	}
+	if parsedURL.Fragment != "" {
+		return &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "base URL must not contain a fragment",
+			Err:     errors.New("fragment not allowed in BaseURL"),
+		}
+	}
+
+	return nil
+}
+
+// Do performs an HTTP request with the provided context and params and
+// returns the response. It creates a new HTTP request with the given method,
+// path, and body, adds authorization and custom headers, and executes the
+// request using the configured HTTP client.
 // For HTTP status codes >= 400, it returns an *hferrors.APIError.
 // The caller must close resp.Body on success.
 func Do(
-	opts hfopts.Options,
+	ctx context.Context,
+	params Params,
 	method string,
 	path string,
 	body io.Reader,
 ) (*http.Response, error) {
-	resp, err := DoRaw(opts, method, path, body)
+	resp, err := DoRaw(ctx, params, method, path, body)
 	if err != nil {
 		return nil, err
 	}
@@ -56,11 +137,12 @@ func APIErrorFromResponse(resp *http.Response, method string) *hferrors.APIError
 	}
 }
 
-// DoRaw performs an HTTP request with the provided options and returns the response
-// without translating 4xx/5xx status codes into SDK errors.
-// The caller must close resp.Body on success.
+// DoRaw performs an HTTP request with the provided context and params and
+// returns the response without translating 4xx/5xx status codes into SDK
+// errors. The caller must close resp.Body on success.
 func DoRaw(
-	opts hfopts.Options,
+	ctx context.Context,
+	params Params,
 	method string,
 	path string,
 	body io.Reader,
@@ -68,26 +150,27 @@ func DoRaw(
 	// Transport-level checks only: model and provider configuration are
 	// task-level concerns enforced by the typed dispatch layer, and raw
 	// requests legitimately run without them.
-	if err := opts.ValidateTransport(); err != nil {
+	if err := params.Validate(); err != nil {
 		return nil, err
 	}
 
-	req, err := buildHTTPRequest(opts, method, path, body)
+	req, err := buildHTTPRequest(ctx, params, method, path, body)
 	if err != nil {
 		return nil, err
 	}
 
-	return executeRequest(opts.HTTPClient, req)
+	return executeRequest(params.HTTPClient, req)
 }
 
 func buildHTTPRequest(
-	opts hfopts.Options,
+	ctx context.Context,
+	params Params,
 	method, path string,
 	body io.Reader,
 ) (*http.Request, error) {
-	ctx := opts.Context()
+	ctx = utils.NormalizeContext(ctx)
 
-	reqURL, err := joinURL(opts.BaseURL, path)
+	reqURL, err := joinURL(params.BaseURL, path)
 	if err != nil {
 		if sdkErr, ok := errors.AsType[*hferrors.SDKError](err); ok {
 			return nil, sdkErr
@@ -95,7 +178,7 @@ func buildHTTPRequest(
 
 		return nil, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: fmt.Sprintf("failed to join base URL %q with path %q", opts.BaseURL, path),
+			Message: fmt.Sprintf("failed to join base URL %q with path %q", params.BaseURL, path),
 			Err:     err,
 		}
 	}
@@ -109,13 +192,13 @@ func buildHTTPRequest(
 		}
 	}
 
-	if opts.UserAgent != "" {
-		req.Header.Set("User-Agent", opts.UserAgent)
+	if params.UserAgent != "" {
+		req.Header.Set("User-Agent", params.UserAgent)
 	}
-	if opts.Token != "" {
-		req.Header.Set("Authorization", "Bearer "+opts.Token)
+	if params.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+params.Token)
 	}
-	req.Header = utils.OverrideHeaders(req.Header, opts.Headers)
+	req.Header = utils.OverrideHeaders(req.Header, params.Headers)
 
 	return req, nil
 }
@@ -201,20 +284,26 @@ func joinURL(baseURL, path string) (string, error) {
 // It is a convenience wrapper around Do that converts the byte slice to an io.Reader.
 // The caller must close resp.Body on success.
 func DoBytes(
-	opts hfopts.Options,
+	ctx context.Context,
+	params Params,
 	method string,
 	path string,
 	data []byte,
 ) (*http.Response, error) {
-	return Do(opts, method, path, bytes.NewReader(data))
+	return Do(ctx, params, method, path, bytes.NewReader(data))
 }
 
+// DefaultMaxResponseBodyBytes is the response-body size cap applied when no
+// explicit cap is provided. It mirrors hfopts.DefaultMaxResponseBodyBytes,
+// which cannot be imported here without an import cycle.
+const DefaultMaxResponseBodyBytes int64 = 1 << 20 // 1 MiB
+
 // ReadResponseBody reads the response body up to maxBytes and returns an error
-// if the body is larger. If maxBytes is <= 0, hfopts.DefaultMaxResponseBodyBytes is used.
+// if the body is larger. If maxBytes is <= 0, DefaultMaxResponseBodyBytes is used.
 // The caller is still responsible for closing resp.Body.
 func ReadResponseBody(resp *http.Response, maxBytes int64) ([]byte, error) {
 	if maxBytes <= 0 {
-		maxBytes = hfopts.DefaultMaxResponseBodyBytes
+		maxBytes = DefaultMaxResponseBodyBytes
 	}
 
 	bodyBytes, truncated, err := readResponseBodyTruncated(resp.Body, maxBytes)
@@ -242,7 +331,7 @@ const maxDrainBytes int64 = 32 << 10
 // response body size, capped at maxDrainBytes.
 func drainLimit(maxResponseBodyBytes int64) int64 {
 	if maxResponseBodyBytes <= 0 {
-		maxResponseBodyBytes = hfopts.DefaultMaxResponseBodyBytes
+		maxResponseBodyBytes = DefaultMaxResponseBodyBytes
 	}
 	if maxResponseBodyBytes > maxDrainBytes {
 		return maxDrainBytes
@@ -268,7 +357,7 @@ func readResponseBodyTruncated(
 	maxBytes int64,
 ) (body []byte, truncated bool, err error) {
 	if maxBytes <= 0 {
-		maxBytes = hfopts.DefaultMaxResponseBodyBytes
+		maxBytes = DefaultMaxResponseBodyBytes
 	}
 	// LimitReader doesn't error on overflow; it just stops at the limit and returns EOF.
 	// Read one extra byte so we can detect truncation by checking len(b) > maxBytes.
