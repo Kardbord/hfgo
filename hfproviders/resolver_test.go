@@ -13,7 +13,11 @@ import (
 )
 
 // resolveParams is a helper for building [hfproviders.ResolveModelParams].
-func resolveParams(provider, task, model string) hfproviders.ResolveModelParams {
+func resolveParams(
+	provider string,
+	task hfproviders.Task,
+	model string,
+) hfproviders.ResolveModelParams {
 	return hfproviders.ResolveModelParams{
 		Provider: provider,
 		Task:     task,
@@ -45,7 +49,7 @@ func TestStaticModelResolver_ExactKeyMatch(t *testing.T) {
 	cases := []struct {
 		name     string
 		provider string
-		task     string
+		task     hfproviders.Task
 		model    string
 	}{
 		{

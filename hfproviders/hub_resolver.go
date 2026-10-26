@@ -78,7 +78,7 @@ func (r *HubModelResolver) ResolveModel(
 	ctx context.Context,
 	params ResolveModelParams,
 ) (string, error) {
-	return r.client.ProviderModelID(ctx, params.Provider, params.Task, params.Model)
+	return r.client.ProviderModelID(ctx, params.Provider, string(params.Task), params.Model)
 }
 
 type hubResolverConfig struct {

@@ -40,9 +40,9 @@ type ResolveModelParams struct {
 	// provider's display name.
 	Provider string
 
-	// Task is the upstream task identifier, e.g. "text-to-image" or
-	// "conversational". Provider mappings are task-specific on the Hub.
-	Task string
+	// Task is the upstream task identifier, e.g. [TaskTextToImage] or
+	// [TaskConversational]. Provider mappings are task-specific on the Hub.
+	Task Task
 
 	// Model is the Hugging Face model ID to resolve, e.g.
 	// "black-forest-labs/FLUX.1-dev".
@@ -55,8 +55,8 @@ type StaticMapping struct {
 	// Provider is the partner's Hub identifier, e.g. "fal-ai".
 	Provider string
 
-	// Task is the upstream task identifier, e.g. "text-to-image".
-	Task string
+	// Task is the upstream task identifier, e.g. [TaskTextToImage].
+	Task Task
 
 	// Model is the Hugging Face model ID.
 	Model string
