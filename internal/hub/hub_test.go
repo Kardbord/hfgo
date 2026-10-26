@@ -135,6 +135,26 @@ const mappingListShape = `{
   ]
 }`
 
+// mappingDuplicateProviderShape repeats a provider with different tasks,
+// which is why mappings are kept as a slice rather than keyed by provider.
+const mappingDuplicateProviderShape = `{
+  "id": "some/model",
+  "inferenceProviderMapping": [
+    {
+      "provider": "fal-ai",
+      "providerId": "fal-ai/text-to-image",
+      "task": "text-to-image",
+      "status": "live"
+    },
+    {
+      "provider": "fal-ai",
+      "providerId": "fal-ai/conversational",
+      "task": "conversational",
+      "status": "live"
+    }
+  ]
+}`
+
 func TestMappings_ObjectShape(t *testing.T) {
 	t.Parallel()
 
@@ -457,6 +477,22 @@ func TestProviderModelID_SelectsMatchingMapping(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, "fal-ai/flux/dev", id)
+}
+
+func TestProviderModelID_SelectsTaskAmongDuplicateProviders(t *testing.T) {
+	t.Parallel()
+
+	hs := newHubServer(t, mappingDuplicateProviderShape)
+	client := newTestClient(t, hs, hub.Config{})
+
+	id, err := client.ProviderModelID(
+		context.Background(),
+		"fal-ai",
+		"conversational",
+		"some/model",
+	)
+	require.NoError(t, err)
+	require.Equal(t, "fal-ai/conversational", id)
 }
 
 func TestProviderModelID_ToleratesSnakeCaseProviderID(t *testing.T) {

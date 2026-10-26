@@ -70,8 +70,12 @@ type Config struct {
 // fields are guarded by the owning [Client]'s mutex.
 type cacheEntry struct {
 	// mappings are the provider mappings returned by the Hub for the model.
-	// The slice and its backing array are never mutated after decode; a
-	// refresh replaces the field with a new slice.
+	// They are kept as a slice rather than an index keyed by provider: a
+	// model has only a handful of entries, the same provider may appear more
+	// than once with different tasks, and preserving the Hub's order keeps
+	// selection deterministic. ProviderModelID scans this short slice
+	// linearly. The slice and its backing array are never mutated after
+	// decode; a refresh replaces the field with a new slice.
 	mappings []Mapping
 
 	// expiry is the instant after which the entry is stale and must be
