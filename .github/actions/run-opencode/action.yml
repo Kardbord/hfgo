@@ -47,7 +47,7 @@ runs:
         persist-credentials: false
 
     - name: Run OpenCode
-      uses: anomalyco/opencode/github@843a6c514e606b436a7fe713422ace0a93ad3d61 # v2.0.32
+      uses: anomalyco/opencode/github@68bc26b7da1990ce10ffecfbc1e09eb13aa5d824 # v2.1.4
       env:
         OPENROUTER_API_KEY: ${{ inputs.openrouter_api_key }}
         GITHUB_TOKEN: ${{ inputs.github_token }}
