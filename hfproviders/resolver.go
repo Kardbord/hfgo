@@ -23,20 +23,17 @@ import (
 // Implementations must be safe for concurrent use.
 type ModelResolver interface {
 	// ResolveModel returns the provider-specific model identifier for the
-	// given Hugging Face model ID, provider, and upstream task.
+	// given Hugging Face model ID, provider, and upstream task. The context
+	// carries cancellation and deadline signals for the lookup.
 	//
 	// Implementations must not silently fall back to the original model
 	// ID on failure: an unresolvable model should surface as an error.
-	ResolveModel(params ResolveModelParams) (string, error)
+	ResolveModel(ctx context.Context, params ResolveModelParams) (string, error)
 }
 
-// ResolveModelParams carries the inputs to [ModelResolver.ResolveModel].
+// ResolveModelParams carries the inputs to [ModelResolver.ResolveModel]. The
+// per-call context is passed to ResolveModel separately.
 type ResolveModelParams struct {
-	// Context carries cancellation and deadline signals for the lookup.
-	//
-	//nolint:containedctx // ResolveModelParams is a per-call carrier, not stored state.
-	Context context.Context
-
 	// Provider is the partner's Hub identifier, e.g. "fal-ai". The calling
 	// provider supplies it; it is the slug the Hub's
 	// inferenceProviderMapping data keys mappings by, not necessarily the
@@ -81,12 +78,11 @@ func NewStaticModelResolver(mappings map[StaticMapping]string) *StaticModelResol
 }
 
 // ResolveModel implements [ModelResolver].
-func (r *StaticModelResolver) ResolveModel(params ResolveModelParams) (string, error) {
-	key := StaticMapping{
-		Provider: params.Provider,
-		Task:     params.Task,
-		Model:    params.Model,
-	}
+func (r *StaticModelResolver) ResolveModel(
+	_ context.Context,
+	params ResolveModelParams,
+) (string, error) {
+	key := StaticMapping(params)
 
 	resolved, ok := r.mappings[key]
 	if !ok {

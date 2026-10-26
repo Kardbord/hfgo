@@ -29,8 +29,7 @@ func TestHubModelResolver_LiveHub(t *testing.T) {
 
 	resolver := hfproviders.NewHubModelResolver(hfproviders.WithHubToken(apiToken))
 
-	id, err := resolver.ResolveModel(hfproviders.ResolveModelParams{
-		Context:  ctx,
+	id, err := resolver.ResolveModel(ctx, hfproviders.ResolveModelParams{
 		Provider: "fal-ai",
 		Task:     "text-to-image",
 		Model:    fluxModel,
@@ -51,8 +50,7 @@ func TestHubModelResolver_LiveHubAbsentProvider(t *testing.T) {
 
 	resolver := hfproviders.NewHubModelResolver(hfproviders.WithHubToken(apiToken))
 
-	_, err := resolver.ResolveModel(hfproviders.ResolveModelParams{
-		Context:  ctx,
+	_, err := resolver.ResolveModel(ctx, hfproviders.ResolveModelParams{
 		Provider: "nonexistent-provider",
 		Task:     "text-to-image",
 		Model:    fluxModel,

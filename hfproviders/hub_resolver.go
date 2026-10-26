@@ -1,6 +1,7 @@
 package hfproviders
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -71,9 +72,13 @@ func NewHubModelResolver(opts ...HubModelResolverOption) *HubModelResolver {
 	}
 }
 
-// ResolveModel implements [ModelResolver].
-func (r *HubModelResolver) ResolveModel(params ResolveModelParams) (string, error) {
-	return r.client.ProviderModelID(params.Context, params.Provider, params.Task, params.Model)
+// ResolveModel implements [ModelResolver]. The context bounds the Hub lookup,
+// including a cache miss's network fetch.
+func (r *HubModelResolver) ResolveModel(
+	ctx context.Context,
+	params ResolveModelParams,
+) (string, error) {
+	return r.client.ProviderModelID(ctx, params.Provider, params.Task, params.Model)
 }
 
 type hubResolverConfig struct {

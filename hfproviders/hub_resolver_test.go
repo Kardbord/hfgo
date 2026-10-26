@@ -70,8 +70,7 @@ func TestHubModelResolver_ResolvesProviderID(t *testing.T) {
 
 	resolver := hfproviders.NewHubModelResolver(hfproviders.WithHubBaseURL(hs.server.URL))
 
-	id, err := resolver.ResolveModel(hfproviders.ResolveModelParams{
-		Context:  context.Background(),
+	id, err := resolver.ResolveModel(context.Background(), hfproviders.ResolveModelParams{
 		Model:    "black-forest-labs/FLUX.1-dev",
 		Provider: "fal-ai",
 		Task:     "text-to-image",
@@ -104,10 +103,10 @@ func TestHubModelResolver_CachesResults(t *testing.T) {
 		Task:     "text-to-image",
 	}
 
-	_, err := resolver.ResolveModel(params)
+	_, err := resolver.ResolveModel(context.Background(), params)
 	require.NoError(t, err)
 
-	_, err = resolver.ResolveModel(params)
+	_, err = resolver.ResolveModel(context.Background(), params)
 	require.NoError(t, err)
 
 	require.Equal(t, 1, hs.requestCount(), "repeated lookups must use the cache")
@@ -131,8 +130,7 @@ func TestHubModelResolver_AbsentMappingErrors(t *testing.T) {
 
 	resolver := hfproviders.NewHubModelResolver(hfproviders.WithHubBaseURL(hs.server.URL))
 
-	_, err := resolver.ResolveModel(hfproviders.ResolveModelParams{
-		Context:  context.Background(),
+	_, err := resolver.ResolveModel(context.Background(), hfproviders.ResolveModelParams{
 		Model:    "black-forest-labs/FLUX.1-dev",
 		Provider: "unmatched-provider",
 		Task:     "text-to-image",

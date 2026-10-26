@@ -50,8 +50,7 @@ func (FalAIProvider) ProviderSuffix() string { return "" }
 func (p FalAIProvider) TextToImageEndpoint(
 	params hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
-	providerID, err := p.mapper.ResolveModel(hfproviders.ResolveModelParams{
-		Context:  params.Context,
+	providerID, err := p.mapper.ResolveModel(params.Context, hfproviders.ResolveModelParams{
 		Provider: "fal-ai",
 		Task:     "text-to-image",
 		Model:    params.Model,

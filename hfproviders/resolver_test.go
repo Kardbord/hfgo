@@ -15,7 +15,6 @@ import (
 // resolveParams is a helper for building [hfproviders.ResolveModelParams].
 func resolveParams(provider, task, model string) hfproviders.ResolveModelParams {
 	return hfproviders.ResolveModelParams{
-		Context:  context.Background(),
 		Provider: provider,
 		Task:     task,
 		Model:    model,
@@ -29,7 +28,7 @@ func TestStaticModelResolver_ResolvesPinnedMapping(t *testing.T) {
 		{Provider: "fal-ai", Task: "text-to-image", Model: "black-forest-labs/FLUX.1-dev"}: "fal-ai/flux/dev",
 	})
 
-	id, err := resolver.ResolveModel(resolveParams(
+	id, err := resolver.ResolveModel(context.Background(), resolveParams(
 		"fal-ai", "text-to-image", "black-forest-labs/FLUX.1-dev",
 	))
 	require.NoError(t, err)
@@ -86,7 +85,7 @@ func TestStaticModelResolver_ExactKeyMatch(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := resolver.ResolveModel(resolveParams(
+			_, err := resolver.ResolveModel(context.Background(), resolveParams(
 				tc.provider, tc.task, tc.model,
 			))
 			require.Error(t, err)
@@ -100,7 +99,7 @@ func TestStaticModelResolver_EmptyMappingFailsAllLookups(t *testing.T) {
 
 	resolver := hfproviders.NewStaticModelResolver(nil)
 
-	_, err := resolver.ResolveModel(resolveParams(
+	_, err := resolver.ResolveModel(context.Background(), resolveParams(
 		"fal-ai", "text-to-image", "black-forest-labs/FLUX.1-dev",
 	))
 	require.Error(t, err)
@@ -112,7 +111,7 @@ func TestStaticModelResolver_ErrorMessageNamesAllInputs(t *testing.T) {
 
 	resolver := hfproviders.NewStaticModelResolver(nil)
 
-	_, err := resolver.ResolveModel(resolveParams(
+	_, err := resolver.ResolveModel(context.Background(), resolveParams(
 		"fal-ai", "text-to-image", "black-forest-labs/FLUX.1-dev",
 	))
 	require.Error(t, err)
