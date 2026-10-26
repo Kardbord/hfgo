@@ -41,6 +41,7 @@ jobs:
             --no-progress
             --exclude-path '(^|/)\.github/workflows/link-check\.yml$'
             --exclude '^https://router\.huggingface\.co/?$'
+            --exclude '^https://openrouter\.ai/api/?$'
             './**/*.md'
             './**/*.html'
             './**/*.go'
