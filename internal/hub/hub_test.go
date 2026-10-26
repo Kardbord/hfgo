@@ -191,6 +191,29 @@ func TestMappings_KeyedDictShape(t *testing.T) {
 	require.Equal(t, "black-forest-labs/flux-dev", mappings[2].ProviderModelID)
 }
 
+func TestMappings_KeyedDictSkipsMalformedEntry(t *testing.T) {
+	t.Parallel()
+
+	payload := `{
+		"inferenceProviderMapping": {
+			"good": {
+				"providerId": "good/model",
+				"task": "text-to-image",
+				"status": "live"
+			},
+			"bad": "not-an-object"
+		}
+	}`
+	hs := newHubServer(t, payload)
+	client := newTestClient(t, hs, hub.Config{})
+
+	mappings, err := client.Mappings(context.Background(), "some/model")
+	require.NoError(t, err)
+	require.Len(t, mappings, 1)
+	require.Equal(t, "good", mappings[0].Provider)
+	require.Equal(t, "good/model", mappings[0].ProviderModelID)
+}
+
 func TestMappings_ListShape(t *testing.T) {
 	t.Parallel()
 

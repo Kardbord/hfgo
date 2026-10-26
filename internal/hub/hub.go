@@ -4,6 +4,7 @@
 package hub
 
 import (
+	"bytes"
 	"container/list"
 	"context"
 	"encoding/json"
@@ -339,12 +340,116 @@ type hubModelInfo struct {
 	InferenceProviderMapping json.RawMessage `json:"inferenceProviderMapping"`
 }
 
+// mappingEntry is one raw inferenceProviderMapping object. The Hub has served
+// the provider model identifier under both camelCase and snake_case spellings,
+// so both are accepted. Unknown fields (for example isModelAuthor) are ignored.
+type mappingEntry struct {
+	Provider string `json:"provider"`
+
+	//nolint:tagliatelle // The Hub serves this field in camelCase.
+	ProviderModelIDCamel string `json:"providerId"`
+
+	ProviderModelIDSnake string `json:"provider_id"`
+
+	Task   string `json:"task"`
+	Status string `json:"status"`
+}
+
+// mapping converts a raw entry to a Mapping. It returns false when the
+// provider or provider model identifier is missing.
+func (e mappingEntry) mapping() (Mapping, bool) {
+	providerID := e.ProviderModelIDCamel
+	if providerID == "" {
+		providerID = e.ProviderModelIDSnake
+	}
+	if e.Provider == "" || providerID == "" {
+		return Mapping{}, false
+	}
+
+	return Mapping{
+		Provider:        e.Provider,
+		ProviderModelID: providerID,
+		Task:            e.Task,
+		Status:          e.Status,
+	}, true
+}
+
+// inferenceProviderMapping is the union of the two shapes the Hub serves for
+// the inferenceProviderMapping field: a dict keyed by provider slug on
+// model_info and a list of self-describing entries on list_models (see
+// huggingface_hub PR #3022). Its UnmarshalJSON normalizes either shape into a
+// flat []Mapping. Field names are matched tolerantly because upstream
+// spellings have varied (camelCase and snake_case).
+type inferenceProviderMapping []Mapping
+
+// UnmarshalJSON accepts either the model_info dict or the list_models array.
+func (m *inferenceProviderMapping) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 || bytes.Equal(data, []byte("null")) {
+		*m = nil
+
+		return nil
+	}
+
+	var keyed map[string]json.RawMessage
+	if err := json.Unmarshal(data, &keyed); err == nil {
+		*m = decodeKeyedMappings(keyed)
+
+		return nil
+	}
+
+	var listed []json.RawMessage
+	if err := json.Unmarshal(data, &listed); err != nil {
+		return fmt.Errorf("unexpected inferenceProviderMapping shape: %w", err)
+	}
+	*m = decodeListedMappings(listed)
+
+	return nil
+}
+
+// decodeKeyedMappings converts the model_info dict shape into mappings,
+// taking each provider name from its key. Entries that fail to decode are
+// skipped.
+func decodeKeyedMappings(keyed map[string]json.RawMessage) []Mapping {
+	mappings := make([]Mapping, 0, len(keyed))
+	for _, provider := range slices.Sorted(maps.Keys(keyed)) {
+		var entry mappingEntry
+		if err := json.Unmarshal(keyed[provider], &entry); err != nil {
+			continue
+		}
+		// The provider name comes from the dict key, mirroring upstream's
+		// {**value, "provider": provider}.
+		entry.Provider = provider
+		if mapping, ok := entry.mapping(); ok {
+			mappings = append(mappings, mapping)
+		}
+	}
+
+	return mappings
+}
+
+// decodeListedMappings converts the list_models array shape into mappings.
+// Entries that fail to decode are skipped.
+func decodeListedMappings(listed []json.RawMessage) []Mapping {
+	mappings := make([]Mapping, 0, len(listed))
+	for _, raw := range listed {
+		var entry mappingEntry
+		if err := json.Unmarshal(raw, &entry); err != nil {
+			continue
+		}
+		if mapping, ok := entry.mapping(); ok {
+			mappings = append(mappings, mapping)
+		}
+	}
+
+	return mappings
+}
+
 // decodeMappings parses the Hub model-info response. The
 // inferenceProviderMapping field is a dict keyed by provider slug on
 // model_info — the provider name comes from the key, not the entry — and a
-// list of self-describing entries on list_models (see huggingface_hub PR
-// #3022). Field names are matched tolerantly because upstream spellings have
-// varied (camelCase and snake_case).
+// list of self-describing entries on list_models. Field names are matched
+// tolerantly because upstream spellings have varied (camelCase and
+// snake_case).
 func decodeMappings(body []byte) ([]Mapping, error) {
 	var info hubModelInfo
 	if err := json.Unmarshal(body, &info); err != nil {
@@ -360,27 +465,8 @@ func decodeMappings(body []byte) ([]Mapping, error) {
 		return nil, nil
 	}
 
-	var keyed map[string]json.RawMessage
-	if err := json.Unmarshal(info.InferenceProviderMapping, &keyed); err == nil {
-		mappings := make([]Mapping, 0, len(keyed))
-		for _, provider := range slices.Sorted(maps.Keys(keyed)) {
-			var obj map[string]any
-			if err := json.Unmarshal(keyed[provider], &obj); err != nil {
-				continue
-			}
-			// The provider name comes from the dict key, mirroring
-			// upstream's {**value, "provider": provider}.
-			obj["provider"] = provider
-			if m, ok := mappingFromObject(obj); ok {
-				mappings = append(mappings, m)
-			}
-		}
-
-		return mappings, nil
-	}
-
-	var raw []map[string]any
-	if err := json.Unmarshal(info.InferenceProviderMapping, &raw); err != nil {
+	var mappings inferenceProviderMapping
+	if err := json.Unmarshal(info.InferenceProviderMapping, &mappings); err != nil {
 		return nil, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindSerialization,
 			Message: "unexpected inferenceProviderMapping shape in Hub response",
@@ -388,46 +474,5 @@ func decodeMappings(body []byte) ([]Mapping, error) {
 		}
 	}
 
-	mappings := make([]Mapping, 0, len(raw))
-	for _, obj := range raw {
-		if m, ok := mappingFromObject(obj); ok {
-			mappings = append(mappings, m)
-		}
-	}
-
 	return mappings, nil
-}
-
-// mappingFromObject extracts a Mapping from a decoded mapping object,
-// tolerating camelCase and snake_case field spellings. It returns false when
-// required fields (provider, providerId) are missing or not strings.
-func mappingFromObject(obj map[string]any) (Mapping, bool) {
-	provider, ok := firstString(obj, "provider")
-	if !ok {
-		return Mapping{}, false
-	}
-	providerID, ok := firstString(obj, "providerId", "provider_id")
-	if !ok {
-		return Mapping{}, false
-	}
-	task, _ := firstString(obj, "task")
-	status, _ := firstString(obj, "status")
-
-	return Mapping{
-		Provider:        provider,
-		ProviderModelID: providerID,
-		Task:            task,
-		Status:          status,
-	}, true
-}
-
-// firstString returns the first key present in obj whose value is a string.
-func firstString(obj map[string]any, keys ...string) (string, bool) {
-	for _, key := range keys {
-		if v, ok := obj[key].(string); ok {
-			return v, true
-		}
-	}
-
-	return "", false
 }
