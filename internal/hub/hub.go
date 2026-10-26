@@ -240,6 +240,7 @@ func (c *Client) cacheFetch(
 		// consistent.
 		other.mappings = fetched
 		other.expiry = time.Now().Add(c.ttl)
+		c.lru.MoveToFront(other.element)
 	default:
 		// No entry now (there was none, or ours was evicted mid-fetch).
 		entry := &cacheEntry{

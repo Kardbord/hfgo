@@ -603,6 +603,45 @@ func TestMappings_LRUEviction(t *testing.T) {
 	require.Equal(t, 4, hs.requestCount())
 }
 
+func TestMappings_LRURefreshMovesToFront(t *testing.T) {
+	t.Parallel()
+
+	hs := newHubServer(t, mappingObjectShape)
+	client := newTestClient(t, hs, hub.Config{
+		MaxEntries: 2,
+		CacheTTL:   50 * time.Millisecond,
+	})
+
+	ctx := context.Background()
+
+	// Fill the cache with "a" then "b"; "a" becomes least recently used.
+	_, err := client.Mappings(ctx, "models/a")
+	require.NoError(t, err)
+	_, err = client.Mappings(ctx, "models/b")
+	require.NoError(t, err)
+
+	// Let both entries expire, then refresh "a". A refresh must mark the
+	// entry most recently used so "b" is evicted next, not "a".
+	time.Sleep(60 * time.Millisecond)
+	_, err = client.Mappings(ctx, "models/a")
+	require.NoError(t, err)
+
+	// Adding "c" evicts the least recently used entry, "b".
+	_, err = client.Mappings(ctx, "models/c")
+	require.NoError(t, err)
+
+	// "a" is still cached: this lookup must not trigger a request.
+	before := hs.requestCount()
+	_, err = client.Mappings(ctx, "models/a")
+	require.NoError(t, err)
+	require.Equal(t, before, hs.requestCount(), "refreshed entry must remain cached")
+
+	// "b" was evicted: this lookup must trigger a request.
+	_, err = client.Mappings(ctx, "models/b")
+	require.NoError(t, err)
+	require.Equal(t, before+1, hs.requestCount(), "least recently used entry must be evicted")
+}
+
 func TestDecodeMappings_TolerantFieldSpellings(t *testing.T) {
 	t.Parallel()
 
