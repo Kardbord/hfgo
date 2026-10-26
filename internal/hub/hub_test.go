@@ -4,6 +4,7 @@ package hub_test
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -307,6 +308,106 @@ func TestMappings_StaleOnError(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, fresh, stale,
 		"StaleOnError must serve the stale entry when a fresh fetch fails")
+}
+
+func TestMappings_StaleOnErrorRateLimitServes(t *testing.T) {
+	t.Parallel()
+
+	hs := newHubServer(t, mappingObjectShape)
+	client := newTestClient(t, hs, hub.Config{
+		CacheTTL:     time.Millisecond,
+		StaleOnError: true,
+	})
+
+	ctx := context.Background()
+	model := "black-forest-labs/FLUX.1-dev"
+
+	fresh, err := client.Mappings(ctx, model)
+	require.NoError(t, err)
+
+	// Expire the entry, then rate-limit the refresh. A 429 is a transient
+	// upstream condition, so the stale entry is served.
+	time.Sleep(2 * time.Millisecond)
+	hs.status.Store(int32(http.StatusTooManyRequests))
+
+	stale, err := client.Mappings(ctx, model)
+	require.NoError(t, err)
+	require.Equal(t, fresh, stale,
+		"StaleOnError must serve the stale entry when a refresh is rate limited")
+}
+
+// trackingBody records whether the wrapped response body was closed.
+type trackingBody struct {
+	io.ReadCloser
+
+	closed atomic.Bool
+}
+
+func (b *trackingBody) Close() error {
+	b.closed.Store(true)
+
+	return b.ReadCloser.Close()
+}
+
+// trackingTransport wraps response bodies so tests can observe closure. It
+// records the most recent body, which is the one the last request produced.
+type trackingTransport struct {
+	base http.RoundTripper
+	last atomic.Pointer[trackingBody]
+}
+
+func (t *trackingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.base.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+
+	body := &trackingBody{ReadCloser: resp.Body}
+	t.last.Store(body)
+	resp.Body = body
+
+	return resp, nil
+}
+
+func TestMappings_StaleOnErrorClosesErrorBody(t *testing.T) {
+	t.Parallel()
+
+	hs := newHubServer(t, mappingObjectShape)
+
+	base := hs.server.Client().Transport
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	transport := &trackingTransport{base: base}
+
+	client := hub.NewClient(
+		request.Params{
+			BaseURL:    hs.server.URL,
+			HTTPClient: &http.Client{Transport: transport},
+		},
+		hub.Config{CacheTTL: time.Millisecond, StaleOnError: true},
+	)
+
+	ctx := context.Background()
+	model := "black-forest-labs/FLUX.1-dev"
+
+	fresh, err := client.Mappings(ctx, model)
+	require.NoError(t, err)
+
+	// Expire the entry, then fail the refresh with a 5xx. The resulting
+	// APIError owns the open response body; serving the stale entry must
+	// close it rather than leaking the connection.
+	time.Sleep(2 * time.Millisecond)
+	hs.status.Store(int32(http.StatusInternalServerError))
+
+	stale, err := client.Mappings(ctx, model)
+	require.NoError(t, err)
+	require.Equal(t, fresh, stale)
+
+	body := transport.last.Load()
+	require.NotNil(t, body, "the failing refresh must have produced a response body")
+	require.True(t, body.closed.Load(),
+		"serving a stale entry must close the discarded error body")
 }
 
 func TestMappings_NoStaleOnErrorPropagatesFailure(t *testing.T) {

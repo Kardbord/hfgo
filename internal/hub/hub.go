@@ -60,10 +60,11 @@ type Config struct {
 	MaxEntries int
 
 	// StaleOnError serves a stale cache entry when a fresh fetch fails
-	// transiently (network error, 5xx, timeout). Client (4xx) errors,
-	// malformed responses, and cancellation or deadline expiry of the
-	// lookup's context always propagate instead. When false (the default),
-	// all fetch errors propagate even if a stale entry exists.
+	// transiently (network error, 5xx, 429 rate limiting, timeout). Other
+	// client (4xx) errors, malformed responses, and cancellation or deadline
+	// expiry of the lookup's context always propagate instead. When false
+	// (the default), all fetch errors propagate even if a stale entry
+	// exists.
 	StaleOnError bool
 }
 
@@ -222,6 +223,13 @@ func (c *Client) Mappings(ctx context.Context, model string) ([]Mapping, error) 
 		// Stale entries cover transient upstream failures only;
 		// deterministic problems and caller cancellation propagate.
 		if c.staleOnError && exists && isTransientFetchFailure(ctx, err) {
+			// A 5xx or 429 failure surfaces as an *hferrors.APIError that
+			// owns the open response body. Nothing will read that body once
+			// the error is discarded, so close it here.
+			if apiErr, ok := errors.AsType[*hferrors.APIError](err); ok {
+				request.DrainAndCloseBody(apiErr.Body, 0)
+			}
+
 			return cached, nil
 		}
 
@@ -232,16 +240,17 @@ func (c *Client) Mappings(ctx context.Context, model string) ([]Mapping, error) 
 }
 
 // isTransientFetchFailure reports whether a fetch failure is a transient
-// upstream condition worth serving a stale entry for: a transport error or
-// a 5xx Hub response. A done caller context — cancellation or deadline
-// expiry — always propagates, as do 4xx responses and malformed payloads.
+// upstream condition worth serving a stale entry for: a transport error, a
+// 5xx Hub response, or a 429 rate-limit response. A done caller context —
+// cancellation or deadline expiry — always propagates, as do other 4xx
+// responses and malformed payloads.
 func isTransientFetchFailure(ctx context.Context, err error) bool {
 	if ctx.Err() != nil {
 		return false
 	}
 
 	if apiErr, ok := errors.AsType[*hferrors.APIError](err); ok {
-		return apiErr.IsServerError()
+		return apiErr.IsServerError() || apiErr.IsRateLimitError()
 	}
 
 	if sdkErr, ok := errors.AsType[*hferrors.SDKError](err); ok {

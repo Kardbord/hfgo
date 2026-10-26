@@ -69,6 +69,9 @@ type StaticModelResolver struct {
 	mappings map[StaticMapping]string
 }
 
+// Compile-time assertion that *StaticModelResolver satisfies ModelResolver.
+var _ ModelResolver = (*StaticModelResolver)(nil)
+
 // NewStaticModelResolver creates a [StaticModelResolver]. Each entry maps a
 // [StaticMapping] key to the provider-specific model identifier. Nil or
 // empty mappings are valid; the resolver simply fails every lookup. The map

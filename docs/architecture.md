@@ -30,7 +30,7 @@ be imported from within the module.
 
 ### Immutable hfgo client
 
-A `hfgo.Client` is an immutable value type that captures configuration at creation
+An `hfgo.Client` is an immutable value type that captures configuration at creation
 time. Options are never mutated after construction. To change configuration,
 create a new client. Each method call snapshots the client's options, so
 concurrent calls are independent and deterministic.
@@ -171,7 +171,7 @@ constructed for that purpose — there are no hidden network calls.
   caller's inference token (pass `WithHubToken` explicitly), and results are
   cached per resolver instance with a TTL and LRU cap; a stale entry can
   optionally be served when a fresh lookup fails transiently (transport
-  error or 5xx; `WithHubStaleOnError`).
+  error, 5xx, or 429 rate limiting; `WithHubStaleOnError`).
 
 The resolver contract is deliberately narrow: fail with an error when a model
 cannot be resolved rather than silently falling back to the original model ID

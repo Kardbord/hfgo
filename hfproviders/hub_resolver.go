@@ -150,10 +150,11 @@ func WithHubMaxEntries(maxEntries int) HubModelResolverOption {
 }
 
 // WithHubStaleOnError makes the resolver serve a stale cached mapping when a
-// fresh lookup fails transiently (network error, 5xx, timeout). Client (4xx)
-// errors, malformed responses, and cancellation or deadline expiry of the
-// lookup's context always propagate instead of serving a stale entry. The
-// default is to fail with an error unless a fresh entry is available.
+// fresh lookup fails transiently (network error, 5xx, 429 rate limiting,
+// timeout). Other client (4xx) errors, malformed responses, and cancellation
+// or deadline expiry of the lookup's context always propagate instead of
+// serving a stale entry. The default is to fail with an error unless a fresh
+// entry is available.
 func WithHubStaleOnError() HubModelResolverOption {
 	return func(cfg *hubResolverConfig) {
 		cfg.staleOnError = true
