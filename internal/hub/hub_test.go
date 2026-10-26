@@ -145,7 +145,7 @@ func TestMappings_ObjectShape(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, mappings, 1)
 	require.Equal(t, "fal-ai", mappings[0].Provider)
-	require.Equal(t, "fal-ai/flux/dev", mappings[0].ProviderID)
+	require.Equal(t, "fal-ai/flux/dev", mappings[0].ProviderModelID)
 	require.Equal(t, "text-to-image", mappings[0].Task)
 	require.Equal(t, "live", mappings[0].Status)
 }
@@ -163,12 +163,12 @@ func TestMappings_KeyedDictShape(t *testing.T) {
 	// The provider name comes from the dict key, and iteration order is
 	// deterministic (sorted by provider slug).
 	require.Equal(t, "deepinfra", mappings[0].Provider)
-	require.Equal(t, "black-forest-labs/FLUX-1-dev", mappings[0].ProviderID)
+	require.Equal(t, "black-forest-labs/FLUX-1-dev", mappings[0].ProviderModelID)
 	require.Equal(t, "error", mappings[0].Status)
 	require.Equal(t, "fal-ai", mappings[1].Provider)
-	require.Equal(t, "fal-ai/flux/dev", mappings[1].ProviderID)
+	require.Equal(t, "fal-ai/flux/dev", mappings[1].ProviderModelID)
 	require.Equal(t, "replicate", mappings[2].Provider)
-	require.Equal(t, "black-forest-labs/flux-dev", mappings[2].ProviderID)
+	require.Equal(t, "black-forest-labs/flux-dev", mappings[2].ProviderModelID)
 }
 
 func TestMappings_ListShape(t *testing.T) {
@@ -181,9 +181,9 @@ func TestMappings_ListShape(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, mappings, 3)
 	require.Equal(t, "fal-ai", mappings[0].Provider)
-	require.Equal(t, "fal-ai/flux/dev", mappings[0].ProviderID)
+	require.Equal(t, "fal-ai/flux/dev", mappings[0].ProviderModelID)
 	require.Equal(t, "replicate", mappings[1].Provider)
-	require.Equal(t, "black-forest-labs/flux-dev", mappings[1].ProviderID)
+	require.Equal(t, "black-forest-labs/flux-dev", mappings[1].ProviderModelID)
 	// snake_case spellings are tolerated.
 	require.Equal(t, "novita", mappings[2].Provider)
 	require.Equal(t, "staging", mappings[2].Status)
@@ -613,7 +613,7 @@ func TestDecodeMappings_TolerantFieldSpellings(t *testing.T) {
 	mappings, err := client.Mappings(context.Background(), "m")
 	require.NoError(t, err)
 	require.Len(t, mappings, 1)
-	require.Equal(t, "pid", mappings[0].ProviderID)
+	require.Equal(t, "pid", mappings[0].ProviderModelID)
 }
 
 func TestMappings_PayloadShapeIsJSON(t *testing.T) {

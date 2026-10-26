@@ -34,10 +34,10 @@ type Mapping struct {
 	// Provider is the partner's Hub identifier, e.g. "fal-ai".
 	Provider string
 
-	// ProviderID is the provider-specific model identifier, e.g.
+	// ProviderModelID is the provider-specific model identifier, e.g.
 	// "fal-ai/flux-1/dev". This is what partner endpoints expect in place
 	// of the Hugging Face model ID.
-	ProviderID string
+	ProviderModelID string
 
 	// Task is the upstream task this mapping serves, e.g. "text-to-image".
 	Task string
@@ -135,7 +135,7 @@ func (c *Client) ProviderModelID(
 			continue
 		}
 		if mapping.Task == task {
-			return mapping.ProviderID, nil
+			return mapping.ProviderModelID, nil
 		}
 		supported = append(supported, mapping.Task)
 	}
@@ -376,10 +376,10 @@ func mappingFromObject(obj map[string]any) (Mapping, bool) {
 	status, _ := firstString(obj, "status")
 
 	return Mapping{
-		Provider:   provider,
-		ProviderID: providerID,
-		Task:       task,
-		Status:     status,
+		Provider:        provider,
+		ProviderModelID: providerID,
+		Task:            task,
+		Status:          status,
 	}, true
 }
 
