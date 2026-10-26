@@ -66,10 +66,21 @@ type Config struct {
 	StaleOnError bool
 }
 
+// cacheEntry is one cached model's mappings plus its LRU bookkeeping. All
+// fields are guarded by the owning [Client]'s mutex.
 type cacheEntry struct {
+	// mappings are the provider mappings returned by the Hub for the model.
+	// The slice and its backing array are never mutated after decode; a
+	// refresh replaces the field with a new slice.
 	mappings []Mapping
-	expiry   time.Time
-	element  *list.Element
+
+	// expiry is the instant after which the entry is stale and must be
+	// fetched again.
+	expiry time.Time
+
+	// element is this entry's node in the owning Client's LRU list. The
+	// list holds the model string as its value.
+	element *list.Element
 }
 
 // Client resolves Hugging Face model IDs to provider-specific model
@@ -78,14 +89,30 @@ type cacheEntry struct {
 //
 // A Client is safe for concurrent use.
 type Client struct {
-	params       request.Params
-	ttl          time.Duration
-	maxEntries   int
+	// params is the transport configuration used for Hub requests.
+	params request.Params
+
+	// ttl is how long a fetched mapping stays fresh. NewClient replaces a
+	// non-positive Config.CacheTTL with [DefaultCacheTTL].
+	ttl time.Duration
+
+	// maxEntries caps the number of models in the cache. NewClient replaces
+	// a non-positive Config.MaxEntries with [DefaultMaxEntries].
+	maxEntries int
+
+	// staleOnError serves a stale entry when a refresh fails transiently.
 	staleOnError bool
 
-	mu      sync.Mutex
+	// mu guards entries and lru, and serializes cache refresh decisions.
+	mu sync.Mutex
+
+	// entries maps a Hub model ID to its cache entry.
 	entries map[string]*cacheEntry
-	lru     *list.List
+
+	// lru orders models from most to least recently used. Its values are
+	// model strings, and every entry in entries has exactly one element
+	// here.
+	lru *list.List
 }
 
 // NewClient creates a [Client]. Params carries the Hub transport
