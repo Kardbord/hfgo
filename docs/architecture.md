@@ -28,9 +28,9 @@ be imported from within the module.
 
 ## Design Decisions
 
-### Immutable client
+### Immutable hfgo client
 
-A `Client` is an immutable value type that captures configuration at creation
+A `hfgo.Client` is an immutable value type that captures configuration at creation
 time. Options are never mutated after construction. To change configuration,
 create a new client. Each method call snapshots the client's options, so
 concurrent calls are independent and deterministic.
@@ -74,12 +74,14 @@ Preventing caller-authored races is therefore a caller responsibility.
 ### Concurrency model
 
 Clients are safe for concurrent use out of the box. No explicit
-synchronization is required. Concurrency safety is achieved through
-immutability:
+synchronization is required by callers. Concurrency safety comes from
+immutability plus internal synchronization for the one shared cache:
 
 - Clients never mutate their options after creation.
 - Each method call derives a fresh snapshot from the client's options.
-- No shared mutable state between goroutines.
+- No unguarded shared mutable state between goroutines. A `HubModelResolver`'s
+  cache is the one mutable component a client may hold; it is guarded by a
+  mutex and safe for concurrent use.
 
 If you inject an HTTP client via `hfopts.WithHTTPClientFactory`, ensure it is
 thread-safe by design or properly synchronized externally.
@@ -183,6 +185,26 @@ projected from `hfopts.Options` via `Options.TransportParams`, and never
 imports `hfopts`: transport has no knowledge of providers, models, or
 resolvers. That keeps the dependency graph acyclic —
 `hfproviders → internal/hub → internal/request`.
+
+### Internal Hub client
+
+`internal/hub.Client` is distinct from `hfgo.Client` despite the shared name. It
+is an internal, non-exported transport type used only by
+`hfproviders.HubModelResolver`; it never appears in the public API. It talks to
+the Hub host (`DefaultHubBaseURL`, `https://huggingface.co`), not the inference
+router, to read a model's `inferenceProviderMapping` data.
+
+A Hub client owns a TTL+LRU cache guarded by a mutex. It must not be copied
+after first use: copying duplicates the mutex's internal state, so the copy no
+longer synchronizes with the original cache (`go vet`'s copylocks analyzer
+flags it). `NewClient` returns a pointer, and `HubModelResolver` stores that
+pointer, so copying a resolver value shares one Hub client and its cache.
+
+The Hub client applies its own defaults when constructed with zero values
+(`DefaultCacheTTL`, `DefaultMaxEntries`) and never inherits the caller's
+inference token; pass `WithHubToken` to the resolver explicitly. See
+[External provider model resolution](#external-provider-model-resolution) for
+the resolver contract and dependency direction.
 
 ### Codecs
 

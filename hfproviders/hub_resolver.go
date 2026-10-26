@@ -21,11 +21,18 @@ const DefaultHubBaseURL = "https://huggingface.co"
 //
 // A HubModelResolver performs network I/O only when ResolveModel is called;
 // constructing one has no side effects. It is safe for concurrent use, and
-// its cache is shared by every caller that holds the same instance — the
-// same sharing semantics as an *http.Client.
+// its cache is shared by every caller that holds the same instance. The
+// resolver holds a pointer to its Hub client, so copying the resolver value
+// shares that client and its cache. Sharing is a necessity rather than a
+// convenience: the Hub client owns a mutex-guarded cache and must not be
+// copied after first use. Copying the resolver value is fine; copying the
+// underlying Hub client is not.
 type HubModelResolver struct {
 	client *hub.Client
 }
+
+// Compile-time assertion that *HubModelResolver satisfies ModelResolver.
+var _ ModelResolver = (*HubModelResolver)(nil)
 
 // NewHubModelResolver creates a [HubModelResolver] with the provided options.
 // The default configuration uses the Hub base URL, no token, a default HTTP

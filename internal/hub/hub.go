@@ -85,9 +85,15 @@ type cacheEntry struct {
 
 // Client resolves Hugging Face model IDs to provider-specific model
 // identifiers via the Hub's inferenceProviderMapping data. It is an
-// implementation detail of [hfproviders.HubModelResolver].
+// implementation detail of [hfproviders.HubModelResolver] and is not part of
+// the public SDK surface.
 //
-// A Client is safe for concurrent use.
+// A Client is safe for concurrent use. It must not be copied after first use:
+// copying duplicates the mutex's internal state, so the copy no longer
+// synchronizes with the original's cache. Copying is invalid, not merely
+// discouraged; the compiler permits it, but go vet's copylocks analyzer flags
+// it. [NewClient] returns a pointer so callers share one client rather than
+// copying it.
 type Client struct {
 	// params is the transport configuration used for Hub requests.
 	params request.Params
