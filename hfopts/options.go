@@ -20,8 +20,8 @@ const (
 	// DefaultModel is the default (empty) model identifier.
 	DefaultModel = ""
 	// DefaultMaxResponseBodyBytes caps the amount of response data the SDK
-	// buffers at once by default.
-	DefaultMaxResponseBodyBytes = request.DefaultMaxResponseBodyBytes
+	// buffers at once by default. It is 1 MiB (1 << 20 bytes).
+	DefaultMaxResponseBodyBytes int64 = 1 << 20
 )
 
 // Options captures the configuration shared across all requests in the SDK.

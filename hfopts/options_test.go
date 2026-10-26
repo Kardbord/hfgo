@@ -11,8 +11,21 @@ import (
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfgoversion"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
+	"github.com/Kardbord/hfgo/v4/internal/request"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 )
+
+func TestDefaultMaxResponseBodyBytesMatchesRequestDefault(t *testing.T) {
+	t.Parallel()
+
+	if DefaultMaxResponseBodyBytes != request.DefaultMaxResponseBodyBytes {
+		t.Fatalf(
+			"DefaultMaxResponseBodyBytes = %d; request.DefaultMaxResponseBodyBytes = %d",
+			DefaultMaxResponseBodyBytes,
+			request.DefaultMaxResponseBodyBytes,
+		)
+	}
+}
 
 func TestOptions_With(t *testing.T) {
 	t.Parallel()
