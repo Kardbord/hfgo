@@ -152,7 +152,7 @@ provider-specific model identifier must be known at endpoint-construction
 time — but callers think in Hugging Face model IDs.
 
 Resolution lives where the model ID is consumed. A provider that needs mapping
-receives a [ModelResolver] as an explicit constructor dependency and calls it
+receives a `ModelResolver` as an explicit constructor dependency and calls it
 from its endpoint methods (or, for model-in-body wire formats, from its
 codecs). Dispatch, options, and the `Provider` interface carry no resolution
 machinery, so a lookup can only happen inside a provider the caller
