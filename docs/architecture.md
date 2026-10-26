@@ -184,8 +184,6 @@ imports `hfopts`: transport has no knowledge of providers, models, or
 resolvers. That keeps the dependency graph acyclic —
 `hfproviders → internal/hub → internal/request`.
 
-[ModelResolver]: https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfproviders#ModelResolver
-
 ### Codecs
 
 The `Codec` interface is the wire-format transform. `Encode` receives the
