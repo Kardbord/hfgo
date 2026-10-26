@@ -94,8 +94,10 @@ type hubResolverConfig struct {
 // [NewHubModelResolver].
 type HubModelResolverOption func(*hubResolverConfig)
 
-// WithHubBaseURL overrides the Hub base URL used for mapping lookups.
-// Defaults to [DefaultHubBaseURL].
+// WithHubBaseURL overrides the Hub base URL used for mapping lookups. When
+// this option is not used, lookups target [DefaultHubBaseURL]. A provided
+// value is used as-is: an empty string is not replaced with the default and
+// fails request validation.
 func WithHubBaseURL(baseURL string) HubModelResolverOption {
 	return func(cfg *hubResolverConfig) {
 		cfg.baseURL = baseURL
