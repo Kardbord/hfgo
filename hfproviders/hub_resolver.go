@@ -19,6 +19,8 @@ const DefaultHubBaseURL = "https://huggingface.co"
 // identifiers by querying the Hub's inferenceProviderMapping data. It
 // implements [ModelResolver]. Results are cached per resolver
 // instance, so repeated lookups for the same model do not re-fetch.
+// Concurrent misses for the same uncached model may each query the Hub; the
+// first completed lookup is cached and later lookups reuse it.
 //
 // A HubModelResolver performs network I/O only when ResolveModel is called;
 // constructing one has no side effects. It is safe for concurrent use, and
@@ -154,7 +156,9 @@ func WithHubMaxEntries(maxEntries int) HubModelResolverOption {
 // timeout). Other client (4xx) errors, malformed responses, and cancellation
 // or deadline expiry of the lookup's context always propagate instead of
 // serving a stale entry. The default is to fail with an error unless a fresh
-// entry is available.
+// entry is available. Serving a stale entry delays the next refresh attempt by
+// the shorter of the cache TTL and 30 seconds, bounding retry amplification
+// during a sustained outage.
 func WithHubStaleOnError() HubModelResolverOption {
 	return func(cfg *hubResolverConfig) {
 		cfg.staleOnError = true

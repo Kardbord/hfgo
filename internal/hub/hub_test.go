@@ -311,6 +311,49 @@ func TestMappings_StaleOnError(t *testing.T) {
 		"StaleOnError must serve the stale entry when a fresh fetch fails")
 }
 
+func TestMappings_StaleOnErrorDelaysRetry(t *testing.T) {
+	t.Parallel()
+
+	hs := newHubServer(t, mappingObjectShape)
+	client := newTestClient(t, hs, hub.Config{
+		CacheTTL:     200 * time.Millisecond,
+		StaleOnError: true,
+	})
+
+	ctx := context.Background()
+	model := "black-forest-labs/FLUX.1-dev"
+
+	fresh, err := client.Mappings(ctx, model)
+	require.NoError(t, err)
+	require.Equal(t, 1, hs.requestCount())
+
+	// Expire the entry, then break the server so the next lookup serves
+	// stale and re-stamps the entry's refresh time.
+	time.Sleep(250 * time.Millisecond)
+	hs.status.Store(int32(http.StatusInternalServerError))
+
+	stale, err := client.Mappings(ctx, model)
+	require.NoError(t, err)
+	require.Equal(t, fresh, stale)
+	require.Equal(t, 2, hs.requestCount())
+
+	// The stale serve must delay the next refresh rather than retrying on
+	// every lookup during a sustained outage.
+	cached, err := client.Mappings(ctx, model)
+	require.NoError(t, err)
+	require.Equal(t, fresh, cached)
+	require.Equal(t, 2, hs.requestCount(),
+		"serving stale must delay the next refresh attempt")
+
+	// Once the grace period elapses, the next lookup retries.
+	time.Sleep(250 * time.Millisecond)
+	stale, err = client.Mappings(ctx, model)
+	require.NoError(t, err)
+	require.Equal(t, fresh, stale)
+	require.Equal(t, 3, hs.requestCount(),
+		"an expired stale grace period must trigger a refresh")
+}
+
 func TestMappings_StaleOnErrorRateLimitServes(t *testing.T) {
 	t.Parallel()
 
@@ -674,6 +717,7 @@ func TestProviderModelID_NoMatchingTask(t *testing.T) {
 	require.ErrorAs(t, err, &sdkErr)
 	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
 	// The error names the task the mapping actually serves.
+	require.Contains(t, sdkErr.Message, "task(s)")
 	require.Contains(t, sdkErr.Message, "text-to-image")
 }
 

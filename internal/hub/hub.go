@@ -29,6 +29,11 @@ const DefaultCacheTTL = 5 * time.Minute
 // constructed with a zero MaxEntries.
 const DefaultMaxEntries = 128
 
+// staleRetryInterval is the longest delay before a stale entry is refreshed
+// again after a transient failure. The delay is capped by the cache TTL, so
+// short-TTL caches still retry promptly.
+const staleRetryInterval = 30 * time.Second
+
 // Mapping is one inference-provider mapping entry for a model, as reported
 // by the Hugging Face Hub's inferenceProviderMapping data.
 type Mapping struct {
@@ -64,7 +69,9 @@ type Config struct {
 	// client (4xx) errors, malformed responses, and cancellation or deadline
 	// expiry of the lookup's context always propagate instead. When false
 	// (the default), all fetch errors propagate even if a stale entry
-	// exists.
+	// exists. Serving a stale entry delays the next refresh attempt by the
+	// shorter of the cache TTL and 30 seconds, bounding retry amplification
+	// during a sustained outage.
 	StaleOnError bool
 }
 
@@ -80,8 +87,10 @@ type cacheEntry struct {
 	// decode; a refresh replaces the field with a new slice.
 	mappings []Mapping
 
-	// expiry is the instant after which the entry is stale and must be
-	// fetched again.
+	// expiry is the instant after which the entry must be fetched again. A
+	// successful fetch sets it to now + TTL. Serving a stale entry after a
+	// transient failure extends it by a shorter grace period so a sustained
+	// outage does not turn every lookup into an upstream request.
 	expiry time.Time
 
 	// element is this entry's node in the owning Client's LRU list. The
@@ -183,7 +192,7 @@ func (c *Client) ProviderModelID(
 		return "", &hferrors.SDKError{
 			Kind: hferrors.SDKErrorKindConfiguration,
 			Message: fmt.Sprintf(
-				"model %q mapping for provider %q serves task %q, not %q",
+				"model %q mapping for provider %q serves task(s) %q, not %q",
 				model, provider, strings.Join(supported, `", "`), task,
 			),
 			Err: nil,
@@ -199,6 +208,12 @@ func (c *Client) ProviderModelID(
 
 // Mappings returns all inference-provider mappings for the given Hub model
 // ID, using and refreshing the cache as needed.
+//
+// Concurrent misses for the same uncached model may each fetch from the Hub.
+// The first completed fetch populates the cache and later lookups reuse it.
+// In-flight request sharing is intentionally omitted because it would couple
+// callers' contexts and cancellation; the expected lookup volume does not
+// justify it.
 func (c *Client) Mappings(ctx context.Context, model string) ([]Mapping, error) {
 	c.mu.Lock()
 	entry, exists := c.entries[model]
@@ -230,13 +245,41 @@ func (c *Client) Mappings(ctx context.Context, model string) ([]Mapping, error) 
 				request.DrainAndCloseBody(apiErr.Body, 0)
 			}
 
-			return cached, nil
+			return c.serveStale(model, entry, expiry, cached), nil
 		}
 
 		return nil, err
 	}
 
 	return c.cacheFetch(model, fetched, entry, exists), nil
+}
+
+// serveStale returns the mappings to use after a transient refresh failure.
+// It delays the next refresh attempt so a sustained outage does not turn
+// every lookup into an upstream request. If another goroutine refreshed the
+// entry while this fetch was failing, that newer entry wins.
+func (c *Client) serveStale(
+	model string,
+	observed *cacheEntry,
+	observedExpiry time.Time,
+	cached []Mapping,
+) []Mapping {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	current, present := c.entries[model]
+	if !present {
+		return cached
+	}
+
+	c.lru.MoveToFront(current.element)
+	if current != observed || !current.expiry.Equal(observedExpiry) {
+		return current.mappings
+	}
+
+	current.expiry = time.Now().Add(min(c.ttl, staleRetryInterval))
+
+	return cached
 }
 
 // isTransientFetchFailure reports whether a fetch failure is a transient

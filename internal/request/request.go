@@ -46,7 +46,17 @@ type Params struct {
 // BaseURL must parse with a scheme and host, without query parameters or a
 // fragment.
 func (p Params) Validate() error {
-	if p.HTTPClient == nil {
+	return validateTransport(p.HTTPClient, p.BaseURL)
+}
+
+// ValidateTransportConfig validates transport-level settings without building
+// a Params value. It applies the same checks as [Params.Validate].
+func ValidateTransportConfig(httpClient *http.Client, baseURL string) error {
+	return validateTransport(httpClient, baseURL)
+}
+
+func validateTransport(httpClient *http.Client, baseURL string) error {
+	if httpClient == nil {
 		return &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
 			Message: "http client must not be nil",
@@ -54,25 +64,25 @@ func (p Params) Validate() error {
 		}
 	}
 
-	parsedURL, err := url.Parse(p.BaseURL)
+	parsedURL, err := url.Parse(baseURL)
 	if err != nil {
 		return &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: fmt.Sprintf("invalid base URL %q", p.BaseURL),
+			Message: fmt.Sprintf("invalid base URL %q", baseURL),
 			Err:     err,
 		}
 	}
 	if parsedURL.Scheme == "" {
 		return &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: fmt.Sprintf("base URL %q is missing a scheme (e.g. https://)", p.BaseURL),
+			Message: fmt.Sprintf("base URL %q is missing a scheme (e.g. https://)", baseURL),
 			Err:     nil,
 		}
 	}
 	if parsedURL.Host == "" {
 		return &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: fmt.Sprintf("base URL %q is missing a host", p.BaseURL),
+			Message: fmt.Sprintf("base URL %q is missing a host", baseURL),
 			Err:     nil,
 		}
 	}

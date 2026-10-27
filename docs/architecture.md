@@ -171,7 +171,9 @@ constructed for that purpose — there are no hidden network calls.
   caller's inference token (pass `WithHubToken` explicitly), and results are
   cached per resolver instance with a TTL and LRU cap; a stale entry can
   optionally be served when a fresh lookup fails transiently (transport
-  error, 5xx, or 429 rate limiting; `WithHubStaleOnError`).
+  error, 5xx, or 429 rate limiting; `WithHubStaleOnError`). Serving stale
+  delays the next refresh attempt by the shorter of the cache TTL and 30
+  seconds, bounding retry amplification during a sustained outage.
 
 The resolver contract is deliberately narrow: fail with an error when a model
 cannot be resolved rather than silently falling back to the original model ID
@@ -181,10 +183,12 @@ fails honestly at the inference call. See `examples/custom-provider` for a
 minimal partner provider that resolves models through the Hub-backed resolver.
 
 The transport layer (`internal/request`) takes a transport-only `Params`
-projected from `hfopts.Options` via `Options.TransportParams`, and never
-imports `hfopts`: transport has no knowledge of providers, models, or
-resolvers. That keeps the dependency graph acyclic —
-`hfproviders → internal/hub → internal/request`.
+projected by the internal `transport` adapter package, and never imports
+`hfopts`: transport has no knowledge of providers, models, or resolvers. The
+adapter is the only bridge between `hfopts` and `internal/request`; it imports
+both and projects only transport-level settings. That keeps the dependency
+graph acyclic — `hfproviders → internal/hub → internal/request`, with
+`internal/transport` depending on `hfopts` and `internal/request`.
 
 ### Internal Hub client
 
@@ -199,6 +203,14 @@ after first use: copying duplicates the mutex's internal state, so the copy no
 longer synchronizes with the original cache (`go vet`'s copylocks analyzer
 flags it). `NewClient` returns a pointer, and `HubModelResolver` stores that
 pointer, so copying a resolver value shares one Hub client and its cache.
+
+Concurrent misses for the same uncached model may each issue a Hub request;
+the first completed result is cached and later lookups reuse it. In-flight
+request sharing is intentionally omitted because it would couple caller
+contexts and cancellation, and the expected lookup volume does not justify
+it. When a stale entry is served after a transient failure, its expiry is
+re-stamped for the shorter of the cache TTL and 30 seconds, bounding retry
+amplification during a sustained outage.
 
 The Hub client applies its own defaults when constructed with zero values
 (`DefaultCacheTTL`, `DefaultMaxEntries`) and never inherits the caller's

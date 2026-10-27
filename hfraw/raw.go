@@ -10,6 +10,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/internal/transport"
 	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
@@ -65,7 +66,7 @@ func (c Client) DoReader(
 
 	return request.Do(
 		resolvedOpts.Context(),
-		resolvedOpts.TransportParams(),
+		transport.Params(resolvedOpts),
 		method,
 		path,
 		requestBody,
@@ -84,7 +85,7 @@ func (c Client) DoRawReader(
 
 	return request.DoRaw(
 		resolvedOpts.Context(),
-		resolvedOpts.TransportParams(),
+		transport.Params(resolvedOpts),
 		method,
 		path,
 		requestBody,
@@ -119,7 +120,7 @@ func (c Client) StreamReader(
 	resolvedOpts := c.opts.With(opts...)
 	resp, err := request.Do(
 		resolvedOpts.Context(),
-		resolvedOpts.TransportParams(),
+		transport.Params(resolvedOpts),
 		method,
 		path,
 		requestBody,

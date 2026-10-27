@@ -8,6 +8,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/internal/transport"
 )
 
 // eventContentType is the Content-Type synthesized for SSE event payloads:
@@ -87,7 +88,7 @@ func doInference[Req, Resp any](
 	//nolint:bodyclose // DrainAndCloseBody closes the body.
 	httpResp, err := request.DoBytes(
 		opts.Context(),
-		opts.TransportParams(),
+		transport.Params(opts),
 		endpointMethod(endpoint),
 		endpoint.Path,
 		providerBody,
@@ -143,7 +144,7 @@ func doStreamingInference[Req, T any](
 	//nolint:bodyclose // Body ownership transferred to RawStream.
 	httpResp, err := request.DoBytes(
 		opts.Context(),
-		opts.TransportParams(),
+		transport.Params(opts),
 		endpointMethod(endpoint),
 		endpoint.Path,
 		providerBody,

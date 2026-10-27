@@ -124,24 +124,7 @@ func (o Options) Validate() error {
 // and host, and without query parameters or a fragment. It does not check provider, model, or
 // other task-level fields.
 func (o Options) ValidateTransport() error {
-	return o.TransportParams().Validate()
-}
-
-// TransportParams projects the transport-level settings of Options into a
-// [request.Params] for the internal request pipeline. It carries the HTTP
-// client, base URL, user agent, token, and headers; provider, model, and
-// other task-level settings have no transport representation and are not
-// projected. The request context is not carried by Params: callers pass it
-// explicitly to the request functions alongside these params. The returned
-// type is internal to the module and cannot be named by external importers.
-func (o Options) TransportParams() request.Params {
-	return request.Params{
-		HTTPClient: o.HTTPClient,
-		BaseURL:    o.BaseURL,
-		UserAgent:  o.UserAgent,
-		Token:      o.Token,
-		Headers:    o.Headers,
-	}
+	return request.ValidateTransportConfig(o.HTTPClient, o.BaseURL)
 }
 
 // clone returns a deep copy of the options header map to prevent mutation.
