@@ -135,6 +135,17 @@ func TestReadResponseBody(t *testing.T) {
 	}
 }
 
+func TestReadResponseBodyTruncated_NonPositiveLimitFallsBack(t *testing.T) {
+	t.Parallel()
+
+	for _, maxBytes := range []int64{0, -1} {
+		body, truncated, err := readResponseBodyTruncated(strings.NewReader("hi"), maxBytes)
+		require.NoError(t, err)
+		require.False(t, truncated)
+		require.Equal(t, "hi", string(body))
+	}
+}
+
 type readerFunc func([]byte) (int, error)
 
 func (f readerFunc) Read(p []byte) (int, error) {

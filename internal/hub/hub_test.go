@@ -15,6 +15,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/internal/hub"
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -824,4 +825,121 @@ func TestMappings_PayloadShapeIsJSON(t *testing.T) {
 	mappings, err := client.Mappings(context.Background(), "m")
 	require.NoError(t, err)
 	require.NotEmpty(t, mappings)
+}
+
+func TestProviderModelID_FetchErrorPropagates(t *testing.T) {
+	t.Parallel()
+
+	hs := newHubServer(t, `{}`)
+	hs.status.Store(int32(http.StatusInternalServerError))
+	client := newTestClient(t, hs, hub.Config{})
+
+	_, err := client.ProviderModelID(
+		context.Background(),
+		"fal-ai",
+		"text-to-image",
+		"black-forest-labs/FLUX.1-dev",
+	)
+	require.Error(t, err)
+
+	var apiErr *hferrors.APIError
+	require.ErrorAs(t, err, &apiErr)
+	require.Equal(t, http.StatusInternalServerError, apiErr.StatusCode)
+}
+
+// roundTripFunc adapts a function to an [http.RoundTripper].
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func TestMappings_ReadErrorPropagates(t *testing.T) {
+	t.Parallel()
+
+	client := hub.NewClient(
+		request.Params{
+			BaseURL: "https://hub.example",
+			HTTPClient: &http.Client{
+				Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Header:     http.Header{},
+						Body:       testutils.ErrorReadCloser{},
+					}, nil
+				}),
+			},
+		},
+		hub.Config{},
+	)
+
+	_, err := client.Mappings(context.Background(), "some/model")
+	require.Error(t, err)
+
+	var sdkErr *hferrors.SDKError
+	require.ErrorAs(t, err, &sdkErr)
+	require.Equal(t, hferrors.SDKErrorKindTransport, sdkErr.Kind)
+}
+
+func TestMappings_SkipsEntriesWithoutProviderOrModelID(t *testing.T) {
+	t.Parallel()
+
+	payload := `{
+		"inferenceProviderMapping": [
+			{
+				"provider": "good",
+				"providerId": "good/model",
+				"task": "text-to-image"
+			},
+			{
+				"providerId": "missing-provider/model",
+				"task": "text-to-image"
+			},
+			{
+				"provider": "missing-id",
+				"task": "text-to-image"
+			}
+		]
+	}`
+	hs := newHubServer(t, payload)
+	client := newTestClient(t, hs, hub.Config{})
+
+	mappings, err := client.Mappings(context.Background(), "some/model")
+	require.NoError(t, err)
+	require.Len(t, mappings, 1)
+	require.Equal(t, "good", mappings[0].Provider)
+	require.Equal(t, "good/model", mappings[0].ProviderModelID)
+}
+
+func TestMappings_NullProviderMapping(t *testing.T) {
+	t.Parallel()
+
+	hs := newHubServer(t, `{"id": "some/model", "inferenceProviderMapping": null}`)
+	client := newTestClient(t, hs, hub.Config{})
+
+	mappings, err := client.Mappings(context.Background(), "some/model")
+	require.NoError(t, err)
+	require.Empty(t, mappings)
+}
+
+func TestMappings_ListSkipsMalformedEntry(t *testing.T) {
+	t.Parallel()
+
+	payload := `{
+		"inferenceProviderMapping": [
+			"not-an-object",
+			{
+				"provider": "good",
+				"providerId": "good/model",
+				"task": "text-to-image"
+			}
+		]
+	}`
+	hs := newHubServer(t, payload)
+	client := newTestClient(t, hs, hub.Config{})
+
+	mappings, err := client.Mappings(context.Background(), "some/model")
+	require.NoError(t, err)
+	require.Len(t, mappings, 1)
+	require.Equal(t, "good", mappings[0].Provider)
 }

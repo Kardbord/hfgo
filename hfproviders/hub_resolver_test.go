@@ -283,3 +283,40 @@ func TestHubModelResolver_WithHubStaleOnErrorServesStale(t *testing.T) {
 	require.Equal(t, fresh, stale,
 		"WithHubStaleOnError must serve the stale mapping when a refresh fails")
 }
+
+func TestHubModelResolver_NilOptionIsIgnored(t *testing.T) {
+	t.Parallel()
+
+	hs := newHubServer(t, hubModelInfoPayload)
+	resolver := hfproviders.NewHubModelResolver(
+		nil,
+		hfproviders.WithHubBaseURL(hs.server.URL),
+	)
+
+	id, err := resolver.ResolveModel(
+		context.Background(),
+		hubResolveParams("black-forest-labs/FLUX.1-dev"),
+	)
+	require.NoError(t, err)
+	require.Equal(t, "fal-ai/flux/dev", id)
+}
+
+func TestHubModelResolver_WithHubHTTPClientFactoryUsesClient(t *testing.T) {
+	t.Parallel()
+
+	hs := newHubServer(t, hubModelInfoPayload)
+	resolver := hfproviders.NewHubModelResolver(
+		hfproviders.WithHubBaseURL(hs.server.URL),
+		hfproviders.WithHubHTTPClientFactory(func() http.Client {
+			return *hs.server.Client()
+		}),
+	)
+
+	id, err := resolver.ResolveModel(
+		context.Background(),
+		hubResolveParams("black-forest-labs/FLUX.1-dev"),
+	)
+	require.NoError(t, err)
+	require.Equal(t, "fal-ai/flux/dev", id)
+	require.Equal(t, 1, hs.requestCount())
+}
