@@ -105,3 +105,28 @@ func TestAsProvider_MixinSubset(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorContains(t, err, "subset does not implement hfproviders.ChatProvider")
 }
+
+// TestHuggingFaceProvider_TaskCoverage asserts the Hugging Face provider does
+// not advertise tasks it does not serve. Text-to-video and image-to-image are
+// served through partner providers only, e.g. [WavespeedProvider].
+func TestHuggingFaceProvider_TaskCoverage(t *testing.T) {
+	t.Parallel()
+
+	p := NewHuggingFaceProvider()
+
+	_, err := AsProvider[ImageToImageProvider](p)
+	require.Error(t, err)
+	require.ErrorContains(
+		t,
+		err,
+		"huggingface does not implement hfproviders.ImageToImageProvider",
+	)
+
+	_, err = AsProvider[TextToVideoProvider](p)
+	require.Error(t, err)
+	require.ErrorContains(
+		t,
+		err,
+		"huggingface does not implement hfproviders.TextToVideoProvider",
+	)
+}

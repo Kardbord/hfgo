@@ -158,8 +158,14 @@ type (
 	// TextClassificationCodec is the Codec for the TextClassification task.
 	TextClassificationCodec = Codec[hftypes.TextClassificationRequest, []hftypes.TextClassification]
 
+	// ImageToImageCodec is the Codec for the ImageToImage task.
+	ImageToImageCodec = Codec[hftypes.ImageToImageRequest, hftypes.ImageToImageResponse]
+
 	// TextToImageCodec is the Codec for the TextToImage task.
 	TextToImageCodec = Codec[hftypes.TextToImageRequest, hftypes.TextToImageResponse]
+
+	// TextToVideoCodec is the Codec for the TextToVideo task.
+	TextToVideoCodec = Codec[hftypes.TextToVideoRequest, hftypes.TextToVideoResponse]
 
 	// TokenClassificationCodec is the Codec for the TokenClassification task.
 	TokenClassificationCodec = Codec[hftypes.TokenClassificationRequest, []hftypes.TokenClassification]

@@ -1,10 +1,14 @@
 # Examples
 
-Runnable programs demonstrating each inference task, one directory per task and
-one subdirectory per variant. Each `main` package is self-contained. Per-task
-examples read their token from the `HF_TOKEN` environment variable, with the
-exception of [`chat/openai-compatibility`](./chat/openai-compatibility), which
-necessarily reads its token from `OPENROUTER_TOKEN`. The
+Runnable programs demonstrating each inference task. Examples are organized by
+provider: `examples/<provider>/<task>/<variant>`. The default Hugging Face
+provider's examples live under [`huggingface/`](./huggingface), provider-specific
+tasks under their provider's directory (e.g. [`wavespeed/`](./wavespeed)), and
+[`custom-provider`](./custom-provider) shows how to plug in a fictional
+provider. Each `main` package is self-contained. Per-task examples read their
+token from the `HF_TOKEN` environment variable, with the exception of
+[`huggingface/chat/openai-compatibility`](./huggingface/chat/openai-compatibility),
+which necessarily reads its token from `OPENROUTER_TOKEN`. The
 [`custom-provider`](./custom-provider) example makes no inference call and
 needs no token.
 
@@ -20,14 +24,14 @@ one client can be reused across every task — only the model changes. See
 ## Running an example
 
 ```bash
-HF_TOKEN=hf_... go run ./examples/chat/basic
+HF_TOKEN=hf_... go run ./examples/huggingface/chat/basic
 ```
 
 Or set the variable once for the session:
 
 ```bash
 export HF_TOKEN=hf_...
-go run ./examples/feature-extraction/batch
+go run ./examples/huggingface/feature-extraction/batch
 ```
 
 ## Variant convention
@@ -48,21 +52,33 @@ Not every task has every variant. The full matrix:
 
 | Task                                                             | Variants                                                       |
 | ---------------------------------------------------------------- | -------------------------------------------------------------- |
-| [Chat](./chat)                                                   | `basic`, `streaming`, `conversation`, `openai-compatibility`   |
-| [Feature Extraction](./feature-extraction)                       | `basic`, `params`, `batch`, `token-level`, `token-level-batch` |
-| [Fill Mask](./fill-mask)                                         | `basic`, `params`                                              |
-| [Image Classification](./image-classification)                   | `basic`, `params`                                              |
-| [Image Segmentation](./image-segmentation)                       | `basic`, `params`                                              |
-| [Object Detection](./object-detection)                           | `basic`, `params`                                              |
-| [Question Answering](./question-answering)                       | `basic`, `params`                                              |
-| [Speech Recognition](./speech-recognition)                       | `basic`, `params`                                              |
-| [Summarization](./summarization)                                 | `basic`, `params`                                              |
-| [Table Question Answering](./table-question-answering)           | `basic`, `params`                                              |
-| [Text Classification](./text-classification)                     | `basic`                                                        |
-| [Text to Image](./text-to-image)                                 | `basic`, `params`                                              |
-| [Token Classification](./token-classification)                   | `basic`, `params`                                              |
-| [Translation](./translation)                                     | `basic`, `params`                                              |
-| [Zero-Shot Text Classification](./zero-shot-text-classification) | `basic`                                                        |
+| [Chat](./huggingface/chat)                                       | `basic`, `streaming`, `conversation`, `openai-compatibility`   |
+| [Feature Extraction](./huggingface/feature-extraction)           | `basic`, `params`, `batch`, `token-level`, `token-level-batch` |
+| [Fill Mask](./huggingface/fill-mask)                             | `basic`, `params`                                              |
+| [Image Classification](./huggingface/image-classification)       | `basic`, `params`                                              |
+| [Image Segmentation](./huggingface/image-segmentation)           | `basic`, `params`                                              |
+| [Object Detection](./huggingface/object-detection)               | `basic`, `params`                                              |
+| [Question Answering](./huggingface/question-answering)           | `basic`, `params`                                              |
+| [Speech Recognition](./huggingface/speech-recognition)           | `basic`, `params`                                              |
+| [Summarization](./huggingface/summarization)                     | `basic`, `params`                                              |
+| [Table Question Answering](./huggingface/table-question-answering) | `basic`, `params`                                            |
+| [Text Classification](./huggingface/text-classification)         | `basic`                                                        |
+| [Text to Image](./huggingface/text-to-image)                     | `basic`, `params`                                              |
+| [Token Classification](./huggingface/token-classification)       | `basic`, `params`                                              |
+| [Translation](./huggingface/translation)                         | `basic`, `params`                                              |
+| [Zero-Shot Text Classification](./huggingface/zero-shot-text-classification) | `basic`                                            |
+
+### WaveSpeed
+
+The [WaveSpeed provider](../docs/providers/wavespeed.md) serves text-to-video,
+text-to-image, and image-to-image through the Hugging Face router. Its examples
+each show the provider and resolver wiring the default provider does not need:
+
+| Task                                          | Variants |
+| --------------------------------------------- | -------- |
+| [Text to Video](./wavespeed/text-to-video)    | `basic`  |
+| [Text to Image](./wavespeed/text-to-image)    | `basic`  |
+| [Image to Image](./wavespeed/image-to-image)  | `basic`  |
 
 In addition to per-task examples, [custom-provider](./custom-provider) shows
 how to plug in a fictional `FooProvider` that maps Hugging Face model IDs to

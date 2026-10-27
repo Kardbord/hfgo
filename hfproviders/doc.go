@@ -50,6 +50,11 @@
 // and [Provider.ProviderSuffix]. Mixins carry no provider identity, so
 // composing several is unambiguous.
 //
+// Partner-provider mixins such as [WavespeedTextToImageMixin] follow the
+// same pattern but additionally carry a model resolver in an exported
+// field; [WavespeedProvider] composes them and [NewWavespeedProvider]
+// wires the resolver into each.
+//
 // # Model resolution
 //
 // Third-party providers often serve models under names that differ from

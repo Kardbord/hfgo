@@ -306,6 +306,40 @@ func (c Client) GenerateImage(
 	return task.GenerateImage(c.opts.With(opts...), req)
 }
 
+// GenerateImageToImage sends an image-to-image request and returns the
+// generated image together with the media type the API advertised for it (for
+// example, "image/png"). The image bytes are available on the response's Image
+// field.
+//
+// The request's Input field must be a base64-encoded image payload or a data
+// URI (e.g. "data:image/png;base64,...").
+//
+// Generated images are binary and can exceed the default 1 MiB response cap, in
+// which case the request fails with a configuration error. Use
+// hfopts.WithMaxResponseBodyBytes to raise the cap for larger outputs.
+func (c Client) GenerateImageToImage(
+	req hftypes.ImageToImageRequest,
+	opts ...hfopts.Option,
+) (hftypes.ImageToImageResponse, error) {
+	return task.GenerateImageToImage(c.opts.With(opts...), req)
+}
+
+// GenerateVideo sends a text-to-video request and returns the generated video
+// together with the media type the API advertised for it (for example,
+// "video/mp4"). The video bytes are available on the response's Video field.
+// The exact video format is chosen by the serving provider, so the advertised
+// media type is authoritative.
+//
+// Generated videos are binary and can exceed the default 1 MiB response cap, in
+// which case the request fails with a configuration error. Use
+// hfopts.WithMaxResponseBodyBytes to raise the cap for larger outputs.
+func (c Client) GenerateVideo(
+	req hftypes.TextToVideoRequest,
+	opts ...hfopts.Option,
+) (hftypes.TextToVideoResponse, error) {
+	return task.GenerateVideo(c.opts.With(opts...), req)
+}
+
 // SegmentImage sends an image segmentation request and returns a list of
 // predicted masks / segments.
 func (c Client) SegmentImage(

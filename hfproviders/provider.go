@@ -210,12 +210,28 @@ type TextClassificationProvider interface {
 	TextClassificationCodec() TextClassificationCodec
 }
 
+// ImageToImageProvider is a Provider that supplies an endpoint and Codec for
+// the ImageToImage task.
+type ImageToImageProvider interface {
+	Provider
+	ImageToImageEndpoint(params EndpointParams) (Endpoint, error)
+	ImageToImageCodec() ImageToImageCodec
+}
+
 // TextToImageProvider is a Provider that supplies an endpoint and Codec for the
 // TextToImage task.
 type TextToImageProvider interface {
 	Provider
 	TextToImageEndpoint(params EndpointParams) (Endpoint, error)
 	TextToImageCodec() TextToImageCodec
+}
+
+// TextToVideoProvider is a Provider that supplies an endpoint and Codec for the
+// TextToVideo task.
+type TextToVideoProvider interface {
+	Provider
+	TextToVideoEndpoint(params EndpointParams) (Endpoint, error)
+	TextToVideoCodec() TextToVideoCodec
 }
 
 // TokenClassificationProvider is a Provider that supplies an endpoint and Codec

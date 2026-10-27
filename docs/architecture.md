@@ -19,7 +19,7 @@ and `examples/` for usage documentation, and the code itself for full detail.
 | `hfopts`      | `github.com/Kardbord/hfgo/v4/hfopts`      | `Options`, `Option`, and all `With*` helpers                                                                                      |
 | `hftypes`     | `github.com/Kardbord/hfgo/v4/hftypes`     | Request/response DTOs for every task                                                                                              |
 | `hferrors`    | `github.com/Kardbord/hfgo/v4/hferrors`    | `APIError`, `SDKError`, and `SDKErrorKind`                                                                                        |
-| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, per-task Hugging Face mixins, `HuggingFaceProvider` |
+| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, per-task provider mixins (Hugging Face, WaveSpeed), `HuggingFaceProvider`, `WavespeedProvider`, `ModelResolver` |
 | `hfraw`       | `github.com/Kardbord/hfgo/v4/hfraw`       | Low-level HTTP/SSE escape hatch                                                                                                   |
 | `hfgoversion` | `github.com/Kardbord/hfgo/v4/hfgoversion` | `Version` constant and `UserAgent()` helper                                                                                       |
 
@@ -114,13 +114,13 @@ choose. Authentication is owned by the caller via `Options.Token` /
 
 ### Per-task provider mixins
 
-The Hugging Face defaults are split into one zero-byte mixin per upstream task,
-for example `HuggingFaceTextClassificationMixin` or
-`HuggingFaceSummarizationMixin`. Each mixin pairs that task's
-endpoint-resolution method with its codec accessor(s). `HuggingFaceProvider`
-composes every mixin and adds the provider identity (`Name`,
-`ProviderSuffix`). Mixins deliberately do not implement `Provider`, so a custom
-provider embeds only the tasks it serves and supplies its own identity:
+Provider defaults are split into one zero-byte mixin per upstream task, for
+example `HuggingFaceTextClassificationMixin` or `HuggingFaceSummarizationMixin`.
+Each mixin pairs that task's endpoint-resolution method with its codec
+accessor(s). `HuggingFaceProvider` composes every mixin and adds the provider
+identity (`Name`, `ProviderSuffix`). Mixins deliberately do not implement
+`Provider`, so a custom provider embeds only the tasks it serves and supplies
+its own identity:
 
 ```go
 type MyProvider struct {
@@ -131,6 +131,21 @@ type MyProvider struct {
 func (MyProvider) Name() string           { return "my-provider" }
 func (MyProvider) ProviderSuffix() string { return "" }
 ```
+
+Partner providers that need model resolution use the same pattern with one
+addition: their mixins carry the resolver as state. `WavespeedProvider`, for
+example, composes `WavespeedTextToVideoMixin`, `WavespeedTextToImageMixin`, and
+`WavespeedImageToImageMixin`, each with an exported `Resolver ModelResolver`
+field that its endpoint methods consult. `NewWavespeedProvider` sets every
+field; a custom provider embedding a single mixin sets it directly. Mixins that
+need no per-instance state (like the Hugging Face ones) stay zero-byte.
+
+Embedding multiple resolver-carrying mixins intentionally leaves the promoted
+`Resolver` field ambiguous on the composed provider: it is not a compile error
+unless referenced, and callers never need it — the mixins read their own field
+and the constructor sets them. Composed providers therefore expose no resolver
+accessor, keeping resolution a construction-time dependency rather than a
+per-call input.
 
 Chat and feature extraction intentionally remain single mixins. Their sibling
 variants share endpoint methods, so splitting them would either duplicate those
@@ -242,8 +257,10 @@ Client methods use an **action verb** (what the caller does); provider
 interfaces, endpoints, codecs, and request DTOs use the **upstream task noun**
 (matching Hugging Face's task taxonomy). For example, the client method is
 `ClassifyText` but the DTO is `TextClassificationRequest` and the provider
-interface is `TextClassificationProvider`. There are no task-name constants —
-task support is expressed structurally through the per-task interfaces.
+interface is `TextClassificationProvider`. Task-name constants
+(`hfproviders.TaskTextToImage` and friends) exist only to identify the upstream
+task to model resolvers; task support is expressed structurally through
+the per-task interfaces.
 
 When a task has multiple output families, codec and provider names include the
 family qualifier. Feature extraction, for example, uses
@@ -360,4 +377,4 @@ converting each element.
 | Raw HTTP/SSE           | `hfraw/raw.go`                                     |
 | Unit tests             | Next to the code they exercise                     |
 | Integration tests      | `internal/integration_tests/*_integration_test.go` |
-| Runnable examples      | `examples/<task>/<variant>/`                       |
+| Runnable examples      | `examples/<provider>/<task>/<variant>/`            |
