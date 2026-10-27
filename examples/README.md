@@ -1,18 +1,21 @@
 # Examples
 
 Runnable programs demonstrating each inference task, one directory per task and
-one subdirectory per variant. Each `main` package is self-contained and reads
-its token from the `HF_TOKEN` environment variable, with the exception of the
-[`chat/openai-compatibility`](./chat/openai-compatibility) example, which
-necessarily reads its token from `OPENROUTER_TOKEN`.
+one subdirectory per variant. Each `main` package is self-contained. Per-task
+examples read their token from the `HF_TOKEN` environment variable, with the
+exception of [`chat/openai-compatibility`](./chat/openai-compatibility), which
+necessarily reads its token from `OPENROUTER_TOKEN`. The
+[`custom-provider`](./custom-provider) example makes no inference call and
+needs no token.
 
 Each program constructs its own client for clarity, but that is not required:
 one client can be reused across every task — only the model changes. See
 [One client, many tasks](../README.md#one-client-many-tasks).
 
-> **Cost notice:** These examples call the live Hugging Face Inference API and
+> **Cost notice:** Most examples call the live Hugging Face Inference API and
 > may incur charges on your account. The same applies to the integration tests
-> and the [Bruno collection](../tools/bruno/hfgo/).
+> and the [Bruno collection](../tools/bruno/hfgo/). The `custom-provider`
+> example only resolves an endpoint and sends no request.
 
 ## Running an example
 
@@ -60,6 +63,11 @@ Not every task has every variant. The full matrix:
 | [Token Classification](./token-classification)                   | `basic`, `params`                                              |
 | [Translation](./translation)                                     | `basic`, `params`                                              |
 | [Zero-Shot Text Classification](./zero-shot-text-classification) | `basic`                                                        |
+
+In addition to per-task examples, [custom-provider](./custom-provider) shows
+how to plug in a fictional `FooProvider` that maps Hugging Face model IDs to
+its own model identifiers through an explicitly injected model resolver,
+without sending an inference call.
 
 ## See also
 

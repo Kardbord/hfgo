@@ -1,4 +1,8 @@
-package testutils
+// Package testproviders provides reusable [hfproviders.Provider]
+// implementations for tests. It is separate from internal/testutils so that
+// packages hfproviders depends on (directly or transitively, such as
+// internal/request) can use testutils without an import cycle.
+package testproviders
 
 import "github.com/Kardbord/hfgo/v4/hfproviders"
 

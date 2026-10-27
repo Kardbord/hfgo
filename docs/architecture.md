@@ -28,9 +28,9 @@ be imported from within the module.
 
 ## Design Decisions
 
-### Immutable client
+### Immutable hfgo client
 
-A `Client` is an immutable value type that captures configuration at creation
+An `hfgo.Client` is an immutable value type that captures configuration at creation
 time. Options are never mutated after construction. To change configuration,
 create a new client. Each method call snapshots the client's options, so
 concurrent calls are independent and deterministic.
@@ -74,12 +74,14 @@ Preventing caller-authored races is therefore a caller responsibility.
 ### Concurrency model
 
 Clients are safe for concurrent use out of the box. No explicit
-synchronization is required. Concurrency safety is achieved through
-immutability:
+synchronization is required by callers. Concurrency safety comes from
+immutability plus internal synchronization for the one shared cache:
 
 - Clients never mutate their options after creation.
 - Each method call derives a fresh snapshot from the client's options.
-- No shared mutable state between goroutines.
+- No unguarded shared mutable state between goroutines. A `HubModelResolver`'s
+  cache is the one mutable component a client may hold; it is guarded by a
+  mutex and safe for concurrent use.
 
 If you inject an HTTP client via `hfopts.WithHTTPClientFactory`, ensure it is
 thread-safe by design or properly synchronized externally.
@@ -141,6 +143,80 @@ the same endpoint; a provider that supports only one variant can implement the
 handful of methods directly. If sibling-level precision is needed later,
 granular mixins and shared endpoint interfaces can be added additively without
 changing the grouped mixins.
+
+### External provider model resolution
+
+Third-party providers frequently serve models under different identifiers than
+the Hugging Face Hub does. The chat task does not surface this: its payload
+carries the model in the request body and the router performs provider mapping
+server-side. Every other task routes through the endpoint path, so the
+provider-specific model identifier must be known at endpoint-construction
+time — but callers think in Hugging Face model IDs.
+
+Resolution lives where the model ID is consumed. A provider that needs mapping
+receives a `ModelResolver` as an explicit constructor dependency and calls it
+from its endpoint methods (or, for model-in-body wire formats, from its
+codecs). Dispatch, options, and the `Provider` interface carry no resolution
+machinery, so a lookup can only happen inside a provider the caller
+constructed for that purpose — there are no hidden network calls.
+
+- `hfproviders.ModelResolver` maps a Hugging Face model ID, provider slug,
+  and upstream task to the provider-specific model identifier.
+- `hfproviders.StaticModelResolver` resolves from a caller-supplied mapping
+  and performs no network I/O — suitable for tests and for deployments that
+  pin the mapping themselves.
+- `hfproviders.HubModelResolver` resolves by querying the Hub's
+  `inferenceProviderMapping` data for the model. Its base URL is independent
+  of the inference base URL (`DefaultHubBaseURL`), it never inherits the
+  caller's inference token (pass `WithHubToken` explicitly), and results are
+  cached per resolver instance with a TTL and LRU cap; a stale entry can
+  optionally be served when a fresh lookup fails transiently (transport
+  error, 5xx, or 429 rate limiting; `WithHubStaleOnError`). Serving stale
+  delays the next refresh attempt by the shorter of the cache TTL and 30
+  seconds, bounding retry amplification during a sustained outage.
+
+The resolver contract is deliberately narrow: fail with an error when a model
+cannot be resolved rather than silently falling back to the original model ID
+— an unresolvable model would otherwise surface later as a confusing provider
+API error. A mapping's `status` is not gated; a present-but-unhealthy mapping
+fails honestly at the inference call. See `examples/custom-provider` for a
+minimal partner provider that resolves models through the Hub-backed resolver.
+
+The transport layer (`internal/request`) takes a transport-only `Params`
+projected by the internal `transport` adapter package, and never imports
+`hfopts`: transport has no knowledge of providers, models, or resolvers. The
+adapter is the only bridge between `hfopts` and `internal/request`; it imports
+both and projects only transport-level settings. That keeps the dependency
+graph acyclic — `hfproviders → internal/hub → internal/request`, with
+`internal/transport` depending on `hfopts` and `internal/request`.
+
+### Internal Hub client
+
+`internal/hub.Client` is distinct from `hfgo.Client` despite the shared name. It
+is an internal, non-exported transport type used only by
+`hfproviders.HubModelResolver`; it never appears in the public API. It talks to
+the Hub host (`DefaultHubBaseURL`, `https://huggingface.co`), not the inference
+router, to read a model's `inferenceProviderMapping` data.
+
+A Hub client owns a TTL+LRU cache guarded by a mutex. It must not be copied
+after first use: copying duplicates the mutex's internal state, so the copy no
+longer synchronizes with the original cache (`go vet`'s copylocks analyzer
+flags it). `NewClient` returns a pointer, and `HubModelResolver` stores that
+pointer, so copying a resolver value shares one Hub client and its cache.
+
+Concurrent misses for the same uncached model may each issue a Hub request;
+the first completed result is cached and later lookups reuse it. In-flight
+request sharing is intentionally omitted because it would couple caller
+contexts and cancellation, and the expected lookup volume does not justify
+it. When a stale entry is served after a transient failure, its expiry is
+re-stamped for the shorter of the cache TTL and 30 seconds, bounding retry
+amplification during a sustained outage.
+
+The Hub client applies its own defaults when constructed with zero values
+(`DefaultCacheTTL`, `DefaultMaxEntries`) and never inherits the caller's
+inference token; pass `WithHubToken` to the resolver explicitly. See
+[External provider model resolution](#external-provider-model-resolution) for
+the resolver contract and dependency direction.
 
 ### Codecs
 

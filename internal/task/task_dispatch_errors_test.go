@@ -13,6 +13,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testproviders"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -34,7 +35,7 @@ var errEndpointUnavailable = errors.New("endpoint unavailable")
 // endpoint defaults) and shadows every endpoint method to fail, so each typed
 // dispatch can be exercised through its endpoint-error wrapping path.
 type endpointFailProvider struct {
-	testutils.MockProvider
+	testproviders.MockProvider
 }
 
 func (p endpointFailProvider) ChatEndpoint(

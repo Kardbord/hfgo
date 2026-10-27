@@ -2,15 +2,13 @@ package hfopts
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfgoversion"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
+	"github.com/Kardbord/hfgo/v4/internal/request"
 	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
@@ -22,8 +20,8 @@ const (
 	// DefaultModel is the default (empty) model identifier.
 	DefaultModel = ""
 	// DefaultMaxResponseBodyBytes caps the amount of response data the SDK
-	// buffers at once by default.
-	DefaultMaxResponseBodyBytes int64 = 1 << 20 // 1 MiB
+	// buffers at once by default. It is 1 MiB (1 << 20 bytes).
+	DefaultMaxResponseBodyBytes int64 = 1 << 20
 )
 
 // Options captures the configuration shared across all requests in the SDK.
@@ -126,52 +124,7 @@ func (o Options) Validate() error {
 // and host, and without query parameters or a fragment. It does not check provider, model, or
 // other task-level fields.
 func (o Options) ValidateTransport() error {
-	if o.HTTPClient == nil {
-		return &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: "http client must not be nil",
-			Err:     nil,
-		}
-	}
-
-	parsedURL, err := url.Parse(o.BaseURL)
-	if err != nil {
-		return &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: fmt.Sprintf("invalid base URL %q", o.BaseURL),
-			Err:     err,
-		}
-	}
-	if parsedURL.Scheme == "" {
-		return &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: fmt.Sprintf("base URL %q is missing a scheme (e.g. https://)", o.BaseURL),
-			Err:     nil,
-		}
-	}
-	if parsedURL.Host == "" {
-		return &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: fmt.Sprintf("base URL %q is missing a host", o.BaseURL),
-			Err:     nil,
-		}
-	}
-	if parsedURL.RawQuery != "" {
-		return &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: "base URL must not contain query parameters",
-			Err:     errors.New("query params not allowed in BaseURL"),
-		}
-	}
-	if parsedURL.Fragment != "" {
-		return &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: "base URL must not contain a fragment",
-			Err:     errors.New("fragment not allowed in BaseURL"),
-		}
-	}
-
-	return nil
+	return request.ValidateTransportConfig(o.HTTPClient, o.BaseURL)
 }
 
 // clone returns a deep copy of the options header map to prevent mutation.

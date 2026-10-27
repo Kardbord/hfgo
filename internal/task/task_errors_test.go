@@ -1,3 +1,5 @@
+//go:build !integration
+
 package task_test
 
 import (

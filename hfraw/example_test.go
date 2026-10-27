@@ -1,3 +1,5 @@
+//go:build !integration
+
 package hfraw_test
 
 import (

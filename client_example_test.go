@@ -1,3 +1,5 @@
+//go:build !integration
+
 package hfgo_test
 
 import (

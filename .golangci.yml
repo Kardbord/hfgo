@@ -67,7 +67,7 @@ linters:
           - gocyclo
           - maintidx
           - varnamelen
-      - path: internal/testutils/.*\.go
+      - path: internal/test(utils|providers)/.*\.go
         linters:
           - bodyclose
           - canonicalheader

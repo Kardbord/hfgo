@@ -50,6 +50,19 @@
 // and [Provider.ProviderSuffix]. Mixins carry no provider identity, so
 // composing several is unambiguous.
 //
+// # Model resolution
+//
+// Third-party providers often serve models under names that differ from
+// the Hugging Face Hub. A [ModelResolver] maps a Hugging Face model ID to
+// a provider-specific identifier. Providers that need mapping receive a
+// resolver as an explicit constructor dependency and consult it in their
+// endpoint methods, so lookups happen only inside a provider the caller
+// constructed for that purpose. [StaticModelResolver] resolves from a
+// caller-supplied mapping with no network I/O, and [HubModelResolver]
+// resolves by querying the Hub's inferenceProviderMapping data with
+// per-instance caching. Resolution matters only for non-chat tasks; the
+// chat endpoint performs provider mapping server-side.
+//
 // [hfopts.WithProvider]: https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfopts#WithProvider
 // [hfopts.WithDefaultProvider]: https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfopts#WithDefaultProvider
 package hfproviders

@@ -276,6 +276,13 @@ func TestStreamRaw_CustomLimitAllowsLargerLine(t *testing.T) {
 	require.Equal(t, payload, string(event.Data))
 }
 
+func TestNormalizeSSELimit_NonPositiveFallsBack(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, int(DefaultMaxResponseBodyBytes), normalizeSSELimit(0))
+	require.Equal(t, int(DefaultMaxResponseBodyBytes), normalizeSSELimit(-1))
+}
+
 func TestStreamRaw_EventTooLarge(t *testing.T) {
 	t.Parallel()
 
