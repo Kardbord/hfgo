@@ -297,8 +297,11 @@ func (c wavespeedAsyncCodec) timing() wavespeedPollTiming {
 }
 
 // decodeMediaBody decodes a raw provider media body into its bytes and parsed
-// media type. It is the Decode fallback for direct media-body decoding: the
-// task pipeline itself routes WaveSpeed responses through PostSubmit instead.
+// media type, validating the body's Content-Type against the codec's required
+// media prefix. It is the body of every WaveSpeed task codec's Decode; the
+// PostSubmit exchange routes the downloaded output through that Decode too, so
+// output media is validated the same way. Only the submit response bypasses
+// it, routing through PostSubmit instead.
 func (c wavespeedAsyncCodec) decodeMediaBody(params DecodeParams) ([]byte, string, error) {
 	contentType := params.Headers.Get("Content-Type")
 
@@ -315,37 +318,32 @@ func (c wavespeedAsyncCodec) decodeMediaBody(params DecodeParams) ([]byte, strin
 }
 
 // postSubmitMedia runs the shared WaveSpeed exchange: decode the submit
-// response, poll the result URL until a terminal status, download the first
-// output, and validate its media type. It returns the media bytes, parsed
-// media type, and provider metadata extracted from the completed task.
+// response, poll the result URL until a terminal status, and download the
+// first output. It returns the raw media bytes, the download's response
+// headers, and provider metadata extracted from the completed task; the
+// caller validates the output and builds the typed response via its own
+// Decode.
 func (c wavespeedAsyncCodec) postSubmitMedia(
 	ctx context.Context,
 	params PostSubmitParams,
 	body []byte,
-) ([]byte, string, map[string]any, error) {
+) ([]byte, http.Header, map[string]any, error) {
 	submitData, err := wavespeedDecodeTaskData(body)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, nil, err
 	}
 
 	taskData, err := wavespeedAwaitResult(ctx, params, &submitData, c.timing())
 	if err != nil {
-		return nil, "", nil, err
+		return nil, nil, nil, err
 	}
 
-	media, mediaType, err := wavespeedDownloadOutput(ctx, params, taskData.Outputs[0])
+	media, headers, err := wavespeedDownloadOutput(ctx, params, taskData.Outputs[0])
 	if err != nil {
-		return nil, "", nil, err
-	}
-	if !strings.HasPrefix(mediaType, c.mediaPrefix) {
-		return nil, "", nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "expected a " + c.mediaPrefix + "* output, got " + mediaType,
-			Err:     nil,
-		}
+		return nil, nil, nil, err
 	}
 
-	return media, mediaType, wavespeedMetadata(taskData), nil
+	return media, headers, wavespeedMetadata(taskData), nil
 }
 
 // wavespeedTaskURLs holds the task's result URL set.
@@ -756,13 +754,14 @@ func wavespeedRetryAfter(headers http.Header) time.Duration {
 // wavespeedDownloadOutput downloads the task's first output URL. Output URLs
 // are provider-CDN addresses (often signed), so the request goes through
 // request.DoUnauthenticated, which structurally carries no caller
-// credentials. The advertised Content-Type is preferred, falling back to
-// byte-sniffing when the CDN omits it.
+// credentials. The returned headers always carry a parseable Content-Type:
+// the advertised Content-Type is kept, falling back to byte-sniffing when the
+// CDN omits or garbles it.
 func wavespeedDownloadOutput(
 	ctx context.Context,
 	params PostSubmitParams,
 	outputURL string,
-) ([]byte, string, error) {
+) ([]byte, http.Header, error) {
 	//nolint:bodyclose // Drained and closed via defer below on success; error
 	// responses transfer the body to the returned APIError, which the caller
 	// must close per the APIError contract.
@@ -778,21 +777,21 @@ func wavespeedDownloadOutput(
 		http.NoBody,
 	)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	defer request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
 
 	body, err := request.ReadResponseBody(resp, params.MaxResponseBodyBytes)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 
-	mediaType, ok := parseMediaType(resp.Header.Get("Content-Type"))
-	if !ok {
-		mediaType = http.DetectContentType(body)
+	headers := resp.Header.Clone()
+	if _, ok := parseMediaType(headers.Get("Content-Type")); !ok {
+		headers.Set("Content-Type", http.DetectContentType(body))
 	}
 
-	return body, mediaType, nil
+	return body, headers, nil
 }
 
 // wavespeedFlattenParameters marshals a typed parameters struct into a JSON
@@ -916,16 +915,23 @@ func (c wavespeedTextToVideoCodec) PostSubmit(
 	body []byte,
 	_ http.Header,
 ) (hftypes.TextToVideoResponse, error) {
-	media, mediaType, metadata, err := c.postSubmitMedia(ctx, params, body)
+	media, headers, metadata, err := c.postSubmitMedia(ctx, params, body)
 	if err != nil {
 		return hftypes.TextToVideoResponse{}, err
 	}
 
-	return hftypes.TextToVideoResponse{
-		Video:            media,
-		MediaType:        mediaType,
-		ProviderMetadata: metadata,
-	}, nil
+	resp, err := c.Decode(DecodeParams{
+		Context: ctx,
+		Body:    media,
+		Event:   "", // unary responses have no SSE framing
+		Headers: headers,
+	})
+	if err != nil {
+		return hftypes.TextToVideoResponse{}, err
+	}
+	resp.ProviderMetadata = metadata
+
+	return resp, nil
 }
 
 // wavespeedTextToImageCodec is a [Codec] for text-to-image that encodes
@@ -995,16 +1001,23 @@ func (c wavespeedTextToImageCodec) PostSubmit(
 	body []byte,
 	_ http.Header,
 ) (hftypes.TextToImageResponse, error) {
-	media, mediaType, metadata, err := c.postSubmitMedia(ctx, params, body)
+	media, headers, metadata, err := c.postSubmitMedia(ctx, params, body)
 	if err != nil {
 		return hftypes.TextToImageResponse{}, err
 	}
 
-	return hftypes.TextToImageResponse{
-		Image:            media,
-		MediaType:        mediaType,
-		ProviderMetadata: metadata,
-	}, nil
+	resp, err := c.Decode(DecodeParams{
+		Context: ctx,
+		Body:    media,
+		Event:   "", // unary responses have no SSE framing
+		Headers: headers,
+	})
+	if err != nil {
+		return hftypes.TextToImageResponse{}, err
+	}
+	resp.ProviderMetadata = metadata
+
+	return resp, nil
 }
 
 // wavespeedImageToImageCodec is a [Codec] for image-to-image that encodes
@@ -1074,14 +1087,21 @@ func (c wavespeedImageToImageCodec) PostSubmit(
 	body []byte,
 	_ http.Header,
 ) (hftypes.ImageToImageResponse, error) {
-	media, mediaType, metadata, err := c.postSubmitMedia(ctx, params, body)
+	media, headers, metadata, err := c.postSubmitMedia(ctx, params, body)
 	if err != nil {
 		return hftypes.ImageToImageResponse{}, err
 	}
 
-	return hftypes.ImageToImageResponse{
-		Image:            media,
-		MediaType:        mediaType,
-		ProviderMetadata: metadata,
-	}, nil
+	resp, err := c.Decode(DecodeParams{
+		Context: ctx,
+		Body:    media,
+		Event:   "", // unary responses have no SSE framing
+		Headers: headers,
+	})
+	if err != nil {
+		return hftypes.ImageToImageResponse{}, err
+	}
+	resp.ProviderMetadata = metadata
+
+	return resp, nil
 }
