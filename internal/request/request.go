@@ -104,6 +104,35 @@ func validateTransport(httpClient *http.Client, baseURL string) error {
 	return nil
 }
 
+// UnauthenticatedParams carries the transport configuration for a request
+// that must be sent without caller credentials. It deliberately has no Token
+// or Headers field, so the caller's bearer token and custom headers cannot be
+// attached through it: unauthenticated requests are structurally prevented
+// from leaking credentials. The only headers such a request carries are the
+// User-Agent and the headers supplied explicitly per call.
+type UnauthenticatedParams struct {
+	// HTTPClient is the client used to send the request. A nil client is a
+	// configuration error reported by [UnauthenticatedParams.Validate].
+	HTTPClient *http.Client
+
+	// UserAgent is sent as the User-Agent header when non-empty.
+	UserAgent string
+}
+
+// Validate performs the transport-level sanity checks that must hold before
+// an unauthenticated request is dispatched: the HTTP client must not be nil.
+func (p UnauthenticatedParams) Validate() error {
+	if p.HTTPClient == nil {
+		return &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "http client must not be nil",
+			Err:     nil,
+		}
+	}
+
+	return nil
+}
+
 // Do performs an HTTP request with the provided context and params and
 // returns the response. It creates a new HTTP request with the given method,
 // path, and body, adds authorization and custom headers, and executes the
@@ -301,6 +330,128 @@ func DoBytes(
 	data []byte,
 ) (*http.Response, error) {
 	return Do(ctx, params, method, path, bytes.NewReader(data))
+}
+
+// DoUnauthenticated performs an HTTP request to an absolute URL without
+// applying the caller's credentials. It exists for provider-owned follow-up
+// URLs (for example signed CDN output links) that must be fetched without the
+// API bearer token. The request carries only the User-Agent and the headers
+// supplied explicitly; Authorization is never populated and is stripped
+// defensively, and URLs with embedded user credentials are rejected.
+// For HTTP status codes >= 400, it returns an *hferrors.APIError.
+// The caller must close resp.Body on success.
+func DoUnauthenticated(
+	ctx context.Context,
+	params UnauthenticatedParams,
+	method string,
+	rawURL string,
+	headers http.Header,
+	body io.Reader,
+) (*http.Response, error) {
+	resp, err := DoRawUnauthenticated(ctx, params, method, rawURL, headers, body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode >= http.StatusBadRequest {
+		return nil, APIErrorFromResponse(resp, method)
+	}
+
+	return resp, nil
+}
+
+// DoRawUnauthenticated performs an HTTP request to an absolute URL without
+// applying the caller's credentials, and returns the response without
+// translating 4xx/5xx status codes into SDK errors. See [DoUnauthenticated]
+// for the credential rules. The caller must close resp.Body on success.
+func DoRawUnauthenticated(
+	ctx context.Context,
+	params UnauthenticatedParams,
+	method string,
+	rawURL string,
+	headers http.Header,
+	body io.Reader,
+) (*http.Response, error) {
+	if err := params.Validate(); err != nil {
+		return nil, err
+	}
+
+	req, err := buildUnauthenticatedRequest(ctx, params, method, rawURL, headers, body)
+	if err != nil {
+		return nil, err
+	}
+
+	return executeRequest(params.HTTPClient, req)
+}
+
+func buildUnauthenticatedRequest(
+	ctx context.Context,
+	params UnauthenticatedParams,
+	method, rawURL string,
+	headers http.Header,
+	body io.Reader,
+) (*http.Request, error) {
+	ctx = utils.NormalizeContext(ctx)
+
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: fmt.Sprintf("invalid URL %q", rawURL),
+			Err:     err,
+		}
+	}
+	if parsed.Scheme == "" {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: fmt.Sprintf("URL must be absolute with a scheme and host, got %q", rawURL),
+			Err:     nil,
+		}
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: fmt.Sprintf("URL scheme must be http or https, got %q", rawURL),
+			Err:     nil,
+		}
+	}
+	if parsed.Host == "" {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: fmt.Sprintf("URL must include a host, got %q", rawURL),
+			Err:     nil,
+		}
+	}
+	// A URL with embedded user credentials (e.g. https://user:pass@host/)
+	// would make the transport send a Basic Authorization header. The
+	// message deliberately omits the URL so the error cannot echo
+	// credentials back to logs.
+	if parsed.User != nil {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "URL must not carry user credentials",
+			Err:     nil,
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, rawURL, body)
+	if err != nil {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindInternal,
+			Message: "failed to create HTTP request",
+			Err:     err,
+		}
+	}
+
+	if params.UserAgent != "" {
+		req.Header.Set("User-Agent", params.UserAgent)
+	}
+	req.Header = utils.OverrideHeaders(req.Header, headers)
+	// Defense in depth: the only credential this SDK owns is the caller's
+	// bearer token, which must never ride on an unauthenticated request.
+	req.Header.Del("Authorization")
+
+	return req, nil
 }
 
 // DefaultMaxResponseBodyBytes is the response-body size cap applied when no

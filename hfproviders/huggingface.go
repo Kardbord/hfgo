@@ -625,8 +625,9 @@ func (hfTextToImageCodec) Decode(
 	}
 
 	return hftypes.TextToImageResponse{
-		Image:     params.Body,
-		MediaType: mediaType,
+		Image:            params.Body,
+		MediaType:        mediaType,
+		ProviderMetadata: nil,
 	}, nil
 }
 

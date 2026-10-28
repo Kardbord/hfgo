@@ -1,5 +1,7 @@
 package hftypes
 
+import "maps"
+
 // ObjectDetectionRequest represents an object detection
 // inference request to the API for a single input.
 type ObjectDetectionRequest struct {
@@ -10,6 +12,14 @@ type ObjectDetectionRequest struct {
 	// Additional inference parameters for object detection.
 	// Optional.
 	Parameters *ObjectDetectionParameters `json:"parameters,omitempty"`
+
+	// ProviderParams is an advanced escape hatch for provider-specific
+	// request parameters not covered by the typed fields. Supporting
+	// providers merge these entries into the request body; entries override
+	// typed fields. See the provider's documentation for supported
+	// parameters. The map is treated as read-only while a request is in
+	// flight.
+	ProviderParams map[string]any `json:"-"`
 }
 
 // ObjectDetectionParameters specify additional inference parameters
@@ -29,6 +39,13 @@ type ObjectDetection struct {
 
 	// The bounding box for the detected object.
 	Box ObjectDetectionBoundingBox `json:"box"`
+
+	// ProviderMetadata is an advanced escape hatch for provider-specific
+	// response metadata not covered by the typed fields. Providers that
+	// support it populate the map with additional upstream response data;
+	// it stays nil otherwise. Generic JSON decoding does not populate it:
+	// only provider-specific codecs do.
+	ProviderMetadata map[string]any `json:"-"`
 }
 
 // ObjectDetectionBoundingBox defines the bounds of
@@ -47,13 +64,16 @@ type ObjectDetectionBoundingBox struct {
 	YMax int `json:"ymax"`
 }
 
-// Clone returns a deep defensive copy of the request.
+// Clone returns a deep defensive copy of the request. The ProviderParams map
+// is copied as a new map, but its values are shared because their types are
+// not known statically.
 func (r *ObjectDetectionRequest) Clone() ObjectDetectionRequest {
 	if r == nil {
 		return ObjectDetectionRequest{}
 	}
 	out := *r
 	out.Parameters = cloneStructPtr(r.Parameters, (*ObjectDetectionParameters).Clone)
+	out.ProviderParams = maps.Clone(r.ProviderParams)
 
 	return out
 }

@@ -112,6 +112,16 @@ never redirect a request (and its bearer token) to a host the caller did not
 choose. Authentication is owned by the caller via `Options.Token` /
 `Options.Headers`; providers and codecs must not set `Authorization`.
 
+The same rule governs follow-up requests in asynchronous exchanges (task
+APIs that poll and download). A follow-up that must be authenticated is
+reduced to a relative path and resolved against `Options.BaseURL`, so
+polling still targets the host the caller chose. A follow-up fetched
+directly from a provider-controlled host (for example a signed CDN output
+link) goes through the transport's unauthenticated request helper, which
+structurally carries no credentials: its parameter type has no token field,
+it rejects URLs with embedded user credentials, and it strips
+`Authorization` defensively.
+
 ### Per-task provider mixins
 
 Provider defaults are split into one zero-byte mixin per upstream task, for
@@ -250,6 +260,16 @@ When a codec or streaming decode hook returns an existing
 `*hferrors.SDKError`, the SDK preserves that error and its `SDKErrorKind`
 instead of relabeling it as a serialization failure. This keeps validation and
 configuration failures distinguishable from malformed JSON.
+
+Providers whose wire format needs follow-up HTTP requests after the initial
+response — such as the asynchronous task APIs of generation providers — opt in
+via `AsyncCodec`, an optional `Codec` extension. When the pipeline dispatches
+to an `AsyncCodec`, it calls `PostSubmit` instead of `Decode`, passing the
+submit response plus the transport configuration (HTTP client, base URL,
+token, response-size cap) so the codec can complete the exchange — polling,
+terminal-state handling, and output retrieval stay provider-owned wire-format
+logic inside the provider package. WaveSpeed uses this for its
+submit-poll-download lifecycle.
 
 ### Naming convention
 

@@ -4,6 +4,7 @@ package task_test
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4"
@@ -20,48 +21,47 @@ func TestGenerateImageToImage_ResponseDecoding(t *testing.T) {
 	cases := []mediaDecodingCase{
 		{
 			name:          "png image",
-			response:      []byte{0x89, 'P', 'N', 'G'},
-			contentType:   "image/png",
+			output:        []byte{0x89, 'P', 'N', 'G'},
+			outputType:    "image/png",
 			wantMediaType: "image/png",
 			description:   "png image is returned with its media type",
 		},
 		{
 			name:          "jpeg image",
-			response:      []byte{0xFF, 0xD8, 0xFF, 0xE0},
-			contentType:   "image/jpeg",
+			output:        []byte{0xFF, 0xD8, 0xFF, 0xE0},
+			outputType:    "image/jpeg",
 			wantMediaType: "image/jpeg",
 			description:   "jpeg image is returned with its media type",
 		},
 		{
 			name:          "image with charset parameter",
-			response:      []byte{0x89, 'P', 'N', 'G'},
-			contentType:   "image/png; charset=utf-8",
+			output:        pngSignature(),
+			outputType:    "image/png; charset=utf-8",
 			wantMediaType: "image/png",
 			description:   "media-type parameters are normalized away",
 		},
 		{
 			name:        "non-image content type",
-			response:    []byte{0x89, 'P', 'N', 'G'},
-			contentType: "application/json",
+			output:      pngSignature(),
+			outputType:  "application/json",
 			wantErr:     true,
 			description: "non-image response is rejected",
 		},
 		{
-			name:        "missing content type",
-			response:    []byte{0x89, 'P', 'N', 'G'},
-			contentType: "",
-			wantErr:     true,
-			description: "missing content type is rejected",
+			name:          "missing content type is sniffed",
+			output:        pngSignature(),
+			outputType:    "",
+			wantMediaType: "image/png",
+			description:   "missing content type falls back to byte sniffing",
 		},
 	}
 
 	runMediaDecodingCases(t, cases,
 		func(tc mediaDecodingCase) (hftypes.ImageToImageResponse, error) {
-			mt := newMediaTransport(tc.response, tc.contentType)
+			server := newMediaServer(tc)
+			defer server.Close()
 			client := hfgo.NewClient(
-				hfopts.WithHTTPClientFactory(
-					func() http.Client { return testutils.NewMockHTTPClient(mt) },
-				),
+				hfopts.WithBaseURL(server.URL),
 				hfopts.WithModel("test-model-image-to-image"),
 				hfopts.WithProvider(wavespeedTestProvider()),
 			)
@@ -78,16 +78,42 @@ func TestGenerateImageToImage_ResponseDecoding(t *testing.T) {
 func TestGenerateImageToImage_WithParameters(t *testing.T) {
 	t.Parallel()
 
-	mt := testutils.NewMockTransport(http.StatusOK, "image-bytes", nil)
-	mt.Response.Header.Set("Content-Type", "image/png")
+	const inputImage = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
+
+	var (
+		outputURL       string
+		gotBody         map[string]any
+		gotContentType  string
+		gotAcceptHeader string
+	)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			// The submit carries the flat WaveSpeed body.
+			gotContentType = r.Header.Get("Content-Type")
+			gotAcceptHeader = r.Header.Get("Accept")
+			gotBody = testutils.ReadRequestJSON(t, r)
+
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"code":200,"message":"success","data":{` +
+				`"id":"pred_1","status":"completed","outputs":["` + outputURL + `"]}}`))
+
+			return
+		}
+
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(pngSignature())
+	}))
+	defer server.Close()
+	outputURL = server.URL + "/output"
+
 	client := hfgo.NewClient(
-		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithBaseURL(server.URL),
 		hfopts.WithModel("test-model-image-to-image"),
 		hfopts.WithProvider(wavespeedTestProvider()),
 	)
 
 	image, err := client.GenerateImageToImage(hftypes.ImageToImageRequest{
-		Input: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ",
+		Input: inputImage,
 		Parameters: &hftypes.ImageToImageParameters{
 			Prompt:            new("Make the image blue"),
 			NegativePrompt:    new("blurry"),
@@ -96,26 +122,65 @@ func TestGenerateImageToImage_WithParameters(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, []byte("image-bytes"), image.Image)
+	require.Equal(t, pngSignature(), image.Image)
 	require.Equal(t, "image/png", image.MediaType)
 
-	// The request advertises JSON and accepts any media type.
-	require.Equal(t, "application/json", mt.LastRequest.Header.Get("Content-Type"))
-	require.Equal(t, "*/*", mt.LastRequest.Header.Get("Accept"))
+	// The submit advertises JSON and accepts any media type.
+	require.Equal(t, "application/json", gotContentType)
+	require.Equal(t, "*/*", gotAcceptHeader)
 
-	reqBody := testutils.ReadRequestBody(t, mt)
+	// WaveSpeed's body is flat: the source image rides on "image" (raw
+	// base64 wrapped as a data URI) and the parameters live at the top
+	// level.
 	require.Equal(
 		t,
-		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ",
-		reqBody["inputs"],
+		"data:image/jpeg;base64,"+inputImage,
+		gotBody["image"],
+	)
+	require.Equal(t, "Make the image blue", gotBody["prompt"])
+	require.Equal(t, "blurry", gotBody["negative_prompt"])
+	require.InEpsilon(t, 7.5, gotBody["guidance_scale"], 0.001)
+	require.InEpsilon(t, 30, gotBody["num_inference_steps"], 0.001)
+}
+
+func TestGenerateImageToImage_ProviderParams(t *testing.T) {
+	t.Parallel()
+
+	var (
+		outputURL string
+		gotBody   map[string]any
+	)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			gotBody = testutils.ReadRequestJSON(t, r)
+
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"code":200,"message":"success","data":{` +
+				`"id":"pred_1","status":"completed","outputs":["` + outputURL + `"]}}`))
+
+			return
+		}
+
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(pngSignature())
+	}))
+	defer server.Close()
+	outputURL = server.URL + "/output"
+
+	client := hfgo.NewClient(
+		hfopts.WithBaseURL(server.URL),
+		hfopts.WithModel("test-model-image-to-image"),
+		hfopts.WithProvider(wavespeedTestProvider()),
 	)
 
-	params, ok := reqBody["parameters"].(map[string]any)
-	require.True(t, ok, "parameters should be a map")
-	require.Equal(t, "Make the image blue", params["prompt"])
-	require.Equal(t, "blurry", params["negative_prompt"])
-	require.InEpsilon(t, 7.5, params["guidance_scale"], 0.001)
-	require.InEpsilon(t, 30, params["num_inference_steps"], 0.001)
+	_, err := client.GenerateImageToImage(hftypes.ImageToImageRequest{
+		Input: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ",
+		ProviderParams: map[string]any{
+			"enable_base64_output": true,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, true, gotBody["enable_base64_output"])
 }
 
 func TestGenerateImageToImage_Errors(t *testing.T) {

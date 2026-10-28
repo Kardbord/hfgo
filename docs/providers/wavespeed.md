@@ -54,11 +54,50 @@ if err != nil {
 | Text to image  | `TextToImageEndpoint`  | `TextToImageCodec`       | `GenerateImage`      |
 | Image to image | `ImageToImageEndpoint` | `ImageToImageCodec`      | `GenerateImageToImage` |
 
-Each task returns raw binary bytes together with the media type the provider
-advertised (`response.MediaType`). Requests are encoded as JSON; responses are
-read from the raw body. Generated videos and images can exceed the SDK's
-default 1 MiB response cap, so raise it with
-`hfopts.WithMaxResponseBodyBytes` when needed.
+Each task returns the generated media together with the media type the provider
+advertised (`response.MediaType`). WaveSpeed does not serve these tasks with
+the Hugging Face pipeline wire format:
+
+- **Requests** are encoded as WaveSpeed's flat JSON body. The prompt and every
+  generation parameter live at the top level — the canonical request's `Input`
+  becomes `prompt` (text tasks) or `image` (image-to-image, wrapped as a
+  `data:` URI when it is raw base64), and the typed parameters are merged in.
+- **Responses** follow WaveSpeed's asynchronous task API. The SDK submits the
+  task, polls the result URL until it completes (2 s initial wait, growing by
+  1 s per poll up to 5 s; transient poll failures are retried, a failed task
+  surfaces the provider's error), and downloads the first output. The
+  exchange is transparent to callers and is bounded by the request context,
+  so give long-running generations a generous deadline (e.g.
+  `hfopts.WithContext`).
+
+Generated videos and images can exceed the SDK's default 1 MiB response cap,
+so raise it with `hfopts.WithMaxResponseBodyBytes` when needed.
+
+### Provider-specific request parameters
+
+The canonical request types do not cover every knob WaveSpeed models expose
+(e.g. `duration`, `size`, `enable_safety_checker`). Every request DTO carries
+an advanced escape hatch for this:
+
+```go
+image, err := client.GenerateImage(hftypes.TextToImageRequest{
+	Input: "A serene mountain landscape at sunset",
+	ProviderParams: map[string]any{
+		"enable_safety_checker": false,
+	},
+})
+```
+
+`ProviderParams` entries are merged into the flat body after the typed
+parameters, so entries override typed fields (last write wins). This mirrors
+the `extra_body` argument of the official Python client.
+
+### Provider-specific response metadata
+
+Responses may carry provider-specific details in `ProviderMetadata`
+(e.g. `id`, `model`, `created_at`, `execution_time`, `timings.inference`).
+Providers populate the map only when there is something to add; it is `nil`
+otherwise.
 
 Quick start with the Hub resolver:
 
@@ -92,8 +131,9 @@ Like the Hugging Face provider, WaveSpeed is composed from per-task mixins:
 exported `Resolver ModelResolver` field that maps the configured Hugging Face
 model ID to WaveSpeed's identifier at endpoint-construction time — embed the
 mixins for the tasks you serve and set each `Resolver` explicitly (or use
-`NewWavespeedProvider` to wire all three). The text-to-image mixin reuses the
-shared Hugging Face text-to-image codec. See
+`NewWavespeedProvider` to wire all three). Each mixin serves an
+`AsyncCodec`: its codecs encode WaveSpeed's flat body and complete the
+submit-poll-download exchange themselves. See
 [Per-task provider mixins](../architecture.md#per-task-provider-mixins) for the
 pattern.
 

@@ -1,5 +1,7 @@
 package hftypes
 
+import "maps"
+
 // ImageToImageResponse is a generated image together with the media type the
 // API advertised for it.
 //
@@ -14,6 +16,12 @@ type ImageToImageResponse struct {
 	// MediaType is the parsed, normalized MIME type of Image (for example
 	// "image/png").
 	MediaType string `json:"-"`
+
+	// ProviderMetadata is an advanced escape hatch for provider-specific
+	// response metadata not covered by the typed fields. Providers that
+	// support it populate the map with additional upstream response data
+	// (for example task IDs or timing information); it stays nil otherwise.
+	ProviderMetadata map[string]any `json:"-"`
 }
 
 // ImageToImageRequest represents an image-to-image inference request to the
@@ -26,6 +34,14 @@ type ImageToImageRequest struct {
 
 	// Additional inference parameters for image-to-image.
 	Parameters *ImageToImageParameters `json:"parameters,omitempty"`
+
+	// ProviderParams is an advanced escape hatch for provider-specific
+	// request parameters not covered by the typed fields. Supporting
+	// providers merge these entries into the request body; entries override
+	// typed fields. See the provider's documentation for supported
+	// parameters. The map is treated as read-only while a request is in
+	// flight.
+	ProviderParams map[string]any `json:"-"`
 }
 
 // ImageToImageParameters specify additional inference parameters for
@@ -62,13 +78,16 @@ type ImageToImageTargetSize struct {
 	Height *int `json:"height,omitempty"`
 }
 
-// Clone returns a deep defensive copy of the request.
+// Clone returns a deep defensive copy of the request. The ProviderParams map
+// is copied as a new map, but its values are shared because their types are
+// not known statically.
 func (r *ImageToImageRequest) Clone() ImageToImageRequest {
 	if r == nil {
 		return ImageToImageRequest{}
 	}
 	out := *r
 	out.Parameters = cloneStructPtr(r.Parameters, (*ImageToImageParameters).Clone)
+	out.ProviderParams = maps.Clone(r.ProviderParams)
 
 	return out
 }

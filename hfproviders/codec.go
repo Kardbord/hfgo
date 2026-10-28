@@ -15,6 +15,9 @@ import (
 
 const (
 	errFailedToDecodeResponseBody = "failed to decode response body"
+	// errFailedToMarshalRequestBody is the message surfaced when a request
+	// body cannot be marshaled.
+	errFailedToMarshalRequestBody = "failed to marshal request body"
 	mimeTypeJSON                  = "application/json"
 )
 
@@ -69,6 +72,36 @@ type DecodeParams struct {
 	Headers http.Header
 }
 
+// PostSubmitParams carries the transport configuration an [AsyncCodec] needs
+// to finish a multi-step exchange after the initial submit response. The
+// task pipeline populates it from the caller's [hfopts.Options], so follow-up
+// requests use the same HTTP client, host, credentials, User-Agent, and
+// response-size limits as the original request.
+type PostSubmitParams struct {
+	// HTTPClient is the caller-configured HTTP client. It is never nil when
+	// dispatched by the task pipeline.
+	HTTPClient *http.Client
+
+	// BaseURL is the inference base URL the original request was sent to
+	// (for example "https://router.huggingface.co"). Provider-relative
+	// result paths are resolved against it.
+	BaseURL string
+
+	// Token is the caller's bearer token, sent as Authorization on
+	// follow-up requests that target the provider host. The value is empty
+	// when the caller configured no token.
+	Token string
+
+	// UserAgent is the User-Agent header value the original request was sent
+	// with, reused on follow-up requests so the whole exchange is attributed
+	// consistently. It is empty when the caller configured no User-Agent.
+	UserAgent string
+
+	// MaxResponseBodyBytes caps how much of any follow-up response body is
+	// buffered at once. Values <= 0 mean "use the pipeline default".
+	MaxResponseBodyBytes int64
+}
+
 // Codec knows how to transform canonical Hugging Face request types and provider wire types,
 // as well as provider response wire types and canonical Hugging Face response types.
 // Implementations must be safe for concurrent use.
@@ -94,6 +127,31 @@ type Codec[Req, Resp any] interface {
 	// The control signals have no meaning for unary responses, where any
 	// error is returned as-is.
 	Decode(params DecodeParams) (Resp, error)
+}
+
+// AsyncCodec is an optional [Codec] extension for providers whose wire format
+// needs follow-up HTTP requests after the initial submit response, such as
+// the asynchronous task APIs some generation providers expose.
+//
+// Implementing providers keep the full exchange inside the codec: the task
+// pipeline calls PostSubmit instead of Decode when the codec opts in, passing
+// the submit response body and headers plus the transport configuration needed
+// for follow-up requests. Everything else — polling intervals, terminal-state
+// handling, output retrieval — stays provider-owned wire-format logic.
+type AsyncCodec[Req, Resp any] interface {
+	Codec[Req, Resp]
+
+	// PostSubmit completes the exchange begun by Encode: body and headers
+	// are the initial submit response, and params carries the transport
+	// configuration for any follow-up requests. The context carries the
+	// caller's deadline and cancellation signals and bounds the whole
+	// exchange, including polling.
+	PostSubmit(
+		ctx context.Context,
+		params PostSubmitParams,
+		body []byte,
+		headers http.Header,
+	) (Resp, error)
 }
 
 type (
@@ -200,7 +258,7 @@ func (JSONCodec[Req, Resp]) Encode(
 
 		return nil, nil, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "failed to marshal request body",
+			Message: errFailedToMarshalRequestBody,
 			Err:     err,
 		}
 	}

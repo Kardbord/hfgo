@@ -1,6 +1,9 @@
 package hftypes
 
-import "slices"
+import (
+	"maps"
+	"slices"
+)
 
 // FeatureExtractionPooledEmbedding is a single pooled embedding vector.
 //
@@ -74,6 +77,14 @@ type FeatureExtractionRequest struct {
 
 	// Additional inference parameters for feature extraction.
 	Parameters *FeatureExtractionParameters `json:"parameters,omitempty"`
+
+	// ProviderParams is an advanced escape hatch for provider-specific
+	// request parameters not covered by the typed fields. Supporting
+	// providers merge these entries into the request body; entries override
+	// typed fields. See the provider's documentation for supported
+	// parameters. The map is treated as read-only while a request is in
+	// flight.
+	ProviderParams map[string]any `json:"-"`
 }
 
 // FeatureExtractionBatchRequest represents a batched feature extraction
@@ -89,6 +100,14 @@ type FeatureExtractionBatchRequest struct {
 
 	// Additional inference parameters for feature extraction.
 	Parameters *FeatureExtractionParameters `json:"parameters,omitempty"`
+
+	// ProviderParams is an advanced escape hatch for provider-specific
+	// request parameters not covered by the typed fields. Supporting
+	// providers merge these entries into the request body; entries override
+	// typed fields. See the provider's documentation for supported
+	// parameters. The map is treated as read-only while a request is in
+	// flight.
+	ProviderParams map[string]any `json:"-"`
 }
 
 // FeatureExtractionParameters specify additional inference
@@ -117,18 +136,23 @@ const (
 	FeatureExtractionTruncationRight = "right"
 )
 
-// Clone returns a deep defensive copy of the request.
+// Clone returns a deep defensive copy of the request. The ProviderParams map
+// is copied as a new map, but its values are shared because their types are
+// not known statically.
 func (r *FeatureExtractionRequest) Clone() FeatureExtractionRequest {
 	if r == nil {
 		return FeatureExtractionRequest{}
 	}
 	out := *r
 	out.Parameters = cloneStructPtr(r.Parameters, (*FeatureExtractionParameters).Clone)
+	out.ProviderParams = maps.Clone(r.ProviderParams)
 
 	return out
 }
 
-// Clone returns a deep defensive copy of the request.
+// Clone returns a deep defensive copy of the request. The ProviderParams map
+// is copied as a new map, but its values are shared because their types are
+// not known statically.
 func (r *FeatureExtractionBatchRequest) Clone() FeatureExtractionBatchRequest {
 	if r == nil {
 		return FeatureExtractionBatchRequest{}
@@ -136,6 +160,7 @@ func (r *FeatureExtractionBatchRequest) Clone() FeatureExtractionBatchRequest {
 	out := *r
 	out.Inputs = slices.Clone(r.Inputs)
 	out.Parameters = cloneStructPtr(r.Parameters, (*FeatureExtractionParameters).Clone)
+	out.ProviderParams = maps.Clone(r.ProviderParams)
 
 	return out
 }

@@ -23,6 +23,14 @@
 // choose. Authentication is caller-owned via options; provider and
 // codec implementations must not set an Authorization header.
 //
+// Async providers that follow provider-supplied URLs keep the same
+// rule: a credentialed follow-up (such as a task-status poll) is a
+// relative path resolved against the configured base URL, and a URL
+// fetched directly (such as a signed CDN output link) is sent without
+// credentials via the transport's unauthenticated request helper.
+// Provider-supplied absolute result URLs are stripped to their path
+// first, so even an absolute URL cannot redirect a poll.
+//
 // The typed dispatch layer casts a [Provider] to a per-task interface
 // with [AsProvider], returning a configuration error when the cast
 // fails.

@@ -3,6 +3,7 @@ package hftypes
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
@@ -94,6 +95,14 @@ type ChatRequest struct {
 	// For example, 0.1 means only the tokens comprising the top 10% probability
 	// mass are considered.
 	TopP *float64 `json:"top_p,omitempty"`
+
+	// ProviderParams is an advanced escape hatch for provider-specific
+	// request parameters not covered by the typed fields. Supporting
+	// providers merge these entries into the request body; entries override
+	// typed fields. See the provider's documentation for supported
+	// parameters. The map is treated as read-only while a request is in
+	// flight.
+	ProviderParams map[string]any `json:"-"`
 }
 
 // Common reasoning effort values. Support and defaults are provider and
@@ -129,6 +138,8 @@ func (r ChatRequest) MarshalJSON() ([]byte, error) {
 // slices, maps, pointers, and JSON blobs — are copied so the returned value
 // shares no backing storage with the receiver. This makes it safe to reuse a
 // template request across concurrent calls, e.g. go client.Chat(req.Clone(), ...).
+// The ProviderParams map is copied as a new map, but its values are shared
+// because their types are not known statically.
 func (r *ChatRequest) Clone() ChatRequest {
 	if r == nil {
 		return ChatRequest{}
@@ -152,6 +163,7 @@ func (r *ChatRequest) Clone() ChatRequest {
 	out.Tools = cloneSlice(r.Tools, (*ChatTool).Clone)
 	out.TopLogProbs = clonePtr(r.TopLogProbs)
 	out.TopP = clonePtr(r.TopP)
+	out.ProviderParams = maps.Clone(r.ProviderParams)
 
 	return out
 }

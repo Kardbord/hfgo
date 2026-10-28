@@ -51,8 +51,16 @@ func main() {
 	fmt.Println("Generating image for prompt: " + prompt)
 	fmt.Println("...")
 
+	// WaveSpeed's own request body is flat and provider-specific: the SDK
+	// encodes the canonical request into it automatically, polls the task
+	// result URL until completion, and downloads the generated image.
+	// Provider-specific request parameters that the canonical request types
+	// do not cover ride on ProviderParams.
 	image, err := client.GenerateImage(hftypes.TextToImageRequest{
 		Input: prompt,
+		ProviderParams: map[string]any{
+			"enable_safety_checker": true,
+		},
 	})
 	if err != nil {
 		log.Fatalf("error generating image: %v", err)

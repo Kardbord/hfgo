@@ -1,0 +1,27 @@
+meta {
+  name: Text to Video - Params
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{HF_BASE_URL}}/wavespeed/api/v3/{{model_text_to_video}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: */*
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "prompt": "A majestic lion in the savanna.",
+    "guidance_scale": 7.5,
+    "negative_prompt": "blurry, low quality",
+    "num_inference_steps": 30,
+    "num_frames": 24,
+    "seed": 42
+  }
+}

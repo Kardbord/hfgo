@@ -21,6 +21,13 @@ type ChatStreamResponse struct {
 	SystemFingerprint string             `json:"system_fingerprint"`
 	Choices           []ChatStreamChoice `json:"choices"`
 	Usage             *ChatUsage         `json:"usage,omitempty"`
+
+	// ProviderMetadata is an advanced escape hatch for provider-specific
+	// response metadata not covered by the typed fields. Providers that
+	// support it populate the map with additional upstream response data;
+	// it stays nil otherwise. Generic JSON decoding does not populate it:
+	// only provider-specific codecs do.
+	ProviderMetadata map[string]any `json:"-"`
 }
 
 // ChatStreamChoice is a single streaming completion choice.
