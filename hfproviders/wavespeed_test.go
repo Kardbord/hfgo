@@ -130,7 +130,7 @@ func TestWavespeedProvider_Endpoints(t *testing.T) {
 		{
 			name:            "ImageToImageEndpoint",
 			task:            TaskImageToImage,
-			model:           "briaai/Fibo-2.0-edit-turbo",
+			model:           "black-forest-labs/FLUX.2-klein-base-4B",
 			providerModelID: "bria/fibo-2.0/edit",
 			endpoint:        WavespeedProvider.ImageToImageEndpoint,
 		},

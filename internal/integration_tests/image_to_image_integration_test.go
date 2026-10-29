@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const imageToImageModel = "briaai/Fibo-2.0-edit-turbo"
+const imageToImageModel = "black-forest-labs/FLUX.2-klein-base-4B"
 
 // TestGenerateImageToImage_LiveAPI tests a basic image-to-image request against
 // the live HF API using the WaveSpeed provider.

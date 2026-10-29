@@ -28,7 +28,7 @@ func main() {
 		{
 			Provider: "wavespeed",
 			Task:     hfproviders.TaskImageToImage,
-			Model:    "briaai/Fibo-2.0-edit-turbo",
+			Model:    "black-forest-labs/FLUX.2-klein-base-4B",
 		}: {ProviderModelID: "bria/fibo-2.0/edit"},
 	}
 	mapper := hfproviders.NewStaticModelResolver(mappings)
@@ -45,7 +45,7 @@ func main() {
 	// default 1 MiB response cap, so raise it to leave headroom.
 	client := hfgo.NewClient(
 		hfopts.WithToken(token),
-		hfopts.WithModel("briaai/Fibo-2.0-edit-turbo"),
+		hfopts.WithModel("black-forest-labs/FLUX.2-klein-base-4B"),
 		hfopts.WithProvider(provider),
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
