@@ -176,6 +176,17 @@ follow the standard naming scheme:
 | ------------------------ | ------------------------------------ |
 | [Chat](./publicai/chat)  | `basic`, `streaming`, `conversation` |
 
+### Z.ai
+
+The [Z.ai provider](../docs/providers/zai-org.md) pins chat completions to
+Z.ai: the chat endpoint and codecs are the default provider's, and the
+provider appends the router's `:zai-org` suffix to the model. Its variants
+follow the standard naming scheme:
+
+| Task                    | Variants                             |
+| ----------------------- | ------------------------------------ |
+| [Chat](./zai-org/chat)  | `basic`, `streaming`, `conversation` |
+
 In addition to per-task examples, [custom-provider](./custom-provider) shows
 how to plug in a fictional `FooProvider` that maps Hugging Face model IDs to
 its own model identifiers through an explicitly injected model resolver,

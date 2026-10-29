@@ -34,6 +34,7 @@ func TestChatOnlyProviderContract(t *testing.T) {
 		groqChatOnlyCase(),
 		ovhcloudChatOnlyCase(),
 		publicAIChatOnlyCase(),
+		zaiChatOnlyCase(),
 	}
 
 	for _, tc := range cases {

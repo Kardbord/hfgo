@@ -154,6 +154,8 @@ Partner providers have their own examples:
   streaming, and multi-turn conversation) pinned to OVHcloud AI Endpoints.
 - [Public AI](./examples/publicai) — chat completions (unary, streaming, and
   multi-turn conversation) pinned to Public AI.
+- [Z.ai](./examples/zai-org) — chat completions (unary, streaming, and
+  multi-turn conversation) pinned to Z.ai.
 
 ## Error Handling
 
@@ -234,6 +236,8 @@ Built-in providers have their own guides:
   to OVHcloud AI Endpoints through the router's `:ovhcloud` suffix.
 - [Public AI provider](./docs/providers/publicai.md) — chat completions pinned
   to Public AI through the router's `:publicai` suffix.
+- [Z.ai provider](./docs/providers/zai-org.md) — chat completions pinned to
+  Z.ai through the router's `:zai-org` suffix.
 - [WaveSpeed provider](./docs/providers/wavespeed.md) — text-to-video,
   text-to-image, and image-to-image through WaveSpeed.
 
