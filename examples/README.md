@@ -132,6 +132,17 @@ the model. Its variants follow the standard naming scheme:
 | ----------------------------- | ------------------------------------ |
 | [Chat](./featherless-ai/chat) | `basic`, `streaming`, `conversation` |
 
+### Fireworks
+
+The [Fireworks provider](../docs/providers/fireworks-ai.md) pins chat
+completions to Fireworks: the chat endpoint and codecs are the default
+provider's, and the provider appends the router's `:fireworks-ai` suffix to
+the model. Its variants follow the standard naming scheme:
+
+| Task                          | Variants                             |
+| ----------------------------- | ------------------------------------ |
+| [Chat](./fireworks-ai/chat)   | `basic`, `streaming`, `conversation` |
+
 In addition to per-task examples, [custom-provider](./custom-provider) shows
 how to plug in a fictional `FooProvider` that maps Hugging Face model IDs to
 its own model identifiers through an explicitly injected model resolver,

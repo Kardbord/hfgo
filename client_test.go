@@ -126,6 +126,7 @@ func TestClientChat_ChatOnlyProviderSuffixes(t *testing.T) {
 		"cerebras":       func() hfproviders.Provider { return hfproviders.NewCerebrasProvider() },
 		"cohere":         func() hfproviders.Provider { return hfproviders.NewCohereProvider() },
 		"featherless-ai": func() hfproviders.Provider { return hfproviders.NewFeatherlessAIProvider() },
+		"fireworks-ai":   func() hfproviders.Provider { return hfproviders.NewFireworksProvider() },
 	}
 
 	for slug, newProvider := range chatOnlyProviders {
