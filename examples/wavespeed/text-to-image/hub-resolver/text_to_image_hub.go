@@ -19,21 +19,18 @@ func main() {
 		log.Fatal("HF_TOKEN environment variable is not set")
 	}
 
-	// Build a static model resolver that maps a Hugging Face model ID to the
-	// WaveSpeed provider's model identifier for the text-to-image task.
-	// For live Hub mappings, use hfproviders.NewHubModelResolver instead.
-	mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
-		{
-			Provider: "wavespeed",
-			Task:     hfproviders.TaskTextToImage,
-			Model:    "black-forest-labs/FLUX.1-dev",
-		}: {ProviderModelID: "wavespeed-ai/flux-dev"},
-	}
-	mapper := hfproviders.NewStaticModelResolver(mappings)
+	// Build a Hub model resolver, which queries the Hub's
+	// inferenceProviderMapping data for the configured model ID instead of
+	// using a pinned table. The token raises rate limits and is required for
+	// gated models; results are cached per resolver instance. See
+	// ../static-resolver for a pinned mapping that needs no Hub lookup.
+	resolver := hfproviders.NewHubModelResolver(
+		hfproviders.WithHubToken(token),
+	)
 
 	// Create a WavespeedProvider backed by the resolver. The constructor
 	// returns an error if the resolver is nil.
-	provider, err := hfproviders.NewWavespeedProvider(mapper)
+	provider, err := hfproviders.NewWavespeedProvider(resolver)
 	if err != nil {
 		log.Fatalf("error creating Wavespeed provider: %v", err)
 	}

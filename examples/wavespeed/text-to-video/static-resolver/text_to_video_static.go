@@ -20,12 +20,15 @@ func main() {
 	}
 
 	// Build a static model resolver that maps a Hugging Face model ID to the
-	// WaveSpeed provider's model identifier for the text-to-video task.
+	// WaveSpeed provider's model identifier for the text-to-video task. The
+	// mapping is pinned in code, so resolution performs no Hub lookup and
+	// works without network access to the Hub. See ../hub-resolver for live
+	// Hub mappings instead.
+	//
 	// ZhengmingYu/DMAD is a LoRA adapter: its weights ride on WaveSpeed's
 	// hosted MiniMax H3 base model, which is what the Adapter field marks.
 	// With the adapter declared, the SDK automatically injects the "loras"
-	// payload entry pointing at the repository. For live Hub mappings, use
-	// hfproviders.NewHubModelResolver instead.
+	// payload entry pointing at the repository.
 	mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
 		{
 			Provider: "wavespeed",

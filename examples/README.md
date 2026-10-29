@@ -19,7 +19,9 @@ one client can be reused across every task — only the model changes. See
 > **Cost notice:** Most examples call the live Hugging Face Inference API and
 > may incur charges on your account. The same applies to the integration tests
 > and the [Bruno collection](../tools/bruno/hfgo/). The `custom-provider`
-> example only resolves an endpoint and sends no request.
+> example only resolves an endpoint and sends no request. The WaveSpeed
+> `hub-resolver` examples additionally query the Hub's model mapping data;
+> that metadata lookup is not an inference call.
 
 ## Running an example
 
@@ -48,7 +50,9 @@ Variant directories are named for what they add over the `basic` example:
 | `token-level`       | Returns token-level embeddings instead of pooled vectors. Feature extraction only. |
 | `token-level-batch` | Returns token-level embeddings for multiple inputs. Feature extraction only.       |
 
-Not every task has every variant. The full matrix:
+Not every task has every variant. WaveSpeed examples are the exception to this
+naming scheme: their variants are named for the model resolver they wire (see
+[WaveSpeed](#wavespeed)). The full matrix:
 
 | Task                                                             | Variants                                                       |
 | ---------------------------------------------------------------- | -------------------------------------------------------------- |
@@ -72,13 +76,17 @@ Not every task has every variant. The full matrix:
 
 The [WaveSpeed provider](../docs/providers/wavespeed.md) serves text-to-video,
 text-to-image, and image-to-image through the Hugging Face router. Its examples
-each show the provider and resolver wiring the default provider does not need:
+each show the provider and resolver wiring the default provider does not need.
+The model resolver is the piece that varies per deployment, so WaveSpeed
+variants are named for the resolver they wire: `static-resolver` pins the
+HF-to-WaveSpeed mapping in code (no Hub lookup), while `hub-resolver` resolves
+against the Hub's `inferenceProviderMapping` data live.
 
-| Task                                          | Variants |
-| --------------------------------------------- | -------- |
-| [Text to Video](./wavespeed/text-to-video)    | `basic`  |
-| [Text to Image](./wavespeed/text-to-image)    | `basic`  |
-| [Image to Image](./wavespeed/image-to-image)  | `basic`  |
+| Task                                          | Variants                          |
+| --------------------------------------------- | --------------------------------- |
+| [Text to Video](./wavespeed/text-to-video)    | `static-resolver`, `hub-resolver` |
+| [Text to Image](./wavespeed/text-to-image)    | `static-resolver`, `hub-resolver` |
+| [Image to Image](./wavespeed/image-to-image)  | `static-resolver`, `hub-resolver` |
 
 In addition to per-task examples, [custom-provider](./custom-provider) shows
 how to plug in a fictional `FooProvider` that maps Hugging Face model IDs to

@@ -165,6 +165,6 @@ pattern.
 ## See also
 
 - [examples/wavespeed](../../examples/wavespeed) — runnable programs for each
-  supported task.
+  supported task, in `static-resolver` and `hub-resolver` variants.
 - [WaveSpeed on the Hugging Face Hub](https://huggingface.co/docs/inference-providers/providers/wavespeed)
 - [architecture.md](../architecture.md)

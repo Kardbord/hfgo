@@ -20,8 +20,10 @@ func main() {
 	}
 
 	// Build a static model resolver that maps a Hugging Face model ID to the
-	// WaveSpeed provider's model identifier for the image-to-image task.
-	// For live Hub mappings, use hfproviders.NewHubModelResolver instead.
+	// WaveSpeed provider's model identifier for the image-to-image task. The
+	// mapping is pinned in code, so resolution performs no Hub lookup and
+	// works without network access to the Hub. See ../hub-resolver for live
+	// Hub mappings instead.
 	mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
 		{
 			Provider: "wavespeed",
