@@ -134,10 +134,12 @@ Each link points to a runnable example. Most tasks have several variants
 - [Translation](./examples/huggingface/translation)
 - [Zero-Shot Text Classification](./examples/huggingface/zero-shot-text-classification)
 
-Provider-specific tasks are exercised by the provider's examples:
+Partner providers have their own examples:
 
 - [WaveSpeed](./examples/wavespeed) — text-to-video, text-to-image, and
   image-to-image through WaveSpeed.
+- [Baseten](./examples/baseten) — chat completions (unary, streaming, and
+  multi-turn conversation) pinned to Baseten.
 
 ## Error Handling
 
@@ -190,16 +192,19 @@ speaks the Hugging Face wire format directly, so for most use cases nothing
 needs to be configured. Use `hfopts.WithProvider(p)` to set an explicit
 provider on a client or a single call, and `hfopts.WithDefaultProvider()` to
 use the default Hugging Face provider. On OpenAI-compatible endpoints (e.g.
-chat completions), a provider or selection policy can be pinned by appending
-a suffix to the model string (e.g. `model:sambanova`, `model:fastest`,
-`model:cheapest`, `model:preferred`); otherwise the HF router selects the
-provider. See
+chat completions), a model-string suffix chooses how the router picks a
+provider: a provider name (e.g. `model:baseten`) routes to that provider
+deterministically, while a routing policy (`:fastest`, `:cheapest`,
+`:preferred`) lets the router choose, with automatic failover to another
+provider. Without a suffix the default `:fastest` policy applies. See
 <https://huggingface.co/docs/inference-providers/main/en/index>.
 
 Built-in providers have their own guides:
 
 - [Hugging Face provider](./docs/providers/huggingface.md) — the default; speaks
   the Hugging Face wire format directly.
+- [Baseten provider](./docs/providers/baseten.md) — chat completions pinned to
+  Baseten through the router's `:baseten` suffix.
 - [WaveSpeed provider](./docs/providers/wavespeed.md) — text-to-video,
   text-to-image, and image-to-image through WaveSpeed.
 

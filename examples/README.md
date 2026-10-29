@@ -2,8 +2,9 @@
 
 Runnable programs demonstrating each inference task. Examples are organized by
 provider: `examples/<provider>/<task>/<variant>`. The default Hugging Face
-provider's examples live under [`huggingface/`](./huggingface), provider-specific
-tasks under their provider's directory (e.g. [`wavespeed/`](./wavespeed)), and
+provider's examples live under [`huggingface/`](./huggingface), partner-provider
+examples under their provider's directory (e.g. [`wavespeed/`](./wavespeed) and
+[`baseten/`](./baseten)), and
 [`custom-provider`](./custom-provider) shows how to plug in a fictional
 provider. Each `main` package is self-contained. Per-task examples read their
 token from the `HF_TOKEN` environment variable, with the exception of
@@ -87,6 +88,17 @@ against the Hub's `inferenceProviderMapping` data live.
 | [Text to Video](./wavespeed/text-to-video)    | `static-resolver`, `hub-resolver` |
 | [Text to Image](./wavespeed/text-to-image)    | `static-resolver`, `hub-resolver` |
 | [Image to Image](./wavespeed/image-to-image)  | `static-resolver`, `hub-resolver` |
+
+### Baseten
+
+The [Baseten provider](../docs/providers/baseten.md) pins chat completions to
+Baseten: the chat endpoint and codecs are the default provider's, and the
+provider appends the router's `:baseten` suffix to the model. Its variants
+follow the standard naming scheme:
+
+| Task                   | Variants                             |
+| ---------------------- | ------------------------------------ |
+| [Chat](./baseten/chat) | `basic`, `streaming`, `conversation` |
 
 In addition to per-task examples, [custom-provider](./custom-provider) shows
 how to plug in a fictional `FooProvider` that maps Hugging Face model IDs to

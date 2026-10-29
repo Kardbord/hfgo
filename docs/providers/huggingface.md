@@ -21,12 +21,24 @@ path.
 
 Chat completions are routed through the Hugging Face router's
 OpenAI-compatible endpoint. The router selects a partner provider server-side
-unless the model string carries an explicit provider suffix such as
-`model:sambanova`, `model:fastest`, `model:cheapest`, or `model:preferred`;
-see the [Inference Providers docs](https://huggingface.co/docs/inference-providers/main/en/index)
-for selection behavior. Because chat payloads carry the model themselves, chat
-does not use a [model resolver](../architecture.md#external-provider-model-resolution)
-and the endpoint is model-independent.
+based on the model string's suffix (see the
+[Inference Providers docs](https://huggingface.co/docs/inference-providers/main/en/index)):
+
+- **No suffix, or `:fastest`** — the fastest available provider; if it becomes
+  unavailable, the router automatically fails over to another provider.
+- **`:cheapest` / `:preferred`** — a routing policy (lowest output-token
+  price / your Inference Provider settings order); the router still fails over
+  to another provider when needed.
+- **A provider name (e.g. `:baseten`)** — that provider, deterministically.
+  There is no cross-provider fallback: if the pinned provider does not serve
+  the model or task, the router returns an error such as
+  `400 Model not supported by provider <name>`.
+
+Because chat payloads carry the model themselves, chat does not use a
+[model resolver](../architecture.md#external-provider-model-resolution) and
+the endpoint is model-independent. The built-in
+[Baseten provider](./baseten.md) automates one such pin: it appends
+`:baseten` to the model string.
 
 ## Reusing its mixins
 
@@ -41,6 +53,8 @@ pattern and its trade-offs.
 ## See also
 
 - [WaveSpeed provider](./wavespeed.md) — the built-in partner-provider example.
+- [Baseten provider](./baseten.md) — chat completions pinned to Baseten through
+  the router's `:baseten` suffix.
 - [Package reference](https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfproviders)
 - [Hugging Face Inference Providers documentation](https://huggingface.co/docs/inference-providers/main/en/index)
 - [architecture.md](../architecture.md)

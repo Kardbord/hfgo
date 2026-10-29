@@ -57,11 +57,12 @@ func NewClient(opts ...hfopts.Option) Client {
 //   - Model="mistral-7b", Provider=SomeProvider → "mistral-7b:someprovider"
 //   - Model="mistral-7b:sambanova", Provider=HuggingFaceProvider → "mistral-7b:sambanova" (Provider ignored)
 //
-// Provider selection is otherwise delegated to the HF router. To select a
-// provider or selection policy explicitly, append a suffix to the model
-// string (e.g. "model:sambanova", "model:fastest", "model:cheapest",
-// "model:preferred"). See the Inference Providers docs for the default
-// (no-suffix) behavior:
+// Provider selection is otherwise delegated to the HF router. A model-string
+// suffix chooses how the router picks a provider: a provider name (e.g.
+// "model:baseten") routes to that provider deterministically, while a routing
+// policy (":fastest", ":cheapest", ":preferred") lets the router choose, with
+// automatic failover to another provider. With no suffix the default
+// ":fastest" policy applies. See the Inference Providers docs:
 // https://huggingface.co/docs/inference-providers/main/en/index.
 //
 // Behavior:
@@ -107,11 +108,12 @@ func (c Client) Chat(req hftypes.ChatRequest, opts ...hfopts.Option) (hftypes.Ch
 //   - Model="mistral-7b", Provider=SomeProvider → "mistral-7b:someprovider"
 //   - Model="mistral-7b:sambanova", Provider=HuggingFaceProvider → "mistral-7b:sambanova" (Provider ignored)
 //
-// Provider selection is otherwise delegated to the HF router. To select a
-// provider or selection policy explicitly, append a suffix to the model
-// string (e.g. "model:sambanova", "model:fastest", "model:cheapest",
-// "model:preferred"). See the Inference Providers docs for the default
-// (no-suffix) behavior:
+// Provider selection is otherwise delegated to the HF router. A model-string
+// suffix chooses how the router picks a provider: a provider name (e.g.
+// "model:baseten") routes to that provider deterministically, while a routing
+// policy (":fastest", ":cheapest", ":preferred") lets the router choose, with
+// automatic failover to another provider. With no suffix the default
+// ":fastest" policy applies. See the Inference Providers docs:
 // https://huggingface.co/docs/inference-providers/main/en/index.
 //
 // Behavior:

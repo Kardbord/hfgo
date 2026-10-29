@@ -46,12 +46,14 @@ func NewHuggingFaceProvider() HuggingFaceProvider {
 
 // ProviderSuffix returns an empty string. On OpenAI-compatible endpoints
 // (e.g. chat completions), the HF router selects a provider server-side, so
-// the Hugging Face provider appends no routing pin to the model. A provider or
-// selection policy can be pinned by appending a suffix to the model string
-// (e.g. "model:sambanova", "model:fastest", "model:cheapest",
-// "model:preferred"); see the Inference Providers docs for provider selection
-// behavior:
-// https://huggingface.co/docs/inference-providers/main/en/index.
+// the Hugging Face provider appends no routing token to the model.
+//
+// A model-string suffix chooses how the router picks a provider: a provider
+// name (e.g. "model:baseten") routes to that provider deterministically,
+// while a routing policy (":fastest", ":cheapest", ":preferred") lets the
+// router choose, with automatic failover to another provider. With no suffix
+// the router applies the default ":fastest" policy. See the Inference
+// Providers docs: https://huggingface.co/docs/inference-providers/main/en/index.
 func (p HuggingFaceProvider) ProviderSuffix() string {
 	return ""
 }
