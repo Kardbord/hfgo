@@ -68,6 +68,32 @@ func (p endpointFailProvider) TextToImageEndpoint(
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
+func (p endpointFailProvider) ImageToImageEndpoint(
+	_ hfproviders.EndpointParams,
+) (hfproviders.Endpoint, error) {
+	return hfproviders.Endpoint{}, errEndpointUnavailable
+}
+
+// ImageToImageCodec satisfies [hfproviders.ImageToImageProvider]. The
+// endpoint-error sweep short-circuits before Encode, so the codec is never
+// invoked.
+func (p endpointFailProvider) ImageToImageCodec() hfproviders.ImageToImageCodec {
+	return hfproviders.JSONCodec[hftypes.ImageToImageRequest, hftypes.ImageToImageResponse]{}
+}
+
+func (p endpointFailProvider) TextToVideoEndpoint(
+	_ hfproviders.EndpointParams,
+) (hfproviders.Endpoint, error) {
+	return hfproviders.Endpoint{}, errEndpointUnavailable
+}
+
+// TextToVideoCodec satisfies [hfproviders.TextToVideoProvider]. The
+// endpoint-error sweep short-circuits before Encode, so the codec is never
+// invoked.
+func (p endpointFailProvider) TextToVideoCodec() hfproviders.TextToVideoCodec {
+	return hfproviders.JSONCodec[hftypes.TextToVideoRequest, hftypes.TextToVideoResponse]{}
+}
+
 func (p endpointFailProvider) FeatureExtractionEndpoint(
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
@@ -327,6 +353,24 @@ func dispatchErrorCases() []dispatchErrorCase {
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).GenerateImage(
 					hftypes.TextToImageRequest{Input: "a cat"},
+				)
+			},
+		},
+		{
+			"GenerateImageToImage",
+			"error computing endpoint:",
+			func(opts ...hfopts.Option) (any, error) {
+				return hfgo.NewClient(opts...).GenerateImageToImage(
+					hftypes.ImageToImageRequest{Input: testutils.TinyPNGBase64},
+				)
+			},
+		},
+		{
+			"GenerateVideo",
+			"error computing endpoint:",
+			func(opts ...hfopts.Option) (any, error) {
+				return hfgo.NewClient(opts...).GenerateVideo(
+					hftypes.TextToVideoRequest{Input: "a cat"},
 				)
 			},
 		},

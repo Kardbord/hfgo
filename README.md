@@ -76,8 +76,8 @@ func main() {
 		fmt.Println(*response.Choices[0].Message.Content)
 	}
 
-	// Other tasks follow this shape. See examples/speech-recognition,
-	// examples/text-classification, and the rest of examples/ for more.
+	// Other tasks follow this shape. See examples/huggingface/speech-recognition,
+	// examples/huggingface/text-classification, and the rest of examples/ for more.
 }
 ```
 
@@ -118,21 +118,26 @@ Each link points to a runnable example. Most tasks have several variants
 (`basic`, `params`, `batch`, `streaming`, `conversation`); see the
 [examples README](./examples/README.md) for the convention.
 
-- [Chat](./examples/chat)
-- [Feature Extraction](./examples/feature-extraction)
-- [Fill Mask](./examples/fill-mask)
-- [Image Classification](./examples/image-classification)
-- [Image Segmentation](./examples/image-segmentation)
-- [Object Detection](./examples/object-detection)
-- [Question Answering](./examples/question-answering)
-- [Speech Recognition](./examples/speech-recognition)
-- [Summarization](./examples/summarization)
-- [Table Question Answering](./examples/table-question-answering)
-- [Text Classification](./examples/text-classification)
-- [Text to Image](./examples/text-to-image)
-- [Token Classification](./examples/token-classification)
-- [Translation](./examples/translation)
-- [Zero-Shot Text Classification](./examples/zero-shot-text-classification)
+- [Chat](./examples/huggingface/chat)
+- [Feature Extraction](./examples/huggingface/feature-extraction)
+- [Fill Mask](./examples/huggingface/fill-mask)
+- [Image Classification](./examples/huggingface/image-classification)
+- [Image Segmentation](./examples/huggingface/image-segmentation)
+- [Object Detection](./examples/huggingface/object-detection)
+- [Question Answering](./examples/huggingface/question-answering)
+- [Speech Recognition](./examples/huggingface/speech-recognition)
+- [Summarization](./examples/huggingface/summarization)
+- [Table Question Answering](./examples/huggingface/table-question-answering)
+- [Text Classification](./examples/huggingface/text-classification)
+- [Text to Image](./examples/huggingface/text-to-image)
+- [Token Classification](./examples/huggingface/token-classification)
+- [Translation](./examples/huggingface/translation)
+- [Zero-Shot Text Classification](./examples/huggingface/zero-shot-text-classification)
+
+Provider-specific tasks are exercised by the provider's examples:
+
+- [WaveSpeed](./examples/wavespeed) — text-to-video, text-to-image, and
+  image-to-image through WaveSpeed.
 
 ## Error Handling
 
@@ -142,9 +147,11 @@ Errors returned by client methods are one of two types in
 - **`APIError`** — a 4xx/5xx response from the API. Carries the status code,
   message, request ID, method, and URL. Helpers: `IsClientError()`,
   `IsServerError()`, `IsAuthenticationError()`, and `IsRateLimitError()`.
-- **`SDKError`** — produced locally before or while decoding a response.
-  Carries a `SDKErrorKind` (`validation`, `configuration`, `serialization`,
-  `transport`, `internal`) and an optional wrapped error.
+- **`SDKError`** — produced locally before or while decoding a response, or
+  raised when the provider reports a failure (such as a failed remote task)
+  inside an otherwise valid response. Carries a `SDKErrorKind` (`validation`,
+  `configuration`, `serialization`, `transport`, `provider`, `internal`) and
+  an optional wrapped error.
 
 Use `errors.As` to inspect either type:
 
@@ -189,11 +196,19 @@ a suffix to the model string (e.g. `model:sambanova`, `model:fastest`,
 provider. See
 <https://huggingface.co/docs/inference-providers/main/en/index>.
 
+Built-in providers have their own guides:
+
+- [Hugging Face provider](./docs/providers/huggingface.md) — the default; speaks
+  the Hugging Face wire format directly.
+- [WaveSpeed provider](./docs/providers/wavespeed.md) — text-to-video,
+  text-to-image, and image-to-image through WaveSpeed.
+
 Advanced users who want custom providers should implement the `Provider` interface
 plus the per-task interfaces you want to support, as shown by the `EchoProvider`
-example in the `hfproviders` package docs. The optional `HuggingFace*Mixin` types
-exist as a convenience for reusing the built-in Hugging Face endpoint and codec
-defaults: embed the ones you want (for example `HuggingFaceTextClassificationMixin`).
+example in the `hfproviders` package docs. The optional `HuggingFace*Mixin` and
+`Wavespeed*Mixin` types exist as a convenience for reusing a built-in provider's
+endpoint and codec defaults: embed the ones you want (for example
+`HuggingFaceTextClassificationMixin` or `WavespeedTextToImageMixin`).
 See [docs/architecture.md](./docs/architecture.md#per-task-provider-mixins).
 
 ## Documentation
@@ -202,8 +217,9 @@ See [docs/architecture.md](./docs/architecture.md#per-task-provider-mixins).
 - [examples/](./examples) — runnable programs for every task and variant.
 - [docs/](./docs) — documentation index, including
   [architecture](./docs/architecture.md),
-  [release process](./docs/release-process.md), and the
-  [Bruno API collection](./docs/bruno.md).
+  [release process](./docs/release-process.md), the
+  [Bruno API collection](./docs/bruno.md), and provider guides under
+  [docs/providers](./docs/providers).
 
 ## Contributing
 

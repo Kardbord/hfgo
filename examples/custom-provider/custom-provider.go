@@ -51,7 +51,7 @@ func (FooProvider) ProviderSuffix() string { return "" }
 func (p FooProvider) TextToImageEndpoint(
 	params hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
-	providerModelID, err := p.mapper.ResolveModel(params.Context, hfproviders.ResolveModelParams{
+	mapping, err := p.mapper.ResolveModel(params.Context, hfproviders.ResolveModelParams{
 		Provider: fooProviderName,
 		Task:     hfproviders.TaskTextToImage,
 		Model:    params.Model,
@@ -60,7 +60,10 @@ func (p FooProvider) TextToImageEndpoint(
 		return hfproviders.Endpoint{}, err
 	}
 
-	return hfproviders.Endpoint{Method: http.MethodPost, Path: "foo/" + providerModelID}, nil
+	return hfproviders.Endpoint{
+		Method: http.MethodPost,
+		Path:   "foo/" + mapping.ProviderModelID,
+	}, nil
 }
 
 func main() {
@@ -68,13 +71,14 @@ func main() {
 	// network I/O and needs no token. Swap in
 	// hfproviders.NewHubModelResolver(hfproviders.WithHubToken(...)) to resolve
 	// live Hub mappings instead.
-	mapper := hfproviders.NewStaticModelResolver(map[hfproviders.StaticMapping]string{
+	mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
 		{
 			Provider: fooProviderName,
 			Task:     hfproviders.TaskTextToImage,
 			Model:    "black-forest-labs/FLUX.1-dev",
-		}: "foo/flux-dev",
-	})
+		}: {ProviderModelID: "foo/flux-dev"},
+	}
+	mapper := hfproviders.NewStaticModelResolver(mappings)
 
 	provider := NewFooProvider(mapper)
 

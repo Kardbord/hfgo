@@ -23,6 +23,14 @@
 // choose. Authentication is caller-owned via options; provider and
 // codec implementations must not set an Authorization header.
 //
+// Async providers that follow provider-supplied URLs keep the same
+// rule: a credentialed follow-up (such as a task-status poll) is a
+// relative path resolved against the configured base URL, and a URL
+// fetched directly (such as a signed CDN output link) is sent without
+// credentials via the transport's unauthenticated request helper.
+// Provider-supplied absolute result URLs are stripped to their path
+// first, so even an absolute URL cannot redirect a poll.
+//
 // The typed dispatch layer casts a [Provider] to a per-task interface
 // with [AsProvider], returning a configuration error when the cast
 // fails.
@@ -50,18 +58,26 @@
 // and [Provider.ProviderSuffix]. Mixins carry no provider identity, so
 // composing several is unambiguous.
 //
+// Partner-provider mixins such as [WavespeedTextToImageMixin] follow the
+// same pattern but additionally carry a model resolver in an exported
+// field; [WavespeedProvider] composes them and [NewWavespeedProvider]
+// wires the resolver into each.
+//
 // # Model resolution
 //
 // Third-party providers often serve models under names that differ from
 // the Hugging Face Hub. A [ModelResolver] maps a Hugging Face model ID to
-// a provider-specific identifier. Providers that need mapping receive a
+// its provider-side [ModelMapping] — the provider-specific identifier plus
+// the Hub's adapter metadata. Providers that need mapping receive a
 // resolver as an explicit constructor dependency and consult it in their
-// endpoint methods, so lookups happen only inside a provider the caller
-// constructed for that purpose. [StaticModelResolver] resolves from a
-// caller-supplied mapping with no network I/O, and [HubModelResolver]
-// resolves by querying the Hub's inferenceProviderMapping data with
-// per-instance caching. Resolution matters only for non-chat tasks; the
-// chat endpoint performs provider mapping server-side.
+// endpoint methods (and, when payloads depend on the mapping, in their
+// codecs — e.g. WaveSpeed's automatic LoRA injection for adapter models),
+// so lookups happen only inside a provider the caller constructed for that
+// purpose. [StaticModelResolver] resolves from a caller-supplied mapping
+// with no network I/O, and [HubModelResolver] resolves by querying the
+// Hub's inferenceProviderMapping data with per-instance caching.
+// Resolution matters only for non-chat tasks; the chat endpoint performs
+// provider mapping server-side.
 //
 // [hfopts.WithProvider]: https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfopts#WithProvider
 // [hfopts.WithDefaultProvider]: https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfopts#WithDefaultProvider

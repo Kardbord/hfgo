@@ -29,13 +29,19 @@ func TestHubModelResolver_LiveHub(t *testing.T) {
 
 	resolver := hfproviders.NewHubModelResolver(hfproviders.WithHubToken(apiToken))
 
-	id, err := resolver.ResolveModel(ctx, hfproviders.ResolveModelParams{
+	mapping, err := resolver.ResolveModel(ctx, hfproviders.ResolveModelParams{
 		Provider: "fal-ai",
 		Task:     "text-to-image",
 		Model:    fluxModel,
 	})
 	require.NoError(t, err)
-	require.Equal(t, "fal-ai/flux/dev", id)
+	mapping.Status = "" // This could change, so pin it to an empty string
+	require.Equal(t, hfproviders.ModelMapping{
+		ProviderModelID:    "fal-ai/flux/dev",
+		Adapter:            "",
+		AdapterWeightsPath: "",
+		Status:             "",
+	}, mapping)
 }
 
 // TestHubModelResolver_LiveHubAbsentProvider checks that a provider with no

@@ -88,7 +88,7 @@ func TestHubModelResolver_ImplementsInterface(t *testing.T) {
 	var _ hfproviders.ModelResolver = &hfproviders.HubModelResolver{}
 }
 
-func TestHubModelResolver_ResolvesProviderID(t *testing.T) {
+func TestHubModelResolver_ResolvesMapping(t *testing.T) {
 	t.Parallel()
 
 	payload := `{
@@ -106,13 +106,51 @@ func TestHubModelResolver_ResolvesProviderID(t *testing.T) {
 
 	resolver := hfproviders.NewHubModelResolver(hfproviders.WithHubBaseURL(hs.server.URL))
 
-	id, err := resolver.ResolveModel(context.Background(), hfproviders.ResolveModelParams{
+	mapping, err := resolver.ResolveModel(context.Background(), hfproviders.ResolveModelParams{
 		Model:    "black-forest-labs/FLUX.1-dev",
 		Provider: "fal-ai",
 		Task:     "text-to-image",
 	})
 	require.NoError(t, err)
-	require.Equal(t, "fal-ai/flux/dev", id)
+	require.Equal(t, hfproviders.ModelMapping{
+		ProviderModelID: "fal-ai/flux/dev",
+		Adapter:         "",
+		Status:          "live",
+	}, mapping)
+}
+
+func TestHubModelResolver_ResolvesAdapterMapping(t *testing.T) {
+	t.Parallel()
+
+	payload := `{
+		"id": "ZhengmingYu/DMAD",
+		"inferenceProviderMapping": {
+			"wavespeed": {
+				"status": "live",
+				"providerId": "wavespeed-ai/minimax-h3/text-to-video-lora",
+				"task": "text-to-video",
+				"adapter": "lora",
+				"adapterWeightsPath": "minimax_h3/dmad.safetensors",
+				"isModelAuthor": false
+			}
+		}
+	}`
+	hs := newHubServer(t, payload)
+
+	resolver := hfproviders.NewHubModelResolver(hfproviders.WithHubBaseURL(hs.server.URL))
+
+	mapping, err := resolver.ResolveModel(context.Background(), hfproviders.ResolveModelParams{
+		Model:    "ZhengmingYu/DMAD",
+		Provider: "wavespeed",
+		Task:     "text-to-video",
+	})
+	require.NoError(t, err)
+	require.Equal(t, hfproviders.ModelMapping{
+		ProviderModelID:    "wavespeed-ai/minimax-h3/text-to-video-lora",
+		Adapter:            "lora",
+		AdapterWeightsPath: "minimax_h3/dmad.safetensors",
+		Status:             "live",
+	}, mapping)
 }
 
 func TestHubModelResolver_CachesResults(t *testing.T) {
@@ -293,12 +331,12 @@ func TestHubModelResolver_NilOptionIsIgnored(t *testing.T) {
 		hfproviders.WithHubBaseURL(hs.server.URL),
 	)
 
-	id, err := resolver.ResolveModel(
+	mapping, err := resolver.ResolveModel(
 		context.Background(),
 		hubResolveParams("black-forest-labs/FLUX.1-dev"),
 	)
 	require.NoError(t, err)
-	require.Equal(t, "fal-ai/flux/dev", id)
+	require.Equal(t, "fal-ai/flux/dev", mapping.ProviderModelID)
 }
 
 func TestHubModelResolver_WithHubHTTPClientFactoryUsesClient(t *testing.T) {
@@ -312,11 +350,11 @@ func TestHubModelResolver_WithHubHTTPClientFactoryUsesClient(t *testing.T) {
 		}),
 	)
 
-	id, err := resolver.ResolveModel(
+	mapping, err := resolver.ResolveModel(
 		context.Background(),
 		hubResolveParams("black-forest-labs/FLUX.1-dev"),
 	)
 	require.NoError(t, err)
-	require.Equal(t, "fal-ai/flux/dev", id)
+	require.Equal(t, "fal-ai/flux/dev", mapping.ProviderModelID)
 	require.Equal(t, 1, hs.requestCount())
 }

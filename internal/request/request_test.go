@@ -753,3 +753,324 @@ func TestAPIErrorFromResponse(t *testing.T) {
 		require.Empty(t, apiErr.URL)
 	})
 }
+
+// newUnauthenticatedTestParams returns UnauthenticatedParams backed by the
+// given mock transport.
+func newUnauthenticatedTestParams(mt *testutils.MockTransport) UnauthenticatedParams {
+	client := testutils.NewMockHTTPClient(mt)
+
+	return UnauthenticatedParams{
+		HTTPClient: &client,
+		UserAgent:  hfgoversion.UserAgent(),
+	}
+}
+
+func TestDoUnauthenticated(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		//nolint:containedctx // The table test carries a per-case request context.
+		ctx         context.Context
+		method      string
+		url         string
+		headers     http.Header
+		body        io.Reader
+		setupParams func() UnauthenticatedParams
+		wantErr     bool
+		validateReq func(t *testing.T, req *http.Request)
+		validateErr func(t *testing.T, err error)
+	}{
+		{
+			name:   "sends absolute URL without credentials",
+			method: http.MethodGet,
+			url:    "https://cdn.example.com/output.png?sig=abc",
+			headers: http.Header{
+				"Accept":        []string{"*/*"},
+				"Authorization": []string{"Bearer should-not-leak"},
+			},
+			setupParams: func() UnauthenticatedParams {
+				mt := testutils.NewMockTransport(http.StatusOK, "media-bytes", nil)
+
+				return newUnauthenticatedTestParams(mt)
+			},
+			validateReq: func(t *testing.T, req *http.Request) {
+				t.Helper()
+				testutils.AssertURL(t, req.URL.String(), &url.URL{
+					Scheme:   "https",
+					Host:     "cdn.example.com",
+					Path:     "/output.png",
+					RawQuery: "sig=abc",
+				})
+				if got := req.Header.Get("Authorization"); got != "" {
+					t.Errorf("unauthenticated request must not carry Authorization, got %q", got)
+				}
+				if got := req.Header.Get("Accept"); got != "*/*" {
+					t.Errorf("unexpected Accept header: %q", got)
+				}
+				if got := req.Header.Get("User-Agent"); got != hfgoversion.UserAgent() {
+					t.Errorf(
+						"unexpected User-Agent header: %q, want %q",
+						got,
+						hfgoversion.UserAgent(),
+					)
+				}
+			},
+		},
+		{
+			name:   "sends POST with body and headers",
+			method: http.MethodPost,
+			url:    "https://cdn.example.com/upload",
+			headers: http.Header{
+				"Content-Type": []string{"application/octet-stream"},
+			},
+			body: strings.NewReader("payload"),
+			setupParams: func() UnauthenticatedParams {
+				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
+
+				return newUnauthenticatedTestParams(mt)
+			},
+			validateReq: func(t *testing.T, req *http.Request) {
+				t.Helper()
+				body, err := io.ReadAll(req.Body)
+				if err != nil {
+					t.Fatalf("failed to read request body: %v", err)
+				}
+				if string(body) != "payload" {
+					t.Errorf("unexpected body: %q", string(body))
+				}
+				if got := req.Header.Get("Content-Type"); got != "application/octet-stream" {
+					t.Errorf("unexpected Content-Type header: %q", got)
+				}
+				if got := req.Method; got != http.MethodPost {
+					t.Errorf("unexpected method: %q", got)
+				}
+			},
+		},
+		{
+			name:   "rejects relative URL",
+			method: http.MethodGet,
+			url:    "cdn/output.png",
+			setupParams: func() UnauthenticatedParams {
+				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
+
+				return newUnauthenticatedTestParams(mt)
+			},
+			wantErr: true,
+			validateErr: func(t *testing.T, err error) {
+				t.Helper()
+				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+				require.ErrorContains(t, err, "URL must be absolute")
+			},
+		},
+		{
+			name:   "rejects non-http scheme",
+			method: http.MethodGet,
+			url:    "file:///etc/hosts",
+			setupParams: func() UnauthenticatedParams {
+				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
+
+				return newUnauthenticatedTestParams(mt)
+			},
+			wantErr: true,
+			validateErr: func(t *testing.T, err error) {
+				t.Helper()
+				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+				require.ErrorContains(t, err, "http or https")
+			},
+		},
+		{
+			name:   "rejects scheme without host",
+			method: http.MethodGet,
+			url:    "https:///output.png",
+			setupParams: func() UnauthenticatedParams {
+				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
+
+				return newUnauthenticatedTestParams(mt)
+			},
+			wantErr: true,
+			validateErr: func(t *testing.T, err error) {
+				t.Helper()
+				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+				require.ErrorContains(t, err, "must include a host")
+			},
+		},
+		{
+			name:   "rejects malformed URL",
+			method: http.MethodGet,
+			url:    "http://[::1:bad",
+			setupParams: func() UnauthenticatedParams {
+				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
+
+				return newUnauthenticatedTestParams(mt)
+			},
+			wantErr: true,
+			validateErr: func(t *testing.T, err error) {
+				t.Helper()
+				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+				require.ErrorContains(t, err, "invalid URL")
+			},
+		},
+		{
+			name:   "rejects invalid HTTP method",
+			method: "GET{",
+			url:    "https://cdn.example.com/output.png",
+			setupParams: func() UnauthenticatedParams {
+				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
+
+				return newUnauthenticatedTestParams(mt)
+			},
+			wantErr: true,
+			validateErr: func(t *testing.T, err error) {
+				t.Helper()
+				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindInternal)
+			},
+		},
+		{
+			name:   "empty User-Agent is not set",
+			method: http.MethodGet,
+			url:    "https://cdn.example.com/output.png",
+			setupParams: func() UnauthenticatedParams {
+				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
+				client := testutils.NewMockHTTPClient(mt)
+
+				return UnauthenticatedParams{HTTPClient: &client}
+			},
+			validateReq: func(t *testing.T, req *http.Request) {
+				t.Helper()
+				if got := req.Header.Get("User-Agent"); got != "" {
+					t.Errorf("empty User-Agent must not be set, got %q", got)
+				}
+			},
+		},
+		{ //nolint:gosec // Test fixture: the URL is intentionally credential-bearing to assert rejection.
+			name:   "rejects URL with embedded credentials without echoing them",
+			method: http.MethodGet,
+			url:    "https://user:pass@cdn.example.com/output.png",
+			setupParams: func() UnauthenticatedParams {
+				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
+
+				return newUnauthenticatedTestParams(mt)
+			},
+			wantErr: true,
+			validateErr: func(t *testing.T, err error) {
+				t.Helper()
+				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+				require.NotContains(t, err.Error(), "user:pass")
+			},
+		},
+		{
+			name:   "returns configuration SDKError when http client is nil",
+			method: http.MethodGet,
+			url:    "https://cdn.example.com/output.png",
+			setupParams: func() UnauthenticatedParams {
+				return UnauthenticatedParams{}
+			},
+			wantErr: true,
+			validateErr: func(t *testing.T, err error) {
+				t.Helper()
+				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+			},
+		},
+		{
+			name:   "nil context uses background",
+			ctx:    testutils.NilContext(),
+			method: http.MethodGet,
+			url:    "https://cdn.example.com/output.png",
+			setupParams: func() UnauthenticatedParams {
+				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
+
+				return newUnauthenticatedTestParams(mt)
+			},
+			validateReq: func(t *testing.T, req *http.Request) {
+				t.Helper()
+				if req.Context() == nil {
+					t.Fatal("expected non-nil request context")
+				}
+				if err := req.Context().Err(); err != nil {
+					t.Fatalf("unexpected context error: %v", err)
+				}
+			},
+		},
+		{
+			name:   "returns API error on 4xx response",
+			method: http.MethodGet,
+			url:    "https://cdn.example.com/output.png",
+			setupParams: func() UnauthenticatedParams {
+				mt := testutils.NewMockTransport(http.StatusForbidden, `forbidden`, nil)
+
+				return newUnauthenticatedTestParams(mt)
+			},
+			wantErr: true,
+			validateErr: func(t *testing.T, err error) {
+				t.Helper()
+				testutils.AssertAPIErrorStatus(t, err, http.StatusForbidden)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			params := tt.setupParams()
+
+			resp, err := DoUnauthenticated(tt.ctx, params, tt.method, tt.url, tt.headers, tt.body)
+
+			// Check error expectation
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("DoUnauthenticated() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			// Validate error if custom validation provided
+			if tt.validateErr != nil {
+				tt.validateErr(t, err)
+			}
+
+			// Validate request if no error and validation provided
+			if !tt.wantErr && tt.validateReq != nil {
+				// Get the mock transport to access the last request
+				if params.HTTPClient == nil {
+					t.Fatal("expected http client")
+				}
+				if mt, ok := params.HTTPClient.Transport.(*testutils.MockTransport); ok &&
+					mt.LastRequest != nil {
+					tt.validateReq(t, mt.LastRequest)
+				} else {
+					t.Fatal("expected mock transport with LastRequest")
+				}
+			}
+
+			// Close response body if present
+			if resp != nil {
+				_ = resp.Body.Close()
+			}
+		})
+	}
+}
+
+func TestDoRawUnauthenticated(t *testing.T) {
+	t.Parallel()
+
+	// DoRawUnauthenticated returns 4xx responses as-is instead of an APIError.
+	mt := testutils.NewMockTransport(http.StatusUnauthorized, `unauthorized`, nil)
+	params := newUnauthenticatedTestParams(mt)
+
+	resp, err := DoRawUnauthenticated(
+		context.Background(),
+		params,
+		http.MethodGet,
+		"https://cdn.example.com/output.png",
+		nil,
+		nil,
+	)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+	_ = resp.Body.Close()
+
+	// The request still carries no credentials.
+	if mt.LastRequest == nil {
+		t.Fatal("expected mock transport to capture the request")
+	}
+	if got := mt.LastRequest.Header.Get("Authorization"); got != "" {
+		t.Errorf("unauthenticated request must not carry Authorization, got %q", got)
+	}
+}

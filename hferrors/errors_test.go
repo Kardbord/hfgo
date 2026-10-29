@@ -187,6 +187,13 @@ func TestSDKError_Error(t *testing.T) {
 				Err:  underlying,
 			},
 		},
+		{
+			name: "provider kind",
+			err: &SDKError{
+				Kind:    SDKErrorKindProvider,
+				Message: "WaveSpeed task failed",
+			},
+		},
 	}
 
 	for _, tt := range tests {

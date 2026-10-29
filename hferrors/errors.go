@@ -79,6 +79,11 @@ const (
 	SDKErrorKindSerialization SDKErrorKind = "serialization"
 	// SDKErrorKindTransport indicates a transport-layer failure.
 	SDKErrorKindTransport SDKErrorKind = "transport"
+	// SDKErrorKindProvider indicates a failure the provider reported inside an
+	// otherwise valid API response, such as a remote task reaching a terminal
+	// failure status. The HTTP exchange itself succeeded; for HTTP-level
+	// failures see [APIError].
+	SDKErrorKindProvider SDKErrorKind = "provider"
 	// SDKErrorKindInternal indicates an internal SDK error.
 	SDKErrorKindInternal SDKErrorKind = "internal"
 )

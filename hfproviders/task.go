@@ -13,8 +13,12 @@ const (
 	// TaskConversational is the conversational (chat) task. Chat performs
 	// provider mapping server-side, so it normally does not use a resolver.
 	TaskConversational Task = "conversational"
+	// TaskImageToImage is the image-to-image task.
+	TaskImageToImage Task = "image-to-image"
 	// TaskTextToImage is the text-to-image task.
 	TaskTextToImage Task = "text-to-image"
+	// TaskTextToVideo is the text-to-video task.
+	TaskTextToVideo Task = "text-to-video"
 	// TaskAutomaticSpeechRecognition is the speech-recognition task.
 	TaskAutomaticSpeechRecognition Task = "automatic-speech-recognition"
 	// TaskFeatureExtraction is the feature-extraction task.

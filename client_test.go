@@ -4,8 +4,10 @@ package hfgo
 
 import (
 	"context"
+	"encoding/base64"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -557,4 +559,99 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestClient_GenerateImageToImageAndVideo exercises the two client methods the
+// default provider does not support: with a WaveSpeed provider configured,
+// both must dispatch through the provider's async exchange (submit, download
+// the generated output) and return the media with its advertised type.
+func TestClient_GenerateImageToImageAndVideo(t *testing.T) {
+	t.Parallel()
+
+	png, err := base64.StdEncoding.DecodeString(testutils.TinyPNGBase64)
+	require.NoError(t, err)
+
+	t.Run("GenerateImageToImage", func(t *testing.T) {
+		t.Parallel()
+
+		var outputURL string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"code":200,"message":"success","data":{` +
+					`"id":"pred_1","status":"completed","outputs":["` + outputURL + `"]}}`))
+
+				return
+			}
+
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write(png)
+		}))
+		defer server.Close()
+		outputURL = server.URL + "/output"
+
+		mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
+			{
+				Provider: "wavespeed",
+				Task:     hfproviders.TaskImageToImage,
+				Model:    "test-model",
+			}: {ProviderModelID: "wavespeed-ai/image-to-image"},
+		}
+		mapper := hfproviders.NewStaticModelResolver(mappings)
+		provider, err := hfproviders.NewWavespeedProvider(mapper)
+		require.NoError(t, err)
+		client := NewClient(
+			hfopts.WithBaseURL(server.URL),
+			hfopts.WithModel("test-model"),
+			hfopts.WithProvider(provider),
+		)
+
+		image, err := client.GenerateImageToImage(hftypes.ImageToImageRequest{
+			Input: testutils.TinyPNGBase64,
+		})
+		require.NoError(t, err)
+		require.Equal(t, png, image.Image)
+		require.Equal(t, "image/png", image.MediaType)
+	})
+
+	t.Run("GenerateVideo", func(t *testing.T) {
+		t.Parallel()
+
+		var outputURL string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"code":200,"message":"success","data":{` +
+					`"id":"pred_1","status":"completed","outputs":["` + outputURL + `"]}}`))
+
+				return
+			}
+
+			w.Header().Set("Content-Type", "video/webm")
+			_, _ = w.Write([]byte{0x1A, 0x45, 0xDF, 0xA3})
+		}))
+		defer server.Close()
+		outputURL = server.URL + "/output"
+
+		mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
+			{
+				Provider: "wavespeed",
+				Task:     hfproviders.TaskTextToVideo,
+				Model:    "test-model",
+			}: {ProviderModelID: "wavespeed-ai/minimax-h3/text-to-video"},
+		}
+		mapper := hfproviders.NewStaticModelResolver(mappings)
+		provider, err := hfproviders.NewWavespeedProvider(mapper)
+		require.NoError(t, err)
+		client := NewClient(
+			hfopts.WithBaseURL(server.URL),
+			hfopts.WithModel("test-model"),
+			hfopts.WithProvider(provider),
+		)
+
+		video, err := client.GenerateVideo(hftypes.TextToVideoRequest{Input: "a cat"})
+		require.NoError(t, err)
+		require.Equal(t, []byte{0x1A, 0x45, 0xDF, 0xA3}, video.Video)
+		require.Equal(t, "video/webm", video.MediaType)
+	})
 }

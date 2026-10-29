@@ -19,7 +19,7 @@ and `examples/` for usage documentation, and the code itself for full detail.
 | `hfopts`      | `github.com/Kardbord/hfgo/v4/hfopts`      | `Options`, `Option`, and all `With*` helpers                                                                                      |
 | `hftypes`     | `github.com/Kardbord/hfgo/v4/hftypes`     | Request/response DTOs for every task                                                                                              |
 | `hferrors`    | `github.com/Kardbord/hfgo/v4/hferrors`    | `APIError`, `SDKError`, and `SDKErrorKind`                                                                                        |
-| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, per-task Hugging Face mixins, `HuggingFaceProvider` |
+| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, per-task provider mixins (Hugging Face, WaveSpeed), `HuggingFaceProvider`, `WavespeedProvider`, `ModelResolver` |
 | `hfraw`       | `github.com/Kardbord/hfgo/v4/hfraw`       | Low-level HTTP/SSE escape hatch                                                                                                   |
 | `hfgoversion` | `github.com/Kardbord/hfgo/v4/hfgoversion` | `Version` constant and `UserAgent()` helper                                                                                       |
 
@@ -112,15 +112,25 @@ never redirect a request (and its bearer token) to a host the caller did not
 choose. Authentication is owned by the caller via `Options.Token` /
 `Options.Headers`; providers and codecs must not set `Authorization`.
 
+The same rule governs follow-up requests in asynchronous exchanges (task
+APIs that poll and download). A follow-up that must be authenticated is
+reduced to a relative path and resolved against `Options.BaseURL`, so
+polling still targets the host the caller chose. A follow-up fetched
+directly from a provider-controlled host (for example a signed CDN output
+link) goes through the transport's unauthenticated request helper, which
+structurally carries no credentials: its parameter type has no token field,
+it rejects URLs with embedded user credentials, and it strips
+`Authorization` defensively.
+
 ### Per-task provider mixins
 
-The Hugging Face defaults are split into one zero-byte mixin per upstream task,
-for example `HuggingFaceTextClassificationMixin` or
-`HuggingFaceSummarizationMixin`. Each mixin pairs that task's
-endpoint-resolution method with its codec accessor(s). `HuggingFaceProvider`
-composes every mixin and adds the provider identity (`Name`,
-`ProviderSuffix`). Mixins deliberately do not implement `Provider`, so a custom
-provider embeds only the tasks it serves and supplies its own identity:
+Provider defaults are split into one zero-byte mixin per upstream task, for
+example `HuggingFaceTextClassificationMixin` or `HuggingFaceSummarizationMixin`.
+Each mixin pairs that task's endpoint-resolution method with its codec
+accessor(s). `HuggingFaceProvider` composes every mixin and adds the provider
+identity (`Name`, `ProviderSuffix`). Mixins deliberately do not implement
+`Provider`, so a custom provider embeds only the tasks it serves and supplies
+its own identity:
 
 ```go
 type MyProvider struct {
@@ -131,6 +141,21 @@ type MyProvider struct {
 func (MyProvider) Name() string           { return "my-provider" }
 func (MyProvider) ProviderSuffix() string { return "" }
 ```
+
+Partner providers that need model resolution use the same pattern with one
+addition: their mixins carry the resolver as state. `WavespeedProvider`, for
+example, composes `WavespeedTextToVideoMixin`, `WavespeedTextToImageMixin`, and
+`WavespeedImageToImageMixin`, each with an exported `Resolver ModelResolver`
+field that its endpoint methods consult. `NewWavespeedProvider` sets every
+field; a custom provider embedding a single mixin sets it directly. Mixins that
+need no per-instance state (like the Hugging Face ones) stay zero-byte.
+
+Embedding multiple resolver-carrying mixins intentionally leaves the promoted
+`Resolver` field ambiguous on the composed provider: it is not a compile error
+unless referenced, and callers never need it — the mixins read their own field
+and the constructor sets them. Composed providers therefore expose no resolver
+accessor, keeping resolution a construction-time dependency rather than a
+per-call input.
 
 Chat and feature extraction intentionally remain single mixins. Their sibling
 variants share endpoint methods, so splitting them would either duplicate those
@@ -155,13 +180,22 @@ time — but callers think in Hugging Face model IDs.
 
 Resolution lives where the model ID is consumed. A provider that needs mapping
 receives a `ModelResolver` as an explicit constructor dependency and calls it
-from its endpoint methods (or, for model-in-body wire formats, from its
-codecs). Dispatch, options, and the `Provider` interface carry no resolution
+from its endpoint methods (or from its codecs, when payloads depend on the
+mapping — e.g. WaveSpeed's automatic LoRA injection for adapter models). When
+endpoint resolution and payload adaptation need the same mapping, the endpoint
+attaches its resolution to `Endpoint.Mapping` and the pipeline forwards it to
+`EncodeParams.Mapping`, so the codec reuses it instead of repeating the
+lookup; codecs without an attached mapping (standalone codec use) fall back to
+their own resolver.
+Dispatch, options, and the `Provider` interface carry no resolution
 machinery, so a lookup can only happen inside a provider the caller
 constructed for that purpose — there are no hidden network calls.
 
 - `hfproviders.ModelResolver` maps a Hugging Face model ID, provider slug,
-  and upstream task to the provider-specific model identifier.
+  and upstream task to the provider-side `ModelMapping`: the provider model
+  identifier plus the Hub's adapter metadata (`Adapter`,
+  `AdapterWeightsPath`) and mapping `Status`, so providers can adapt
+  requests to adapter models without further interface changes.
 - `hfproviders.StaticModelResolver` resolves from a caller-supplied mapping
   and performs no network I/O — suitable for tests and for deployments that
   pin the mapping themselves.
@@ -236,14 +270,26 @@ When a codec or streaming decode hook returns an existing
 instead of relabeling it as a serialization failure. This keeps validation and
 configuration failures distinguishable from malformed JSON.
 
+Providers whose wire format needs follow-up HTTP requests after the initial
+response — such as the asynchronous task APIs of generation providers — opt in
+via `AsyncCodec`, an optional `Codec` extension. When the pipeline dispatches
+to an `AsyncCodec`, it calls `PostSubmit` instead of `Decode`, passing the
+submit response plus the transport configuration (HTTP client, base URL,
+token, response-size cap) so the codec can complete the exchange — polling,
+terminal-state handling, and output retrieval stay provider-owned wire-format
+logic inside the provider package. WaveSpeed uses this for its
+submit-poll-download lifecycle.
+
 ### Naming convention
 
 Client methods use an **action verb** (what the caller does); provider
 interfaces, endpoints, codecs, and request DTOs use the **upstream task noun**
 (matching Hugging Face's task taxonomy). For example, the client method is
 `ClassifyText` but the DTO is `TextClassificationRequest` and the provider
-interface is `TextClassificationProvider`. There are no task-name constants —
-task support is expressed structurally through the per-task interfaces.
+interface is `TextClassificationProvider`. Task-name constants
+(`hfproviders.TaskTextToImage` and friends) exist only to identify the upstream
+task to model resolvers; task support is expressed structurally through
+the per-task interfaces.
 
 When a task has multiple output families, codec and provider names include the
 family qualifier. Feature extraction, for example, uses
@@ -275,10 +321,14 @@ Errors are categorized into two types in the `hferrors` package:
   status code, message, body reader, request ID, method, and URL. Helper
   methods: `IsClientError()`, `IsServerError()`, `IsAuthenticationError()`,
   `IsRateLimitError()`.
-- **`SDKError`**: produced locally (before an API response, or while
-  unmarshaling one). Carries a `SDKErrorKind` category (`validation`,
-  `configuration`, `serialization`, `transport`, `internal`), a message, and
-  an optional underlying error.
+- **`SDKError`**: produced locally (before an API response, while unmarshaling
+  one, or when the provider reports a failure inside an otherwise valid
+  response). Carries a `SDKErrorKind` category (`validation`, `configuration`,
+  `serialization`, `transport`, `provider`, `internal`), a message, and an
+  optional underlying error. The `provider` kind covers failures the provider
+  reports in a successful response — such as a WaveSpeed task reaching a
+  terminal failure status — keeping `APIError` reserved for HTTP-level
+  failures.
 
 ### `hfraw` escape hatch
 
@@ -360,4 +410,4 @@ converting each element.
 | Raw HTTP/SSE           | `hfraw/raw.go`                                     |
 | Unit tests             | Next to the code they exercise                     |
 | Integration tests      | `internal/integration_tests/*_integration_test.go` |
-| Runnable examples      | `examples/<task>/<variant>/`                       |
+| Runnable examples      | `examples/<provider>/<task>/<variant>/`            |

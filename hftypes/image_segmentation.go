@@ -1,5 +1,7 @@
 package hftypes
 
+import "maps"
+
 // ImageSegmentationRequest represents an image segmentation
 // inference request to the API for a single input.
 type ImageSegmentationRequest struct {
@@ -10,6 +12,14 @@ type ImageSegmentationRequest struct {
 	// Additional inference parameters for image segmentation.
 	// Optional.
 	Parameters *ImageSegmentationParameters `json:"parameters,omitempty"`
+
+	// ProviderParams is an advanced escape hatch for provider-specific
+	// request parameters not covered by the typed fields. Supporting
+	// providers merge these entries into the request body; entries override
+	// typed fields. See the provider's documentation for supported
+	// parameters. The map is treated as read-only while a request is in
+	// flight.
+	ProviderParams map[string]any `json:"-"`
 }
 
 // ImageSegmentationParameters specify additional inference parameters
@@ -53,15 +63,25 @@ type ImageSegmentation struct {
 
 	// The score or confidence degree the model has.
 	Score *float64 `json:"score,omitempty"`
+
+	// ProviderMetadata is an advanced escape hatch for provider-specific
+	// response metadata not covered by the typed fields. Providers that
+	// support it populate the map with additional upstream response data;
+	// it stays nil otherwise. Generic JSON decoding does not populate it:
+	// only provider-specific codecs do.
+	ProviderMetadata map[string]any `json:"-"`
 }
 
-// Clone returns a deep defensive copy of the request.
+// Clone returns a deep defensive copy of the request. The ProviderParams map
+// is copied as a new map, but its values are shared because their types are
+// not known statically.
 func (r *ImageSegmentationRequest) Clone() ImageSegmentationRequest {
 	if r == nil {
 		return ImageSegmentationRequest{}
 	}
 	out := *r
 	out.Parameters = cloneStructPtr(r.Parameters, (*ImageSegmentationParameters).Clone)
+	out.ProviderParams = maps.Clone(r.ProviderParams)
 
 	return out
 }

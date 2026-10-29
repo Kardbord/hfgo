@@ -79,8 +79,23 @@ func NewHubModelResolver(opts ...HubModelResolverOption) *HubModelResolver {
 func (r *HubModelResolver) ResolveModel(
 	ctx context.Context,
 	params ResolveModelParams,
-) (string, error) {
-	return r.client.ProviderModelID(ctx, params.Provider, string(params.Task), params.Model)
+) (ModelMapping, error) {
+	mapping, err := r.client.ProviderMapping(
+		ctx,
+		params.Provider,
+		string(params.Task),
+		params.Model,
+	)
+	if err != nil {
+		return ModelMapping{}, err
+	}
+
+	return ModelMapping{
+		ProviderModelID:    mapping.ProviderModelID,
+		Adapter:            mapping.Adapter,
+		AdapterWeightsPath: mapping.AdapterWeightsPath,
+		Status:             mapping.Status,
+	}, nil
 }
 
 type hubResolverConfig struct {

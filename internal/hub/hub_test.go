@@ -608,7 +608,7 @@ func TestMappings_MissingMappingField(t *testing.T) {
 	require.Empty(t, mappings, "a model with no inferenceProviderMapping data has no mappings")
 
 	// Selection on a model with no mappings is a configuration error.
-	_, err = client.ProviderModelID(context.Background(), "fal-ai", "text-to-image", "some/model")
+	_, err = client.ProviderMapping(context.Background(), "fal-ai", "text-to-image", "some/model")
 	require.Error(t, err)
 
 	var sdkErr *hferrors.SDKError
@@ -631,61 +631,66 @@ func TestMappings_InvalidJSON(t *testing.T) {
 	require.Equal(t, hferrors.SDKErrorKindSerialization, sdkErr.Kind)
 }
 
-func TestProviderModelID_SelectsMatchingMapping(t *testing.T) {
+func TestProviderMapping_SelectsMatchingMapping(t *testing.T) {
 	t.Parallel()
 
 	hs := newHubServer(t, mappingListShape)
 	client := newTestClient(t, hs, hub.Config{})
 
-	id, err := client.ProviderModelID(
+	mapping, err := client.ProviderMapping(
 		context.Background(),
 		"fal-ai",
 		"text-to-image",
 		"black-forest-labs/FLUX.1-dev",
 	)
 	require.NoError(t, err)
-	require.Equal(t, "fal-ai/flux/dev", id)
+	require.Equal(t, hub.Mapping{
+		Provider:        "fal-ai",
+		ProviderModelID: "fal-ai/flux/dev",
+		Task:            "text-to-image",
+		Status:          "live",
+	}, mapping)
 }
 
-func TestProviderModelID_SelectsTaskAmongDuplicateProviders(t *testing.T) {
+func TestProviderMapping_SelectsTaskAmongDuplicateProviders(t *testing.T) {
 	t.Parallel()
 
 	hs := newHubServer(t, mappingDuplicateProviderShape)
 	client := newTestClient(t, hs, hub.Config{})
 
-	id, err := client.ProviderModelID(
+	mapping, err := client.ProviderMapping(
 		context.Background(),
 		"fal-ai",
 		"conversational",
 		"some/model",
 	)
 	require.NoError(t, err)
-	require.Equal(t, "fal-ai/conversational", id)
+	require.Equal(t, "fal-ai/conversational", mapping.ProviderModelID)
 }
 
-func TestProviderModelID_ToleratesSnakeCaseProviderID(t *testing.T) {
+func TestProviderMapping_ToleratesSnakeCaseProviderID(t *testing.T) {
 	t.Parallel()
 
 	hs := newHubServer(t, mappingListShape)
 	client := newTestClient(t, hs, hub.Config{})
 
-	id, err := client.ProviderModelID(
+	mapping, err := client.ProviderMapping(
 		context.Background(),
 		"novita",
 		"text-to-image",
 		"black-forest-labs/FLUX.1-dev",
 	)
 	require.NoError(t, err)
-	require.Equal(t, "black-forest-labs/flux-dev", id)
+	require.Equal(t, "black-forest-labs/flux-dev", mapping.ProviderModelID)
 }
 
-func TestProviderModelID_NoMatchingProvider(t *testing.T) {
+func TestProviderMapping_NoMatchingProvider(t *testing.T) {
 	t.Parallel()
 
 	hs := newHubServer(t, mappingListShape)
 	client := newTestClient(t, hs, hub.Config{})
 
-	_, err := client.ProviderModelID(
+	_, err := client.ProviderMapping(
 		context.Background(),
 		"nonexistent",
 		"text-to-image",
@@ -699,13 +704,13 @@ func TestProviderModelID_NoMatchingProvider(t *testing.T) {
 	require.Contains(t, sdkErr.Message, "nonexistent")
 }
 
-func TestProviderModelID_NoMatchingTask(t *testing.T) {
+func TestProviderMapping_NoMatchingTask(t *testing.T) {
 	t.Parallel()
 
 	hs := newHubServer(t, mappingListShape)
 	client := newTestClient(t, hs, hub.Config{})
 
-	_, err := client.ProviderModelID(
+	_, err := client.ProviderMapping(
 		context.Background(),
 		"fal-ai",
 		"conversational",
@@ -860,6 +865,82 @@ func TestDecodeMappings_TolerantFieldSpellings(t *testing.T) {
 	require.Equal(t, "pid", mappings[0].ProviderModelID)
 }
 
+func TestMappings_AdapterFields(t *testing.T) {
+	t.Parallel()
+
+	t.Run("keyed dict shape", func(t *testing.T) {
+		t.Parallel()
+
+		payload := `{
+			"id": "ZhengmingYu/DMAD",
+			"inferenceProviderMapping": {
+				"wavespeed": {
+					"status": "live",
+					"providerId": "wavespeed-ai/minimax-h3/text-to-video-lora",
+					"task": "text-to-video",
+					"adapter": "lora",
+					"adapterWeightsPath": "minimax_h3/dmad.safetensors"
+				}
+			}
+		}`
+		hs := newHubServer(t, payload)
+		client := newTestClient(t, hs, hub.Config{})
+
+		mapping, err := client.ProviderMapping(
+			context.Background(),
+			"wavespeed",
+			"text-to-video",
+			"ZhengmingYu/DMAD",
+		)
+		require.NoError(t, err)
+		require.Equal(t, "lora", mapping.Adapter)
+		require.Equal(t, "minimax_h3/dmad.safetensors", mapping.AdapterWeightsPath)
+	})
+
+	t.Run("list shape with snake_case weights path", func(t *testing.T) {
+		t.Parallel()
+
+		payload := `{
+			"id": "some/lora",
+			"inferenceProviderMapping": [
+				{
+					"provider": "fal-ai",
+					"providerId": "fal-ai/lora",
+					"task": "text-to-image",
+					"status": "live",
+					"adapter": "lora",
+					"adapter_weights_path": "pixel-art-xl.safetensors"
+				}
+			]
+		}`
+		hs := newHubServer(t, payload)
+		client := newTestClient(t, hs, hub.Config{})
+
+		mapping, err := client.ProviderMapping(
+			context.Background(),
+			"fal-ai",
+			"text-to-image",
+			"some/lora",
+		)
+		require.NoError(t, err)
+		require.Equal(t, "lora", mapping.Adapter)
+		require.Equal(t, "pixel-art-xl.safetensors", mapping.AdapterWeightsPath)
+	})
+
+	t.Run("absent adapter fields stay empty", func(t *testing.T) {
+		t.Parallel()
+
+		hs := newHubServer(t, mappingObjectShape)
+		client := newTestClient(t, hs, hub.Config{})
+
+		mappings, err := client.Mappings(context.Background(), "black-forest-labs/FLUX.1-dev")
+		require.NoError(t, err)
+		require.Len(t, mappings, 1)
+		require.Empty(t, mappings[0].Adapter)
+		require.Empty(t, mappings[0].AdapterWeightsPath)
+	})
+}
+
 func TestMappings_PayloadShapeIsJSON(t *testing.T) {
 	t.Parallel()
 
@@ -871,14 +952,14 @@ func TestMappings_PayloadShapeIsJSON(t *testing.T) {
 	require.NotEmpty(t, mappings)
 }
 
-func TestProviderModelID_FetchErrorPropagates(t *testing.T) {
+func TestProviderMapping_FetchErrorPropagates(t *testing.T) {
 	t.Parallel()
 
 	hs := newHubServer(t, `{}`)
 	hs.status.Store(int32(http.StatusInternalServerError))
 	client := newTestClient(t, hs, hub.Config{})
 
-	_, err := client.ProviderModelID(
+	_, err := client.ProviderMapping(
 		context.Background(),
 		"fal-ai",
 		"text-to-image",

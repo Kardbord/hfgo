@@ -78,6 +78,7 @@ func doInference[Req, Resp any](
 		Context: opts.Context(),
 		Request: req,
 		Model:   opts.Model,
+		Mapping: endpoint.Mapping,
 	})
 	if err != nil {
 		return zero, err
@@ -106,12 +107,30 @@ func doInference[Req, Resp any](
 		return zero, nil // 204/205
 	}
 
-	resp, err := codec.Decode(hfproviders.DecodeParams{
-		Context: opts.Context(),
-		Body:    respBody,
-		Event:   "", // unary responses have no SSE framing
-		Headers: httpResp.Header,
-	})
+	// Async codecs own multi-step exchanges (e.g. submit-poll-retrieve) after
+	// the initial response; plain codecs decode the response body directly.
+	var resp Resp
+	if asyncCodec, ok := any(codec).(hfproviders.AsyncCodec[Req, Resp]); ok {
+		resp, err = asyncCodec.PostSubmit(
+			opts.Context(),
+			hfproviders.PostSubmitParams{
+				HTTPClient:           opts.HTTPClient,
+				BaseURL:              opts.BaseURL,
+				Token:                opts.Token,
+				UserAgent:            opts.UserAgent,
+				MaxResponseBodyBytes: opts.MaxResponseBodyBytes,
+			},
+			respBody,
+			httpResp.Header,
+		)
+	} else {
+		resp, err = codec.Decode(hfproviders.DecodeParams{
+			Context: opts.Context(),
+			Body:    respBody,
+			Event:   "", // unary responses have no SSE framing
+			Headers: httpResp.Header,
+		})
+	}
 	if err != nil {
 		return zero, err
 	}
@@ -133,6 +152,7 @@ func doStreamingInference[Req, T any](
 		Context: opts.Context(),
 		Request: req,
 		Model:   opts.Model,
+		Mapping: endpoint.Mapping,
 	})
 	if err != nil {
 		return nil, err
