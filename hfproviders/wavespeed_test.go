@@ -14,6 +14,7 @@ import (
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,13 +26,33 @@ import (
 func TestMediaSniffingFallback(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string][]byte{
-		"video/webm": {0x1A, 0x45, 0xDF, 0xA3},
-		"image/png":  {0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a},
-		"image/jpeg": {0xFF, 0xD8, 0xFF, 0xE0},
+	cases := []struct {
+		name          string
+		wantMediaType string
+		bytes         []byte
+	}{
+		{
+			name:          "webm",
+			wantMediaType: "video/webm",
+			bytes:         []byte{0x1A, 0x45, 0xDF, 0xA3},
+		},
+		{
+			name:          "png",
+			wantMediaType: "image/png",
+			bytes:         []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a},
+		},
+		{
+			name:          "jpeg",
+			wantMediaType: "image/jpeg",
+			bytes:         []byte{0xFF, 0xD8, 0xFF, 0xE0},
+		},
 	}
-	for wantMediaType, bytes := range cases {
-		require.Equal(t, wantMediaType, http.DetectContentType(bytes))
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, tc.wantMediaType, http.DetectContentType(tc.bytes))
+		})
 	}
 }
 
@@ -46,21 +67,11 @@ func TestWavespeedProvider_NameAndSuffix(t *testing.T) {
 	require.Empty(t, p.ProviderSuffix())
 }
 
-// requireNilResolverError asserts err is the configuration error returned for
-// a missing WaveSpeed model resolver.
-func requireNilResolverError(t *testing.T, err error) {
-	t.Helper()
-
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
-}
-
 func TestNewWavespeedProvider_NilResolver(t *testing.T) {
 	t.Parallel()
 
 	p, err := NewWavespeedProvider(nil)
-	requireNilResolverError(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	require.Equal(t, WavespeedProvider{}, p)
 }
 
@@ -73,99 +84,83 @@ func TestWavespeedProvider_ZeroValueIsSafe(t *testing.T) {
 		Context: context.Background(),
 		Model:   "any-model",
 	})
-	requireNilResolverError(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
 	_, err = p.TextToImageEndpoint(EndpointParams{
 		Context: context.Background(),
 		Model:   "any-model",
 	})
-	requireNilResolverError(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
 	_, err = p.ImageToImageEndpoint(EndpointParams{
 		Context: context.Background(),
 		Model:   "any-model",
 	})
-	requireNilResolverError(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
 
-func TestWavespeedProvider_TextToVideoEndpoint(t *testing.T) {
-	t.Parallel()
-
-	mapper := NewStaticModelResolver(map[StaticMapping]ModelMapping{
-		{
-			Provider: "wavespeed",
-			Task:     TaskTextToVideo,
-			Model:    "ZhengmingYu/DMAD",
-		}: {ProviderModelID: "wavespeed-ai/minimax-h3/text-to-video-lora"},
-	})
-	p, err := NewWavespeedProvider(mapper)
-	require.NoError(t, err)
-
-	endpoint, err := p.TextToVideoEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "ZhengmingYu/DMAD",
-	})
-	require.NoError(t, err)
-	require.Equal(t, http.MethodPost, endpoint.Method)
-	require.Equal(
-		t,
-		"wavespeed/api/v3/wavespeed-ai/minimax-h3/text-to-video-lora",
-		endpoint.Path,
-	)
-	require.NotNil(t, endpoint.Mapping)
-	require.Equal(
-		t,
-		"wavespeed-ai/minimax-h3/text-to-video-lora",
-		endpoint.Mapping.ProviderModelID,
-	)
+// wavespeedEndpointCase pairs a display name with the endpoint method it
+// exercises and the WaveSpeed mapping that method must resolve to.
+type wavespeedEndpointCase struct {
+	name            string
+	task            Task
+	model           string
+	providerModelID string
+	endpoint        func(WavespeedProvider, EndpointParams) (Endpoint, error)
 }
 
-func TestWavespeedProvider_TextToImageEndpoint(t *testing.T) {
+func TestWavespeedProvider_Endpoints(t *testing.T) {
 	t.Parallel()
 
-	mapper := NewStaticModelResolver(map[StaticMapping]ModelMapping{
+	cases := []wavespeedEndpointCase{
 		{
-			Provider: "wavespeed",
-			Task:     TaskTextToImage,
-			Model:    "black-forest-labs/FLUX.1-dev",
-		}: {ProviderModelID: "wavespeed-ai/flux-dev"},
-	})
-	p, err := NewWavespeedProvider(mapper)
-	require.NoError(t, err)
-
-	endpoint, err := p.TextToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "black-forest-labs/FLUX.1-dev",
-	})
-	require.NoError(t, err)
-	require.Equal(t, http.MethodPost, endpoint.Method)
-	require.Equal(t, "wavespeed/api/v3/wavespeed-ai/flux-dev", endpoint.Path)
-	require.NotNil(t, endpoint.Mapping)
-	require.Equal(t, "wavespeed-ai/flux-dev", endpoint.Mapping.ProviderModelID)
-}
-
-func TestWavespeedProvider_ImageToImageEndpoint(t *testing.T) {
-	t.Parallel()
-
-	mapper := NewStaticModelResolver(map[StaticMapping]ModelMapping{
+			name:            "TextToVideoEndpoint",
+			task:            TaskTextToVideo,
+			model:           "ZhengmingYu/DMAD",
+			providerModelID: "wavespeed-ai/minimax-h3/text-to-video-lora",
+			endpoint:        WavespeedProvider.TextToVideoEndpoint,
+		},
 		{
-			Provider: "wavespeed",
-			Task:     TaskImageToImage,
-			Model:    "briaai/Fibo-2.0-edit-turbo",
-		}: {ProviderModelID: "bria/fibo-2.0/edit"},
-	})
-	p, err := NewWavespeedProvider(mapper)
-	require.NoError(t, err)
+			name:            "TextToImageEndpoint",
+			task:            TaskTextToImage,
+			model:           "black-forest-labs/FLUX.1-dev",
+			providerModelID: "wavespeed-ai/flux-dev",
+			endpoint:        WavespeedProvider.TextToImageEndpoint,
+		},
+		{
+			name:            "ImageToImageEndpoint",
+			task:            TaskImageToImage,
+			model:           "briaai/Fibo-2.0-edit-turbo",
+			providerModelID: "bria/fibo-2.0/edit",
+			endpoint:        WavespeedProvider.ImageToImageEndpoint,
+		},
+	}
 
-	endpoint, err := p.ImageToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "briaai/Fibo-2.0-edit-turbo",
-	})
-	require.NoError(t, err)
-	require.Equal(t, http.MethodPost, endpoint.Method)
-	require.Equal(t, "wavespeed/api/v3/bria/fibo-2.0/edit", endpoint.Path)
-	require.NotNil(t, endpoint.Mapping)
-	require.Equal(t, "bria/fibo-2.0/edit", endpoint.Mapping.ProviderModelID)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			mapper := NewStaticModelResolver(map[StaticMapping]ModelMapping{
+				{
+					Provider: "wavespeed",
+					Task:     tc.task,
+					Model:    tc.model,
+				}: {ProviderModelID: tc.providerModelID},
+			})
+			p, err := NewWavespeedProvider(mapper)
+			require.NoError(t, err)
+
+			endpoint, err := tc.endpoint(p, EndpointParams{
+				Context: context.Background(),
+				Model:   tc.model,
+			})
+			require.NoError(t, err)
+			require.Equal(t, http.MethodPost, endpoint.Method)
+			require.Equal(t, "wavespeed/api/v3/"+tc.providerModelID, endpoint.Path)
+			require.NotNil(t, endpoint.Mapping)
+			require.Equal(t, tc.providerModelID, endpoint.Mapping.ProviderModelID)
+		})
+	}
 }
 
 func TestWavespeedProvider_Endpoint_ResolutionError(t *testing.T) {
@@ -179,10 +174,7 @@ func TestWavespeedProvider_Endpoint_ResolutionError(t *testing.T) {
 		Context: context.Background(),
 		Model:   "unknown-model",
 	})
-	require.Error(t, err)
-
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
 
 // requireFlatEncode asserts an encoder produced the expected flat WaveSpeed
@@ -557,7 +549,7 @@ func TestWavespeedProvider_AdapterLorasInjection(t *testing.T) {
 			Request: hftypes.TextToVideoRequest{Input: "a cat"},
 			Model:   "unknown-model",
 		})
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	})
 }
 
@@ -634,7 +626,7 @@ func TestWavespeedProvider_EncodePrefersEndpointMapping(t *testing.T) {
 			`{"prompt":"a cat","loras":[{"path":"ZhengmingYu/DMAD","scale":1}]}`,
 			string(body),
 		)
-		require.EqualValues(t, 1, resolver.calls.Load())
+		require.Equal(t, int64(1), resolver.calls.Load())
 	})
 }
 
@@ -820,19 +812,19 @@ func TestWavespeedMixins_ZeroValueResolvers(t *testing.T) {
 		Context: context.Background(),
 		Model:   "any-model",
 	})
-	requireNilResolverError(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
 	_, err = imageMixin.TextToImageEndpoint(EndpointParams{
 		Context: context.Background(),
 		Model:   "any-model",
 	})
-	requireNilResolverError(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
 	_, err = image2Mixin.ImageToImageEndpoint(EndpointParams{
 		Context: context.Background(),
 		Model:   "any-model",
 	})
-	requireNilResolverError(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
 
 // TestWavespeedMixins_CodecsAsync asserts every WaveSpeed mixin serves an
@@ -930,17 +922,6 @@ func wavespeedTaskBody(status, resultPath, taskErr string, outputs []string) str
 	return string(body)
 }
 
-// requireAsyncSDKErrorKind asserts err is an *hferrors.SDKError of the given
-// kind.
-func requireAsyncSDKErrorKind(t *testing.T, err error, kind hferrors.SDKErrorKind) {
-	t.Helper()
-
-	require.Error(t, err)
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, kind, sdkErr.Kind)
-}
-
 // TestWavespeedPostSubmit_SyncModeComplete exercises the exchange when the
 // submit response already carries the completed task (sync mode): the output
 // is downloaded without any polling requests.
@@ -974,8 +955,8 @@ func TestWavespeedPostSubmit_SyncModeComplete(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte{0x89, 'P', 'N', 'G'}, resp.Image)
 	require.Equal(t, "image/png", resp.MediaType)
-	require.EqualValues(t, 0, polls.Load(), "a completed submit response needs no polling")
-	require.EqualValues(t, 1, downloads.Load())
+	require.Equal(t, int64(0), polls.Load(), "a completed submit response needs no polling")
+	require.Equal(t, int64(1), downloads.Load())
 	require.Equal(t, "test-agent/1.0", gotDownloadUA)
 	require.Equal(t, "pred_123", resp.ProviderMetadata["id"])
 	require.Equal(t, "wavespeed-ai/flux-dev", resp.ProviderMetadata["model"])
@@ -1065,8 +1046,8 @@ func TestWavespeedPostSubmit_PollUntilComplete(t *testing.T) {
 	require.Equal(t, []byte{0x89, 'P', 'N', 'G'}, resp.Image)
 	require.Equal(t, "image/png", resp.MediaType)
 	require.Equal(t, "pred_123", resp.ProviderMetadata["id"])
-	require.EqualValues(t, 2, polls.Load())
-	require.EqualValues(t, 1, downloads.Load())
+	require.Equal(t, int64(2), polls.Load())
+	require.Equal(t, int64(1), downloads.Load())
 
 	// Polls carry the caller's bearer token and JSON accept; CDN downloads
 	// are unauthenticated. Both reuse the caller's User-Agent.
@@ -1121,8 +1102,8 @@ func TestWavespeedPostSubmit_UnknownStatusKeepsPolling(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, "image/png", resp.MediaType)
-	require.EqualValues(t, 2, polls.Load(), "an unknown status keeps polling")
-	require.EqualValues(t, 1, downloads.Load())
+	require.Equal(t, int64(2), polls.Load(), "an unknown status keeps polling")
+	require.Equal(t, int64(1), downloads.Load())
 }
 
 // TestWavespeedPostSubmit_TransientPollErrors exercises the transient-error
@@ -1162,7 +1143,7 @@ func TestWavespeedPostSubmit_TransientPollErrors(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, "image/png", resp.MediaType)
-	require.EqualValues(t, 2, polls.Load())
+	require.Equal(t, int64(2), polls.Load())
 }
 
 // TestWavespeedPostSubmit_FailedStatus exercises the terminal-failure path: a
@@ -1187,10 +1168,10 @@ func TestWavespeedPostSubmit_FailedStatus(t *testing.T) {
 		[]byte(wavespeedTaskBody("created", resultPath, "", nil)),
 		http.Header{},
 	)
-	requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	require.ErrorContains(t, err, "CUDA out of memory")
 	require.ErrorContains(t, err, "pred_123")
-	require.EqualValues(t, 1, polls.Load(), "a failed task stops polling")
+	require.Equal(t, int64(1), polls.Load(), "a failed task stops polling")
 }
 
 // TestWavespeedPostSubmit_FailedOnSubmit exercises the submit short-circuit:
@@ -1212,10 +1193,10 @@ func TestWavespeedPostSubmit_FailedOnSubmit(t *testing.T) {
 		[]byte(wavespeedTaskBody("failed", "", "CUDA out of memory", nil)),
 		http.Header{},
 	)
-	requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	require.ErrorContains(t, err, "CUDA out of memory")
 	require.ErrorContains(t, err, "pred_123")
-	require.EqualValues(t, 0, polls.Load(), "a failed submit should not poll")
+	require.Equal(t, int64(0), polls.Load(), "a failed submit should not poll")
 }
 
 // TestWavespeedPostSubmit_TerminalFailureStatuses pins the full set of
@@ -1244,9 +1225,9 @@ func TestWavespeedPostSubmit_TerminalFailureStatuses(t *testing.T) {
 				[]byte(wavespeedTaskBody(status, "", "provider gave up", nil)),
 				http.Header{},
 			)
-			requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+			testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 			require.ErrorContains(t, err, "provider gave up")
-			require.EqualValues(t, 0, polls.Load(), "a terminal failure never polls")
+			require.Equal(t, int64(0), polls.Load(), "a terminal failure never polls")
 		})
 	}
 }
@@ -1272,11 +1253,8 @@ func TestWavespeedPostSubmit_ClientErrorPoll(t *testing.T) {
 		[]byte(wavespeedTaskBody("created", resultPath, "", nil)),
 		http.Header{},
 	)
-	require.Error(t, err)
-	var apiErr *hferrors.APIError
-	require.ErrorAs(t, err, &apiErr)
-	require.Equal(t, http.StatusUnauthorized, apiErr.StatusCode)
-	require.EqualValues(t, 1, polls.Load(), "a client-error poll stops polling")
+	testutils.AssertAPIErrorStatus(t, err, http.StatusUnauthorized)
+	require.Equal(t, int64(1), polls.Load(), "a client-error poll stops polling")
 }
 
 // TestWavespeedPostSubmit_MalformedResponses exercises the malformed-response
@@ -1303,7 +1281,7 @@ func TestWavespeedPostSubmit_MalformedResponses(t *testing.T) {
 			[]byte("not json"),
 			http.Header{},
 		)
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 
 	t.Run("completed without outputs", func(t *testing.T) {
@@ -1321,7 +1299,7 @@ func TestWavespeedPostSubmit_MalformedResponses(t *testing.T) {
 			[]byte(wavespeedTaskBody("completed", "", "", nil)),
 			http.Header{},
 		)
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "without outputs")
 	})
 
@@ -1340,7 +1318,7 @@ func TestWavespeedPostSubmit_MalformedResponses(t *testing.T) {
 			[]byte(wavespeedTaskBody("created", "", "", nil)),
 			http.Header{},
 		)
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "no result URL")
 	})
 
@@ -1362,7 +1340,7 @@ func TestWavespeedPostSubmit_MalformedResponses(t *testing.T) {
 			[]byte(`{"code":200,"message":"success"}`),
 			http.Header{},
 		)
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "missing data object")
 	})
 
@@ -1392,9 +1370,9 @@ func TestWavespeedPostSubmit_MalformedResponses(t *testing.T) {
 			[]byte(wavespeedTaskBody("created", resultPath, "", nil)),
 			http.Header{},
 		)
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "failed to decode WaveSpeed task response")
-		require.EqualValues(t, 1, polls.Load(), "a malformed poll stops polling")
+		require.Equal(t, int64(1), polls.Load(), "a malformed poll stops polling")
 	})
 
 	t.Run("oversized poll body", func(t *testing.T) {
@@ -1425,9 +1403,9 @@ func TestWavespeedPostSubmit_MalformedResponses(t *testing.T) {
 			[]byte(wavespeedTaskBody("created", resultPath, "", nil)),
 			http.Header{},
 		)
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 		require.ErrorContains(t, err, "exceeds max size")
-		require.EqualValues(t, 1, polls.Load(), "an oversized poll stops polling")
+		require.Equal(t, int64(1), polls.Load(), "an oversized poll stops polling")
 	})
 }
 
@@ -1457,7 +1435,7 @@ func TestWavespeedPostSubmit_MediaTypeMismatch(t *testing.T) {
 		[]byte(wavespeedTaskBody("completed", "", "", []string{outputURL})),
 		http.Header{},
 	)
-	requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	require.ErrorContains(t, err, "image/")
 }
 
@@ -1488,7 +1466,7 @@ func TestWavespeedPostSubmit_MediaTypeMismatch_VideoCodec(t *testing.T) {
 		[]byte(wavespeedTaskBody("completed", "", "", []string{outputURL})),
 		http.Header{},
 	)
-	requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	require.ErrorContains(t, err, "video/")
 }
 
@@ -1519,7 +1497,7 @@ func TestWavespeedPostSubmit_MediaTypeMismatch_ImageToImageCodec(t *testing.T) {
 		[]byte(wavespeedTaskBody("completed", "", "", []string{outputURL})),
 		http.Header{},
 	)
-	requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	require.ErrorContains(t, err, "image/")
 }
 
@@ -1637,7 +1615,7 @@ func TestWavespeedPostSubmit_ContextCanceledDuringPoll(t *testing.T) {
 
 	result := <-results
 	require.ErrorIs(t, result.err, context.Canceled)
-	require.EqualValues(t, 2, polls.Load(), "cancellation stops further polling")
+	require.Equal(t, int64(2), polls.Load(), "cancellation stops further polling")
 }
 
 // TestWavespeedPostSubmit_DeadlineExceededDuringPoll exercises deadline expiry
@@ -1706,7 +1684,7 @@ func TestWavespeedPostSubmit_DeadlineExceededDuringPoll(t *testing.T) {
 
 	result := <-results
 	require.ErrorIs(t, result.err, context.DeadlineExceeded)
-	require.EqualValues(t, 2, polls.Load(), "deadline expiry stops further polling")
+	require.Equal(t, int64(2), polls.Load(), "deadline expiry stops further polling")
 }
 
 // TestWavespeedResultURL exercises the poll-URL resolution: the Hugging Face
@@ -1778,21 +1756,21 @@ func TestWavespeedResultURL(t *testing.T) {
 		t.Parallel()
 
 		_, err := wavespeedResultURL("https://router.huggingface.co", "")
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 
 	t.Run("invalid base URL is an error", func(t *testing.T) {
 		t.Parallel()
 
 		_, err := wavespeedResultURL("http://[::1:bad", "/api/v3/predictions/pred_123/result")
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	})
 
 	t.Run("invalid result path is an error", func(t *testing.T) {
 		t.Parallel()
 
 		_, err := wavespeedResultURL("https://router.huggingface.co", "http://h/%zz")
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 }
 
@@ -1851,8 +1829,8 @@ func TestWavespeedPostSubmit_ForeignResultURLCannotRedirect(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, []byte{0x89, 'P', 'N', 'G'}, resp.Image)
-	require.EqualValues(t, 2, polls.Load())
-	require.EqualValues(t, 1, downloads.Load())
+	require.Equal(t, int64(2), polls.Load())
+	require.Equal(t, int64(1), downloads.Load())
 	// The token stays on the caller's base host, never the foreign host.
 	require.Equal(t, "Bearer test-token", gotPollAuth)
 }
@@ -1979,12 +1957,12 @@ func TestWavespeedTaskFailedError(t *testing.T) {
 	}
 
 	for i := range cases {
-		tc := &cases[i]
+		tc := cases[i]
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			err := wavespeedTaskFailedError(&tc.data)
-			requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+			testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 			require.ErrorContains(t, err, tc.want)
 		})
 	}
@@ -2012,7 +1990,7 @@ func TestWavespeedCompletedWithOutputs(t *testing.T) {
 		t.Parallel()
 
 		_, err := completedWithOutputs(&wavespeedTaskData{Status: "completed"})
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "without outputs")
 	})
 
@@ -2023,7 +2001,7 @@ func TestWavespeedCompletedWithOutputs(t *testing.T) {
 			Status:  "completed",
 			Outputs: []string{""},
 		})
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "without outputs")
 	})
 }
@@ -2065,14 +2043,14 @@ func TestWavespeedFlattenParameters(t *testing.T) {
 		t.Parallel()
 
 		_, err := wavespeedFlattenParameters(failingParameters{})
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 
 	t.Run("non-object payload is a serialization error", func(t *testing.T) {
 		t.Parallel()
 
 		_, err := wavespeedFlattenParameters(arrayParameters{})
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 
 	t.Run("valid parameters flatten", func(t *testing.T) {
@@ -2103,7 +2081,7 @@ func TestWavespeedCodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 			},
 			Model: "wavespeed-ai/minimax-h3/text-to-video",
 		})
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "failed to marshal request body")
 	})
 
@@ -2119,7 +2097,7 @@ func TestWavespeedCodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 			},
 			Model: "wavespeed-ai/flux-dev",
 		})
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "failed to marshal request body")
 	})
 
@@ -2135,7 +2113,7 @@ func TestWavespeedCodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 			},
 			Model: "bria/fibo-2.0/edit",
 		})
-		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "failed to marshal request body")
 	})
 }

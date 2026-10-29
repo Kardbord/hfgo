@@ -67,7 +67,7 @@ func TestGenerateImageToImage_ResponseDecoding(t *testing.T) {
 			)
 
 			return client.GenerateImageToImage(hftypes.ImageToImageRequest{
-				Input: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ",
+				Input: testutils.TinyPNGBase64,
 			})
 		},
 		func(r hftypes.ImageToImageResponse) []byte { return r.Image },
@@ -78,7 +78,7 @@ func TestGenerateImageToImage_ResponseDecoding(t *testing.T) {
 func TestGenerateImageToImage_WithParameters(t *testing.T) {
 	t.Parallel()
 
-	const inputImage = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
+	const inputImage = testutils.TinyPNGBase64
 
 	var (
 		outputURL       string
@@ -174,7 +174,7 @@ func TestGenerateImageToImage_ProviderParams(t *testing.T) {
 	)
 
 	_, err := client.GenerateImageToImage(hftypes.ImageToImageRequest{
-		Input: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ",
+		Input: testutils.TinyPNGBase64,
 		ProviderParams: map[string]any{
 			"enable_base64_output": true,
 		},
@@ -216,7 +216,7 @@ func TestGenerateImageToImage_Errors(t *testing.T) {
 		func(opts ...hfopts.Option) (hftypes.ImageToImageResponse, error) {
 			return hfgo.NewClient(append(opts, hfopts.WithProvider(wavespeedTestProvider()))...).
 				GenerateImageToImage(hftypes.ImageToImageRequest{
-					Input: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ",
+					Input: testutils.TinyPNGBase64,
 				})
 		},
 	)

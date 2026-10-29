@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -78,7 +79,7 @@ func runMediaDecodingCases[Res any](
 
 			if tc.wantErr {
 				require.Error(t, err, tc.description)
-				requireAsyncTaskErrorKind(t, err)
+				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 
 				var zero Res
 				require.Equal(t, zero, resp, tc.description)
@@ -91,14 +92,4 @@ func runMediaDecodingCases[Res any](
 			require.Equal(t, tc.wantMediaType, getMediaType(resp), tc.description)
 		})
 	}
-}
-
-// requireAsyncTaskErrorKind asserts err is a serialization SDK error, the kind
-// the WaveSpeed exchange surfaces for undecodable media.
-func requireAsyncTaskErrorKind(t *testing.T, err error) {
-	t.Helper()
-
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindSerialization, sdkErr.Kind)
 }

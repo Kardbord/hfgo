@@ -13,13 +13,11 @@ import (
 	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
 const imageToImageModel = "briaai/Fibo-2.0-edit-turbo"
-
-// base64 test image: 1x1 transparent PNG.
-const testImageBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 
 // TestGenerateImageToImage_LiveAPI tests a basic image-to-image request against
 // the live HF API using the WaveSpeed provider.
@@ -40,7 +38,7 @@ func TestGenerateImageToImage_LiveAPI(t *testing.T) {
 	)
 
 	response, err := client.GenerateImageToImage(hftypes.ImageToImageRequest{
-		Input: testImageBase64,
+		Input: testutils.TinyPNGBase64,
 		Parameters: &hftypes.ImageToImageParameters{
 			Prompt: new("Make the image blue"),
 		},
@@ -83,7 +81,7 @@ func TestGenerateImageToImage_ContextCancellation(t *testing.T) {
 	)
 
 	response, err := client.GenerateImageToImage(hftypes.ImageToImageRequest{
-		Input: testImageBase64,
+		Input: testutils.TinyPNGBase64,
 		Parameters: &hftypes.ImageToImageParameters{
 			Prompt: new("Make the image blue"),
 		},

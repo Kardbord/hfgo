@@ -11,14 +11,13 @@ import (
 )
 
 // newWavespeedProvider returns a [hfproviders.WavespeedProvider] backed by a
-// Hub model resolver for live API tests. It requires HF_TOKEN to be set.
+// Hub model resolver for live API tests. Callers gate the test on HF_TOKEN.
 func newWavespeedProvider(t *testing.T) hfproviders.Provider {
 	t.Helper()
 
-	apiToken := os.Getenv("HF_TOKEN")
-	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
-
-	resolver := hfproviders.NewHubModelResolver(hfproviders.WithHubToken(apiToken))
+	resolver := hfproviders.NewHubModelResolver(
+		hfproviders.WithHubToken(os.Getenv("HF_TOKEN")),
+	)
 
 	provider, err := hfproviders.NewWavespeedProvider(resolver)
 	require.NoError(t, err)
