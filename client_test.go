@@ -129,6 +129,7 @@ func TestClientChat_ChatOnlyProviderSuffixes(t *testing.T) {
 		"fireworks-ai":   func() hfproviders.Provider { return hfproviders.NewFireworksProvider() },
 		"groq":           func() hfproviders.Provider { return hfproviders.NewGroqProvider() },
 		"ovhcloud":       func() hfproviders.Provider { return hfproviders.NewOVHcloudProvider() },
+		"publicai":       func() hfproviders.Provider { return hfproviders.NewPublicAIProvider() },
 	}
 
 	for slug, newProvider := range chatOnlyProviders {

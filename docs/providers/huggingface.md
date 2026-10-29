@@ -67,6 +67,8 @@ pattern and its trade-offs.
   router's `:groq` suffix.
 - [OVHcloud provider](./ovhcloud.md) — chat completions pinned to OVHcloud AI
   Endpoints through the router's `:ovhcloud` suffix.
+- [Public AI provider](./publicai.md) — chat completions pinned to Public AI
+  through the router's `:publicai` suffix.
 - [Package reference](https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfproviders)
 - [Hugging Face Inference Providers documentation](https://huggingface.co/docs/inference-providers/main/en/index)
 - [architecture.md](../architecture.md)

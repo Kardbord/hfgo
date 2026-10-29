@@ -165,6 +165,17 @@ model. Its variants follow the standard naming scheme:
 | ------------------------ | ------------------------------------ |
 | [Chat](./ovhcloud/chat)  | `basic`, `streaming`, `conversation` |
 
+### Public AI
+
+The [Public AI provider](../docs/providers/publicai.md) pins chat completions
+to Public AI: the chat endpoint and codecs are the default provider's, and the
+provider appends the router's `:publicai` suffix to the model. Its variants
+follow the standard naming scheme:
+
+| Task                     | Variants                             |
+| ------------------------ | ------------------------------------ |
+| [Chat](./publicai/chat)  | `basic`, `streaming`, `conversation` |
+
 In addition to per-task examples, [custom-provider](./custom-provider) shows
 how to plug in a fictional `FooProvider` that maps Hugging Face model IDs to
 its own model identifiers through an explicitly injected model resolver,
