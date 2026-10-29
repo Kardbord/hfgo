@@ -170,8 +170,9 @@ func resolveWavespeedEndpoint(
 	}
 
 	return Endpoint{
-		Method: http.MethodPost,
-		Path:   "wavespeed/api/v3/" + mapping.ProviderModelID,
+		Method:  http.MethodPost,
+		Path:    "wavespeed/api/v3/" + mapping.ProviderModelID,
+		Mapping: &mapping,
 	}, nil
 }
 
@@ -198,8 +199,9 @@ func (m WavespeedTextToVideoMixin) TextToVideoEndpoint(
 // TextToVideoCodec returns the text-to-video codec, which encodes requests as
 // WaveSpeed's flat JSON body and completes WaveSpeed's asynchronous task
 // exchange (poll and download) before returning the generated video bytes.
-// The mixin's resolver rides along so the codec can adapt the payload to
-// adapter models (see [wavespeedInjectAdapterLoras]).
+// The codec adapts the payload to adapter models with the mapping resolved at
+// endpoint-construction time, falling back to the mixin's resolver when used
+// standalone (see [wavespeedInjectAdapterLoras]).
 func (m WavespeedTextToVideoMixin) TextToVideoCodec() TextToVideoCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return wavespeedTextToVideoCodec{wavespeedAsyncCodec{
@@ -231,8 +233,9 @@ func (m WavespeedTextToImageMixin) TextToImageEndpoint(
 // TextToImageCodec returns the text-to-image codec, which encodes requests as
 // WaveSpeed's flat JSON body and completes WaveSpeed's asynchronous task
 // exchange (poll and download) before returning the generated image bytes.
-// The mixin's resolver rides along so the codec can adapt the payload to
-// adapter models (see [wavespeedInjectAdapterLoras]).
+// The codec adapts the payload to adapter models with the mapping resolved at
+// endpoint-construction time, falling back to the mixin's resolver when used
+// standalone (see [wavespeedInjectAdapterLoras]).
 func (m WavespeedTextToImageMixin) TextToImageCodec() TextToImageCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return wavespeedTextToImageCodec{wavespeedAsyncCodec{
@@ -264,8 +267,9 @@ func (m WavespeedImageToImageMixin) ImageToImageEndpoint(
 // ImageToImageCodec returns the image-to-image codec, which encodes requests
 // as WaveSpeed's flat JSON body and completes WaveSpeed's asynchronous task
 // exchange (poll and download) before returning the generated image bytes.
-// The mixin's resolver rides along so the codec can adapt the payload to
-// adapter models (see [wavespeedInjectAdapterLoras]).
+// The codec adapts the payload to adapter models with the mapping resolved at
+// endpoint-construction time, falling back to the mixin's resolver when used
+// standalone (see [wavespeedInjectAdapterLoras]).
 func (m WavespeedImageToImageMixin) ImageToImageCodec() ImageToImageCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return wavespeedImageToImageCodec{wavespeedAsyncCodec{
@@ -284,9 +288,11 @@ func (m WavespeedImageToImageMixin) ImageToImageCodec() ImageToImageCodec {
 // using the default polling schedule.
 type wavespeedAsyncCodec struct {
 	// resolver maps the configured Hugging Face model ID to its provider
-	// mapping. Encode uses it to detect adapter models and inject the
-	// provider's LoRA payload entry (see [wavespeedInjectAdapterLoras]).
-	// Nil encodes without adapter handling.
+	// mapping. When the pipeline does not supply the mapping resolved at
+	// endpoint-construction time (see [EncodeParams.Mapping]), Encode uses
+	// the resolver to detect adapter models and inject the provider's LoRA
+	// payload entry (see [wavespeedInjectAdapterLoras]). Nil encodes
+	// without adapter handling unless a mapping is supplied.
 	resolver ModelResolver
 
 	// mediaPrefix is the required output media-type prefix ("image/" or
@@ -877,28 +883,37 @@ func wavespeedNormalizeImageInput(input string) string {
 // payload wins, so callers can pass their own LoRA configuration through
 // ProviderParams.
 //
-// A nil resolver leaves the payload untouched. Lookup failures propagate:
-// they are configuration errors, and an encode follows an endpoint
-// resolution that already resolved the same mapping successfully.
+// mapping, when non-nil, is the resolution endpoint construction already
+// performed (see [Endpoint.Mapping]) and is used directly, so no second
+// lookup happens. Otherwise the resolver supplies the mapping, keeping
+// standalone codec use working; a nil resolver then leaves the payload
+// untouched. Lookup failures propagate: they are configuration errors, and in
+// pipeline use an encode follows an endpoint resolution that already resolved
+// the same mapping successfully.
 func wavespeedInjectAdapterLoras(
 	ctx context.Context,
+	mapping *ModelMapping,
 	resolver ModelResolver,
 	task Task,
 	hfModel string,
 	payload map[string]any,
 ) error {
-	if resolver == nil {
+	if mapping == nil && resolver == nil {
 		return nil
 	}
 
-	mapping, err := resolver.ResolveModel(ctx, ResolveModelParams{
-		Provider: wavespeedProviderName,
-		Task:     task,
-		Model:    hfModel,
-	})
-	if err != nil {
-		return err
+	if mapping == nil {
+		resolved, err := resolver.ResolveModel(ctx, ResolveModelParams{
+			Provider: wavespeedProviderName,
+			Task:     task,
+			Model:    hfModel,
+		})
+		if err != nil {
+			return err
+		}
+		mapping = &resolved
 	}
+
 	if mapping.Adapter != wavespeedAdapterLora {
 		return nil
 	}
@@ -956,7 +971,7 @@ func (c wavespeedTextToVideoCodec) Encode(
 	}
 	maps.Copy(payload, req.ProviderParams)
 	if err := wavespeedInjectAdapterLoras(
-		params.Context, c.resolver, TaskTextToVideo, params.Model, payload,
+		params.Context, params.Mapping, c.resolver, TaskTextToVideo, params.Model, payload,
 	); err != nil {
 		return nil, nil, err
 	}
@@ -1047,7 +1062,7 @@ func (c wavespeedTextToImageCodec) Encode(
 	}
 	maps.Copy(payload, req.ProviderParams)
 	if err := wavespeedInjectAdapterLoras(
-		params.Context, c.resolver, TaskTextToImage, params.Model, payload,
+		params.Context, params.Mapping, c.resolver, TaskTextToImage, params.Model, payload,
 	); err != nil {
 		return nil, nil, err
 	}
@@ -1148,7 +1163,7 @@ func (c wavespeedImageToImageCodec) Encode(
 	}
 	maps.Copy(payload, req.ProviderParams)
 	if err := wavespeedInjectAdapterLoras(
-		params.Context, c.resolver, TaskImageToImage, params.Model, payload,
+		params.Context, params.Mapping, c.resolver, TaskImageToImage, params.Model, payload,
 	); err != nil {
 		return nil, nil, err
 	}

@@ -41,6 +41,13 @@ type EncodeParams[Req any] struct {
 	// pipeline tasks can populate it from here, since the canonical
 	// request types do not include it.
 	Model string
+
+	// Mapping mirrors [Endpoint.Mapping]: the model mapping the provider
+	// resolved while constructing the endpoint, or nil when the provider
+	// resolved none. Codecs that need mapping-driven payload changes (e.g.
+	// adapter-model handling) can reuse it instead of looking the same
+	// mapping up again through their resolver.
+	Mapping *ModelMapping
 }
 
 // DecodeParams carries the inputs to [Codec.Decode].

@@ -155,8 +155,10 @@ Like the Hugging Face provider, WaveSpeed is composed from per-task mixins:
 exported `Resolver ModelResolver` field that maps the configured Hugging Face
 model ID to WaveSpeed's identifier at endpoint-construction time — embed the
 mixins for the tasks you serve and set each `Resolver` explicitly (or use
-`NewWavespeedProvider` to wire all three). The resolver also rides into each
-codec so adapter-model payloads get their LoRA injection. Each mixin serves an
+`NewWavespeedProvider` to wire all three). The resolved mapping is attached to
+the endpoint and the pipeline hands it to the codec, so adapter-model payloads
+get their LoRA injection without a second lookup; standalone codec use falls
+back to the codec's own resolver. Each mixin serves an
 `AsyncCodec`: its codecs encode WaveSpeed's flat body and complete the
 submit-poll-download exchange themselves. See
 [Per-task provider mixins](../architecture.md#per-task-provider-mixins) for the

@@ -99,6 +99,15 @@ type Endpoint struct {
 	// are rejected by the transport so a provider can never redirect a
 	// request away from the caller's configured host.
 	Path string
+
+	// Mapping optionally carries the [ModelMapping] the provider resolved
+	// while constructing this endpoint, e.g. to build the path from the
+	// provider-side model ID. The pipeline forwards it to
+	// [EncodeParams.Mapping] so codecs reuse the resolution instead of
+	// looking the same mapping up again. Nil when the provider resolved no
+	// mapping, in which case codecs fall back to their own resolver (if
+	// any).
+	Mapping *ModelMapping
 }
 
 // ChatProvider is a Provider that supplies an endpoint and Codec for the Chat task.

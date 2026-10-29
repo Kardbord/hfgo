@@ -78,6 +78,7 @@ func doInference[Req, Resp any](
 		Context: opts.Context(),
 		Request: req,
 		Model:   opts.Model,
+		Mapping: endpoint.Mapping,
 	})
 	if err != nil {
 		return zero, err
@@ -151,6 +152,7 @@ func doStreamingInference[Req, T any](
 		Context: opts.Context(),
 		Request: req,
 		Model:   opts.Model,
+		Mapping: endpoint.Mapping,
 	})
 	if err != nil {
 		return nil, err

@@ -895,6 +895,54 @@ func TestDoUnauthenticated(t *testing.T) {
 				require.ErrorContains(t, err, "must include a host")
 			},
 		},
+		{
+			name:   "rejects malformed URL",
+			method: http.MethodGet,
+			url:    "http://[::1:bad",
+			setupParams: func() UnauthenticatedParams {
+				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
+
+				return newUnauthenticatedTestParams(mt)
+			},
+			wantErr: true,
+			validateErr: func(t *testing.T, err error) {
+				t.Helper()
+				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+				require.ErrorContains(t, err, "invalid URL")
+			},
+		},
+		{
+			name:   "rejects invalid HTTP method",
+			method: "GET{",
+			url:    "https://cdn.example.com/output.png",
+			setupParams: func() UnauthenticatedParams {
+				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
+
+				return newUnauthenticatedTestParams(mt)
+			},
+			wantErr: true,
+			validateErr: func(t *testing.T, err error) {
+				t.Helper()
+				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindInternal)
+			},
+		},
+		{
+			name:   "empty User-Agent is not set",
+			method: http.MethodGet,
+			url:    "https://cdn.example.com/output.png",
+			setupParams: func() UnauthenticatedParams {
+				mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
+				client := testutils.NewMockHTTPClient(mt)
+
+				return UnauthenticatedParams{HTTPClient: &client}
+			},
+			validateReq: func(t *testing.T, req *http.Request) {
+				t.Helper()
+				if got := req.Header.Get("User-Agent"); got != "" {
+					t.Errorf("empty User-Agent must not be set, got %q", got)
+				}
+			},
+		},
 		{ //nolint:gosec // Test fixture: the URL is intentionally credential-bearing to assert rejection.
 			name:   "rejects URL with embedded credentials without echoing them",
 			method: http.MethodGet,

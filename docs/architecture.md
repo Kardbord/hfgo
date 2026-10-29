@@ -181,7 +181,12 @@ time — but callers think in Hugging Face model IDs.
 Resolution lives where the model ID is consumed. A provider that needs mapping
 receives a `ModelResolver` as an explicit constructor dependency and calls it
 from its endpoint methods (or from its codecs, when payloads depend on the
-mapping — e.g. WaveSpeed's automatic LoRA injection for adapter models).
+mapping — e.g. WaveSpeed's automatic LoRA injection for adapter models). When
+endpoint resolution and payload adaptation need the same mapping, the endpoint
+attaches its resolution to `Endpoint.Mapping` and the pipeline forwards it to
+`EncodeParams.Mapping`, so the codec reuses it instead of repeating the
+lookup; codecs without an attached mapping (standalone codec use) fall back to
+their own resolver.
 Dispatch, options, and the `Provider` interface carry no resolution
 machinery, so a lookup can only happen inside a provider the caller
 constructed for that purpose — there are no hidden network calls.
