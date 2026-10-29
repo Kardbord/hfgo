@@ -36,9 +36,9 @@ based on the model string's suffix (see the
 
 Because chat payloads carry the model themselves, chat does not use a
 [model resolver](../architecture.md#external-provider-model-resolution) and
-the endpoint is model-independent. The built-in
-[Baseten provider](./baseten.md) automates one such pin: it appends
-`:baseten` to the model string.
+the endpoint is model-independent. Built-in providers such as
+[Baseten](./baseten.md) and [Cerebras](./cerebras.md) automate one such pin:
+each appends its `:<provider>` suffix to the model string.
 
 ## Reusing its mixins
 
@@ -55,6 +55,8 @@ pattern and its trade-offs.
 - [WaveSpeed provider](./wavespeed.md) — the built-in partner-provider example.
 - [Baseten provider](./baseten.md) — chat completions pinned to Baseten through
   the router's `:baseten` suffix.
+- [Cerebras provider](./cerebras.md) — chat completions pinned to Cerebras
+  through the router's `:cerebras` suffix.
 - [Package reference](https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfproviders)
 - [Hugging Face Inference Providers documentation](https://huggingface.co/docs/inference-providers/main/en/index)
 - [architecture.md](../architecture.md)

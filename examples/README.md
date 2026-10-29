@@ -3,8 +3,7 @@
 Runnable programs demonstrating each inference task. Examples are organized by
 provider: `examples/<provider>/<task>/<variant>`. The default Hugging Face
 provider's examples live under [`huggingface/`](./huggingface), partner-provider
-examples under their provider's directory (e.g. [`wavespeed/`](./wavespeed) and
-[`baseten/`](./baseten)), and
+examples under their provider's directory (e.g. [`wavespeed/`](./wavespeed)), and
 [`custom-provider`](./custom-provider) shows how to plug in a fictional
 provider. Each `main` package is self-contained. Per-task examples read their
 token from the `HF_TOKEN` environment variable, with the exception of
@@ -99,6 +98,17 @@ follow the standard naming scheme:
 | Task                   | Variants                             |
 | ---------------------- | ------------------------------------ |
 | [Chat](./baseten/chat) | `basic`, `streaming`, `conversation` |
+
+### Cerebras
+
+The [Cerebras provider](../docs/providers/cerebras.md) pins chat completions to
+Cerebras: the chat endpoint and codecs are the default provider's, and the
+provider appends the router's `:cerebras` suffix to the model. Its variants
+follow the standard naming scheme:
+
+| Task                     | Variants                             |
+| ------------------------ | ------------------------------------ |
+| [Chat](./cerebras/chat)  | `basic`, `streaming`, `conversation` |
 
 In addition to per-task examples, [custom-provider](./custom-provider) shows
 how to plug in a fictional `FooProvider` that maps Hugging Face model IDs to

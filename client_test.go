@@ -106,7 +106,10 @@ func TestClientChat_ModelSelection(t *testing.T) {
 	}
 }
 
-func TestClientChat_BasetenProviderSuffix(t *testing.T) {
+// TestClientChat_ChatOnlyProviderSuffixes pins the routing of every built-in
+// chat-only partner provider: each appends its model-string suffix on the wire
+// unless the request model already carries one. Add a row per new provider.
+func TestClientChat_ChatOnlyProviderSuffixes(t *testing.T) {
 	t.Parallel()
 
 	text := "hi"
@@ -116,48 +119,63 @@ func TestClientChat_BasetenProviderSuffix(t *testing.T) {
 		},
 	}
 
-	t.Run("appends the provider suffix to the wire model", func(t *testing.T) {
-		t.Parallel()
+	// chatOnlyProviders maps each chat-only provider's router slug to its
+	// constructor.
+	chatOnlyProviders := map[string]func() hfproviders.Provider{
+		"baseten":  func() hfproviders.Provider { return hfproviders.NewBasetenProvider() },
+		"cerebras": func() hfproviders.Provider { return hfproviders.NewCerebrasProvider() },
+	}
 
-		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
-		client := NewClient(
-			hfopts.WithHTTPClientFactory(
-				func() http.Client { return testutils.NewMockHTTPClient(mt) },
-			),
-			hfopts.WithModel("zai-org/GLM-5.3-Flash"),
-			hfopts.WithProvider(hfproviders.NewBasetenProvider()),
-		)
+	for slug, newProvider := range chatOnlyProviders {
+		t.Run(slug, func(t *testing.T) {
+			t.Parallel()
 
-		_, err := client.Chat(request)
-		require.NoError(t, err)
+			const model = "zai-org/GLM-5.3-Flash"
 
-		require.NotNil(t, mt.LastRequest)
-		require.Equal(t, "/v1/chat/completions", mt.LastRequest.URL.Path)
+			t.Run("appends the provider suffix to the wire model", func(t *testing.T) {
+				t.Parallel()
 
-		got := testutils.ReadRequestBody(t, mt)
-		require.Equal(t, "zai-org/GLM-5.3-Flash:baseten", got["model"])
-	})
+				mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+				client := NewClient(
+					hfopts.WithHTTPClientFactory(
+						func() http.Client { return testutils.NewMockHTTPClient(mt) },
+					),
+					hfopts.WithModel(model),
+					hfopts.WithProvider(newProvider()),
+				)
 
-	t.Run("keeps a request model that already carries a suffix", func(t *testing.T) {
-		t.Parallel()
+				_, err := client.Chat(request)
+				require.NoError(t, err)
 
-		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
-		client := NewClient(
-			hfopts.WithHTTPClientFactory(
-				func() http.Client { return testutils.NewMockHTTPClient(mt) },
-			),
-			hfopts.WithModel("zai-org/GLM-5.3-Flash"),
-			hfopts.WithProvider(hfproviders.NewBasetenProvider()),
-		)
+				require.NotNil(t, mt.LastRequest)
+				require.Equal(t, "/v1/chat/completions", mt.LastRequest.URL.Path)
 
-		req := request
-		req.Model = new("zai-org/GLM-5.3-Flash:fastest")
-		_, err := client.Chat(req)
-		require.NoError(t, err)
+				got := testutils.ReadRequestBody(t, mt)
+				require.Equal(t, model+":"+slug, got["model"])
+			})
 
-		got := testutils.ReadRequestBody(t, mt)
-		require.Equal(t, "zai-org/GLM-5.3-Flash:fastest", got["model"])
-	})
+			t.Run("keeps a request model that already carries a suffix", func(t *testing.T) {
+				t.Parallel()
+
+				mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+				client := NewClient(
+					hfopts.WithHTTPClientFactory(
+						func() http.Client { return testutils.NewMockHTTPClient(mt) },
+					),
+					hfopts.WithModel(model),
+					hfopts.WithProvider(newProvider()),
+				)
+
+				req := request
+				req.Model = new(model + ":fastest")
+				_, err := client.Chat(req)
+				require.NoError(t, err)
+
+				got := testutils.ReadRequestBody(t, mt)
+				require.Equal(t, model+":fastest", got["model"])
+			})
+		})
+	}
 }
 
 func TestClientChat_MissingModel(t *testing.T) {

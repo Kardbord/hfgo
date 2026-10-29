@@ -140,6 +140,8 @@ Partner providers have their own examples:
   image-to-image through WaveSpeed.
 - [Baseten](./examples/baseten) — chat completions (unary, streaming, and
   multi-turn conversation) pinned to Baseten.
+- [Cerebras](./examples/cerebras) — chat completions (unary, streaming, and
+  multi-turn conversation) pinned to Cerebras.
 
 ## Error Handling
 
@@ -205,6 +207,8 @@ Built-in providers have their own guides:
   the Hugging Face wire format directly.
 - [Baseten provider](./docs/providers/baseten.md) — chat completions pinned to
   Baseten through the router's `:baseten` suffix.
+- [Cerebras provider](./docs/providers/cerebras.md) — chat completions pinned to
+  Cerebras through the router's `:cerebras` suffix.
 - [WaveSpeed provider](./docs/providers/wavespeed.md) — text-to-video,
   text-to-image, and image-to-image through WaveSpeed.
 
