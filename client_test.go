@@ -124,6 +124,7 @@ func TestClientChat_ChatOnlyProviderSuffixes(t *testing.T) {
 	chatOnlyProviders := map[string]func() hfproviders.Provider{
 		"baseten":  func() hfproviders.Provider { return hfproviders.NewBasetenProvider() },
 		"cerebras": func() hfproviders.Provider { return hfproviders.NewCerebrasProvider() },
+		"cohere":   func() hfproviders.Provider { return hfproviders.NewCohereProvider() },
 	}
 
 	for slug, newProvider := range chatOnlyProviders {

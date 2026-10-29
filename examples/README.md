@@ -110,6 +110,17 @@ follow the standard naming scheme:
 | ------------------------ | ------------------------------------ |
 | [Chat](./cerebras/chat)  | `basic`, `streaming`, `conversation` |
 
+### Cohere
+
+The [Cohere provider](../docs/providers/cohere.md) pins chat completions to
+Cohere: the chat endpoint and codecs are the default provider's, and the
+provider appends the router's `:cohere` suffix to the model. Its variants
+follow the standard naming scheme:
+
+| Task                   | Variants                             |
+| ---------------------- | ------------------------------------ |
+| [Chat](./cohere/chat)  | `basic`, `streaming`, `conversation` |
+
 In addition to per-task examples, [custom-provider](./custom-provider) shows
 how to plug in a fictional `FooProvider` that maps Hugging Face model IDs to
 its own model identifiers through an explicitly injected model resolver,

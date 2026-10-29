@@ -142,6 +142,8 @@ Partner providers have their own examples:
   multi-turn conversation) pinned to Baseten.
 - [Cerebras](./examples/cerebras) — chat completions (unary, streaming, and
   multi-turn conversation) pinned to Cerebras.
+- [Cohere](./examples/cohere) — chat completions (unary, streaming, and
+  multi-turn conversation) pinned to Cohere.
 
 ## Error Handling
 
@@ -209,6 +211,8 @@ Built-in providers have their own guides:
   Baseten through the router's `:baseten` suffix.
 - [Cerebras provider](./docs/providers/cerebras.md) — chat completions pinned to
   Cerebras through the router's `:cerebras` suffix.
+- [Cohere provider](./docs/providers/cohere.md) — chat completions pinned to
+  Cohere through the router's `:cohere` suffix.
 - [WaveSpeed provider](./docs/providers/wavespeed.md) — text-to-video,
   text-to-image, and image-to-image through WaveSpeed.
 

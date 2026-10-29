@@ -28,6 +28,7 @@ func TestChatOnlyProviderContract(t *testing.T) {
 	cases := []chatOnlyProviderCase{
 		basetenChatOnlyCase(),
 		cerebrasChatOnlyCase(),
+		cohereChatOnlyCase(),
 	}
 
 	for _, tc := range cases {
