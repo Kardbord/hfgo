@@ -150,6 +150,8 @@ Partner providers have their own examples:
   and multi-turn conversation) pinned to Fireworks.
 - [Groq](./examples/groq) — chat completions (unary, streaming, and
   multi-turn conversation) pinned to Groq.
+- [OVHcloud AI Endpoints](./examples/ovhcloud) — chat completions (unary,
+  streaming, and multi-turn conversation) pinned to OVHcloud AI Endpoints.
 
 ## Error Handling
 
@@ -226,6 +228,8 @@ Built-in providers have their own guides:
   pinned to Fireworks through the router's `:fireworks-ai` suffix.
 - [Groq provider](./docs/providers/groq.md) — chat completions pinned to
   Groq through the router's `:groq` suffix.
+- [OVHcloud provider](./docs/providers/ovhcloud.md) — chat completions pinned
+  to OVHcloud AI Endpoints through the router's `:ovhcloud` suffix.
 - [WaveSpeed provider](./docs/providers/wavespeed.md) — text-to-video,
   text-to-image, and image-to-image through WaveSpeed.
 

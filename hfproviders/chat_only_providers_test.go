@@ -32,6 +32,7 @@ func TestChatOnlyProviderContract(t *testing.T) {
 		featherlessAIChatOnlyCase(),
 		fireworksChatOnlyCase(),
 		groqChatOnlyCase(),
+		ovhcloudChatOnlyCase(),
 	}
 
 	for _, tc := range cases {
