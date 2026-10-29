@@ -55,7 +55,7 @@ func NewClient(opts ...hfopts.Option) Client {
 // For example:
 //   - Model="mistral-7b", Provider=HuggingFaceProvider → "mistral-7b"
 //   - Model="mistral-7b", Provider=SomeProvider → "mistral-7b:someprovider"
-//   - Model="mistral-7b:sambanova", Provider=HuggingFaceProvider → "mistral-7b:sambanova" (Provider ignored)
+//   - Model="zai-org/GLM-5.3-Flash:baseten", Provider=HuggingFaceProvider → "zai-org/GLM-5.3-Flash:baseten" (Provider ignored)
 //
 // Provider selection is otherwise delegated to the HF router. A model-string
 // suffix chooses how the router picks a provider: a provider name (e.g.
@@ -106,7 +106,7 @@ func (c Client) Chat(req hftypes.ChatRequest, opts ...hfopts.Option) (hftypes.Ch
 // For example:
 //   - Model="mistral-7b", Provider=HuggingFaceProvider → "mistral-7b"
 //   - Model="mistral-7b", Provider=SomeProvider → "mistral-7b:someprovider"
-//   - Model="mistral-7b:sambanova", Provider=HuggingFaceProvider → "mistral-7b:sambanova" (Provider ignored)
+//   - Model="zai-org/GLM-5.3-Flash:baseten", Provider=HuggingFaceProvider → "zai-org/GLM-5.3-Flash:baseten" (Provider ignored)
 //
 // Provider selection is otherwise delegated to the HF router. A model-string
 // suffix chooses how the router picks a provider: a provider name (e.g.

@@ -78,7 +78,7 @@ type EndpointParams struct {
 
 	// Model identifies the model the request is routed to. For chat tasks
 	// it is the resolved routing identifier including any provider suffix
-	// (e.g. "mistral-7b:sambanova"), because chat payloads carry the model
+	// (e.g. "zai-org/GLM-5.3-Flash:baseten"), because chat payloads carry the model
 	// themselves. For pipeline tasks it is the configured model ID; routing
 	// there is expressed in the endpoint path. Model-dependent endpoints
 	// may validate it defensively; model-independent endpoints (e.g.
