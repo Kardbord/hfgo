@@ -90,12 +90,12 @@ func TestWavespeedProvider_ZeroValueIsSafe(t *testing.T) {
 func TestWavespeedProvider_TextToVideoEndpoint(t *testing.T) {
 	t.Parallel()
 
-	mapper := NewStaticModelResolver(map[StaticMapping]string{
+	mapper := NewStaticModelResolver(map[StaticMapping]ModelMapping{
 		{
 			Provider: "wavespeed",
 			Task:     TaskTextToVideo,
 			Model:    "ZhengmingYu/DMAD",
-		}: "wavespeed-ai/minimax-h3/text-to-video-lora",
+		}: {ProviderModelID: "wavespeed-ai/minimax-h3/text-to-video-lora"},
 	})
 	p, err := NewWavespeedProvider(mapper)
 	require.NoError(t, err)
@@ -116,12 +116,12 @@ func TestWavespeedProvider_TextToVideoEndpoint(t *testing.T) {
 func TestWavespeedProvider_TextToImageEndpoint(t *testing.T) {
 	t.Parallel()
 
-	mapper := NewStaticModelResolver(map[StaticMapping]string{
+	mapper := NewStaticModelResolver(map[StaticMapping]ModelMapping{
 		{
 			Provider: "wavespeed",
 			Task:     TaskTextToImage,
 			Model:    "black-forest-labs/FLUX.1-dev",
-		}: "wavespeed-ai/flux-dev",
+		}: {ProviderModelID: "wavespeed-ai/flux-dev"},
 	})
 	p, err := NewWavespeedProvider(mapper)
 	require.NoError(t, err)
@@ -138,12 +138,12 @@ func TestWavespeedProvider_TextToImageEndpoint(t *testing.T) {
 func TestWavespeedProvider_ImageToImageEndpoint(t *testing.T) {
 	t.Parallel()
 
-	mapper := NewStaticModelResolver(map[StaticMapping]string{
+	mapper := NewStaticModelResolver(map[StaticMapping]ModelMapping{
 		{
 			Provider: "wavespeed",
 			Task:     TaskImageToImage,
 			Model:    "briaai/Fibo-2.0-edit-turbo",
-		}: "bria/fibo-2.0/edit",
+		}: {ProviderModelID: "bria/fibo-2.0/edit"},
 	})
 	p, err := NewWavespeedProvider(mapper)
 	require.NoError(t, err)
@@ -304,7 +304,11 @@ func TestWavespeedProvider_ImageToImageCodec_Encode(t *testing.T) {
 					Prompt: new("make it blue"),
 				},
 			},
-			`{"image":"data:image/png;base64,abc123","prompt":"make it blue"}`,
+			`{
+				"image": "data:image/png;base64,abc123",
+				"images": ["data:image/png;base64,abc123"],
+				"prompt": "make it blue"
+			}`,
 		)
 	})
 
@@ -317,7 +321,10 @@ func TestWavespeedProvider_ImageToImageCodec_Encode(t *testing.T) {
 			hftypes.ImageToImageRequest{
 				Input: "https://example.com/cat.png",
 			},
-			`{"image":"https://example.com/cat.png"}`,
+			`{
+				"image": "https://example.com/cat.png",
+				"images": ["https://example.com/cat.png"]
+			}`,
 		)
 	})
 
@@ -328,7 +335,10 @@ func TestWavespeedProvider_ImageToImageCodec_Encode(t *testing.T) {
 			t,
 			codec.Encode,
 			hftypes.ImageToImageRequest{Input: "abc123"},
-			`{"image":"data:image/jpeg;base64,abc123"}`,
+			`{
+				"image": "data:image/jpeg;base64,abc123",
+				"images": ["data:image/jpeg;base64,abc123"]
+			}`,
 		)
 	})
 
@@ -351,12 +361,192 @@ func TestWavespeedProvider_ImageToImageCodec_Encode(t *testing.T) {
 			},
 			`{
 				"image": "data:image/png;base64,abc123",
+				"images": ["data:image/png;base64,abc123"],
 				"prompt": "make it blue",
 				"guidance_scale": 7.5,
 				"num_inference_steps": 30,
 				"enable_base64_output": true
 			}`,
 		)
+	})
+
+	t.Run("provider params override images for multi-image models", func(t *testing.T) {
+		t.Parallel()
+
+		requireFlatEncode(
+			t,
+			codec.Encode,
+			hftypes.ImageToImageRequest{
+				Input: "data:image/png;base64,abc123",
+				ProviderParams: map[string]any{
+					"images": []string{
+						"https://example.com/one.png",
+						"https://example.com/two.png",
+					},
+				},
+			},
+			`{
+				"image": "data:image/png;base64,abc123",
+				"images": ["https://example.com/one.png", "https://example.com/two.png"]
+			}`,
+		)
+	})
+}
+
+// TestWavespeedProvider_AdapterLorasInjection exercises the LoRA payload
+// injection: a LoRA-adapter mapping injects the "loras" entry naming the
+// Hugging Face model ID, a caller-supplied "loras" wins, non-adapter models
+// and nil resolvers leave the payload untouched, and lookup failures
+// propagate.
+func TestWavespeedProvider_AdapterLorasInjection(t *testing.T) {
+	t.Parallel()
+
+	t.Run("injected on all tasks", func(t *testing.T) {
+		t.Parallel()
+
+		resolver := NewStaticModelResolver(map[StaticMapping]ModelMapping{
+			{
+				Provider: "wavespeed",
+				Task:     TaskTextToVideo,
+				Model:    "ZhengmingYu/DMAD",
+			}: {
+				ProviderModelID:    "wavespeed-ai/minimax-h3/text-to-video-lora",
+				Adapter:            "lora",
+				AdapterWeightsPath: "minimax_h3/dmad.safetensors",
+				Status:             "live",
+			},
+			{
+				Provider: "wavespeed",
+				Task:     TaskTextToImage,
+				Model:    "some-lora/flux-lora",
+			}: {ProviderModelID: "wavespeed-ai/flux-dev", Adapter: "lora"},
+			{
+				Provider: "wavespeed",
+				Task:     TaskImageToImage,
+				Model:    "some-lora/flux-lora",
+			}: {ProviderModelID: "wavespeed-ai/flux-dev", Adapter: "lora"},
+		})
+
+		video := WavespeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
+		body, _, err := video.Encode(EncodeParams[hftypes.TextToVideoRequest]{
+			Context: context.Background(),
+			Request: hftypes.TextToVideoRequest{Input: "a cat"},
+			Model:   "ZhengmingYu/DMAD",
+		})
+		require.NoError(t, err)
+		require.JSONEq(
+			t,
+			`{"prompt":"a cat","loras":[{"path":"ZhengmingYu/DMAD","scale":1}]}`,
+			string(body),
+		)
+
+		image := WavespeedTextToImageMixin{Resolver: resolver}.TextToImageCodec()
+		body, _, err = image.Encode(EncodeParams[hftypes.TextToImageRequest]{
+			Context: context.Background(),
+			Request: hftypes.TextToImageRequest{Input: "a cat"},
+			Model:   "some-lora/flux-lora",
+		})
+		require.NoError(t, err)
+		require.JSONEq(
+			t,
+			`{"prompt":"a cat","loras":[{"path":"some-lora/flux-lora","scale":1}]}`,
+			string(body),
+		)
+
+		i2i := WavespeedImageToImageMixin{Resolver: resolver}.ImageToImageCodec()
+		body, _, err = i2i.Encode(EncodeParams[hftypes.ImageToImageRequest]{
+			Context: context.Background(),
+			Request: hftypes.ImageToImageRequest{Input: "abc123"},
+			Model:   "some-lora/flux-lora",
+		})
+		require.NoError(t, err)
+		require.JSONEq(
+			t,
+			`{
+				"image": "data:image/jpeg;base64,abc123",
+				"images": ["data:image/jpeg;base64,abc123"],
+				"loras": [{"path": "some-lora/flux-lora", "scale": 1}]
+			}`,
+			string(body),
+		)
+	})
+
+	t.Run("caller-supplied loras win", func(t *testing.T) {
+		t.Parallel()
+
+		resolver := NewStaticModelResolver(map[StaticMapping]ModelMapping{
+			{
+				Provider: "wavespeed",
+				Task:     TaskTextToVideo,
+				Model:    "ZhengmingYu/DMAD",
+			}: {ProviderModelID: "wavespeed-ai/minimax-h3/text-to-video-lora", Adapter: "lora"},
+		})
+		codec := WavespeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
+
+		body, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
+			Context: context.Background(),
+			Request: hftypes.TextToVideoRequest{
+				Input: "a cat",
+				ProviderParams: map[string]any{
+					"loras": []map[string]any{{"path": "user/own-lora", "scale": 0.8}},
+				},
+			},
+			Model: "ZhengmingYu/DMAD",
+		})
+		require.NoError(t, err)
+		require.JSONEq(
+			t,
+			`{"prompt":"a cat","loras":[{"path":"user/own-lora","scale":0.8}]}`,
+			string(body),
+		)
+	})
+
+	t.Run("non-adapter mapping injects nothing", func(t *testing.T) {
+		t.Parallel()
+
+		resolver := NewStaticModelResolver(map[StaticMapping]ModelMapping{
+			{
+				Provider: "wavespeed",
+				Task:     TaskTextToVideo,
+				Model:    "black-forest-labs/FLUX.1-dev",
+			}: {ProviderModelID: "wavespeed-ai/flux-dev"},
+		})
+		codec := WavespeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
+
+		body, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
+			Context: context.Background(),
+			Request: hftypes.TextToVideoRequest{Input: "a cat"},
+			Model:   "black-forest-labs/FLUX.1-dev",
+		})
+		require.NoError(t, err)
+		require.JSONEq(t, `{"prompt":"a cat"}`, string(body))
+	})
+
+	t.Run("nil resolver injects nothing", func(t *testing.T) {
+		t.Parallel()
+
+		codec := wavespeedTextToVideoCodec{}
+
+		body, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
+			Context: context.Background(),
+			Request: hftypes.TextToVideoRequest{Input: "a cat"},
+			Model:   "ZhengmingYu/DMAD",
+		})
+		require.NoError(t, err)
+		require.JSONEq(t, `{"prompt":"a cat"}`, string(body))
+	})
+
+	t.Run("lookup failure propagates", func(t *testing.T) {
+		t.Parallel()
+
+		codec := WavespeedTextToVideoMixin{Resolver: NewStaticModelResolver(nil)}.TextToVideoCodec()
+
+		_, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
+			Context: context.Background(),
+			Request: hftypes.TextToVideoRequest{Input: "a cat"},
+			Model:   "unknown-model",
+		})
+		requireAsyncSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	})
 }
 
@@ -492,12 +682,12 @@ func TestWavespeedMixin_SubsetProvider(t *testing.T) {
 
 	p := wavespeedSubsetProvider{
 		WavespeedTextToImageMixin{
-			Resolver: NewStaticModelResolver(map[StaticMapping]string{
+			Resolver: NewStaticModelResolver(map[StaticMapping]ModelMapping{
 				{
 					Provider: "wavespeed",
 					Task:     TaskTextToImage,
 					Model:    "black-forest-labs/FLUX.1-dev",
-				}: "wavespeed-ai/flux-dev",
+				}: {ProviderModelID: "wavespeed-ai/flux-dev"},
 			}),
 		},
 	}
@@ -634,8 +824,6 @@ func waveSpeedTaskBody(status, resultPath, taskErr string, outputs []string) str
 
 // requireAsyncSDKErrorKind asserts err is an *hferrors.SDKError of the given
 // kind.
-//
-//nolint:unparam // The explicit kind keeps call sites self-documenting.
 func requireAsyncSDKErrorKind(t *testing.T, err error, kind hferrors.SDKErrorKind) {
 	t.Helper()
 

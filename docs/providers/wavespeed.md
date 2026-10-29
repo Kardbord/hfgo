@@ -32,12 +32,12 @@ For deployments that pin the HF-to-provider mapping themselves or run without
 network access to the Hub, use `hfproviders.StaticModelResolver`:
 
 ```go
-mapper := hfproviders.NewStaticModelResolver(map[hfproviders.StaticMapping]string{
+mapper := hfproviders.NewStaticModelResolver(map[hfproviders.StaticMapping]hfproviders.ModelMapping{
 	{
 		Provider: "wavespeed",
 		Task:     hfproviders.TaskTextToImage,
 		Model:    "black-forest-labs/FLUX.1-dev",
-	}: "wavespeed-ai/flux-dev",
+	}: {ProviderModelID: "wavespeed-ai/flux-dev"},
 })
 
 provider, err := hfproviders.NewWavespeedProvider(mapper)
@@ -60,8 +60,10 @@ the Hugging Face pipeline wire format:
 
 - **Requests** are encoded as WaveSpeed's flat JSON body. The prompt and every
   generation parameter live at the top level — the canonical request's `Input`
-  becomes `prompt` (text tasks) or `image` (image-to-image, wrapped as a
-  `data:` URI when it is raw base64), and the typed parameters are merged in.
+  becomes `prompt` (text tasks) or `image` **and** `images` (image-to-image,
+  wrapped as a `data:` URI when it is raw base64; the dual shape mirrors the
+  official Hugging Face clients and satisfies models such as Bria Fibo that
+  require the `images` array), and the typed parameters are merged in.
 - **Responses** follow WaveSpeed's asynchronous task API. The SDK submits the
   task, polls the result URL until it completes (2 s initial wait, growing by
   1 s per poll up to 5 s; transient poll failures are retried, a failed task
@@ -70,14 +72,34 @@ the Hugging Face pipeline wire format:
   so give long-running generations a generous deadline (e.g.
   `hfopts.WithContext`).
 
+### Adapter (LoRA) models
+
+Some Hugging Face repositories ship LoRA adapter weights applied on top of a
+WaveSpeed-hosted base model (the Hub marks them with `adapter: "lora"` in the
+inference-provider mapping, e.g. `ZhengmingYu/DMAD` on
+`wavespeed-ai/minimax-h3/text-to-video-lora`). WaveSpeed only applies those
+weights when the request carries a `loras` entry, so the provider injects
+
+```json
+{"loras": [{"path": "<the HF model ID>", "scale": 1}]}
+```
+
+automatically for such models — matching huggingface.js. Without it the
+request succeeds but silently runs the base model. Pass your own `loras` via
+`ProviderParams` to override the injected entry (unlike huggingface.js, which
+overwrites caller-supplied values).
+
 Generated videos and images can exceed the SDK's default 1 MiB response cap,
 so raise it with `hfopts.WithMaxResponseBodyBytes` when needed.
 
 ### Provider-specific request parameters
 
-The canonical request types do not cover every knob WaveSpeed models expose
-(e.g. `duration`, `size`, `enable_safety_checker`). Every request DTO carries
-an advanced escape hatch for this:
+WaveSpeed models take provider-native parameters, not the canonical Hugging
+Face ones: e.g. the MiniMax H3 text-to-video model accepts `duration`
+(seconds), `resolution`, and `aspect_ratio`, and rejects unknown fields — such
+as the canonical `num_frames` — with a 400. The canonical request types do not
+cover every knob WaveSpeed models expose, so every request DTO carries an
+advanced escape hatch for this:
 
 ```go
 image, err := client.GenerateImage(hftypes.TextToImageRequest{
@@ -89,8 +111,10 @@ image, err := client.GenerateImage(hftypes.TextToImageRequest{
 ```
 
 `ProviderParams` entries are merged into the flat body after the typed
-parameters, so entries override typed fields (last write wins). This mirrors
-the `extra_body` argument of the official Python client.
+parameters, so entries override typed fields — including the codec-provided
+`images` array (for multi-image models) and the injected `loras` entry (last
+write wins). This mirrors the `extra_body` argument of the official Python
+client.
 
 ### Provider-specific response metadata
 
@@ -131,7 +155,8 @@ Like the Hugging Face provider, WaveSpeed is composed from per-task mixins:
 exported `Resolver ModelResolver` field that maps the configured Hugging Face
 model ID to WaveSpeed's identifier at endpoint-construction time — embed the
 mixins for the tasks you serve and set each `Resolver` explicitly (or use
-`NewWavespeedProvider` to wire all three). Each mixin serves an
+`NewWavespeedProvider` to wire all three). The resolver also rides into each
+codec so adapter-model payloads get their LoRA injection. Each mixin serves an
 `AsyncCodec`: its codecs encode WaveSpeed's flat body and complete the
 submit-poll-download exchange themselves. See
 [Per-task provider mixins](../architecture.md#per-task-provider-mixins) for the

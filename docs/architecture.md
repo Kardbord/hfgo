@@ -180,13 +180,17 @@ time — but callers think in Hugging Face model IDs.
 
 Resolution lives where the model ID is consumed. A provider that needs mapping
 receives a `ModelResolver` as an explicit constructor dependency and calls it
-from its endpoint methods (or, for model-in-body wire formats, from its
-codecs). Dispatch, options, and the `Provider` interface carry no resolution
+from its endpoint methods (or from its codecs, when payloads depend on the
+mapping — e.g. WaveSpeed's automatic LoRA injection for adapter models).
+Dispatch, options, and the `Provider` interface carry no resolution
 machinery, so a lookup can only happen inside a provider the caller
 constructed for that purpose — there are no hidden network calls.
 
 - `hfproviders.ModelResolver` maps a Hugging Face model ID, provider slug,
-  and upstream task to the provider-specific model identifier.
+  and upstream task to the provider-side `ModelMapping`: the provider model
+  identifier plus the Hub's adapter metadata (`Adapter`,
+  `AdapterWeightsPath`) and mapping `Status`, so providers can adapt
+  requests to adapter models without further interface changes.
 - `hfproviders.StaticModelResolver` resolves from a caller-supplied mapping
   and performs no network I/O — suitable for tests and for deployments that
   pin the mapping themselves.

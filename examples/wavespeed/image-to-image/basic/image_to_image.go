@@ -22,13 +22,14 @@ func main() {
 	// Build a static model resolver that maps a Hugging Face model ID to the
 	// WaveSpeed provider's model identifier for the image-to-image task.
 	// For live Hub mappings, use hfproviders.NewHubModelResolver instead.
-	mapper := hfproviders.NewStaticModelResolver(map[hfproviders.StaticMapping]string{
+	mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
 		{
 			Provider: "wavespeed",
 			Task:     hfproviders.TaskImageToImage,
 			Model:    "briaai/Fibo-2.0-edit-turbo",
-		}: "bria/fibo-2.0/edit",
-	})
+		}: {ProviderModelID: "bria/fibo-2.0/edit"},
+	}
+	mapper := hfproviders.NewStaticModelResolver(mappings)
 
 	// Create a WavespeedProvider backed by the resolver. The constructor
 	// returns an error if the resolver is nil.

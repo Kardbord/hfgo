@@ -28,23 +28,62 @@ func resolveParams(
 func TestStaticModelResolver_ResolvesPinnedMapping(t *testing.T) {
 	t.Parallel()
 
-	resolver := hfproviders.NewStaticModelResolver(map[hfproviders.StaticMapping]string{
-		{Provider: "fal-ai", Task: "text-to-image", Model: "black-forest-labs/FLUX.1-dev"}: "fal-ai/flux/dev",
-	})
+	mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
+		{Provider: "fal-ai", Task: "text-to-image", Model: "black-forest-labs/FLUX.1-dev"}: {
+			ProviderModelID: "fal-ai/flux/dev",
+		},
+	}
+	resolver := hfproviders.NewStaticModelResolver(mappings)
 
-	id, err := resolver.ResolveModel(context.Background(), resolveParams(
+	mapping, err := resolver.ResolveModel(context.Background(), resolveParams(
 		"fal-ai", "text-to-image", "black-forest-labs/FLUX.1-dev",
 	))
 	require.NoError(t, err)
-	require.Equal(t, "fal-ai/flux/dev", id)
+	require.Equal(t, hfproviders.ModelMapping{
+		ProviderModelID: "fal-ai/flux/dev",
+	}, mapping)
+}
+
+func TestStaticModelResolver_CarriesAdapterMetadata(t *testing.T) {
+	t.Parallel()
+
+	mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
+		{
+			Provider: "wavespeed",
+			Task:     "text-to-video",
+			Model:    "ZhengmingYu/DMAD",
+		}: {
+			ProviderModelID:    "wavespeed-ai/minimax-h3/text-to-video-lora",
+			Adapter:            "lora",
+			AdapterWeightsPath: "minimax_h3/dmad.safetensors",
+			Status:             "live",
+		},
+	}
+	resolver := hfproviders.NewStaticModelResolver(mappings)
+
+	mapping, err := resolver.ResolveModel(context.Background(), resolveParams(
+		"wavespeed", "text-to-video", "ZhengmingYu/DMAD",
+	))
+	require.NoError(t, err)
+	require.Equal(t, hfproviders.ModelMapping{
+		ProviderModelID:    "wavespeed-ai/minimax-h3/text-to-video-lora",
+		Adapter:            "lora",
+		AdapterWeightsPath: "minimax_h3/dmad.safetensors",
+		Status:             "live",
+	}, mapping)
 }
 
 func TestStaticModelResolver_ExactKeyMatch(t *testing.T) {
 	t.Parallel()
 
-	resolver := hfproviders.NewStaticModelResolver(map[hfproviders.StaticMapping]string{
-		{Provider: "fal-ai", Task: "text-to-image", Model: "black-forest-labs/FLUX.1-dev"}: "fal-ai/flux/dev",
-	})
+	mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
+		{
+			Provider: "fal-ai",
+			Task:     "text-to-image",
+			Model:    "black-forest-labs/FLUX.1-dev",
+		}: {ProviderModelID: "fal-ai/flux/dev"},
+	}
+	resolver := hfproviders.NewStaticModelResolver(mappings)
 
 	cases := []struct {
 		name     string

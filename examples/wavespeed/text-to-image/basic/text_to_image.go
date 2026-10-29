@@ -22,13 +22,14 @@ func main() {
 	// Build a static model resolver that maps a Hugging Face model ID to the
 	// WaveSpeed provider's model identifier for the text-to-image task.
 	// For live Hub mappings, use hfproviders.NewHubModelResolver instead.
-	mapper := hfproviders.NewStaticModelResolver(map[hfproviders.StaticMapping]string{
+	mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
 		{
 			Provider: "wavespeed",
 			Task:     hfproviders.TaskTextToImage,
 			Model:    "black-forest-labs/FLUX.1-dev",
-		}: "wavespeed-ai/flux-dev",
-	})
+		}: {ProviderModelID: "wavespeed-ai/flux-dev"},
+	}
+	mapper := hfproviders.NewStaticModelResolver(mappings)
 
 	// Create a WavespeedProvider backed by the resolver. The constructor
 	// returns an error if the resolver is nil.

@@ -19,6 +19,10 @@ import (
 
 const wavespeedProviderName = "wavespeed"
 
+// wavespeedAdapterLora is the Hub mapping adapter value marking a model that
+// ships LoRA weights applied on top of a provider-hosted base model.
+const wavespeedAdapterLora = "lora"
+
 // WaveSpeed serving model, mirrored from the official Hugging Face clients:
 // submitting a task returns a JSON prediction object whose result URL must be
 // polled until the task reaches a terminal status, after which the first
@@ -82,10 +86,13 @@ const wavespeedMaxRetryAfter = 60 * time.Second
 // and generation parameters at the top level, not nested under "parameters"),
 // and responses follow WaveSpeed's asynchronous task API: the SDK submits,
 // polls the result URL until the task completes, and downloads the first
-// output, surfacing the media bytes as the typed response. Provider-specific
-// response metadata (task ID, timings) is exposed on the response's
-// ProviderMetadata field. Extra provider-specific request parameters ride on
-// the request's ProviderParams field.
+// output, surfacing the media bytes as the typed response. Adapter models —
+// Hub mappings whose adapter is "lora" — automatically gain a "loras" payload
+// entry pointing at their Hugging Face repository (see
+// [wavespeedInjectAdapterLoras]). Provider-specific response metadata (task
+// ID, timings) is exposed on the response's ProviderMetadata field.
+// Extra provider-specific request parameters ride on the request's
+// ProviderParams field.
 //
 // The zero value is safe to use: endpoint methods return a configuration
 // [hferrors.SDKError] instead of dereferencing a nil resolver. Embedding all
@@ -153,7 +160,7 @@ func resolveWavespeedEndpoint(
 		return Endpoint{}, errNilResolver(wavespeedProviderName)
 	}
 
-	providerModelID, err := resolver.ResolveModel(params.Context, ResolveModelParams{
+	mapping, err := resolver.ResolveModel(params.Context, ResolveModelParams{
 		Provider: wavespeedProviderName,
 		Task:     task,
 		Model:    params.Model,
@@ -162,7 +169,10 @@ func resolveWavespeedEndpoint(
 		return Endpoint{}, err
 	}
 
-	return Endpoint{Method: http.MethodPost, Path: "wavespeed/api/v3/" + providerModelID}, nil
+	return Endpoint{
+		Method: http.MethodPost,
+		Path:   "wavespeed/api/v3/" + mapping.ProviderModelID,
+	}, nil
 }
 
 // WavespeedTextToVideoMixin provides the WaveSpeed endpoint and codec for
@@ -188,10 +198,13 @@ func (m WavespeedTextToVideoMixin) TextToVideoEndpoint(
 // TextToVideoCodec returns the text-to-video codec, which encodes requests as
 // WaveSpeed's flat JSON body and completes WaveSpeed's asynchronous task
 // exchange (poll and download) before returning the generated video bytes.
-func (WavespeedTextToVideoMixin) TextToVideoCodec() TextToVideoCodec {
+// The mixin's resolver rides along so the codec can adapt the payload to
+// adapter models (see [wavespeedInjectAdapterLoras]).
+func (m WavespeedTextToVideoMixin) TextToVideoCodec() TextToVideoCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return wavespeedTextToVideoCodec{wavespeedAsyncCodec{
 		mediaPrefix: "video/",
+		resolver:    m.Resolver,
 	}}
 }
 
@@ -218,10 +231,13 @@ func (m WavespeedTextToImageMixin) TextToImageEndpoint(
 // TextToImageCodec returns the text-to-image codec, which encodes requests as
 // WaveSpeed's flat JSON body and completes WaveSpeed's asynchronous task
 // exchange (poll and download) before returning the generated image bytes.
-func (WavespeedTextToImageMixin) TextToImageCodec() TextToImageCodec {
+// The mixin's resolver rides along so the codec can adapt the payload to
+// adapter models (see [wavespeedInjectAdapterLoras]).
+func (m WavespeedTextToImageMixin) TextToImageCodec() TextToImageCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return wavespeedTextToImageCodec{wavespeedAsyncCodec{
 		mediaPrefix: "image/",
+		resolver:    m.Resolver,
 	}}
 }
 
@@ -248,20 +264,31 @@ func (m WavespeedImageToImageMixin) ImageToImageEndpoint(
 // ImageToImageCodec returns the image-to-image codec, which encodes requests
 // as WaveSpeed's flat JSON body and completes WaveSpeed's asynchronous task
 // exchange (poll and download) before returning the generated image bytes.
-func (WavespeedImageToImageMixin) ImageToImageCodec() ImageToImageCodec {
+// The mixin's resolver rides along so the codec can adapt the payload to
+// adapter models (see [wavespeedInjectAdapterLoras]).
+func (m WavespeedImageToImageMixin) ImageToImageCodec() ImageToImageCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return wavespeedImageToImageCodec{wavespeedAsyncCodec{
 		mediaPrefix: "image/",
+		resolver:    m.Resolver,
 	}}
 }
 
-// wavespeedAsyncCodec carries the polling schedule and expected output media
-// prefix shared by every WaveSpeed task codec. Codec structs embed it so their
-// PostSubmit and Decode implementations share one exchange implementation;
-// only the typed response construction differs per task.
+// wavespeedAsyncCodec carries the pieces shared by every WaveSpeed task
+// codec: the resolver needed to adapt payloads to adapter models, the polling
+// schedule, and the expected output media prefix. Codec structs embed it so
+// their PostSubmit and Decode implementations share one exchange
+// implementation; only the typed response construction differs per task.
 //
-// The zero value is valid and uses the default polling schedule.
+// The zero value is valid and encodes payloads without adapter handling,
+// using the default polling schedule.
 type wavespeedAsyncCodec struct {
+	// resolver maps the configured Hugging Face model ID to its provider
+	// mapping. Encode uses it to detect adapter models and inject the
+	// provider's LoRA payload entry (see [wavespeedInjectAdapterLoras]).
+	// Nil encodes without adapter handling.
+	resolver ModelResolver
+
 	// mediaPrefix is the required output media-type prefix ("image/" or
 	// "video/") enforced on the downloaded output.
 	mediaPrefix string
@@ -837,6 +864,53 @@ func wavespeedNormalizeImageInput(input string) string {
 	return "data:image/jpeg;base64," + input
 }
 
+// wavespeedInjectAdapterLoras mirrors the official Hugging Face client's LoRA
+// handling for adapter models: when the model's Hub mapping declares a LoRA
+// adapter (a fine-tune applied on top of a provider-hosted base model), the
+// payload gains a "loras" entry pointing at the Hugging Face repository so
+// the provider loads the adapter weights. Without it the request succeeds but
+// runs the base model.
+//
+// The injected entry names the Hugging Face model ID with the default scale,
+// exactly as huggingface.js does for WaveSpeed. Unlike huggingface.js, which
+// overwrites any caller-supplied "loras", an entry already present in the
+// payload wins, so callers can pass their own LoRA configuration through
+// ProviderParams.
+//
+// A nil resolver leaves the payload untouched. Lookup failures propagate:
+// they are configuration errors, and an encode follows an endpoint
+// resolution that already resolved the same mapping successfully.
+func wavespeedInjectAdapterLoras(
+	ctx context.Context,
+	resolver ModelResolver,
+	task Task,
+	hfModel string,
+	payload map[string]any,
+) error {
+	if resolver == nil {
+		return nil
+	}
+
+	mapping, err := resolver.ResolveModel(ctx, ResolveModelParams{
+		Provider: wavespeedProviderName,
+		Task:     task,
+		Model:    hfModel,
+	})
+	if err != nil {
+		return err
+	}
+	if mapping.Adapter != wavespeedAdapterLora {
+		return nil
+	}
+	if _, ok := payload["loras"]; ok {
+		return nil
+	}
+
+	payload["loras"] = []map[string]any{{"path": hfModel, "scale": 1}}
+
+	return nil
+}
+
 // wavespeedEncodeHeaders returns the request headers shared by WaveSpeed
 // encoders: a JSON body whose exact output subtype is provider-chosen, so
 // requests advertise "Accept: */*".
@@ -881,6 +955,11 @@ func (c wavespeedTextToVideoCodec) Encode(
 		maps.Copy(payload, flat)
 	}
 	maps.Copy(payload, req.ProviderParams)
+	if err := wavespeedInjectAdapterLoras(
+		params.Context, c.resolver, TaskTextToVideo, params.Model, payload,
+	); err != nil {
+		return nil, nil, err
+	}
 
 	body, err = json.Marshal(payload)
 	if err != nil {
@@ -967,6 +1046,11 @@ func (c wavespeedTextToImageCodec) Encode(
 		maps.Copy(payload, flat)
 	}
 	maps.Copy(payload, req.ProviderParams)
+	if err := wavespeedInjectAdapterLoras(
+		params.Context, c.resolver, TaskTextToImage, params.Model, payload,
+	); err != nil {
+		return nil, nil, err
+	}
 
 	body, err = json.Marshal(payload)
 	if err != nil {
@@ -1021,9 +1105,10 @@ func (c wavespeedTextToImageCodec) PostSubmit(
 }
 
 // wavespeedImageToImageCodec is a [Codec] for image-to-image that encodes
-// canonical requests into WaveSpeed's flat JSON body (input image as "image",
-// prompt from the parameters) and completes WaveSpeed's asynchronous task
-// exchange (poll and download) before returning the generated image bytes.
+// canonical requests into WaveSpeed's flat JSON body (the input image rides
+// on both "image" and the required "images" array, the prompt comes from the
+// parameters) and completes WaveSpeed's asynchronous task exchange (poll and
+// download) before returning the generated image bytes.
 type wavespeedImageToImageCodec struct {
 	wavespeedAsyncCodec
 }
@@ -1042,9 +1127,18 @@ func (c wavespeedImageToImageCodec) Encode(
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
 
-	// WaveSpeed's body is flat: the source image rides on "image" and the
-	// prompt (from the parameters) rides on "prompt".
-	payload := map[string]any{"image": wavespeedNormalizeImageInput(req.Input)}
+	// WaveSpeed's body is flat: the source image rides on "image" and on
+	// "images" (the array form models such as Bria Fibo require), and the
+	// prompt (from the parameters) rides on "prompt". The dual-field shape
+	// mirrors the official Hugging Face clients, which also send the input
+	// as both a scalar and a one-element array; a provider that reads only
+	// one of them ignores the other. ProviderParams may replace "images"
+	// wholesale for multi-image models.
+	image := wavespeedNormalizeImageInput(req.Input)
+	payload := map[string]any{
+		"image":  image,
+		"images": []string{image},
+	}
 	if req.Parameters != nil {
 		flat, err := wavespeedFlattenParameters(req.Parameters)
 		if err != nil {
@@ -1053,6 +1147,11 @@ func (c wavespeedImageToImageCodec) Encode(
 		maps.Copy(payload, flat)
 	}
 	maps.Copy(payload, req.ProviderParams)
+	if err := wavespeedInjectAdapterLoras(
+		params.Context, c.resolver, TaskImageToImage, params.Model, payload,
+	); err != nil {
+		return nil, nil, err
+	}
 
 	body, err = json.Marshal(payload)
 	if err != nil {

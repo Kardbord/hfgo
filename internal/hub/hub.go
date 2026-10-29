@@ -45,6 +45,14 @@ type Mapping struct {
 	// of the Hugging Face model ID.
 	ProviderModelID string
 
+	// Adapter is the adapter type the mapping declares, e.g. "lora". Empty
+	// when the model is not an adapter.
+	Adapter string
+
+	// AdapterWeightsPath is the path of the adapter weights inside the
+	// Hugging Face repository. Empty when absent.
+	AdapterWeightsPath string
+
 	// Task is the upstream task this mapping serves, e.g. "text-to-image".
 	Task string
 
@@ -164,17 +172,17 @@ func NewClient(params request.Params, cfg Config) *Client {
 	}
 }
 
-// ProviderModelID returns the provider-specific model identifier for the
-// given Hub model ID, provider, and upstream task. A model with no mapping
-// for the provider is a configuration error; a provider mapping that serves
-// a different task is a configuration error naming the supported task.
-func (c *Client) ProviderModelID(
+// ProviderMapping returns the full inference-provider mapping for the given
+// Hub model ID, provider, and upstream task. A model with no mapping for the
+// provider is a configuration error; a provider mapping that serves a
+// different task is a configuration error naming the supported task.
+func (c *Client) ProviderMapping(
 	ctx context.Context,
 	provider, task, model string,
-) (string, error) {
+) (Mapping, error) {
 	mappings, err := c.Mappings(ctx, model)
 	if err != nil {
-		return "", err
+		return Mapping{}, err
 	}
 
 	var supported []string
@@ -183,13 +191,13 @@ func (c *Client) ProviderModelID(
 			continue
 		}
 		if mapping.Task == task {
-			return mapping.ProviderModelID, nil
+			return mapping, nil
 		}
 		supported = append(supported, mapping.Task)
 	}
 
 	if len(supported) > 0 {
-		return "", &hferrors.SDKError{
+		return Mapping{}, &hferrors.SDKError{
 			Kind: hferrors.SDKErrorKindConfiguration,
 			Message: fmt.Sprintf(
 				"model %q mapping for provider %q serves task(s) %q, not %q",
@@ -199,7 +207,7 @@ func (c *Client) ProviderModelID(
 		}
 	}
 
-	return "", &hferrors.SDKError{
+	return Mapping{}, &hferrors.SDKError{
 		Kind:    hferrors.SDKErrorKindConfiguration,
 		Message: fmt.Sprintf("model %q has no inference mapping for provider %q", model, provider),
 		Err:     nil,
@@ -393,8 +401,9 @@ type hubModelInfo struct {
 }
 
 // mappingEntry is one raw inferenceProviderMapping object. The Hub has served
-// the provider model identifier under both camelCase and snake_case spellings,
-// so both are accepted. Unknown fields (for example isModelAuthor) are ignored.
+// the provider model identifier and adapter weights path under both camelCase
+// and snake_case spellings, so both are accepted. Unknown fields (for example
+// isModelAuthor) are ignored.
 type mappingEntry struct {
 	Provider string `json:"provider"`
 
@@ -403,13 +412,20 @@ type mappingEntry struct {
 
 	ProviderModelIDSnake string `json:"provider_id"`
 
-	Task   string `json:"task"`
-	Status string `json:"status"`
+	//nolint:tagliatelle // The Hub serves this field in camelCase.
+	AdapterWeightsPathCamel string `json:"adapterWeightsPath"`
+
+	AdapterWeightsPathSnake string `json:"adapter_weights_path"`
+
+	Adapter string `json:"adapter"`
+	Task    string `json:"task"`
+	Status  string `json:"status"`
 }
 
 // mapping converts a raw entry to a Mapping. It returns false when the
-// provider or provider model identifier is missing.
-func (e mappingEntry) mapping() (Mapping, bool) {
+// provider or provider model identifier is missing. The receiver is a
+// pointer because the struct has grown past gocritic's hugeParam threshold.
+func (e *mappingEntry) mapping() (Mapping, bool) {
 	providerID := e.ProviderModelIDCamel
 	if providerID == "" {
 		providerID = e.ProviderModelIDSnake
@@ -418,11 +434,18 @@ func (e mappingEntry) mapping() (Mapping, bool) {
 		return Mapping{}, false
 	}
 
+	weightsPath := e.AdapterWeightsPathCamel
+	if weightsPath == "" {
+		weightsPath = e.AdapterWeightsPathSnake
+	}
+
 	return Mapping{
-		Provider:        e.Provider,
-		ProviderModelID: providerID,
-		Task:            e.Task,
-		Status:          e.Status,
+		Provider:           e.Provider,
+		ProviderModelID:    providerID,
+		Adapter:            e.Adapter,
+		AdapterWeightsPath: weightsPath,
+		Task:               e.Task,
+		Status:             e.Status,
 	}, true
 }
 

@@ -17,33 +17,34 @@ import (
 )
 
 func wavespeedTestProvider() hfproviders.WavespeedProvider {
-	mapper := hfproviders.NewStaticModelResolver(map[hfproviders.StaticMapping]string{
+	mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
 		{
 			Provider: "wavespeed",
 			Task:     hfproviders.TaskTextToVideo,
 			Model:    "test-model",
-		}: "wavespeed-ai/minimax-h3/text-to-video-lora",
+		}: {ProviderModelID: "wavespeed-ai/minimax-h3/text-to-video-lora"},
 		{
 			Provider: "wavespeed",
 			Task:     hfproviders.TaskTextToImage,
 			Model:    "test-model-image",
-		}: "wavespeed-ai/flux-dev",
+		}: {ProviderModelID: "wavespeed-ai/flux-dev"},
 		{
 			Provider: "wavespeed",
 			Task:     hfproviders.TaskImageToImage,
 			Model:    "test-model-image-to-image",
-		}: "wavespeed-ai/image-to-image",
+		}: {ProviderModelID: "wavespeed-ai/image-to-image"},
 		{
 			Provider: "wavespeed",
 			Task:     hfproviders.TaskTextToVideo,
 			Model:    "nonexistent-model",
-		}: "wavespeed-ai/nonexistent-model",
+		}: {ProviderModelID: "wavespeed-ai/nonexistent-model"},
 		{
 			Provider: "wavespeed",
 			Task:     hfproviders.TaskImageToImage,
 			Model:    "nonexistent-model",
-		}: "wavespeed-ai/nonexistent-model",
-	})
+		}: {ProviderModelID: "wavespeed-ai/nonexistent-model"},
+	}
+	mapper := hfproviders.NewStaticModelResolver(mappings)
 
 	provider, err := hfproviders.NewWavespeedProvider(mapper)
 	if err != nil {

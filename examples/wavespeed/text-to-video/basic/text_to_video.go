@@ -21,14 +21,22 @@ func main() {
 
 	// Build a static model resolver that maps a Hugging Face model ID to the
 	// WaveSpeed provider's model identifier for the text-to-video task.
-	// For live Hub mappings, use hfproviders.NewHubModelResolver instead.
-	mapper := hfproviders.NewStaticModelResolver(map[hfproviders.StaticMapping]string{
+	// ZhengmingYu/DMAD is a LoRA adapter: its weights ride on WaveSpeed's
+	// hosted MiniMax H3 base model, which is what the Adapter field marks.
+	// With the adapter declared, the SDK automatically injects the "loras"
+	// payload entry pointing at the repository. For live Hub mappings, use
+	// hfproviders.NewHubModelResolver instead.
+	mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
 		{
 			Provider: "wavespeed",
 			Task:     hfproviders.TaskTextToVideo,
 			Model:    "ZhengmingYu/DMAD",
-		}: "wavespeed-ai/minimax-h3/text-to-video-lora",
-	})
+		}: {
+			ProviderModelID: "wavespeed-ai/minimax-h3/text-to-video-lora",
+			Adapter:         "lora",
+		},
+	}
+	mapper := hfproviders.NewStaticModelResolver(mappings)
 
 	// Create a WavespeedProvider backed by the resolver. The constructor
 	// returns an error if the resolver is nil.
@@ -51,10 +59,15 @@ func main() {
 	fmt.Println("Generating video for prompt: " + prompt)
 	fmt.Println("...")
 
+	// WaveSpeed models take provider-native parameters, not the canonical
+	// Hugging Face ones: this model accepts duration (seconds), resolution,
+	// and aspect_ratio, and rejects unknown fields with a 400 — so the
+	// canonical NumFrames/GuidanceScale/etc. parameters must not be sent.
+	// Anything the typed request types do not cover rides on ProviderParams.
 	video, err := client.GenerateVideo(hftypes.TextToVideoRequest{
 		Input: prompt,
-		Parameters: &hftypes.TextToVideoParameters{
-			NumFrames: new(24),
+		ProviderParams: map[string]any{
+			"duration": 5,
 		},
 	})
 	if err != nil {
