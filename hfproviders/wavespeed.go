@@ -693,6 +693,10 @@ func isWavespeedFailedStatus(status string) bool {
 
 // wavespeedTaskFailedError builds the error surfaced for a terminally failed
 // task, carrying the provider's error message and the task ID when present.
+// The provider reports the failure inside an otherwise valid response, so it
+// surfaces as an SDKError of kind provider rather than an APIError: the HTTP
+// exchange itself succeeded, and APIError stays reserved for 4xx/5xx
+// responses.
 func wavespeedTaskFailedError(data *wavespeedTaskData) error {
 	message := "WaveSpeed task failed"
 	if data.Error != "" {
@@ -703,7 +707,7 @@ func wavespeedTaskFailedError(data *wavespeedTaskData) error {
 	}
 
 	return &hferrors.SDKError{
-		Kind:    hferrors.SDKErrorKindSerialization,
+		Kind:    hferrors.SDKErrorKindProvider,
 		Message: message,
 		Err:     nil,
 	}

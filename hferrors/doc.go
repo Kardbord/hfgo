@@ -7,9 +7,11 @@
 //     failure with helpers such as [APIError.IsClientError],
 //     [APIError.IsServerError], [APIError.IsAuthenticationError], and
 //     [APIError.IsRateLimitError].
-//   - [SDKError] reports a local failure that occurs before a request is sent or
-//     while a response is decoded. Its [SDKErrorKind] distinguishes configuration,
-//     validation, serialization, transport, and internal failures.
+//   - [SDKError] reports a failure the SDK detects locally — before a request
+//     is sent, while a response is decoded, or when the provider reports a
+//     failure (such as a failed remote task) inside an otherwise valid
+//     response. Its [SDKErrorKind] distinguishes configuration, validation,
+//     serialization, transport, provider, and internal failures.
 //
 // Use errors.As to extract either type.
 //

@@ -147,9 +147,11 @@ Errors returned by client methods are one of two types in
 - **`APIError`** — a 4xx/5xx response from the API. Carries the status code,
   message, request ID, method, and URL. Helpers: `IsClientError()`,
   `IsServerError()`, `IsAuthenticationError()`, and `IsRateLimitError()`.
-- **`SDKError`** — produced locally before or while decoding a response.
-  Carries a `SDKErrorKind` (`validation`, `configuration`, `serialization`,
-  `transport`, `internal`) and an optional wrapped error.
+- **`SDKError`** — produced locally before or while decoding a response, or
+  raised when the provider reports a failure (such as a failed remote task)
+  inside an otherwise valid response. Carries a `SDKErrorKind` (`validation`,
+  `configuration`, `serialization`, `transport`, `provider`, `internal`) and
+  an optional wrapped error.
 
 Use `errors.As` to inspect either type:
 

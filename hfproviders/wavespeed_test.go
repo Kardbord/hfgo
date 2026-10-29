@@ -1168,7 +1168,7 @@ func TestWavespeedPostSubmit_FailedStatus(t *testing.T) {
 		[]byte(wavespeedTaskBody("created", resultPath, "", nil)),
 		http.Header{},
 	)
-	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindProvider)
 	require.ErrorContains(t, err, "CUDA out of memory")
 	require.ErrorContains(t, err, "pred_123")
 	require.Equal(t, int64(1), polls.Load(), "a failed task stops polling")
@@ -1193,7 +1193,7 @@ func TestWavespeedPostSubmit_FailedOnSubmit(t *testing.T) {
 		[]byte(wavespeedTaskBody("failed", "", "CUDA out of memory", nil)),
 		http.Header{},
 	)
-	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindProvider)
 	require.ErrorContains(t, err, "CUDA out of memory")
 	require.ErrorContains(t, err, "pred_123")
 	require.Equal(t, int64(0), polls.Load(), "a failed submit should not poll")
@@ -1225,7 +1225,7 @@ func TestWavespeedPostSubmit_TerminalFailureStatuses(t *testing.T) {
 				[]byte(wavespeedTaskBody(status, "", "provider gave up", nil)),
 				http.Header{},
 			)
-			testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+			testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindProvider)
 			require.ErrorContains(t, err, "provider gave up")
 			require.Equal(t, int64(0), polls.Load(), "a terminal failure never polls")
 		})
@@ -1962,7 +1962,7 @@ func TestWavespeedTaskFailedError(t *testing.T) {
 			t.Parallel()
 
 			err := wavespeedTaskFailedError(&tc.data)
-			testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+			testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindProvider)
 			require.ErrorContains(t, err, tc.want)
 		})
 	}

@@ -321,10 +321,14 @@ Errors are categorized into two types in the `hferrors` package:
   status code, message, body reader, request ID, method, and URL. Helper
   methods: `IsClientError()`, `IsServerError()`, `IsAuthenticationError()`,
   `IsRateLimitError()`.
-- **`SDKError`**: produced locally (before an API response, or while
-  unmarshaling one). Carries a `SDKErrorKind` category (`validation`,
-  `configuration`, `serialization`, `transport`, `internal`), a message, and
-  an optional underlying error.
+- **`SDKError`**: produced locally (before an API response, while unmarshaling
+  one, or when the provider reports a failure inside an otherwise valid
+  response). Carries a `SDKErrorKind` category (`validation`, `configuration`,
+  `serialization`, `transport`, `provider`, `internal`), a message, and an
+  optional underlying error. The `provider` kind covers failures the provider
+  reports in a successful response — such as a WaveSpeed task reaching a
+  terminal failure status — keeping `APIError` reserved for HTTP-level
+  failures.
 
 ### `hfraw` escape hatch
 
