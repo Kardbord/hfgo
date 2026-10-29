@@ -61,27 +61,12 @@ func NewChatClient(sysPrompt string) ChatClient {
 	return chatClient
 }
 
+// Chat reads user input and streams the bot's responses. The first request is
+// sent only after the user types a message: some providers (e.g. Cohere)
+// reject a conversation whose messages contain only the system role, so there
+// is no system-only greeting call.
 func (chatClient *ChatClient) Chat() error {
 	fmt.Println("Welcome to this chat bot example! Press Ctrl+d at any time to exit.")
-	fmt.Println("Initializing...")
-	stream, err := chatClient.hfClient.ChatStream(
-		hftypes.ChatRequest{
-			Messages: slices.Clone(chatClient.history),
-		},
-	)
-	if err != nil {
-		if stream != nil {
-			_ = stream.Close()
-		}
-
-		return err
-	}
-
-	err = chatClient.recv(stream)
-	_ = stream.Close()
-	if err != nil {
-		return err
-	}
 
 	fmt.Print("\n> ")
 	for chatClient.scanner.Scan() {
@@ -124,7 +109,8 @@ func (chatClient *ChatClient) prompt(input string) (*hftypes.ChatStream, error) 
 
 	return chatClient.hfClient.ChatStream(
 		hftypes.ChatRequest{
-			Messages: slices.Clone(chatClient.history),
+			Messages:  slices.Clone(chatClient.history),
+			MaxTokens: new(1024),
 		},
 		hfopts.WithContext(context.Background()),
 	)

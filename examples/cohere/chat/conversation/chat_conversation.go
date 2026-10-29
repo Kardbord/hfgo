@@ -61,8 +61,8 @@ func NewChatClient(sysPrompt string) ChatClient {
 	return chatClient
 }
 
-// Chat reads user input and streams the bot's responses. Unlike the Baseten
-// and Cerebras variants, the first request is sent only after the user types
+// Chat reads user input and streams the bot's responses. The first request is
+// sent only after the user types
 // a message: Cohere rejects a conversation whose messages contain only the
 // system role with a 400 Bad Request, so there is no system-only greeting
 // call.
