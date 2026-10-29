@@ -143,6 +143,17 @@ the model. Its variants follow the standard naming scheme:
 | ----------------------------- | ------------------------------------ |
 | [Chat](./fireworks-ai/chat)   | `basic`, `streaming`, `conversation` |
 
+### Groq
+
+The [Groq provider](../docs/providers/groq.md) pins chat completions to
+Groq: the chat endpoint and codecs are the default provider's, and the
+provider appends the router's `:groq` suffix to the model. Its variants
+follow the standard naming scheme:
+
+| Task                 | Variants                             |
+| -------------------- | ------------------------------------ |
+| [Chat](./groq/chat)  | `basic`, `streaming`, `conversation` |
+
 In addition to per-task examples, [custom-provider](./custom-provider) shows
 how to plug in a fictional `FooProvider` that maps Hugging Face model IDs to
 its own model identifiers through an explicitly injected model resolver,

@@ -148,6 +148,8 @@ Partner providers have their own examples:
   streaming, and multi-turn conversation) pinned to Featherless AI.
 - [Fireworks](./examples/fireworks-ai) — chat completions (unary, streaming,
   and multi-turn conversation) pinned to Fireworks.
+- [Groq](./examples/groq) — chat completions (unary, streaming, and
+  multi-turn conversation) pinned to Groq.
 
 ## Error Handling
 
@@ -222,6 +224,8 @@ Built-in providers have their own guides:
   suffix.
 - [Fireworks provider](./docs/providers/fireworks-ai.md) — chat completions
   pinned to Fireworks through the router's `:fireworks-ai` suffix.
+- [Groq provider](./docs/providers/groq.md) — chat completions pinned to
+  Groq through the router's `:groq` suffix.
 - [WaveSpeed provider](./docs/providers/wavespeed.md) — text-to-video,
   text-to-image, and image-to-image through WaveSpeed.
 
