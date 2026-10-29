@@ -19,12 +19,7 @@ Defined in `environments/`:
 
 - `HF_TOKEN` - your Hugging Face access token, sent as `Authorization: Bearer`.
 - `HF_BASE_URL` - the inference host (`https://router.huggingface.co`).
-- `model_*` - the model used per task (one per task folder). For the WaveSpeed
-  partner-provider tasks (`text-to-video`, `image-to-image`), the value is
-  WaveSpeed's provider model ID (e.g.
-  `wavespeed-ai/minimax-h3/text-to-video-lora`), because those requests target
-  `{{HF_BASE_URL}}/wavespeed/api/v3/<provider-model-id>` rather than the
-  `/hf-inference/models/` path.
+- `model_*` - the model used per task (one per task folder).
 
 Requests use single, batch, and parametrized variants where the API supports
 them.
@@ -64,9 +59,8 @@ The scripts set bodies matching the Hugging Face Inference API contract:
   body (`req.setBody(bytes, { raw: true })`).
 - `*-params` - JSON with the sample base64-encoded in `inputs` alongside a
   `parameters` object.
-- `image-to-image` - JSON `image` holding a `data:` URI of the sample alongside
-  the flat WaveSpeed parameters (the endpoint rejects raw-bytes bodies despite
-  what its docs say).
+- `image-to-image` - JSON `inputs` holding a `data:` URI of the sample for both
+  variants; the endpoint rejects raw-bytes bodies despite what its docs say.
 - `image-text-to-text` - Chat Completion API (`/v1/chat/completions`) with the
   sample embedded as a `data:` URI in an `image_url` content part.
 
