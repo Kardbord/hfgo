@@ -40,6 +40,16 @@ the endpoint is model-independent. Built-in providers automate one such pin:
 each appends its `:<provider>` suffix to the model string; the
 [docs index](../README.md) lists the chat-pinned provider guides.
 
+## Billing
+
+Hugging Face Inference is billed directly on your Hugging Face account:
+monthly included credits apply automatically, and usage beyond them is
+pay-as-you-go. Partner providers differ — routed requests are billed on your
+HF account only for pay-as-you-go compatible providers, and a custom provider
+key in your account settings bills the provider directly instead. See the
+[pricing docs](https://huggingface.co/docs/inference-providers/pricing) and
+the billing note in each partner-provider guide.
+
 ## Reusing its mixins
 
 `hfproviders` exposes one zero-byte mixin per task

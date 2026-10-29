@@ -71,6 +71,18 @@ the
 [Inference Providers docs](https://huggingface.co/docs/inference-providers/main/en/index)
 for suffix selection behavior.
 
+## Billing
+
+Routed requests are billed on your Hugging Face account only for providers
+that are pay-as-you-go compatible. If you have HF credits but receive
+`402 Payment Required` from this provider, add your own Featherless AI API
+key in your Hugging Face account settings (Inference Providers section): the
+router swaps the authentication transparently — the SDK code, `HF_TOKEN`, and
+the `:featherless-ai` suffix stay unchanged — and your Featherless AI account
+is billed instead. See the
+[pricing docs](https://huggingface.co/docs/inference-providers/pricing) for
+the routed-versus-custom-key comparison.
+
 ## Reusing its mixins
 
 Featherless AI adds no mixins of its own: it embeds
