@@ -59,6 +59,8 @@ pattern and its trade-offs.
   through the router's `:cerebras` suffix.
 - [Cohere provider](./cohere.md) — chat completions pinned to Cohere through
   the router's `:cohere` suffix.
+- [Featherless AI provider](./featherless-ai.md) — chat completions pinned to
+  Featherless AI through the router's `:featherless-ai` suffix.
 - [Package reference](https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfproviders)
 - [Hugging Face Inference Providers documentation](https://huggingface.co/docs/inference-providers/main/en/index)
 - [architecture.md](../architecture.md)

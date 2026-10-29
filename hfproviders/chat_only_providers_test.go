@@ -29,6 +29,7 @@ func TestChatOnlyProviderContract(t *testing.T) {
 		basetenChatOnlyCase(),
 		cerebrasChatOnlyCase(),
 		cohereChatOnlyCase(),
+		featherlessAIChatOnlyCase(),
 	}
 
 	for _, tc := range cases {

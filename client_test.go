@@ -122,9 +122,10 @@ func TestClientChat_ChatOnlyProviderSuffixes(t *testing.T) {
 	// chatOnlyProviders maps each chat-only provider's router slug to its
 	// constructor.
 	chatOnlyProviders := map[string]func() hfproviders.Provider{
-		"baseten":  func() hfproviders.Provider { return hfproviders.NewBasetenProvider() },
-		"cerebras": func() hfproviders.Provider { return hfproviders.NewCerebrasProvider() },
-		"cohere":   func() hfproviders.Provider { return hfproviders.NewCohereProvider() },
+		"baseten":        func() hfproviders.Provider { return hfproviders.NewBasetenProvider() },
+		"cerebras":       func() hfproviders.Provider { return hfproviders.NewCerebrasProvider() },
+		"cohere":         func() hfproviders.Provider { return hfproviders.NewCohereProvider() },
+		"featherless-ai": func() hfproviders.Provider { return hfproviders.NewFeatherlessAIProvider() },
 	}
 
 	for slug, newProvider := range chatOnlyProviders {

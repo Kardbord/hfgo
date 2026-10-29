@@ -144,6 +144,8 @@ Partner providers have their own examples:
   multi-turn conversation) pinned to Cerebras.
 - [Cohere](./examples/cohere) — chat completions (unary, streaming, and
   multi-turn conversation) pinned to Cohere.
+- [Featherless AI](./examples/featherless-ai) — chat completions (unary,
+  streaming, and multi-turn conversation) pinned to Featherless AI.
 
 ## Error Handling
 
@@ -213,6 +215,9 @@ Built-in providers have their own guides:
   Cerebras through the router's `:cerebras` suffix.
 - [Cohere provider](./docs/providers/cohere.md) — chat completions pinned to
   Cohere through the router's `:cohere` suffix.
+- [Featherless AI provider](./docs/providers/featherless-ai.md) — chat
+  completions pinned to Featherless AI through the router's `:featherless-ai`
+  suffix.
 - [WaveSpeed provider](./docs/providers/wavespeed.md) — text-to-video,
   text-to-image, and image-to-image through WaveSpeed.
 

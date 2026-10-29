@@ -121,6 +121,17 @@ follow the standard naming scheme:
 | ---------------------- | ------------------------------------ |
 | [Chat](./cohere/chat)  | `basic`, `streaming`, `conversation` |
 
+### Featherless AI
+
+The [Featherless AI provider](../docs/providers/featherless-ai.md) pins chat
+completions to Featherless AI: the chat endpoint and codecs are the default
+provider's, and the provider appends the router's `:featherless-ai` suffix to
+the model. Its variants follow the standard naming scheme:
+
+| Task                          | Variants                             |
+| ----------------------------- | ------------------------------------ |
+| [Chat](./featherless-ai/chat) | `basic`, `streaming`, `conversation` |
+
 In addition to per-task examples, [custom-provider](./custom-provider) shows
 how to plug in a fictional `FooProvider` that maps Hugging Face model IDs to
 its own model identifiers through an explicitly injected model resolver,
