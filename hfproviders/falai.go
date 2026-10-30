@@ -33,9 +33,14 @@ const falaiRouterHost = "router.huggingface.co"
 // under.
 const falaiRouterPrefix = "/fal-ai"
 
-// falaiQueueQuery tells the router to proxy the request to fal's queue
-// subdomain (queue.fal.run) instead of the synchronous fal.run endpoint.
-const falaiQueueQuery = "?_subdomain=queue"
+// falaiQueueSubdomain is the query entry telling the router to proxy the
+// request to fal's queue subdomain (queue.fal.run) instead of the
+// synchronous fal.run endpoint. falaiQueueQuery is the same entry with the
+// leading "?" for endpoint-path construction.
+const (
+	falaiQueueSubdomain = "_subdomain=queue"
+	falaiQueueQuery     = "?" + falaiQueueSubdomain
+)
 
 // falaiLoraEndpoint is fal's generic SD-class LoRA endpoint. Models mapped to
 // it must also name their base model in the payload, unlike flux-based
@@ -122,8 +127,9 @@ func falaiDefaultPollTiming() falaiPollTiming {
 //
 // Wire format: every task runs through fal's queue API. The SDK submits the
 // task, polls the task's status URL until it reaches the terminal COMPLETED
-// status (500 ms initial wait growing toward 5 s; transient poll failures
-// are retried and a server Retry-After is honored), fetches the result, and
+// status (500 ms initial wait growing toward 5 s; transient poll and
+// result-fetch failures are retried and a server Retry-After is honored),
+// fetches the result, and
 // — for media tasks — downloads the first output URL, surfacing the media
 // bytes or transcript as the typed response. A task that fails reports
 // COMPLETED with an error payload; the SDK surfaces that as an
@@ -495,7 +501,7 @@ func (c falaiQueueCodec) postSubmitResult(
 		return nil, nil, err
 	}
 
-	result, err := falaiFetchResult(ctx, params, pollParams, resultPath)
+	result, err := c.fetchResult(ctx, params, pollParams, resultPath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -636,7 +642,7 @@ func falaiQueueTargets(
 		return request.Params{}, "", "", err
 	}
 
-	path, err := falaiResultPath(submit.ResponseURL)
+	path, query, err := falaiResultPath(submit.ResponseURL)
 	if err != nil {
 		return request.Params{}, "", "", err
 	}
@@ -649,11 +655,23 @@ func falaiQueueTargets(
 		Headers:    http.Header{falaiAcceptKey: {mimeTypeJSON}},
 	}
 
-	statusPath, resultPath = path+"/status", path
+	// Compose the follow-up query: the router's queue-subdomain directive
+	// first when routed, then any query fal attached to the response URL.
+	suffix := ""
 	if routed {
-		statusPath += falaiQueueQuery
-		resultPath += falaiQueueQuery
+		suffix = falaiQueueSubdomain
 	}
+	if query != "" {
+		if suffix != "" {
+			suffix += "&"
+		}
+		suffix += query
+	}
+	if suffix != "" {
+		suffix = "?" + suffix
+	}
+
+	statusPath, resultPath = path+"/status"+suffix, path+suffix
 
 	return pollParams, statusPath, resultPath, nil
 }
@@ -677,26 +695,28 @@ func falaiPollBase(baseURL string) (base string, routed bool, err error) {
 	return baseURL, false, nil
 }
 
-// falaiResultPath extracts the request path from the task's response URL.
-// fal serves response URLs on its own host (e.g.
-// "https://queue.fal.run/fal-ai/flux/requests/{id}"); only the path is kept
-// so follow-up requests target the host the submit went through.
-func falaiResultPath(responseURL string) (string, error) {
+// falaiResultPath extracts the request path and query from the task's
+// response URL. fal serves response URLs on its own host (e.g.
+// "https://queue.fal.run/fal-ai/flux/requests/{id}"); only the path and
+// query are kept so follow-up requests target the host the submit went
+// through, and any query fal attaches to the response URL is preserved
+// (matching the WaveSpeed implementation).
+func falaiResultPath(responseURL string) (path, query string, err error) {
 	parsedPath, err := url.Parse(responseURL)
 	if err != nil {
-		return "", &hferrors.SDKError{
+		return "", "", &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindSerialization,
 			Message: fmt.Sprintf("invalid fal.ai response URL %q", responseURL),
 			Err:     err,
 		}
 	}
 
-	path := parsedPath.Path
+	path = parsedPath.Path
 	if path == "" || !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
 
-	return path, nil
+	return path, parsedPath.RawQuery, nil
 }
 
 // awaitResult polls the task's status URL until the task completes, then
@@ -854,33 +874,84 @@ func falaiRetryAfter(headers http.Header) time.Duration {
 	return delay
 }
 
-// falaiFetchResult fetches the completed task's result JSON. A failed task
-// whose status carried no error surfaces here: fal returns the request
-// error as a 4xx/5xx result response, which propagates as an APIError.
-func falaiFetchResult(
+// fetchResult fetches the completed task's result JSON, retrying transient
+// failures on the same schedule as the status poll. The task is already
+// complete — and billed — by the time this runs, so a rate limit or a
+// server blip must not discard the generation. Client errors surface
+// immediately as an APIError: a failed task whose status carried no error
+// is reported here, as fal returns the request error as a 4xx result
+// response. Context errors end the exchange immediately. This goes beyond
+// both official Hugging Face clients, whose result fetch is one-shot.
+func (c falaiQueueCodec) fetchResult(
 	ctx context.Context,
 	params PostSubmitParams,
 	pollParams request.Params,
 	resultPath string,
 ) ([]byte, error) {
-	//nolint:bodyclose // Success bodies are drained and closed below; error
-	// responses transfer the body to the returned APIError, which the caller
-	// must close per the APIError contract.
+	timing := c.timing()
+	wait := timing.initial
+	for {
+		nextWait := min(wait+timing.step, timing.max)
+
+		body, transient, override, err := falaiFetchResultOnce(ctx, params, pollParams, resultPath)
+		if err != nil {
+			return nil, err
+		}
+		if !transient {
+			return body, nil
+		}
+
+		if err := falaiPollWait(ctx, wait); err != nil {
+			return nil, err
+		}
+
+		wait = nextWait
+		if override > 0 {
+			wait = override
+		}
+	}
+}
+
+// falaiFetchResultOnce issues one result request. transient reports whether
+// the attempt failed in a way worth retrying (a transport blip or a 429/5xx
+// response); override is a server-provided wait for the next attempt. A
+// non-transient error response — including a failed task's error — stops the
+// exchange as an APIError, and a read failure stops it as an SDKError.
+func falaiFetchResultOnce(
+	ctx context.Context,
+	params PostSubmitParams,
+	pollParams request.Params,
+	resultPath string,
+) (body []byte, transient bool, override time.Duration, err error) {
+	//nolint:bodyclose // Transient bodies are drained and closed below;
+	// non-transient 4xx/5xx errors transfer the body to the returned
+	// APIError, which the caller must close per the APIError contract.
 	resp, err := request.DoRaw(ctx, pollParams, http.MethodGet, resultPath, nil)
 	if err != nil {
-		return nil, err
+		if falaiIsContextError(err) {
+			return nil, false, 0, err
+		}
+
+		return nil, true, 0, nil
+	}
+
+	if falaiTransientStatus(resp.StatusCode) {
+		override = falaiRetryAfter(resp.Header)
+		request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
+
+		return nil, true, override, nil
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, request.APIErrorFromResponse(resp, http.MethodGet)
+		return nil, false, 0, request.APIErrorFromResponse(resp, http.MethodGet)
 	}
 
 	body, readErr := request.ReadResponseBody(resp, params.MaxResponseBodyBytes)
 	request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
 	if readErr != nil {
-		return nil, readErr
+		return nil, false, 0, readErr
 	}
 
-	return body, nil
+	return body, false, 0, nil
 }
 
 // falaiDownloadOutput downloads the task's first output URL. Output URLs are

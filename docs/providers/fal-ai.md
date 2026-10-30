@@ -49,13 +49,13 @@ if err != nil {
 
 ## Supported tasks
 
-| Task                | Endpoint method                | Codec                    | Client method        |
-| ------------------- | ------------------------------ | ------------------------ | -------------------- |
-| Text to image       | `TextToImageEndpoint`          | `TextToImageCodec`       | `GenerateImage`      |
-| Image to image      | `ImageToImageEndpoint`         | `ImageToImageCodec`      | `GenerateImageToImage` |
-| Text to video       | `TextToVideoEndpoint`          | `TextToVideoCodec`       | `GenerateVideo`      |
-| Image segmentation  | `ImageSegmentationEndpoint`    | `ImageSegmentationCodec` | `SegmentImage`       |
-| Speech recognition  | `SpeechRecognitionEndpoint`    | `SpeechRecognitionCodec` | `RecognizeSpeech`    |
+| Task               | Endpoint method             | Codec                    | Client method          |
+| ------------------ | --------------------------- | ------------------------ | ---------------------- |
+| Text to image      | `TextToImageEndpoint`       | `TextToImageCodec`       | `GenerateImage`        |
+| Image to image     | `ImageToImageEndpoint`      | `ImageToImageCodec`      | `GenerateImageToImage` |
+| Text to video      | `TextToVideoEndpoint`       | `TextToVideoCodec`       | `GenerateVideo`        |
+| Image segmentation | `ImageSegmentationEndpoint` | `ImageSegmentationCodec` | `SegmentImage`         |
+| Speech recognition | `SpeechRecognitionEndpoint` | `SpeechRecognitionCodec` | `RecognizeSpeech`      |
 
 Media tasks return the generated media together with the media type the
 provider advertised (`response.MediaType`). fal does not serve these tasks
@@ -75,11 +75,13 @@ with the Hugging Face pipeline wire format:
   task, polls the task's status URL until it reaches the terminal
   `COMPLETED` status (500 ms initial wait growing toward 5 s; transient poll
   failures are retried and a server `Retry-After` is honored), fetches the
-  result, and — for media tasks — downloads the first output. A task that
-  fails reports `COMPLETED` with an error payload; the SDK surfaces that as
-  an `*hferrors.SDKError` of kind `provider`. The exchange is transparent to
-  callers and is bounded by the request context, so give long-running
-  generations a generous deadline (e.g. `hfopts.WithContext`).
+  result — retrying transient failures there too, since the generation is
+  already complete and billed — and, for media tasks, downloads the first
+  output. A task that fails reports `COMPLETED` with an error payload; the
+  SDK surfaces that as an `*hferrors.SDKError` of kind `provider`. The
+  exchange is transparent to callers and is bounded by the request context,
+  so give long-running generations a generous deadline (e.g.
+  `hfopts.WithContext`).
 
 > **Note:** Both official Hugging Face clients call fal's *synchronous*
 > endpoint for speech recognition; this SDK routes every fal task through
@@ -108,6 +110,11 @@ base-model metadata, so the SDK defaults it to SDXL (the same constant both
 official clients send). Pass your own `loras` or `model_name` via
 `ProviderParams` to override either injected entry (unlike huggingface.js,
 which overwrites caller-supplied values).
+
+The injected weights URL always points at `huggingface.co`, even when the
+resolver is configured with `WithHubBaseURL` to target a Hub mirror — both
+official clients build the same absolute URL from their library-wide
+constant, and the mapping lookup itself still goes to the mirror.
 
 ### Provider-specific request parameters
 
