@@ -19,9 +19,9 @@ one client can be reused across every task — only the model changes. See
 > **Cost notice:** Most examples call the live Hugging Face Inference API and
 > may incur charges on your account. The same applies to the integration tests
 > and the [Bruno collection](../tools/bruno/hfgo/). The `custom-provider`
-> example only resolves an endpoint and sends no request. The WaveSpeed
-> `hub-resolver` examples additionally query the Hub's model mapping data;
-> that metadata lookup is not an inference call.
+> example only resolves an endpoint and sends no request. The WaveSpeed and
+> Fal AI `hub-resolver` examples additionally query the Hub's model mapping
+> data; that metadata lookup is not an inference call.
 
 ## Running an example
 
@@ -50,9 +50,10 @@ Variant directories are named for what they add over the `basic` example:
 | `token-level`       | Returns token-level embeddings instead of pooled vectors. Feature extraction only. |
 | `token-level-batch` | Returns token-level embeddings for multiple inputs. Feature extraction only.       |
 
-Not every task has every variant. WaveSpeed examples are the exception to this
-naming scheme: their variants are named for the model resolver they wire (see
-[WaveSpeed](#wavespeed)). The full matrix:
+Not every task has every variant. WaveSpeed and Fal AI examples are the
+exception to this naming scheme: their variants are named for the model
+resolver they wire (see [WaveSpeed](#wavespeed) and [Fal AI](#fal-ai)). The
+full matrix:
 
 | Task                                                             | Variants                                                       |
 | ---------------------------------------------------------------- | -------------------------------------------------------------- |
@@ -87,6 +88,24 @@ against the Hub's `inferenceProviderMapping` data live.
 | [Text to Video](./wavespeed/text-to-video)    | `static-resolver`, `hub-resolver` |
 | [Text to Image](./wavespeed/text-to-image)    | `static-resolver`, `hub-resolver` |
 | [Image to Image](./wavespeed/image-to-image)  | `static-resolver`, `hub-resolver` |
+
+### Fal AI
+
+The [Fal AI provider](../docs/providers/fal-ai.md) serves text-to-image,
+image-to-image, text-to-video, image-segmentation, and speech-recognition
+through the Hugging Face router. Its examples each show the provider and
+resolver wiring the default provider does not need. Like WaveSpeed, the model
+resolver is the piece that varies per deployment, so Fal AI variants are named
+for the resolver they wire: `hub-resolver` resolves against the Hub's
+`inferenceProviderMapping` data live.
+
+| Task                                                         | Variants        |
+| ------------------------------------------------------------ | --------------- |
+| [Text to Image](./fal-ai/text-to-image)                      | `hub-resolver`  |
+| [Image to Image](./fal-ai/image-to-image)                    | `hub-resolver`  |
+| [Text to Video](./fal-ai/text-to-video)                      | `hub-resolver`  |
+| [Image Segmentation](./fal-ai/image-segmentation)            | `hub-resolver`  |
+| [Speech Recognition](./fal-ai/speech-recognition)            | `hub-resolver`  |
 
 ### Baseten
 
