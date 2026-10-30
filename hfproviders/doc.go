@@ -61,8 +61,10 @@
 // Partner-provider mixins such as [WavespeedTextToImageMixin] follow the
 // same pattern but additionally carry a model resolver in an exported
 // field; [WavespeedProvider] composes them and [NewWavespeedProvider]
-// wires the resolver into each. Providers that need no resolver state reuse
-// the zero-byte mixins directly: [BasetenProvider] embeds
+// wires the resolver into each. [FalAIProvider] composes its five mixins
+// the same way, and [NewFalAIProvider] wires the resolver into each.
+// Providers that need no resolver state reuse the zero-byte mixins
+// directly: [BasetenProvider] embeds
 // [HuggingFaceChatMixin] and supplies only its identity, pinning chat
 // completions to Baseten through the ":baseten" model suffix.
 //

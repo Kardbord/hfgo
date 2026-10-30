@@ -138,6 +138,8 @@ Partner providers have their own examples:
 
 - [WaveSpeed](./examples/wavespeed) — text-to-video, text-to-image, and
   image-to-image through WaveSpeed.
+- [Fal AI](./examples/fal-ai) — text-to-image, image-to-image, text-to-video,
+  image-segmentation, and speech-recognition through Fal AI.
 - [Baseten](./examples/baseten) — chat completions (unary, streaming, and
   multi-turn conversation) pinned to Baseten.
 - [Cerebras](./examples/cerebras) — chat completions (unary, streaming, and
@@ -240,13 +242,17 @@ Built-in providers have their own guides:
   Z.ai through the router's `:zai-org` suffix.
 - [WaveSpeed provider](./docs/providers/wavespeed.md) — text-to-video,
   text-to-image, and image-to-image through WaveSpeed.
+- [Fal AI provider](./docs/providers/fal-ai.md) — text-to-image,
+  image-to-image, text-to-video, image-segmentation, and speech-recognition
+  through Fal AI.
 
 Advanced users who want custom providers should implement the `Provider` interface
 plus the per-task interfaces you want to support, as shown by the `EchoProvider`
-example in the `hfproviders` package docs. The optional `HuggingFace*Mixin` and
-`Wavespeed*Mixin` types exist as a convenience for reusing a built-in provider's
-endpoint and codec defaults: embed the ones you want (for example
-`HuggingFaceTextClassificationMixin` or `WavespeedTextToImageMixin`).
+example in the `hfproviders` package docs. The optional `HuggingFace*Mixin`,
+`Wavespeed*Mixin`, and `FalAI*Mixin` types exist as a convenience for reusing a
+built-in provider's endpoint and codec defaults: embed the ones you want (for
+example `HuggingFaceTextClassificationMixin`, `WavespeedTextToImageMixin`, or
+`FalAITextToImageMixin`).
 See [docs/architecture.md](./docs/architecture.md#per-task-provider-mixins).
 
 ## Documentation

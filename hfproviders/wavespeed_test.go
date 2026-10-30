@@ -1706,6 +1706,19 @@ func TestWavespeedResultURL(t *testing.T) {
 		require.Empty(t, resolved.query)
 	})
 
+	t.Run("router host matched case-insensitively", func(t *testing.T) {
+		t.Parallel()
+
+		resolved, err := wavespeedResultURL(
+			"https://Router.HuggingFace.CO",
+			"/api/v3/predictions/pred_123/result",
+		)
+		require.NoError(t, err)
+		require.Equal(t, "https://Router.HuggingFace.CO/wavespeed", resolved.base)
+		require.Equal(t, "/api/v3/predictions/pred_123/result", resolved.path)
+		require.Empty(t, resolved.query)
+	})
+
 	t.Run("other hosts resolve as-is", func(t *testing.T) {
 		t.Parallel()
 
