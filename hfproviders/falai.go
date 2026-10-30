@@ -688,7 +688,7 @@ func falaiPollBase(baseURL string) (base string, routed bool, err error) {
 			Err:     err,
 		}
 	}
-	if parsedBase.Host == falaiRouterHost {
+	if strings.EqualFold(parsedBase.Host, falaiRouterHost) {
 		return strings.TrimSuffix(baseURL, "/") + falaiRouterPrefix, true, nil
 	}
 

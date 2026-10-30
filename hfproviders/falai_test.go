@@ -2464,6 +2464,15 @@ func TestFalAIQueueBase(t *testing.T) {
 		require.Equal(t, "https://router.huggingface.co/fal-ai", base)
 	})
 
+	t.Run("router host matched case-insensitively", func(t *testing.T) {
+		t.Parallel()
+
+		base, routed, err := falaiPollBase("https://Router.HuggingFace.CO")
+		require.NoError(t, err)
+		require.True(t, routed)
+		require.Equal(t, "https://Router.HuggingFace.CO/fal-ai", base)
+	})
+
 	t.Run("other hosts resolve as-is", func(t *testing.T) {
 		t.Parallel()
 

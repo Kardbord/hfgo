@@ -738,7 +738,7 @@ func wavespeedResultURL(baseURL, resultPath string) (wavespeedPolledURL, error) 
 	}
 
 	resultBase := baseURL
-	if parsedBase.Host == wavespeedRouterHost {
+	if strings.EqualFold(parsedBase.Host, wavespeedRouterHost) {
 		resultBase = strings.TrimSuffix(baseURL, "/") + "/wavespeed"
 	}
 
