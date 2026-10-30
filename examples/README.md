@@ -3,8 +3,7 @@
 Runnable programs demonstrating each inference task. Examples are organized by
 provider: `examples/<provider>/<task>/<variant>`. The default Hugging Face
 provider's examples live under [`huggingface/`](./huggingface), partner-provider
-examples under their provider's directory (e.g. [`wavespeed/`](./wavespeed) and
-[`baseten/`](./baseten)), and
+examples under their provider's directory (e.g. [`wavespeed/`](./wavespeed)), and
 [`custom-provider`](./custom-provider) shows how to plug in a fictional
 provider. Each `main` package is self-contained. Per-task examples read their
 token from the `HF_TOKEN` environment variable, with the exception of
@@ -99,6 +98,94 @@ follow the standard naming scheme:
 | Task                   | Variants                             |
 | ---------------------- | ------------------------------------ |
 | [Chat](./baseten/chat) | `basic`, `streaming`, `conversation` |
+
+### Cerebras
+
+The [Cerebras provider](../docs/providers/cerebras.md) pins chat completions to
+Cerebras: the chat endpoint and codecs are the default provider's, and the
+provider appends the router's `:cerebras` suffix to the model. Its variants
+follow the standard naming scheme:
+
+| Task                     | Variants                             |
+| ------------------------ | ------------------------------------ |
+| [Chat](./cerebras/chat)  | `basic`, `streaming`, `conversation` |
+
+### Cohere
+
+The [Cohere provider](../docs/providers/cohere.md) pins chat completions to
+Cohere: the chat endpoint and codecs are the default provider's, and the
+provider appends the router's `:cohere` suffix to the model. Its variants
+follow the standard naming scheme:
+
+| Task                   | Variants                             |
+| ---------------------- | ------------------------------------ |
+| [Chat](./cohere/chat)  | `basic`, `streaming`, `conversation` |
+
+### Featherless AI
+
+The [Featherless AI provider](../docs/providers/featherless-ai.md) pins chat
+completions to Featherless AI: the chat endpoint and codecs are the default
+provider's, and the provider appends the router's `:featherless-ai` suffix to
+the model. Its variants follow the standard naming scheme:
+
+| Task                          | Variants                             |
+| ----------------------------- | ------------------------------------ |
+| [Chat](./featherless-ai/chat) | `basic`, `streaming`, `conversation` |
+
+### Fireworks
+
+The [Fireworks provider](../docs/providers/fireworks-ai.md) pins chat
+completions to Fireworks: the chat endpoint and codecs are the default
+provider's, and the provider appends the router's `:fireworks-ai` suffix to
+the model. Its variants follow the standard naming scheme:
+
+| Task                          | Variants                             |
+| ----------------------------- | ------------------------------------ |
+| [Chat](./fireworks-ai/chat)   | `basic`, `streaming`, `conversation` |
+
+### Groq
+
+The [Groq provider](../docs/providers/groq.md) pins chat completions to
+Groq: the chat endpoint and codecs are the default provider's, and the
+provider appends the router's `:groq` suffix to the model. Its variants
+follow the standard naming scheme:
+
+| Task                 | Variants                             |
+| -------------------- | ------------------------------------ |
+| [Chat](./groq/chat)  | `basic`, `streaming`, `conversation` |
+
+### OVHcloud AI Endpoints
+
+The [OVHcloud provider](../docs/providers/ovhcloud.md) pins chat completions
+to OVHcloud AI Endpoints: the chat endpoint and codecs are the default
+provider's, and the provider appends the router's `:ovhcloud` suffix to the
+model. Its variants follow the standard naming scheme:
+
+| Task                     | Variants                             |
+| ------------------------ | ------------------------------------ |
+| [Chat](./ovhcloud/chat)  | `basic`, `streaming`, `conversation` |
+
+### Public AI
+
+The [Public AI provider](../docs/providers/publicai.md) pins chat completions
+to Public AI: the chat endpoint and codecs are the default provider's, and the
+provider appends the router's `:publicai` suffix to the model. Its variants
+follow the standard naming scheme:
+
+| Task                     | Variants                             |
+| ------------------------ | ------------------------------------ |
+| [Chat](./publicai/chat)  | `basic`, `streaming`, `conversation` |
+
+### Z.ai
+
+The [Z.ai provider](../docs/providers/zai-org.md) pins chat completions to
+Z.ai: the chat endpoint and codecs are the default provider's, and the
+provider appends the router's `:zai-org` suffix to the model. Its variants
+follow the standard naming scheme:
+
+| Task                    | Variants                             |
+| ----------------------- | ------------------------------------ |
+| [Chat](./zai-org/chat)  | `basic`, `streaming`, `conversation` |
 
 In addition to per-task examples, [custom-provider](./custom-provider) shows
 how to plug in a fictional `FooProvider` that maps Hugging Face model IDs to

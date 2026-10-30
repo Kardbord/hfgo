@@ -147,6 +147,18 @@ image, err := client.GenerateImage(hftypes.TextToImageRequest{
 })
 ```
 
+## Billing
+
+Routed requests are billed on your Hugging Face account only for providers
+that are pay-as-you-go compatible. If you have HF credits but receive
+`402 Payment Required` from this provider, add your own WaveSpeed API key in
+your Hugging Face account settings (Inference Providers section): the router
+swaps the authentication transparently — the SDK code, `HF_TOKEN`, and the
+resolved endpoint stay unchanged — and your WaveSpeed account is billed
+instead. See the
+[pricing docs](https://huggingface.co/docs/inference-providers/pricing) for
+the routed-versus-custom-key comparison.
+
 ## Reusing its mixins
 
 Like the Hugging Face provider, WaveSpeed is composed from per-task mixins:

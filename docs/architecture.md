@@ -19,7 +19,7 @@ and `examples/` for usage documentation, and the code itself for full detail.
 | `hfopts`      | `github.com/Kardbord/hfgo/v4/hfopts`      | `Options`, `Option`, and all `With*` helpers                                                                                      |
 | `hftypes`     | `github.com/Kardbord/hfgo/v4/hftypes`     | Request/response DTOs for every task                                                                                              |
 | `hferrors`    | `github.com/Kardbord/hfgo/v4/hferrors`    | `APIError`, `SDKError`, and `SDKErrorKind`                                                                                        |
-| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, per-task provider mixins (Hugging Face, WaveSpeed), `HuggingFaceProvider`, `WavespeedProvider`, `BasetenProvider`, `ModelResolver` |
+| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, per-task provider mixins (Hugging Face, WaveSpeed), `HuggingFaceProvider`, `WavespeedProvider`, chat-only partner providers (e.g. `BasetenProvider`), `ModelResolver` |
 | `hfraw`       | `github.com/Kardbord/hfgo/v4/hfraw`       | Low-level HTTP/SSE escape hatch                                                                                                   |
 | `hfgoversion` | `github.com/Kardbord/hfgo/v4/hfgoversion` | `Version` constant and `UserAgent()` helper                                                                                       |
 
@@ -151,10 +151,11 @@ field; a custom provider embedding a single mixin sets it directly. Mixins that
 need no per-instance state (like the Hugging Face ones) stay zero-byte.
 
 A partner provider that needs no resolver state reuses the zero-byte mixins
-directly: `BasetenProvider` embeds `HuggingFaceChatMixin` and supplies only its
-identity, pinning chat completions to Baseten by appending the `:baseten`
-model suffix — the chat task performs provider mapping server-side, so no
-resolution machinery is required.
+directly: the chat-only partner providers (e.g. `BasetenProvider`,
+`CerebrasProvider`) each embed `HuggingFaceChatMixin` and supply only their
+identity, pinning chat completions to their provider by appending the
+`:<provider>` model suffix — the chat task performs provider mapping
+server-side, so no resolution machinery is required.
 
 Embedding multiple resolver-carrying mixins intentionally leaves the promoted
 `Resolver` field ambiguous on the composed provider: it is not a compile error

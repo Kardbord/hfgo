@@ -140,6 +140,22 @@ Partner providers have their own examples:
   image-to-image through WaveSpeed.
 - [Baseten](./examples/baseten) — chat completions (unary, streaming, and
   multi-turn conversation) pinned to Baseten.
+- [Cerebras](./examples/cerebras) — chat completions (unary, streaming, and
+  multi-turn conversation) pinned to Cerebras.
+- [Cohere](./examples/cohere) — chat completions (unary, streaming, and
+  multi-turn conversation) pinned to Cohere.
+- [Featherless AI](./examples/featherless-ai) — chat completions (unary,
+  streaming, and multi-turn conversation) pinned to Featherless AI.
+- [Fireworks](./examples/fireworks-ai) — chat completions (unary, streaming,
+  and multi-turn conversation) pinned to Fireworks.
+- [Groq](./examples/groq) — chat completions (unary, streaming, and
+  multi-turn conversation) pinned to Groq.
+- [OVHcloud AI Endpoints](./examples/ovhcloud) — chat completions (unary,
+  streaming, and multi-turn conversation) pinned to OVHcloud AI Endpoints.
+- [Public AI](./examples/publicai) — chat completions (unary, streaming, and
+  multi-turn conversation) pinned to Public AI.
+- [Z.ai](./examples/zai-org) — chat completions (unary, streaming, and
+  multi-turn conversation) pinned to Z.ai.
 
 ## Error Handling
 
@@ -205,6 +221,23 @@ Built-in providers have their own guides:
   the Hugging Face wire format directly.
 - [Baseten provider](./docs/providers/baseten.md) — chat completions pinned to
   Baseten through the router's `:baseten` suffix.
+- [Cerebras provider](./docs/providers/cerebras.md) — chat completions pinned to
+  Cerebras through the router's `:cerebras` suffix.
+- [Cohere provider](./docs/providers/cohere.md) — chat completions pinned to
+  Cohere through the router's `:cohere` suffix.
+- [Featherless AI provider](./docs/providers/featherless-ai.md) — chat
+  completions pinned to Featherless AI through the router's `:featherless-ai`
+  suffix.
+- [Fireworks provider](./docs/providers/fireworks-ai.md) — chat completions
+  pinned to Fireworks through the router's `:fireworks-ai` suffix.
+- [Groq provider](./docs/providers/groq.md) — chat completions pinned to
+  Groq through the router's `:groq` suffix.
+- [OVHcloud provider](./docs/providers/ovhcloud.md) — chat completions pinned
+  to OVHcloud AI Endpoints through the router's `:ovhcloud` suffix.
+- [Public AI provider](./docs/providers/publicai.md) — chat completions pinned
+  to Public AI through the router's `:publicai` suffix.
+- [Z.ai provider](./docs/providers/zai-org.md) — chat completions pinned to
+  Z.ai through the router's `:zai-org` suffix.
 - [WaveSpeed provider](./docs/providers/wavespeed.md) — text-to-video,
   text-to-image, and image-to-image through WaveSpeed.
 
