@@ -1,0 +1,23 @@
+meta {
+  name: Feature Extraction - DeepInfra
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{HF_BASE_URL}}/deepinfra/v1/openai/embeddings
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "input": "What is the capital of France?",
+    "model": "{{model_feature_extraction_deepinfra}}"
+  }
+}

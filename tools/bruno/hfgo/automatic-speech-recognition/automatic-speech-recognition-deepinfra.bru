@@ -1,0 +1,59 @@
+meta {
+  name: Automatic Speech Recognition - DeepInfra
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{HF_BASE_URL}}/deepinfra/v1/openai/audio/transcriptions
+  body: none
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+script:pre-request {
+  const { AUDIO_SAMPLE_URL, download } = require('./scripts/samples.js');
+
+  const sample = await download(AUDIO_SAMPLE_URL);
+
+  // Map the sample's media type to the filename extension the endpoint
+  // expects; unknown types fall back to .wav, as the official clients do.
+  const extensions = {
+    'application/ogg': 'ogg',
+    'audio/flac': 'flac',
+    'audio/m4a': 'm4a',
+    'audio/mp4': 'mp4',
+    'audio/mpeg': 'mp3',
+    'audio/ogg': 'ogg',
+    'audio/wav': 'wav',
+    'audio/wave': 'wav',
+    'audio/webm': 'webm',
+    'audio/x-flac': 'flac',
+    'audio/x-m4a': 'm4a',
+    'audio/x-wav': 'wav',
+    'video/mp4': 'mp4',
+    'video/webm': 'webm'
+  };
+  const ext = extensions[sample.contentType] || 'wav';
+
+  const boundary = '----hfgoDeepInfra' + Date.now().toString(16);
+  const model = bru.getEnvVar('model_automatic_speech_recognition');
+
+  const head = Buffer.from(
+    `--${boundary}\r\n` +
+    `Content-Disposition: form-data; name="file"; filename="audio.${ext}"\r\n` +
+    `Content-Type: ${sample.contentType}\r\n\r\n`
+  );
+  const tail = Buffer.from(
+    `\r\n--${boundary}\r\n` +
+    `Content-Disposition: form-data; name="model"\r\n\r\n` +
+    `${model}\r\n` +
+    `--${boundary}--\r\n`
+  );
+
+  req.setBody(Buffer.concat([head, sample.bytes, tail]), { raw: true });
+  req.setHeader('Content-Type', `multipart/form-data; boundary=${boundary}`);
+}

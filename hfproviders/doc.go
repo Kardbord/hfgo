@@ -63,7 +63,11 @@
 // field; [WavespeedProvider] composes them and [NewWavespeedProvider]
 // wires the resolver into each. [FalAIProvider] composes its five mixins
 // the same way, and [NewFalAIProvider] wires the resolver into each.
-// Providers that need no resolver state reuse the zero-byte mixins
+// [DeepInfraProvider] mixes both shapes: it embeds
+// [HuggingFaceChatMixin] for suffix-pinned chat completions and two
+// resolver-bearing mixins for speech recognition and pooled feature
+// extraction, wired by [NewDeepInfraProvider]. Providers that need no
+// resolver state reuse the zero-byte mixins
 // directly: [BasetenProvider] embeds
 // [HuggingFaceChatMixin] and supplies only its identity, pinning chat
 // completions to Baseten through the ":baseten" model suffix.

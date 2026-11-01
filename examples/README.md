@@ -19,9 +19,9 @@ one client can be reused across every task — only the model changes. See
 > **Cost notice:** Most examples call the live Hugging Face Inference API and
 > may incur charges on your account. The same applies to the integration tests
 > and the [Bruno collection](../tools/bruno/hfgo/). The `custom-provider`
-> example only resolves an endpoint and sends no request. The WaveSpeed and
-> Fal AI `hub-resolver` examples additionally query the Hub's model mapping
-> data; that metadata lookup is not an inference call.
+> example only resolves an endpoint and sends no request. The WaveSpeed, Fal AI,
+> and DeepInfra `hub-resolver` examples additionally query the Hub's model
+> mapping data; that metadata lookup is not an inference call.
 
 ## Running an example
 
@@ -106,6 +106,22 @@ for the resolver they wire: `hub-resolver` resolves against the Hub's
 | [Text to Video](./fal-ai/text-to-video)                      | `hub-resolver`  |
 | [Image Segmentation](./fal-ai/image-segmentation)            | `hub-resolver`  |
 | [Speech Recognition](./fal-ai/speech-recognition)            | `hub-resolver`  |
+
+### DeepInfra
+
+The [DeepInfra provider](../docs/providers/deepinfra.md) pins chat completions
+to DeepInfra and serves speech recognition and pooled feature extraction
+through DeepInfra's OpenAI-compatible endpoints. Chat reuses the default
+provider's endpoint and codecs — the router receives the model with the
+`:deepinfra` suffix appended — so its variants follow the standard naming
+scheme. The pipeline tasks resolve DeepInfra's model identifiers through the
+Hub, so their variants are named for the resolver they wire:
+
+| Task                                                    | Variants                             |
+| ------------------------------------------------------- | ------------------------------------ |
+| [Chat](./deepinfra/chat)                                | `basic`, `streaming`, `conversation` |
+| [Speech Recognition](./deepinfra/speech-recognition)    | `hub-resolver`                       |
+| [Feature Extraction](./deepinfra/feature-extraction)    | `hub-resolver`                       |
 
 ### Baseten
 

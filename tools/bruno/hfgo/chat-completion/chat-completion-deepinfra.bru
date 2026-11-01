@@ -1,0 +1,28 @@
+meta {
+  name: Chat Completion - DeepInfra
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{HF_BASE_URL}}/v1/chat/completions
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "model": "{{model_chat_completion}}:deepinfra",
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is the capital of France?"
+      }
+    ]
+  }
+}
