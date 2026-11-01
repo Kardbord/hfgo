@@ -650,7 +650,7 @@ func (hfSpeechRecognitionCodec) Encode(
 		if err != nil {
 			return nil, nil, &hferrors.SDKError{
 				Kind:    hferrors.SDKErrorKindSerialization,
-				Message: "failed to decode base64 input",
+				Message: errFailedToDecodeBase64Input,
 				Err:     err,
 			}
 		}

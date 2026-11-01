@@ -18,7 +18,10 @@ const (
 	// errFailedToMarshalRequestBody is the message surfaced when a request
 	// body cannot be marshaled.
 	errFailedToMarshalRequestBody = "failed to marshal request body"
-	mimeTypeJSON                  = "application/json"
+	// errFailedToDecodeBase64Input is the message surfaced when a request's
+	// base64 payload (e.g. speech-recognition audio) cannot be decoded.
+	errFailedToDecodeBase64Input = "failed to decode base64 input"
+	mimeTypeJSON                 = "application/json"
 )
 
 // EncodeParams carries the inputs to [Codec.Encode].

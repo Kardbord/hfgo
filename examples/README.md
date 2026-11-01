@@ -123,6 +123,19 @@ Hub, so their variants are named for the resolver they wire:
 | [Speech Recognition](./deepinfra/speech-recognition)    | `hub-resolver`                       |
 | [Feature Extraction](./deepinfra/feature-extraction)    | `hub-resolver`                       |
 
+### Together
+
+The [Together provider](../docs/providers/together.md) pins chat completions
+to Together. It reuses the default provider's endpoint — the router receives
+the model with the `:together` suffix appended — but its codecs rewrite
+`json_schema` response formats to Together's flattened shape (see the
+[provider guide](../docs/providers/together.md#structured-outputs-json_schema-response-formats)),
+so structured output works without any caller-side adaptation.
+
+| Task                       | Variants                             |
+| -------------------------- | ------------------------------------ |
+| [Chat](./together/chat)    | `basic`, `streaming`, `conversation` |
+
 ### Baseten
 
 The [Baseten provider](../docs/providers/baseten.md) pins chat completions to
