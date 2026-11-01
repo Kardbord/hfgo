@@ -831,35 +831,6 @@ func wavespeedDownloadOutput(
 	return body, headers, nil
 }
 
-// wavespeedFlattenParameters marshals a typed parameters struct into a JSON
-// object map so its non-nil fields can be merged into WaveSpeed's flat request
-// body. Nil parameters yield an empty map.
-func wavespeedFlattenParameters(parameters any) (map[string]any, error) {
-	if parameters == nil {
-		return map[string]any{}, nil
-	}
-
-	raw, err := json.Marshal(parameters)
-	if err != nil {
-		return nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "failed to marshal inference parameters",
-			Err:     err,
-		}
-	}
-
-	flat := map[string]any{}
-	if err := json.Unmarshal(raw, &flat); err != nil {
-		return nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "failed to flatten inference parameters",
-			Err:     err,
-		}
-	}
-
-	return flat, nil
-}
-
 // wavespeedNormalizeImageInput passes data URIs and HTTP(S) URLs through and
 // wraps every other input as a JPEG data URI, matching the official Hugging
 // Face clients' image-to-image payload preparation.
@@ -967,7 +938,7 @@ func (c wavespeedTextToVideoCodec) Encode(
 	// live at the top level.
 	payload := map[string]any{"prompt": req.Input}
 	if req.Parameters != nil {
-		flat, err := wavespeedFlattenParameters(req.Parameters)
+		flat, err := flattenParameters(req.Parameters)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1058,7 +1029,7 @@ func (c wavespeedTextToImageCodec) Encode(
 	// live at the top level.
 	payload := map[string]any{"prompt": req.Input}
 	if req.Parameters != nil {
-		flat, err := wavespeedFlattenParameters(req.Parameters)
+		flat, err := flattenParameters(req.Parameters)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1159,7 +1130,7 @@ func (c wavespeedImageToImageCodec) Encode(
 		"images": []string{image},
 	}
 	if req.Parameters != nil {
-		flat, err := wavespeedFlattenParameters(req.Parameters)
+		flat, err := flattenParameters(req.Parameters)
 		if err != nil {
 			return nil, nil, err
 		}

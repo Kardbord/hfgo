@@ -20,8 +20,8 @@ one client can be reused across every task — only the model changes. See
 > may incur charges on your account. The same applies to the integration tests
 > and the [Bruno collection](../tools/bruno/hfgo/). The `custom-provider`
 > example only resolves an endpoint and sends no request. The WaveSpeed, Fal AI,
-> and DeepInfra `hub-resolver` examples additionally query the Hub's model
-> mapping data; that metadata lookup is not an inference call.
+> DeepInfra, and Nscale `hub-resolver` examples additionally query the Hub's
+> model mapping data; that metadata lookup is not an inference call.
 
 ## Running an example
 
@@ -135,6 +135,23 @@ so structured output works without any caller-side adaptation.
 | Task                       | Variants                             |
 | -------------------------- | ------------------------------------ |
 | [Chat](./together/chat)    | `basic`, `streaming`, `conversation` |
+
+### Nscale
+
+The [Nscale provider](../docs/providers/nscale.md) pins chat completions to
+Nscale and serves text-to-image through Nscale's OpenAI-compatible images
+endpoint. Chat reuses the default provider's endpoint and codecs — the router
+receives the model with the `:nscale` suffix appended — so its variants follow
+the standard naming scheme. The pipeline task resolves Nscale's model
+identifiers through the Hub, so its variants are named for the resolver they
+wire: `hub-resolver` resolves against the Hub's `inferenceProviderMapping`
+data live, while `static-resolver` pins the HF-to-Nscale mapping in code
+(no Hub lookup):
+
+| Task                                       | Variants                             |
+| ------------------------------------------ | ------------------------------------ |
+| [Chat](./nscale/chat)                      | `basic`, `streaming`, `conversation` |
+| [Text to Image](./nscale/text-to-image)    | `hub-resolver`, `static-resolver`    |
 
 ### Baseten
 

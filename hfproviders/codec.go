@@ -1,6 +1,7 @@
 package hfproviders
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -21,7 +22,15 @@ const (
 	// errFailedToDecodeBase64Input is the message surfaced when a request's
 	// base64 payload (e.g. speech-recognition audio) cannot be decoded.
 	errFailedToDecodeBase64Input = "failed to decode base64 input"
-	mimeTypeJSON                 = "application/json"
+	// errFailedToMarshalInferenceParameters is the message surfaced when a
+	// typed inference-parameters struct cannot be marshaled (e.g. it carries
+	// a value JSON cannot represent).
+	errFailedToMarshalInferenceParameters = "failed to marshal inference parameters"
+	// errFailedToFlattenInferenceParameters is the message surfaced when a
+	// marshaled inference-parameters struct cannot be flattened back into a
+	// JSON object map.
+	errFailedToFlattenInferenceParameters = "failed to flatten inference parameters"
+	mimeTypeJSON                          = "application/json"
 )
 
 // EncodeParams carries the inputs to [Codec.Encode].
@@ -348,4 +357,38 @@ func parseMediaType(contentType string) (string, bool) {
 	}
 
 	return mediatype, true
+}
+
+// flattenParameters marshals a typed parameters struct into a JSON object map
+// so its non-nil fields can be merged into a provider's flat request body.
+// Nil parameters yield an empty map. Numbers are decoded as json.Number so
+// their exact literal survives the marshal/unmarshal round trip; re-marshaling
+// the map emits the original digits instead of float64 rounding artifacts for
+// values beyond float64 precision.
+func flattenParameters(parameters any) (map[string]any, error) {
+	if parameters == nil {
+		return map[string]any{}, nil
+	}
+
+	raw, err := json.Marshal(parameters)
+	if err != nil {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindSerialization,
+			Message: errFailedToMarshalInferenceParameters,
+			Err:     err,
+		}
+	}
+
+	flat := map[string]any{}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&flat); err != nil {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindSerialization,
+			Message: errFailedToFlattenInferenceParameters,
+			Err:     err,
+		}
+	}
+
+	return flat, nil
 }

@@ -145,6 +145,9 @@ Partner providers have their own examples:
   extraction through DeepInfra.
 - [Together](./examples/together) — chat completions (unary, streaming, and
   multi-turn conversation) pinned to Together.
+- [Nscale](./examples/nscale) — chat completions (unary, streaming, and
+  multi-turn conversation) plus text-to-image (Hub and static resolvers)
+  through Nscale.
 - [Baseten](./examples/baseten) — chat completions (unary, streaming, and
   multi-turn conversation) pinned to Baseten.
 - [Cerebras](./examples/cerebras) — chat completions (unary, streaming, and
@@ -260,6 +263,9 @@ Built-in providers have their own guides:
 - [Together provider](./docs/providers/together.md) — chat completions pinned
   via the router's `:together` suffix, with `json_schema` response formats
   rewritten to Together's flattened shape.
+- [Nscale provider](./docs/providers/nscale.md) — chat completions pinned via
+  the router's `:nscale` suffix plus text-to-image through Nscale's
+  OpenAI-compatible images endpoint.
 
 Advanced users who want custom providers should implement the `Provider` interface
 plus the per-task interfaces you want to support, as shown by the `EchoProvider`

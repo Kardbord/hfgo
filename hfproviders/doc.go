@@ -69,8 +69,10 @@
 // extraction, wired by [NewDeepInfraProvider]. [TogetherProvider] embeds
 // [HuggingFaceChatMixin] but shadows its codec accessors with
 // Together-specific codecs so json_schema response formats ride Together's
-// flattened wire shape. Providers that
-// need no resolver state reuse the zero-byte mixins
+// flattened wire shape. [NscaleProvider] follows the same composition:
+// [HuggingFaceChatMixin] for suffix-pinned chat completions plus a
+// resolver-bearing mixin for text-to-image, wired by [NewNscaleProvider].
+// Providers that need no resolver state reuse the zero-byte mixins
 // directly: [BasetenProvider] embeds
 // [HuggingFaceChatMixin] and supplies only its identity, pinning chat
 // completions to Baseten through the ":baseten" model suffix.
