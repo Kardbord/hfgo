@@ -675,6 +675,23 @@ func TestTogetherChatStreamCodec(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "gen-2", chunk.ID)
 	require.Equal(t, "hi", *chunk.Choices[0].Delta.Content)
+
+	t.Run("invalid request fails before the rewrite", func(t *testing.T) {
+		t.Parallel()
+
+		req := togetherChatRequest()
+		// json_schema requires the envelope, so this fails MarshalJSON.
+		req.ResponseFormat = &hftypes.ChatResponseFormat{
+			Type: hftypes.ResponseFormatTypeJSONSchema,
+		}
+
+		_, _, err := codec.Encode(EncodeParams[hftypes.ChatRequest]{
+			Context: context.Background(),
+			Request: req,
+		})
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+		require.ErrorContains(t, err, "json_schema requires json_schema field")
+	})
 }
 
 // TestTogetherSpeechCodec_MultipartSniffing pins that Together's ASR codec
@@ -698,6 +715,47 @@ func TestTogetherSpeechCodec_MultipartSniffing(t *testing.T) {
 	file := deepInfraFindPart(t, parts, "file")
 	require.Equal(t, "audio.flac", file.filename)
 	require.Equal(t, "audio/flac", file.contentType)
+}
+
+// TestTogetherFlattenResponseFormat_Errors exercises the rewrite helper's
+// defensive error branches directly. The full codec Encode path cannot
+// produce such inputs — JSONCodec.Encode marshals (and thereby validates)
+// the request first — so the tests craft the arguments by hand, mirroring
+// the shared-helper tests.
+func TestTogetherFlattenResponseFormat_Errors(t *testing.T) {
+	t.Parallel()
+
+	format := &hftypes.ChatResponseFormat{
+		Type: hftypes.ResponseFormatTypeJSONSchema,
+		JSONSchema: &hftypes.ChatJSONSchemaConfig{
+			Name:   "answer",
+			Schema: json.RawMessage(`{"type":"object"}`),
+		},
+	}
+
+	t.Run("undecodable body fails", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := togetherFlattenResponseFormat(format, []byte("not json"))
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		require.ErrorContains(t, err, "failed to decode request body")
+	})
+
+	t.Run("invalid schema raw fails to marshal", func(t *testing.T) {
+		t.Parallel()
+
+		bad := &hftypes.ChatResponseFormat{
+			Type: hftypes.ResponseFormatTypeJSONSchema,
+			JSONSchema: &hftypes.ChatJSONSchemaConfig{
+				Name:   "answer",
+				Schema: json.RawMessage("{invalid"),
+			},
+		}
+
+		_, err := togetherFlattenResponseFormat(bad, []byte(`{"model":"m"}`))
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		require.ErrorContains(t, err, errFailedToMarshalRequestBody)
+	})
 }
 
 // mustMarshal panics on failure; test-only helper for comparison targets.

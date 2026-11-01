@@ -227,6 +227,18 @@ func TestOpenAIDecodeTranscription(t *testing.T) {
 		})
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
+
+	t.Run("invalid JSON body fails", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := openAIDecodeTranscription(DecodeParams{
+			Context: t.Context(),
+			Body:    []byte("not json"),
+			Headers: jsonHeaders(),
+		})
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		require.ErrorContains(t, err, errFailedToDecodeResponseBody)
+	})
 }
 
 // TestOpenAITranscriptionMetadata_UndecodableValue exercises the metadata
