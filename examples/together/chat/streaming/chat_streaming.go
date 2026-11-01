@@ -23,14 +23,9 @@ func main() {
 		log.Fatal("HF_TOKEN environment variable is not set")
 	}
 
-	// Chat pins routing with the router's ":together" model suffix and never
-	// consults the resolver, so a static (empty) resolver is enough here.
-	provider, err := hfproviders.NewTogetherProvider(
-		hfproviders.NewStaticModelResolver(nil),
-	)
-	if err != nil {
-		log.Fatalf("error creating Together provider: %v", err)
-	}
+	// Chat pins routing with the router's ":together" model suffix, so no
+	// model resolver is needed.
+	provider := hfproviders.NewTogetherProvider()
 
 	// Create a new client with your API token and model
 	client := hfgo.NewClient(

@@ -20,15 +20,8 @@ func main() {
 	}
 
 	// Create the Together provider. Chat pins routing with the router's
-	// ":together" model suffix and never consults the resolver, so a static
-	// resolver (here an empty one) is enough for this example; speech
-	// recognition would use a HubModelResolver instead.
-	provider, err := hfproviders.NewTogetherProvider(
-		hfproviders.NewStaticModelResolver(nil),
-	)
-	if err != nil {
-		log.Fatalf("error creating Together provider: %v", err)
-	}
+	// ":together" model suffix, so no model resolver is needed.
+	provider := hfproviders.NewTogetherProvider()
 
 	// Create a new client with your API token and desired model
 	client := hfgo.NewClient(

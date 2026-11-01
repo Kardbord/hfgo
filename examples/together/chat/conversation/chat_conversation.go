@@ -41,14 +41,9 @@ func NewChatClient(sysPrompt string) ChatClient {
 		log.Fatalf("%s environment variable is not set\n", tokenEnv)
 	}
 
-	// Chat pins routing with the router's ":together" model suffix and never
-	// consults the resolver, so a static (empty) resolver is enough here.
-	provider, err := hfproviders.NewTogetherProvider(
-		hfproviders.NewStaticModelResolver(nil),
-	)
-	if err != nil {
-		log.Fatalf("error creating Together provider: %v\n", err)
-	}
+	// Chat pins routing with the router's ":together" model suffix, so no
+	// model resolver is needed.
+	provider := hfproviders.NewTogetherProvider()
 
 	chatClient := ChatClient{
 		hfClient: hfgo.NewClient(

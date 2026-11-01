@@ -66,10 +66,10 @@
 // [DeepInfraProvider] mixes both shapes: it embeds
 // [HuggingFaceChatMixin] for suffix-pinned chat completions and two
 // resolver-bearing mixins for speech recognition and pooled feature
-// extraction, wired by [NewDeepInfraProvider]. [TogetherProvider] follows
-// the same shape with one resolver-bearing speech-recognition mixin, but
-// shadows the chat mixin's codec accessors with Together-specific codecs so
-// json_schema response formats ride its flattened wire shape. Providers that
+// extraction, wired by [NewDeepInfraProvider]. [TogetherProvider] embeds
+// [HuggingFaceChatMixin] but shadows its codec accessors with
+// Together-specific codecs so json_schema response formats ride Together's
+// flattened wire shape. Providers that
 // need no resolver state reuse the zero-byte mixins
 // directly: [BasetenProvider] embeds
 // [HuggingFaceChatMixin] and supplies only its identity, pinning chat

@@ -144,7 +144,7 @@ Partner providers have their own examples:
   multi-turn conversation) plus speech recognition and pooled feature
   extraction through DeepInfra.
 - [Together](./examples/together) — chat completions (unary, streaming, and
-  multi-turn conversation) plus speech recognition through Together.
+  multi-turn conversation) pinned to Together.
 - [Baseten](./examples/baseten) — chat completions (unary, streaming, and
   multi-turn conversation) pinned to Baseten.
 - [Cerebras](./examples/cerebras) — chat completions (unary, streaming, and
@@ -258,9 +258,8 @@ Built-in providers have their own guides:
   pinned via the router's `:deepinfra` suffix plus speech recognition and
   pooled feature extraction through DeepInfra's OpenAI-compatible endpoints.
 - [Together provider](./docs/providers/together.md) — chat completions pinned
-  via the router's `:together` suffix — with `json_schema` response formats
-  rewritten to Together's shape — plus speech recognition through Together's
-  OpenAI-compatible transcription endpoint.
+  via the router's `:together` suffix, with `json_schema` response formats
+  rewritten to Together's flattened shape.
 
 Advanced users who want custom providers should implement the `Provider` interface
 plus the per-task interfaces you want to support, as shown by the `EchoProvider`

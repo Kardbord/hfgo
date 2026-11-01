@@ -86,7 +86,7 @@ pattern and its trade-offs.
 - [Z.ai provider](./zai-org.md) — chat completions pinned to Z.ai through the
   router's `:zai-org` suffix.
 - [Together provider](./together.md) — chat completions pinned to Together
-  through the router's `:together` suffix, plus speech recognition.
+  through the router's `:together` suffix.
 - [Package reference](https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hfproviders)
 - [Hugging Face Inference Providers documentation](https://huggingface.co/docs/inference-providers/main/en/index)
 - [architecture.md](../architecture.md)

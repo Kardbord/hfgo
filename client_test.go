@@ -254,14 +254,11 @@ func TestClientChat_DeepInfraProviderSuffix(t *testing.T) {
 // TestClientChat_TogetherProvider pins the Together provider's chat wire
 // format end to end: the ":together" model suffix is appended like the other
 // chat partner providers, and a json_schema response_format is flattened to
-// Together's shape on the way out. The provider's pipeline tasks need a
-// resolver, so a static (never consulted by chat) resolver backs the
-// provider here.
+// Together's shape on the way out.
 func TestClientChat_TogetherProvider(t *testing.T) {
 	t.Parallel()
 
-	provider, err := hfproviders.NewTogetherProvider(hfproviders.NewStaticModelResolver(nil))
-	require.NoError(t, err)
+	provider := hfproviders.NewTogetherProvider()
 
 	text := "hi"
 	request := hftypes.ChatRequest{

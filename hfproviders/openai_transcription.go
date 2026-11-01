@@ -19,10 +19,11 @@ import (
 
 // This file holds the wire-format helpers shared by every partner provider
 // whose speech-recognition task is served through an OpenAI-compatible
-// transcriptions endpoint proxied by the Hugging Face router (e.g. DeepInfra,
-// Together). The codecs encode the canonical request as a multipart/form-data
-// body and decode the endpoint's verbose_json response; the canonical model
-// translation is provider-owned and stays in each provider's file.
+// transcriptions endpoint proxied by the Hugging Face router (currently
+// DeepInfra). The codecs encode the canonical request as a
+// multipart/form-data body and decode the endpoint's verbose_json response;
+// the canonical model translation is provider-owned and stays in each
+// provider's file.
 
 // openAIFLACSignature is the magic prefix of a FLAC stream. net/http's byte
 // sniffer has no FLAC signature, so the speech-recognition codecs check it

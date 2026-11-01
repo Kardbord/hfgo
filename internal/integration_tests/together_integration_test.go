@@ -18,24 +18,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// newTogetherClient returns a client configured with the Together provider
-// backed by a Hub model resolver, so pipeline tasks resolve Together's model
-// identifiers from the Hub's inferenceProviderMapping data. Callers gate the
-// test on HF_TOKEN.
+// newTogetherClient returns a client configured with the Together provider.
+// Chat pins routing with the router's ":together" model suffix and needs no
+// model resolver. Callers gate the test on HF_TOKEN.
 func newTogetherClient(t *testing.T, ctx context.Context, model string) hfgo.Client {
 	t.Helper()
-
-	provider, err := hfproviders.NewTogetherProvider(
-		hfproviders.NewHubModelResolver(
-			hfproviders.WithHubToken(os.Getenv("HF_TOKEN")),
-		),
-	)
-	require.NoError(t, err)
 
 	return hfgo.NewClient(
 		hfopts.WithToken(os.Getenv("HF_TOKEN")),
 		hfopts.WithModel(model),
-		hfopts.WithProvider(provider),
+		hfopts.WithProvider(hfproviders.NewTogetherProvider()),
 		hfopts.WithContext(ctx),
 	)
 }
@@ -177,24 +169,4 @@ func TestChatCompletion_TogetherJSONSchemaLiveAPI(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal([]byte(*content), &answer))
 	require.NotEmpty(t, answer.Capital, "schema-conforming answer should carry the capital")
-}
-
-// TestRecognizeSpeech_TogetherLiveAPI tests a speech recognition request
-// routed to Together through the live HF API, exercising the multipart
-// transcription exchange end to end. This test requires the HF_TOKEN
-// environment variable to be set.
-func TestRecognizeSpeech_TogetherLiveAPI(t *testing.T) {
-	require.NotEmpty(t, os.Getenv("HF_TOKEN"), "HF_TOKEN must be set")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer cancel()
-
-	client := newTogetherClient(t, ctx, "nvidia/nemotron-3.5-asr-streaming-0.6b")
-
-	resp, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
-		Input: speechRecognitionInput(t),
-	})
-
-	require.NoError(t, err, "together speech recognition should succeed")
-	require.NotEmpty(t, resp.Text, "recognized text should not be empty")
 }
