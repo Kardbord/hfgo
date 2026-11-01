@@ -32,6 +32,7 @@ func TestChatOnlyProviderContract(t *testing.T) {
 		featherlessAIChatOnlyCase(),
 		fireworksChatOnlyCase(),
 		groqChatOnlyCase(),
+		novitaChatOnlyCase(),
 		ovhcloudChatOnlyCase(),
 		publicAIChatOnlyCase(),
 		zaiChatOnlyCase(),

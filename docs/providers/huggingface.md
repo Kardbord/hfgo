@@ -77,6 +77,8 @@ pattern and its trade-offs.
   Fireworks through the router's `:fireworks-ai` suffix.
 - [Groq provider](./groq.md) — chat completions pinned to Groq through the
   router's `:groq` suffix.
+- [Novita provider](./novita.md) — chat completions pinned to Novita through
+  the router's `:novita` suffix.
 - [OVHcloud provider](./ovhcloud.md) — chat completions pinned to OVHcloud AI
   Endpoints through the router's `:ovhcloud` suffix.
 - [Public AI provider](./publicai.md) — chat completions pinned to Public AI

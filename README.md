@@ -155,6 +155,8 @@ Partner providers have their own examples:
   and multi-turn conversation) pinned to Fireworks.
 - [Groq](./examples/groq) — chat completions (unary, streaming, and
   multi-turn conversation) pinned to Groq.
+- [Novita](./examples/novita) — chat completions (unary, streaming, and
+  multi-turn conversation) pinned to Novita.
 - [OVHcloud AI Endpoints](./examples/ovhcloud) — chat completions (unary,
   streaming, and multi-turn conversation) pinned to OVHcloud AI Endpoints.
 - [Public AI](./examples/publicai) — chat completions (unary, streaming, and
@@ -237,6 +239,8 @@ Built-in providers have their own guides:
   pinned to Fireworks through the router's `:fireworks-ai` suffix.
 - [Groq provider](./docs/providers/groq.md) — chat completions pinned to
   Groq through the router's `:groq` suffix.
+- [Novita provider](./docs/providers/novita.md) — chat completions pinned to
+  Novita through the router's `:novita` suffix.
 - [OVHcloud provider](./docs/providers/ovhcloud.md) — chat completions pinned
   to OVHcloud AI Endpoints through the router's `:ovhcloud` suffix.
 - [Public AI provider](./docs/providers/publicai.md) — chat completions pinned
