@@ -14,13 +14,13 @@ design is documented in
 
 ## Supported tasks
 
-| Task                                 | Endpoint method                 | Codec                              | Client method               |
-| ------------------------------------ | ------------------------------- | ---------------------------------- | --------------------------- |
-| Chat completion (unary)              | `ChatEndpoint`                  | `ChatCodec`                        | `Chat`                      |
-| Chat completion (streaming)          | `ChatEndpoint`                  | `ChatStreamCodec`                  | `ChatStream`                |
-| Speech recognition                   | `SpeechRecognitionEndpoint`     | `SpeechRecognitionCodec`           | `RecognizeSpeech`           |
-| Feature extraction (pooled)          | `FeatureExtractionEndpoint`     | `FeatureExtractionPooledCodec`     | `ExtractPooledFeatures`     |
-| Feature extraction (pooled, batch)   | `FeatureExtractionBatchEndpoint`| `FeatureExtractionPooledBatchCodec`| `ExtractPooledFeaturesBatch`|
+| Task                               | Endpoint method                 | Codec                             | Client method               |
+| ---------------------------------- | -------------------------------- | ----------------------------------- | ---------------------------- |
+| Chat completion (unary)            | `ChatEndpoint`                  | `ChatCodec`                       | `Chat`                       |
+| Chat completion (streaming)        | `ChatEndpoint`                  | `ChatStreamCodec`                 | `ChatStream`                 |
+| Speech recognition                 | `SpeechRecognitionEndpoint`     | `SpeechRecognitionCodec`          | `RecognizeSpeech`            |
+| Feature extraction (pooled)        | `FeatureExtractionEndpoint`     | `FeatureExtractionPooledCodec`    | `ExtractPooledFeatures`      |
+| Feature extraction (pooled, batch) | `FeatureExtractionBatchEndpoint`| `FeatureExtractionPooledBatchCodec`| `ExtractPooledFeaturesBatch` |
 
 Structured message content — including the image parts vision-language models
 take — passes through the shared chat codec unchanged, so VLM requests need no
