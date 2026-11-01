@@ -19,7 +19,7 @@ and `examples/` for usage documentation, and the code itself for full detail.
 | `hfopts`      | `github.com/Kardbord/hfgo/v4/hfopts`      | `Options`, `Option`, and all `With*` helpers                                                                                      |
 | `hftypes`     | `github.com/Kardbord/hfgo/v4/hftypes`     | Request/response DTOs for every task                                                                                              |
 | `hferrors`    | `github.com/Kardbord/hfgo/v4/hferrors`    | `APIError`, `SDKError`, and `SDKErrorKind`                                                                                        |
-| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, per-task provider mixins (Hugging Face, WaveSpeed, fal.ai), `HuggingFaceProvider`, `WavespeedProvider`, `FalAIProvider`, chat-only partner providers (e.g. `BasetenProvider`), `ModelResolver` |
+| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, per-task provider mixins (Hugging Face, WaveSpeed, fal.ai, DeepInfra), `HuggingFaceProvider`, `WavespeedProvider`, `FalAIProvider`, `DeepInfraProvider`, chat-only partner providers (e.g. `BasetenProvider`), `ModelResolver` |
 | `hfraw`       | `github.com/Kardbord/hfgo/v4/hfraw`       | Low-level HTTP/SSE escape hatch                                                                                                   |
 | `hfgoversion` | `github.com/Kardbord/hfgo/v4/hfgoversion` | `Version` constant and `UserAgent()` helper                                                                                       |
 
@@ -155,7 +155,10 @@ directly: the chat-only partner providers (e.g. `BasetenProvider`,
 `CerebrasProvider`) each embed `HuggingFaceChatMixin` and supply only their
 identity, pinning chat completions to their provider by appending the
 `:<provider>` model suffix — the chat task performs provider mapping
-server-side, so no resolution machinery is required.
+server-side, so no resolution machinery is required. `DeepInfraProvider`
+composes both shapes: `HuggingFaceChatMixin` for suffix-pinned chat plus
+resolver-carrying DeepInfra mixins for speech recognition and pooled feature
+extraction.
 
 Embedding multiple resolver-carrying mixins intentionally leaves the promoted
 `Resolver` field ambiguous on the composed provider: it is not a compile error

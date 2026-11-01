@@ -140,6 +140,9 @@ Partner providers have their own examples:
   image-to-image through WaveSpeed.
 - [Fal AI](./examples/fal-ai) — text-to-image, image-to-image, text-to-video,
   image-segmentation, and speech-recognition through Fal AI.
+- [DeepInfra](./examples/deepinfra) — chat completions (unary, streaming, and
+  multi-turn conversation) plus speech recognition and pooled feature
+  extraction through DeepInfra.
 - [Baseten](./examples/baseten) — chat completions (unary, streaming, and
   multi-turn conversation) pinned to Baseten.
 - [Cerebras](./examples/cerebras) — chat completions (unary, streaming, and
@@ -245,6 +248,9 @@ Built-in providers have their own guides:
 - [Fal AI provider](./docs/providers/fal-ai.md) — text-to-image,
   image-to-image, text-to-video, image-segmentation, and speech-recognition
   through Fal AI.
+- [DeepInfra provider](./docs/providers/deepinfra.md) — chat completions
+  pinned via the router's `:deepinfra` suffix plus speech recognition and
+  pooled feature extraction through DeepInfra's OpenAI-compatible endpoints.
 
 Advanced users who want custom providers should implement the `Provider` interface
 plus the per-task interfaces you want to support, as shown by the `EchoProvider`

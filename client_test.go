@@ -185,6 +185,70 @@ func TestClientChat_ChatOnlyProviderSuffixes(t *testing.T) {
 	}
 }
 
+// TestClientChat_DeepInfraProviderSuffix pins the DeepInfra provider's chat
+// routing: like the chat-only partner providers, it appends its model-string
+// suffix on the wire unless the request model already carries one. The
+// provider's pipeline tasks need a resolver, so a static (never consulted by
+// chat) resolver backs the provider here.
+func TestClientChat_DeepInfraProviderSuffix(t *testing.T) {
+	t.Parallel()
+
+	provider, err := hfproviders.NewDeepInfraProvider(hfproviders.NewStaticModelResolver(nil))
+	require.NoError(t, err)
+
+	text := "hi"
+	request := hftypes.ChatRequest{
+		Messages: []hftypes.ChatMessage{
+			{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
+		},
+	}
+
+	const model = "openai/gpt-oss-120b"
+
+	t.Run("appends the provider suffix to the wire model", func(t *testing.T) {
+		t.Parallel()
+
+		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+		client := NewClient(
+			hfopts.WithHTTPClientFactory(
+				func() http.Client { return testutils.NewMockHTTPClient(mt) },
+			),
+			hfopts.WithModel(model),
+			hfopts.WithProvider(provider),
+		)
+
+		_, err := client.Chat(request)
+		require.NoError(t, err)
+
+		require.NotNil(t, mt.LastRequest)
+		require.Equal(t, "/v1/chat/completions", mt.LastRequest.URL.Path)
+
+		got := testutils.ReadRequestBody(t, mt)
+		require.Equal(t, model+":deepinfra", got["model"])
+	})
+
+	t.Run("keeps a request model that already carries a suffix", func(t *testing.T) {
+		t.Parallel()
+
+		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+		client := NewClient(
+			hfopts.WithHTTPClientFactory(
+				func() http.Client { return testutils.NewMockHTTPClient(mt) },
+			),
+			hfopts.WithModel(model),
+			hfopts.WithProvider(provider),
+		)
+
+		req := request
+		req.Model = new(model + ":fastest")
+		_, err := client.Chat(req)
+		require.NoError(t, err)
+
+		got := testutils.ReadRequestBody(t, mt)
+		require.Equal(t, model+":fastest", got["model"])
+	})
+}
+
 func TestClientChat_MissingModel(t *testing.T) {
 	t.Parallel()
 
