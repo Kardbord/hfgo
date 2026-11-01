@@ -92,8 +92,8 @@ func NewNscaleProvider(resolver ModelResolver) (NscaleProvider, error) {
 	}
 
 	return NscaleProvider{
-		HuggingFaceChatMixin{},
-		NscaleTextToImageMixin{Resolver: resolver},
+		HuggingFaceChatMixin: HuggingFaceChatMixin{},
+		Resolver:             resolver,
 	}, nil
 }
 

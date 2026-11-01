@@ -13,11 +13,11 @@ is documented in
 
 ## Supported tasks
 
-| Task                        | Endpoint method         | Codec                       | Client method  |
-| --------------------------- | ----------------------- | --------------------------- | -------------- |
-| Chat completion (unary)     | `ChatEndpoint`          | `ChatCodec`                 | `Chat`         |
-| Chat completion (streaming) | `ChatEndpoint`          | `ChatStreamCodec`           | `ChatStream`   |
-| Text-to-image               | `TextToImageEndpoint`   | `nscaleTextToImageCodec`    | `GenerateImage`|
+| Task                        | Endpoint method         | Codec                       | Client method   |
+| --------------------------- | ----------------------- | --------------------------- | --------------- |
+| Chat completion (unary)     | `ChatEndpoint`          | `ChatCodec`                 | `Chat`          |
+| Chat completion (streaming) | `ChatEndpoint`          | `ChatStreamCodec`           | `ChatStream`    |
+| Text-to-image               | `TextToImageEndpoint`   | `TextToImageCodec`          | `GenerateImage` |
 
 Structured message content — including the image parts vision-language models
 take — passes through the shared chat codec unchanged, so VLM requests need no
@@ -103,6 +103,10 @@ image, err := client.GenerateImage(hftypes.TextToImageRequest{
 The response carries a base64-encoded image in `data[0].b64_json`; the codec
 decodes it, reports the sniffed media type on `resp.MediaType`, and exposes
 the response's `created` timestamp on `resp.ProviderMetadata` when present.
+Because the image bytes arrive inside the JSON payload rather than as an HTTP
+body, they carry no `Content-Type` header — the media type is inferred by
+sniffing the bytes, so an unrecognized payload yields
+`application/octet-stream`.
 
 ### Resolver options
 
