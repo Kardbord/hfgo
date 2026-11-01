@@ -152,6 +152,7 @@ data live, while `static-resolver` pins the HF-to-Nscale mapping in code
 | ------------------------------------------ | ------------------------------------ |
 | [Chat](./nscale/chat)                      | `basic`, `streaming`, `conversation` |
 | [Text to Image](./nscale/text-to-image)    | `hub-resolver`, `static-resolver`    |
+
 ### Scaleway
 
 The [Scaleway provider](../docs/providers/scaleway.md) pins chat completions

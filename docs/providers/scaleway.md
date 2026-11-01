@@ -193,9 +193,10 @@ the mixins for the tasks you serve and set the `Resolver` explicitly (or use
 `NewScalewayProvider` to wire it). The resolved mapping is attached to the
 endpoint and the pipeline hands it to the codec; standalone codec use falls
 back to the codec's own resolver. The feature-extraction mixin serves only the
-pooled interfaces. Because the provider embeds both mixins, the promoted
-`Resolver` field would be ambiguous — access the mixin's resolver explicitly
-(e.g. `p.ScalewayFeatureExtractionMixin.Resolver`) if you ever need it. See
+pooled interfaces. Only the feature-extraction mixin carries a resolver, so
+the promoted `ScalewayProvider.Resolver` field is unambiguous and can be
+embedded directly; contrast `DeepInfraProvider`, whose two resolver-bearing
+mixins leave the promoted field ambiguous. See
 [Per-task provider mixins](../architecture.md#per-task-provider-mixins) for
 the pattern.
 
