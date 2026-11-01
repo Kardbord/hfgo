@@ -2037,17 +2037,17 @@ func (arrayParameters) MarshalJSON() ([]byte, error) {
 	return []byte("[1,2,3]"), nil
 }
 
-// TestWavespeedFlattenParameters exercises the parameter-flattening helper:
-// nil parameters flatten to an empty map, marshal and flatten failures
-// surface as serialization SDK errors, and valid parameters flatten to their
-// JSON object form.
+// TestWavespeedFlattenParameters exercises the shared parameter-flattening
+// helper: nil parameters flatten to an empty map, marshal and flatten
+// failures surface as serialization SDK errors, and valid parameters flatten
+// to their JSON object form with exact numeric literals.
 func TestWavespeedFlattenParameters(t *testing.T) {
 	t.Parallel()
 
 	t.Run("nil parameters flatten to an empty map", func(t *testing.T) {
 		t.Parallel()
 
-		flat, err := wavespeedFlattenParameters(nil)
+		flat, err := flattenParameters(nil)
 		require.NoError(t, err)
 		require.Empty(t, flat)
 	})
@@ -2055,23 +2055,35 @@ func TestWavespeedFlattenParameters(t *testing.T) {
 	t.Run("marshal failure is a serialization error", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := wavespeedFlattenParameters(failingParameters{})
+		_, err := flattenParameters(failingParameters{})
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 
 	t.Run("non-object payload is a serialization error", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := wavespeedFlattenParameters(arrayParameters{})
+		_, err := flattenParameters(arrayParameters{})
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 
 	t.Run("valid parameters flatten", func(t *testing.T) {
 		t.Parallel()
 
-		flat, err := wavespeedFlattenParameters(hftypes.TextToVideoParameters{Seed: new(int64(42))})
+		flat, err := flattenParameters(hftypes.TextToVideoParameters{Seed: new(int64(42))})
 		require.NoError(t, err)
-		require.Equal(t, map[string]any{"seed": float64(42)}, flat)
+		require.Equal(t, map[string]any{"seed": json.Number("42")}, flat)
+	})
+
+	t.Run("large seed preserves exact numeric literal", func(t *testing.T) {
+		t.Parallel()
+
+		// A seed beyond float64's 2^53 integer precision must arrive intact
+		// as a json.Number instead of being silently rounded.
+		flat, err := flattenParameters(hftypes.TextToVideoParameters{
+			Seed: new(int64(9223372036854775807)),
+		})
+		require.NoError(t, err)
+		require.Equal(t, map[string]any{"seed": json.Number("9223372036854775807")}, flat)
 	})
 }
 

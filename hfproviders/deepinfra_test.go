@@ -301,6 +301,7 @@ func TestDeepInfraProvider_Contract(t *testing.T) {
 	}
 }
 
+//nolint:dupl // Chat-endpoint tests intentionally mirror each other; each provider documents its own endpoint wiring.
 func TestDeepInfraProvider_ChatEndpoint(t *testing.T) {
 	t.Parallel()
 

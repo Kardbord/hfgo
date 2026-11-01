@@ -192,6 +192,8 @@ func TestClientChat_ChatOnlyProviderSuffixes(t *testing.T) {
 // suffix on the wire unless the request model already carries one. The
 // provider's pipeline tasks need a resolver, so a static (never consulted by
 // chat) resolver backs the provider here.
+//
+//nolint:dupl // Provider-suffix tests intentionally mirror each other; each provider documents its own pin behavior.
 func TestClientChat_DeepInfraProviderSuffix(t *testing.T) {
 	t.Parallel()
 
@@ -334,6 +336,72 @@ func TestClientChat_TogetherProvider(t *testing.T) {
 			map[string]any{"type": "json_schema", "schema": map[string]any{"type": "object"}},
 			got["response_format"],
 		)
+	})
+}
+
+// TestClientChat_NscaleProviderSuffix pins the Nscale provider's chat
+// routing: like the chat-only partner providers, it appends its model-string
+// suffix on the wire unless the request model already carries one. The
+// provider's text-to-image task needs a resolver, so a static (never
+// consulted by chat) resolver backs the provider here.
+//
+//nolint:dupl // Provider-suffix tests intentionally mirror each other; each provider documents its own pin behavior.
+func TestClientChat_NscaleProviderSuffix(t *testing.T) {
+	t.Parallel()
+
+	provider, err := hfproviders.NewNscaleProvider(hfproviders.NewStaticModelResolver(nil))
+	require.NoError(t, err)
+
+	text := "hi"
+	request := hftypes.ChatRequest{
+		Messages: []hftypes.ChatMessage{
+			{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
+		},
+	}
+
+	const model = "meta-llama/Llama-3.1-8B-Instruct"
+
+	t.Run("appends the provider suffix to the wire model", func(t *testing.T) {
+		t.Parallel()
+
+		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+		client := NewClient(
+			hfopts.WithHTTPClientFactory(
+				func() http.Client { return testutils.NewMockHTTPClient(mt) },
+			),
+			hfopts.WithModel(model),
+			hfopts.WithProvider(provider),
+		)
+
+		_, err := client.Chat(request)
+		require.NoError(t, err)
+
+		require.NotNil(t, mt.LastRequest)
+		require.Equal(t, "/v1/chat/completions", mt.LastRequest.URL.Path)
+
+		got := testutils.ReadRequestBody(t, mt)
+		require.Equal(t, model+":nscale", got["model"])
+	})
+
+	t.Run("keeps a request model that already carries a suffix", func(t *testing.T) {
+		t.Parallel()
+
+		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+		client := NewClient(
+			hfopts.WithHTTPClientFactory(
+				func() http.Client { return testutils.NewMockHTTPClient(mt) },
+			),
+			hfopts.WithModel(model),
+			hfopts.WithProvider(provider),
+		)
+
+		req := request
+		req.Model = new(model + ":fastest")
+		_, err := client.Chat(req)
+		require.NoError(t, err)
+
+		got := testutils.ReadRequestBody(t, mt)
+		require.Equal(t, model+":fastest", got["model"])
 	})
 }
 

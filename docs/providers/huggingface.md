@@ -65,6 +65,9 @@ pattern and its trade-offs.
 - [WaveSpeed provider](./wavespeed.md) — the built-in partner-provider example.
 - [Fal AI provider](./fal-ai.md) — media and speech generation tasks through
   fal's platform.
+- [Nscale provider](./nscale.md) — chat completions pinned via the router's
+  `:nscale` suffix plus resolver-backed text-to-image through Nscale's
+  OpenAI-compatible images endpoint.
 - [Baseten provider](./baseten.md) — chat completions pinned to Baseten through
   the router's `:baseten` suffix.
 - [Cerebras provider](./cerebras.md) — chat completions pinned to Cerebras

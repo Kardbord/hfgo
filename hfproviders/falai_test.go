@@ -2869,26 +2869,35 @@ func TestFalAITaskFailedError(t *testing.T) {
 	}
 }
 
-// TestFalAIFlattenParameters exercises the parameter-flattening helper: nil
-// parameters flatten to an empty map, marshal and flatten failures surface
-// as serialization SDK errors, and valid parameters flatten to their JSON
-// object form.
+// TestFalAIFlattenParameters exercises the shared parameter-flattening
+// helper: nil parameters flatten to an empty map, marshal and flatten
+// failures surface as serialization SDK errors, and valid parameters flatten
+// to their JSON object form with exact numeric literals.
 func TestFalAIFlattenParameters(t *testing.T) {
 	t.Parallel()
 
-	flat, err := falaiFlattenParameters(nil)
+	flat, err := flattenParameters(nil)
 	require.NoError(t, err)
 	require.Empty(t, flat)
 
-	_, err = falaiFlattenParameters(failingParameters{})
+	_, err = flattenParameters(failingParameters{})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 
-	_, err = falaiFlattenParameters(arrayParameters{})
+	_, err = flattenParameters(arrayParameters{})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 
-	flat, err = falaiFlattenParameters(hftypes.TextToVideoParameters{Seed: new(int64(42))})
+	flat, err = flattenParameters(hftypes.TextToVideoParameters{Seed: new(int64(42))})
 	require.NoError(t, err)
-	require.Equal(t, map[string]any{"seed": float64(42)}, flat)
+	require.Equal(t, map[string]any{"seed": json.Number("42")}, flat)
+
+	// The flatten round-trip preserves exact numeric literals: a seed beyond
+	// float64's 2^53 integer precision arrives intact as a json.Number
+	// instead of being silently rounded.
+	flat, err = flattenParameters(hftypes.TextToVideoParameters{
+		Seed: new(int64(9223372036854775807)),
+	})
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{"seed": json.Number("9223372036854775807")}, flat)
 }
 
 // TestFalAINormalizeDataInput exercises the data-URI wrapping: data URIs and

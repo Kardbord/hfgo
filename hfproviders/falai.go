@@ -1209,35 +1209,6 @@ func falaiSegmentTimestamp(start, end *float64) []float64 {
 	return []float64{startSec, endSec}
 }
 
-// falaiFlattenParameters marshals a typed parameters struct into a JSON
-// object map so its non-nil fields can be merged into fal's flat request
-// body. Nil parameters yield an empty map.
-func falaiFlattenParameters(parameters any) (map[string]any, error) {
-	if parameters == nil {
-		return map[string]any{}, nil
-	}
-
-	raw, err := json.Marshal(parameters)
-	if err != nil {
-		return nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "failed to marshal inference parameters",
-			Err:     err,
-		}
-	}
-
-	flat := map[string]any{}
-	if err := json.Unmarshal(raw, &flat); err != nil {
-		return nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "failed to flatten inference parameters",
-			Err:     err,
-		}
-	}
-
-	return flat, nil
-}
-
 // falaiNormalizeDataInput passes data URIs and HTTP(S) URLs through and
 // wraps every other input as a data URI with the given media type, matching
 // the official Hugging Face clients' payload preparation. fal's data-URL
@@ -1402,7 +1373,7 @@ func (c falaiTextToImageCodec) Encode(
 	// directly.
 	payload := map[string]any{falaiPromptKey: req.Input}
 	if req.Parameters != nil {
-		flat, err := falaiFlattenParameters(req.Parameters)
+		flat, err := flattenParameters(req.Parameters)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1514,7 +1485,7 @@ func (c falaiImageToImageCodec) Encode(
 		"image_urls": []string{image},
 	}
 	if req.Parameters != nil {
-		flat, err := falaiFlattenParameters(req.Parameters)
+		flat, err := flattenParameters(req.Parameters)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1615,7 +1586,7 @@ func (c falaiTextToVideoCodec) Encode(
 	// the top level.
 	payload := map[string]any{falaiPromptKey: req.Input}
 	if req.Parameters != nil {
-		flat, err := falaiFlattenParameters(req.Parameters)
+		flat, err := flattenParameters(req.Parameters)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1722,7 +1693,7 @@ func (c falaiImageSegmentationCodec) Encode(
 		"image_url": falaiNormalizeDataInput(req.Input, falaiMaskInputMIME),
 	}
 	if req.Parameters != nil {
-		flat, err := falaiFlattenParameters(req.Parameters)
+		flat, err := flattenParameters(req.Parameters)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1836,7 +1807,7 @@ func (c falaiSpeechRecognitionCodec) Encode(
 		"audio_url": falaiNormalizeDataInput(req.Input, falaiAudioInputMIME),
 	}
 	if req.Parameters != nil {
-		flat, err := falaiFlattenParameters(req.Parameters)
+		flat, err := flattenParameters(req.Parameters)
 		if err != nil {
 			return nil, nil, err
 		}
