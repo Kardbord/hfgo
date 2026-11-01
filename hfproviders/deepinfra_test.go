@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"io"
 	"mime"
@@ -76,7 +75,7 @@ func newDeepInfraProvider(t *testing.T) DeepInfraProvider {
 // TestMediaSniffingForDeepInfra pins the net/http byte-sniffing behavior the
 // DeepInfra speech-recognition codec relies on to pick the file part's
 // Content-Type and filename extension. If a Go release changes these
-// signatures, deepInfraAudioExtension needs revisiting.
+// signatures, openAIAudioExtension needs revisiting.
 func TestMediaSniffingForDeepInfra(t *testing.T) {
 	t.Parallel()
 
@@ -691,43 +690,6 @@ func TestDeepInfraSpeechRecognitionCodec_Encode(t *testing.T) {
 	})
 }
 
-func TestDeepInfraAudioExtension(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		mimeType string
-		want     string
-	}{
-		{mimeType: "audio/mpeg", want: "mp3"},
-		{mimeType: "audio/mp3", want: "mp3"},
-		{mimeType: "audio/mp4", want: "mp4"},
-		{mimeType: "video/mp4", want: "mp4"},
-		{mimeType: "audio/m4a", want: "m4a"},
-		{mimeType: "audio/x-m4a", want: "m4a"},
-		{mimeType: "audio/flac", want: "flac"},
-		{mimeType: "audio/x-flac", want: "flac"},
-		{mimeType: "audio/ogg", want: "ogg"},
-		{mimeType: "application/ogg", want: "ogg"},
-		{mimeType: "audio/wav", want: "wav"},
-		{mimeType: "audio/wave", want: "wav"},
-		{mimeType: "audio/x-wav", want: "wav"},
-		{mimeType: "audio/webm", want: "webm"},
-		{mimeType: "video/webm", want: "webm"},
-		{mimeType: "audio/wave; boundary=x", want: "wav"},
-		{mimeType: "", want: "wav"},
-		{mimeType: "application/octet-stream", want: "wav"},
-		{mimeType: "text/plain", want: "wav"},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.mimeType, func(t *testing.T) {
-			t.Parallel()
-
-			require.Equal(t, tc.want, deepInfraAudioExtension(tc.mimeType))
-		})
-	}
-}
-
 func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Parallel()
 
@@ -1200,53 +1162,6 @@ func TestDeepInfraProvider_Tasks(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDeepInfraFormFieldValue(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name  string
-		value any
-		want  string
-	}{
-		{name: "string passes through", value: "beam", want: "beam"},
-		{name: "bool true", value: true, want: "true"},
-		{name: "bool false", value: false, want: "false"},
-		{name: "int", value: 5, want: "5"},
-		{name: "negative int", value: -7, want: "-7"},
-		{name: "int8", value: int8(-8), want: "-8"},
-		{name: "int16", value: int16(-16), want: "-16"},
-		{name: "int32", value: int32(-32), want: "-32"},
-		{name: "int64", value: int64(-64), want: "-64"},
-		{name: "uint", value: uint(7), want: "7"},
-		{name: "uint8", value: uint8(8), want: "8"},
-		{name: "uint16", value: uint16(16), want: "16"},
-		{name: "uint32", value: uint32(32), want: "32"},
-		{name: "uint64", value: uint64(64), want: "64"},
-		{name: "float32", value: float32(1.5), want: "1.5"},
-		{name: "float64", value: 0.25, want: "0.25"},
-		{name: "json number", value: json.Number("3.14"), want: "3.14"},
-		{name: "map JSON-encodes", value: map[string]any{"a": 1}, want: `{"a":1}`},
-		{name: "slice JSON-encodes", value: []int{1, 2}, want: "[1,2]"},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			got, err := deepInfraFormFieldValue(tc.value)
-			require.NoError(t, err)
-			require.Equal(t, tc.want, got)
-		})
-	}
-
-	t.Run("unmarshalable value fails", func(t *testing.T) {
-		t.Parallel()
-
-		_, err := deepInfraFormFieldValue(make(chan int))
-		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-	})
-}
-
 // deepInfraFailingResolver resolves nothing and always fails, emulating a
 // resolver outage that endpoints and codecs must propagate.
 type deepInfraFailingResolver struct{}
@@ -1320,71 +1235,4 @@ func TestDeepInfraCodec_ResolverErrorsPropagate(t *testing.T) {
 			Model:   deepInfraEmbedModel,
 		})
 	require.ErrorContains(t, err, "resolver outage")
-}
-
-// TestDeepInfraTranscriptionMetadata_UndecodableValue exercises the
-// metadata decoder's defensive error branch directly: a field value that is
-// not valid JSON fails with a serialization error. The full Decode path
-// cannot produce such a body (the envelope already parsed as valid JSON),
-// so the test crafts the field map by hand.
-func TestDeepInfraTranscriptionMetadata_UndecodableValue(t *testing.T) {
-	t.Parallel()
-
-	metadata, err := deepInfraTranscriptionMetadata(map[string]json.RawMessage{
-		"text":  json.RawMessage(`"hi"`),
-		"usage": json.RawMessage(`{"prompt_seconds":`),
-	})
-	require.Nil(t, metadata)
-	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-}
-
-// deepInfraFailWriter fails the Nth Write call (and every later one),
-// emulating a destination writer that breaks mid-exchange.
-type deepInfraFailWriter struct {
-	failOn int
-	writes int
-}
-
-func (w *deepInfraFailWriter) Write(p []byte) (int, error) {
-	w.writes++
-	if w.writes == w.failOn {
-		return 0, errors.New("injected write failure")
-	}
-
-	return len(p), nil
-}
-
-// TestDeepInfraMultipartBodyTo_WriteFailures exercises the multipart
-// builder's defensive write-failure branches by failing the destination
-// writer at every call index of the exchange. Failing each stage in turn
-// covers the CreatePart, part-write, field-write, and close error branches
-// without depending on how the stdlib chunks its writes; a failure point
-// past the final write leaves the body intact.
-func TestDeepInfraMultipartBodyTo_WriteFailures(t *testing.T) {
-	t.Parallel()
-
-	fields := map[string]string{
-		"return_timestamps": "true",
-		"model":             deepInfraASRModel,
-	}
-
-	for failOn := 1; failOn <= 16; failOn++ {
-		writer := &deepInfraFailWriter{failOn: failOn}
-		_, err := deepInfraMultipartBodyTo(
-			writer,
-			[]byte(deepInfraWAVAudio),
-			"audio/wave",
-			fields,
-		)
-
-		if writer.writes < failOn {
-			require.NoError(t, err, "failure point %d is past the final write", failOn)
-
-			continue
-		}
-
-		require.Error(t, err, "failure point %d must surface", failOn)
-		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-		require.ErrorContains(t, err, errFailedToMarshalRequestBody)
-	}
 }

@@ -20,8 +20,8 @@ one client can be reused across every task — only the model changes. See
 > may incur charges on your account. The same applies to the integration tests
 > and the [Bruno collection](../tools/bruno/hfgo/). The `custom-provider`
 > example only resolves an endpoint and sends no request. The WaveSpeed, Fal AI,
-> and DeepInfra `hub-resolver` examples additionally query the Hub's model
-> mapping data; that metadata lookup is not an inference call.
+> DeepInfra, and Together `hub-resolver` examples additionally query the Hub's
+> model mapping data; that metadata lookup is not an inference call.
 
 ## Running an example
 
@@ -122,6 +122,24 @@ Hub, so their variants are named for the resolver they wire:
 | [Chat](./deepinfra/chat)                                | `basic`, `streaming`, `conversation` |
 | [Speech Recognition](./deepinfra/speech-recognition)    | `hub-resolver`                       |
 | [Feature Extraction](./deepinfra/feature-extraction)    | `hub-resolver`                       |
+
+### Together
+
+The [Together provider](../docs/providers/together.md) pins chat completions
+to Together and serves speech recognition through Together's
+OpenAI-compatible transcription endpoint. Chat reuses the default provider's
+endpoint — the router receives the model with the `:together` suffix
+appended — but its codecs rewrite `json_schema` response formats to
+Together's flattened shape (see the
+[provider guide](../docs/providers/together.md#structured-outputs-json_schema-response-formats)).
+Chat variants follow the standard naming scheme; speech recognition resolves
+Together's model identifiers through the Hub, so its variant is named for the
+resolver it wires:
+
+| Task                                                 | Variants                             |
+| ---------------------------------------------------- | ------------------------------------ |
+| [Chat](./together/chat)                              | `basic`, `streaming`, `conversation` |
+| [Speech Recognition](./together/speech-recognition)  | `hub-resolver`                       |
 
 ### Baseten
 

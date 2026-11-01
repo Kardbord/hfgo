@@ -5,6 +5,7 @@ package hfgo
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -247,6 +248,95 @@ func TestClientChat_DeepInfraProviderSuffix(t *testing.T) {
 
 		got := testutils.ReadRequestBody(t, mt)
 		require.Equal(t, model+":fastest", got["model"])
+	})
+}
+
+// TestClientChat_TogetherProvider pins the Together provider's chat wire
+// format end to end: the ":together" model suffix is appended like the other
+// chat partner providers, and a json_schema response_format is flattened to
+// Together's shape on the way out. The provider's pipeline tasks need a
+// resolver, so a static (never consulted by chat) resolver backs the
+// provider here.
+func TestClientChat_TogetherProvider(t *testing.T) {
+	t.Parallel()
+
+	provider, err := hfproviders.NewTogetherProvider(hfproviders.NewStaticModelResolver(nil))
+	require.NoError(t, err)
+
+	text := "hi"
+	request := hftypes.ChatRequest{
+		Messages: []hftypes.ChatMessage{
+			{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
+		},
+	}
+
+	const model = "deepseek-ai/DeepSeek-V4.1-Flash"
+
+	newClient := func(mt *testutils.MockTransport) Client {
+		return NewClient(
+			hfopts.WithHTTPClientFactory(
+				func() http.Client { return testutils.NewMockHTTPClient(mt) },
+			),
+			hfopts.WithModel(model),
+			hfopts.WithProvider(provider),
+		)
+	}
+
+	t.Run("appends the provider suffix to the wire model", func(t *testing.T) {
+		t.Parallel()
+
+		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+		client := newClient(mt)
+
+		_, err := client.Chat(request)
+		require.NoError(t, err)
+
+		require.NotNil(t, mt.LastRequest)
+		require.Equal(t, "/v1/chat/completions", mt.LastRequest.URL.Path)
+
+		got := testutils.ReadRequestBody(t, mt)
+		require.Equal(t, model+":together", got["model"])
+	})
+
+	t.Run("keeps a request model that already carries a suffix", func(t *testing.T) {
+		t.Parallel()
+
+		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+		client := newClient(mt)
+
+		req := request
+		req.Model = new(model + ":fastest")
+		_, err := client.Chat(req)
+		require.NoError(t, err)
+
+		got := testutils.ReadRequestBody(t, mt)
+		require.Equal(t, model+":fastest", got["model"])
+	})
+
+	t.Run("flattens a json_schema response_format", func(t *testing.T) {
+		t.Parallel()
+
+		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+		client := newClient(mt)
+
+		req := request
+		req.ResponseFormat = &hftypes.ChatResponseFormat{
+			Type: hftypes.ResponseFormatTypeJSONSchema,
+			JSONSchema: &hftypes.ChatJSONSchemaConfig{
+				Name:   "answer",
+				Strict: new(true),
+				Schema: json.RawMessage(`{"type":"object"}`),
+			},
+		}
+
+		_, err := client.Chat(req)
+		require.NoError(t, err)
+
+		got := testutils.ReadRequestBody(t, mt)
+		require.Equal(t,
+			map[string]any{"type": "json_schema", "schema": map[string]any{"type": "object"}},
+			got["response_format"],
+		)
 	})
 }
 
