@@ -5,7 +5,7 @@ Hugging Face router. Novita serves OpenAI-compatible chat completion for both
 conversational LLMs and vision-language models, so the provider reuses the
 default Hugging Face chat endpoint and codecs and changes only the routing:
 the router receives the model ID with the `:novita` suffix appended (e.g.
-`zai-org/GLM-5.2:novita`).
+`openai/gpt-oss-120b:novita`).
 
 This page covers only what is specific to Novita; the provider layer's design
 is documented in
@@ -48,7 +48,7 @@ model already carries an explicit suffix, so
 ```go
 client := hfgo.NewClient(
 	hfopts.WithToken(os.Getenv("HF_TOKEN")),
-	hfopts.WithModel("zai-org/GLM-5.2"),
+	hfopts.WithModel("openai/gpt-oss-120b"),
 	hfopts.WithProvider(hfproviders.NewNovitaProvider()),
 )
 
@@ -62,7 +62,7 @@ response, err := client.Chat(hftypes.ChatRequest{
 })
 ```
 
-sends `"model": "zai-org/GLM-5.2:novita"` on the wire.
+sends `"model": "openai/gpt-oss-120b:novita"` on the wire.
 
 The `:novita` suffix is a provider pin, not a preference: the router routes
 to Novita deterministically. Hugging Face's automatic failover — which
@@ -73,7 +73,7 @@ the model or task, the router returns an error such as
 on another provider.
 
 A request model that already carries a suffix is passed through as-is, which
-opts out of the pin. Pass e.g. `zai-org/GLM-5.2:preferred` as the
+opts out of the pin. Pass e.g. `openai/gpt-oss-120b:preferred` as the
 request model to let the router select (and fail over between) providers
 instead. See the
 [Inference Providers docs](https://huggingface.co/docs/inference-providers/main/en/index)
