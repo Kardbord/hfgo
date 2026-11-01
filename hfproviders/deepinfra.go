@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"maps"
 	"mime/multipart"
 	"net/http"
@@ -338,7 +339,8 @@ func (c deepinfraSpeechRecognitionCodec) Encode(
 	// provider model, matching the official clients.
 	fields["model"] = mapping.ProviderModelID
 
-	body, contentType, err := deepInfraMultipartBody(audio, sniffed, fields)
+	var bodyBuf bytes.Buffer
+	contentType, err := deepInfraMultipartBodyTo(&bodyBuf, audio, sniffed, fields)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -347,7 +349,7 @@ func (c deepinfraSpeechRecognitionCodec) Encode(
 	headers.Set("Content-Type", contentType)
 	headers.Set("Accept", mimeTypeJSON)
 
-	return body, headers, nil
+	return bodyBuf.Bytes(), headers, nil
 }
 
 func (c deepinfraSpeechRecognitionCodec) Decode(
@@ -642,17 +644,22 @@ func deepInfraFloatFormFieldValue(value any) (string, bool) {
 	return "", false
 }
 
-// deepInfraMultipartBody builds the transcription endpoint's multipart body:
-// the audio rides on the "file" part — its Content-Type set to the sniffed
-// media type and its filename derived from it — followed by the remaining
-// form fields in sorted key order, matching the official clients' layout.
-func deepInfraMultipartBody(
+// deepInfraMultipartBodyTo writes the transcription endpoint's multipart body
+// to dst: the audio rides on the "file" part — its Content-Type set to the
+// sniffed media type and its filename derived from it — followed by the
+// remaining form fields in sorted key order, matching the official clients'
+// layout. It returns the body's Content-Type header value.
+//
+// dst exists purely as a test seam: production callers pass an in-memory
+// buffer whose writes cannot fail, while tests pass a failing writer to
+// exercise the defensive write-failure branches below.
+func deepInfraMultipartBodyTo(
+	dst io.Writer,
 	audio []byte,
 	mimeType string,
 	fields map[string]string,
-) (body []byte, contentType string, err error) {
-	var buf bytes.Buffer
-	writer := multipart.NewWriter(&buf)
+) (contentType string, err error) {
+	writer := multipart.NewWriter(dst)
 
 	partHeader := textproto.MIMEHeader{}
 	partHeader.Set(
@@ -665,14 +672,14 @@ func deepInfraMultipartBody(
 	partHeader.Set("Content-Type", mimeType)
 	part, err := writer.CreatePart(partHeader)
 	if err != nil {
-		return nil, "", &hferrors.SDKError{
+		return "", &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindSerialization,
 			Message: errFailedToMarshalRequestBody,
 			Err:     err,
 		}
 	}
 	if _, err := part.Write(audio); err != nil {
-		return nil, "", &hferrors.SDKError{
+		return "", &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindSerialization,
 			Message: errFailedToMarshalRequestBody,
 			Err:     err,
@@ -681,7 +688,7 @@ func deepInfraMultipartBody(
 
 	for _, key := range slices.Sorted(maps.Keys(fields)) {
 		if err := writer.WriteField(key, fields[key]); err != nil {
-			return nil, "", &hferrors.SDKError{
+			return "", &hferrors.SDKError{
 				Kind:    hferrors.SDKErrorKindSerialization,
 				Message: errFailedToMarshalRequestBody,
 				Err:     err,
@@ -690,14 +697,14 @@ func deepInfraMultipartBody(
 	}
 
 	if err := writer.Close(); err != nil {
-		return nil, "", &hferrors.SDKError{
+		return "", &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindSerialization,
 			Message: errFailedToMarshalRequestBody,
 			Err:     err,
 		}
 	}
 
-	return buf.Bytes(), writer.FormDataContentType(), nil
+	return writer.FormDataContentType(), nil
 }
 
 // deepinfraFeatureExtractionCodec is a [Codec] for the pooled output of the

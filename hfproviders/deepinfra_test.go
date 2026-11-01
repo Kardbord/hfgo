@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime"
@@ -599,6 +600,38 @@ func TestDeepInfraSpeechRecognitionCodec_Encode(t *testing.T) {
 		require.Equal(t, "audio/flac", file.contentType)
 	})
 
+	t.Run("unmarshalable provider parameter fails", func(t *testing.T) {
+		t.Parallel()
+
+		_, _, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
+			Context: context.Background(),
+			Request: hftypes.SpeechRecognitionRequest{
+				Input:          base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
+				ProviderParams: map[string]any{"bad": make(chan int)},
+			},
+			Model: deepInfraASRModel,
+		})
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+	})
+
+	t.Run("nil provider parameters are skipped", func(t *testing.T) {
+		t.Parallel()
+
+		body, headers, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
+			Context: context.Background(),
+			Request: hftypes.SpeechRecognitionRequest{
+				Input:          base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
+				ProviderParams: map[string]any{"ignored": nil},
+			},
+			Model: deepInfraASRModel,
+		})
+		require.NoError(t, err)
+
+		// Only the file part and the model field survive the nil skip.
+		parts := deepInfraParseMultipart(t, headers.Get("Content-Type"), body)
+		require.Len(t, parts, 2)
+	})
+
 	t.Run("invalid base64 input fails", func(t *testing.T) {
 		t.Parallel()
 
@@ -941,6 +974,39 @@ func TestDeepInfraFeatureExtractionCodec_Encode(t *testing.T) {
 		)
 	})
 
+	t.Run("unmarshalable provider parameter fails", func(t *testing.T) {
+		t.Parallel()
+
+		_, _, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
+			Context: context.Background(),
+			Request: hftypes.FeatureExtractionRequest{
+				Input:          "hello",
+				ProviderParams: map[string]any{"bad": make(chan int)},
+			},
+			Model: deepInfraEmbedModel,
+		})
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+	})
+
+	t.Run("nil provider parameters are skipped", func(t *testing.T) {
+		t.Parallel()
+
+		body, _, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
+			Context: context.Background(),
+			Request: hftypes.FeatureExtractionRequest{
+				Input:          "hello",
+				ProviderParams: map[string]any{"ignored": nil},
+			},
+			Model: deepInfraEmbedModel,
+		})
+		require.NoError(t, err)
+		require.JSONEq(
+			t,
+			`{"input":"hello","model":"BAAI/bge-base-en-v1.5"}`,
+			string(body),
+		)
+	})
+
 	t.Run("missing mapping and resolver fails", func(t *testing.T) {
 		t.Parallel()
 
@@ -1132,4 +1198,193 @@ func TestDeepInfraProvider_Tasks(t *testing.T) {
 
 	_, err = AsProvider[FeatureExtractionPooledBatchProvider](provider)
 	require.NoError(t, err)
+}
+
+func TestDeepInfraFormFieldValue(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name  string
+		value any
+		want  string
+	}{
+		{name: "string passes through", value: "beam", want: "beam"},
+		{name: "bool true", value: true, want: "true"},
+		{name: "bool false", value: false, want: "false"},
+		{name: "int", value: 5, want: "5"},
+		{name: "negative int", value: -7, want: "-7"},
+		{name: "int8", value: int8(-8), want: "-8"},
+		{name: "int16", value: int16(-16), want: "-16"},
+		{name: "int32", value: int32(-32), want: "-32"},
+		{name: "int64", value: int64(-64), want: "-64"},
+		{name: "uint", value: uint(7), want: "7"},
+		{name: "uint8", value: uint8(8), want: "8"},
+		{name: "uint16", value: uint16(16), want: "16"},
+		{name: "uint32", value: uint32(32), want: "32"},
+		{name: "uint64", value: uint64(64), want: "64"},
+		{name: "float32", value: float32(1.5), want: "1.5"},
+		{name: "float64", value: 0.25, want: "0.25"},
+		{name: "json number", value: json.Number("3.14"), want: "3.14"},
+		{name: "map JSON-encodes", value: map[string]any{"a": 1}, want: `{"a":1}`},
+		{name: "slice JSON-encodes", value: []int{1, 2}, want: "[1,2]"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := deepInfraFormFieldValue(tc.value)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
+		})
+	}
+
+	t.Run("unmarshalable value fails", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := deepInfraFormFieldValue(make(chan int))
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+	})
+}
+
+// deepInfraFailingResolver resolves nothing and always fails, emulating a
+// resolver outage that endpoints and codecs must propagate.
+type deepInfraFailingResolver struct{}
+
+// ResolveModel implements [ModelResolver].
+func (deepInfraFailingResolver) ResolveModel(
+	context.Context,
+	ResolveModelParams,
+) (ModelMapping, error) {
+	return ModelMapping{}, errors.New("resolver outage")
+}
+
+// TestDeepInfraEndpoint_ResolverErrorsPropagate pins that a resolver error
+// (not just a nil resolver) surfaces from the endpoint methods.
+func TestDeepInfraEndpoint_ResolverErrorsPropagate(t *testing.T) {
+	t.Parallel()
+
+	provider, err := NewDeepInfraProvider(deepInfraFailingResolver{})
+	require.NoError(t, err)
+
+	speech, err := AsProvider[SpeechRecognitionProvider](provider)
+	require.NoError(t, err)
+
+	_, err = speech.SpeechRecognitionEndpoint(EndpointParams{
+		Context: context.Background(),
+		Model:   deepInfraASRModel,
+	})
+	require.ErrorContains(t, err, "resolver outage")
+
+	feature, err := AsProvider[FeatureExtractionPooledProvider](provider)
+	require.NoError(t, err)
+
+	_, err = feature.FeatureExtractionEndpoint(EndpointParams{
+		Context: context.Background(),
+		Model:   deepInfraEmbedModel,
+	})
+	require.ErrorContains(t, err, "resolver outage")
+
+	batch, err := AsProvider[FeatureExtractionPooledBatchProvider](provider)
+	require.NoError(t, err)
+
+	_, err = batch.FeatureExtractionBatchEndpoint(EndpointParams{
+		Context: context.Background(),
+		Model:   deepInfraEmbedModel,
+	})
+	require.ErrorContains(t, err, "resolver outage")
+}
+
+// TestDeepInfraCodec_ResolverErrorsPropagate pins that a resolver error
+// surfaces from the codecs when used standalone (no mapping supplied).
+func TestDeepInfraCodec_ResolverErrorsPropagate(t *testing.T) {
+	t.Parallel()
+
+	provider, err := NewDeepInfraProvider(deepInfraFailingResolver{})
+	require.NoError(t, err)
+
+	_, _, err = provider.SpeechRecognitionCodec().Encode(
+		EncodeParams[hftypes.SpeechRecognitionRequest]{
+			Context: context.Background(),
+			Request: hftypes.SpeechRecognitionRequest{
+				Input: base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
+			},
+			Model: deepInfraASRModel,
+		})
+	require.ErrorContains(t, err, "resolver outage")
+
+	_, _, err = provider.FeatureExtractionPooledCodec().Encode(
+		EncodeParams[hftypes.FeatureExtractionRequest]{
+			Context: context.Background(),
+			Request: hftypes.FeatureExtractionRequest{Input: "hello"},
+			Model:   deepInfraEmbedModel,
+		})
+	require.ErrorContains(t, err, "resolver outage")
+}
+
+// TestDeepInfraTranscriptionMetadata_UndecodableValue exercises the
+// metadata decoder's defensive error branch directly: a field value that is
+// not valid JSON fails with a serialization error. The full Decode path
+// cannot produce such a body (the envelope already parsed as valid JSON),
+// so the test crafts the field map by hand.
+func TestDeepInfraTranscriptionMetadata_UndecodableValue(t *testing.T) {
+	t.Parallel()
+
+	metadata, err := deepInfraTranscriptionMetadata(map[string]json.RawMessage{
+		"text":  json.RawMessage(`"hi"`),
+		"usage": json.RawMessage(`{"prompt_seconds":`),
+	})
+	require.Nil(t, metadata)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+}
+
+// deepInfraFailWriter fails the Nth Write call (and every later one),
+// emulating a destination writer that breaks mid-exchange.
+type deepInfraFailWriter struct {
+	failOn int
+	writes int
+}
+
+func (w *deepInfraFailWriter) Write(p []byte) (int, error) {
+	w.writes++
+	if w.writes == w.failOn {
+		return 0, errors.New("injected write failure")
+	}
+
+	return len(p), nil
+}
+
+// TestDeepInfraMultipartBodyTo_WriteFailures exercises the multipart
+// builder's defensive write-failure branches by failing the destination
+// writer at every call index of the exchange. Failing each stage in turn
+// covers the CreatePart, part-write, field-write, and close error branches
+// without depending on how the stdlib chunks its writes; a failure point
+// past the final write leaves the body intact.
+func TestDeepInfraMultipartBodyTo_WriteFailures(t *testing.T) {
+	t.Parallel()
+
+	fields := map[string]string{
+		"return_timestamps": "true",
+		"model":             deepInfraASRModel,
+	}
+
+	for failOn := 1; failOn <= 16; failOn++ {
+		writer := &deepInfraFailWriter{failOn: failOn}
+		_, err := deepInfraMultipartBodyTo(
+			writer,
+			[]byte(deepInfraWAVAudio),
+			"audio/wave",
+			fields,
+		)
+
+		if writer.writes < failOn {
+			require.NoError(t, err, "failure point %d is past the final write", failOn)
+
+			continue
+		}
+
+		require.Error(t, err, "failure point %d must surface", failOn)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		require.ErrorContains(t, err, errFailedToMarshalRequestBody)
+	}
 }
