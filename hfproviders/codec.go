@@ -31,6 +31,8 @@ const (
 	// JSON object map.
 	errFailedToFlattenInferenceParameters = "failed to flatten inference parameters"
 	mimeTypeJSON                          = "application/json"
+	mimeTypeAny                           = "*/*"
+	mimeTypeFLAC                          = "audio/flac"
 )
 
 // EncodeParams carries the inputs to [Codec.Encode].

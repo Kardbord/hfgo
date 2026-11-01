@@ -573,58 +573,21 @@ func wavespeedPollWait(ctx context.Context, d time.Duration) error {
 // wavespeedPollOnce issues one poll request and classifies the result. data is
 // non-nil when the task reached a terminal status; retryAfter is a
 // server-provided wait override for the next round; any error stops polling.
+// The exchange shape is shared with the other queue providers (see
+// [queuePollOnce]).
 func wavespeedPollOnce(
 	ctx context.Context,
 	params PostSubmitParams,
 	pollParams request.Params,
 	resultPath string,
 ) (*wavespeedTaskData, time.Duration, error) {
-	//nolint:bodyclose // Drained and closed on transient and success branches;
-	// non-transient 4xx/5xx errors transfer the body to the returned APIError,
-	// which the caller must close per the APIError contract.
-	resp, err := request.DoRaw(ctx, pollParams, http.MethodGet, resultPath, nil)
-	if err != nil {
-		// Transport-level failures (dropped connections, timeouts) are
-		// transient: keep polling until the context expires, per the
-		// provider's documented polling behavior. Context cancellation and
-		// deadline expiry are not transient: they must surface immediately.
-		if wavespeedIsContextError(err) {
-			return nil, 0, err
-		}
-
-		return nil, 0, nil
-	}
-
-	if wavespeedTransientStatus(resp.StatusCode) {
-		override := wavespeedRetryAfter(resp.Header)
-		request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
-
-		return nil, override, nil
-	}
-	// Non-transient error: transfer the open body to the returned APIError so
-	// the caller can inspect it per the APIError contract.
-	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, 0, request.APIErrorFromResponse(resp, http.MethodGet)
-	}
-
-	body, readErr := request.ReadResponseBody(resp, params.MaxResponseBodyBytes)
-	request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
-	if readErr != nil {
-		return nil, 0, readErr
-	}
-
-	data, decodeErr := wavespeedDecodeTaskData(body)
-	if decodeErr != nil {
-		return nil, 0, decodeErr
-	}
-
-	out, done, terminalErr := wavespeedTerminalStatus(&data)
-	if done {
-		return out, 0, terminalErr
-	}
-
-	// Still running: keep polling on the regular schedule.
-	return nil, 0, nil
+	return queuePollOnce(ctx, params, pollParams, resultPath, queueExchange[wavespeedTaskData]{
+		isContextError:  wavespeedIsContextError,
+		transientStatus: wavespeedTransientStatus,
+		retryAfter:      wavespeedRetryAfter,
+		decode:          wavespeedDecodeTaskData,
+		terminal:        wavespeedTerminalStatus,
+	})
 }
 
 // wavespeedIsContextError reports whether err is (or wraps) a context
@@ -810,7 +773,7 @@ func wavespeedDownloadOutput(
 		},
 		http.MethodGet,
 		outputURL,
-		http.Header{"Accept": {"*/*"}},
+		http.Header{"Accept": {mimeTypeAny}},
 		http.NoBody,
 	)
 	if err != nil {
@@ -907,7 +870,7 @@ func wavespeedInjectAdapterLoras(
 func wavespeedEncodeHeaders() http.Header {
 	headers := http.Header{}
 	headers.Set("Content-Type", mimeTypeJSON)
-	headers.Set("Accept", "*/*")
+	headers.Set("Accept", mimeTypeAny)
 
 	return headers
 }

@@ -1148,6 +1148,8 @@ func TestWavespeedPostSubmit_TransientPollErrors(t *testing.T) {
 
 // TestWavespeedPostSubmit_FailedStatus exercises the terminal-failure path: a
 // failed task stops polling and surfaces the provider's error message.
+//
+//nolint:dupl // Mirrors the parallel queue-provider suites; sharing a helper would couple the providers' fixtures.
 func TestWavespeedPostSubmit_FailedStatus(t *testing.T) {
 	t.Parallel()
 
@@ -1850,6 +1852,8 @@ func TestWavespeedPostSubmit_ForeignResultURLCannotRedirect(t *testing.T) {
 
 // TestWavespeedRetryAfter exercises the Retry-After parser: seconds are
 // honored, garbage is ignored, and the cap bounds pathological values.
+//
+//nolint:dupl // Mirrors the parallel queue-provider suites; sharing a helper would couple the providers' fixtures.
 func TestWavespeedRetryAfter(t *testing.T) {
 	t.Parallel()
 

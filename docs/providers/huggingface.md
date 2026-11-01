@@ -68,6 +68,8 @@ pattern and its trade-offs.
 - [Nscale provider](./nscale.md) — chat completions pinned via the router's
   `:nscale` suffix plus resolver-backed text-to-image through Nscale's
   OpenAI-compatible images endpoint.
+- [Replicate provider](./replicate.md) — media and speech generation tasks
+  through Replicate's prediction API.
 - [Baseten provider](./baseten.md) — chat completions pinned to Baseten through
   the router's `:baseten` suffix.
 - [Cerebras provider](./cerebras.md) — chat completions pinned to Cerebras

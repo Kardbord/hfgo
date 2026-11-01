@@ -790,58 +790,33 @@ func falaiPollWait(ctx context.Context, d time.Duration) error {
 // falaiPollOnce issues one status request and classifies the result. state
 // is non-nil when the task reached a terminal status; retryAfter is a
 // server-provided wait override for the next round; any error stops polling.
+// The exchange shape is shared with the other queue providers (see
+// [queuePollOnce]).
 func falaiPollOnce(
 	ctx context.Context,
 	params PostSubmitParams,
 	pollParams request.Params,
 	statusPath string,
 ) (*falaiTaskState, time.Duration, error) {
-	//nolint:bodyclose // Drained and closed on transient and success branches;
-	// non-transient 4xx/5xx errors transfer the body to the returned APIError,
-	// which the caller must close per the APIError contract.
-	resp, err := request.DoRaw(ctx, pollParams, http.MethodGet, statusPath, nil)
-	if err != nil {
-		// Transport-level failures (dropped connections, timeouts) are
-		// transient: keep polling until the context expires, per the
-		// provider's documented polling behavior. Context cancellation and
-		// deadline expiry are not transient: they must surface immediately.
-		if falaiIsContextError(err) {
-			return nil, 0, err
-		}
+	return queuePollOnce(ctx, params, pollParams, statusPath, queueExchange[falaiTaskState]{
+		isContextError:  falaiIsContextError,
+		transientStatus: falaiTransientStatus,
+		retryAfter:      falaiRetryAfter,
+		decode:          falaiDecodeTaskState,
+		// falaiClassifyTask's two-value shape adapts to the shared
+		// exchange's three-value terminal predicate.
+		terminal: func(state *falaiTaskState) (*falaiTaskState, bool, error) {
+			done, taskErr := falaiClassifyTask(state)
+			if !done {
+				return nil, false, nil
+			}
+			if taskErr != nil {
+				return nil, true, taskErr
+			}
 
-		return nil, 0, nil
-	}
-
-	if falaiTransientStatus(resp.StatusCode) {
-		override := falaiRetryAfter(resp.Header)
-		request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
-
-		return nil, override, nil
-	}
-	// Non-transient error: transfer the open body to the returned APIError so
-	// the caller can inspect it per the APIError contract.
-	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, 0, request.APIErrorFromResponse(resp, http.MethodGet)
-	}
-
-	body, readErr := request.ReadResponseBody(resp, params.MaxResponseBodyBytes)
-	request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
-	if readErr != nil {
-		return nil, 0, readErr
-	}
-
-	state, decodeErr := falaiDecodeTaskState(body)
-	if decodeErr != nil {
-		return nil, 0, decodeErr
-	}
-
-	done, taskErr := falaiClassifyTask(&state)
-	if done {
-		return &state, 0, taskErr
-	}
-
-	// Still queued or running: keep polling on the regular schedule.
-	return nil, 0, nil
+			return state, true, nil
+		},
+	})
 }
 
 // falaiIsContextError reports whether err is (or wraps) a context
@@ -976,7 +951,7 @@ func falaiDownloadOutput(
 		},
 		http.MethodGet,
 		outputURL,
-		http.Header{falaiAcceptKey: {"*/*"}},
+		http.Header{falaiAcceptKey: {mimeTypeAny}},
 		http.NoBody,
 	)
 	if err != nil {
