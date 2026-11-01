@@ -189,6 +189,17 @@ follow the standard naming scheme:
 | -------------------- | ------------------------------------ |
 | [Chat](./groq/chat)  | `basic`, `streaming`, `conversation` |
 
+### Novita
+
+The [Novita provider](../docs/providers/novita.md) pins chat completions to
+Novita: the chat endpoint and codecs are the default provider's, and the
+provider appends the router's `:novita` suffix to the model. Its variants
+follow the standard naming scheme:
+
+| Task                   | Variants                             |
+| ---------------------- | ------------------------------------ |
+| [Chat](./novita/chat)  | `basic`, `streaming`, `conversation` |
+
 ### OVHcloud AI Endpoints
 
 The [OVHcloud provider](../docs/providers/ovhcloud.md) pins chat completions
