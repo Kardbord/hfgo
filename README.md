@@ -148,6 +148,8 @@ Partner providers have their own examples:
 - [Nscale](./examples/nscale) — chat completions (unary, streaming, and
   multi-turn conversation) plus text-to-image (Hub and static resolvers)
   through Nscale.
+- [Scaleway](./examples/scaleway) — chat completions (unary, streaming, and
+  multi-turn conversation) plus pooled feature extraction through Scaleway.
 - [Baseten](./examples/baseten) — chat completions (unary, streaming, and
   multi-turn conversation) pinned to Baseten.
 - [Cerebras](./examples/cerebras) — chat completions (unary, streaming, and
@@ -266,6 +268,9 @@ Built-in providers have their own guides:
 - [Nscale provider](./docs/providers/nscale.md) — chat completions pinned via
   the router's `:nscale` suffix plus text-to-image through Nscale's
   OpenAI-compatible images endpoint.
+- [Scaleway provider](./docs/providers/scaleway.md) — chat completions
+  pinned via the router's `:scaleway` suffix plus pooled feature extraction
+  through Scaleway's OpenAI-compatible embeddings endpoint.
 
 Advanced users who want custom providers should implement the `Provider` interface
 plus the per-task interfaces you want to support, as shown by the `EchoProvider`

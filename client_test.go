@@ -187,18 +187,15 @@ func TestClientChat_ChatOnlyProviderSuffixes(t *testing.T) {
 	}
 }
 
-// TestClientChat_DeepInfraProviderSuffix pins the DeepInfra provider's chat
-// routing: like the chat-only partner providers, it appends its model-string
-// suffix on the wire unless the request model already carries one. The
-// provider's pipeline tasks need a resolver, so a static (never consulted by
-// chat) resolver backs the provider here.
-//
-//nolint:dupl // Provider-suffix tests intentionally mirror each other; each provider documents its own pin behavior.
-func TestClientChat_DeepInfraProviderSuffix(t *testing.T) {
-	t.Parallel()
+// assertClientChatProviderSuffixPin pins a resolver-backed partner provider's
+// chat routing: like the chat-only partner providers, it appends its
+// model-string suffix on the wire unless the request model already carries
+// one. The provider's pipeline tasks need a resolver, so a static (never
+// consulted by chat) resolver backs the provider in the tests below.
+func assertClientChatProviderSuffixPin(t *testing.T, provider hfproviders.Provider, slug string) {
+	t.Helper()
 
-	provider, err := hfproviders.NewDeepInfraProvider(hfproviders.NewStaticModelResolver(nil))
-	require.NoError(t, err)
+	const model = "openai/gpt-oss-120b"
 
 	text := "hi"
 	request := hftypes.ChatRequest{
@@ -206,8 +203,6 @@ func TestClientChat_DeepInfraProviderSuffix(t *testing.T) {
 			{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
 		},
 	}
-
-	const model = "openai/gpt-oss-120b"
 
 	t.Run("appends the provider suffix to the wire model", func(t *testing.T) {
 		t.Parallel()
@@ -228,7 +223,7 @@ func TestClientChat_DeepInfraProviderSuffix(t *testing.T) {
 		require.Equal(t, "/v1/chat/completions", mt.LastRequest.URL.Path)
 
 		got := testutils.ReadRequestBody(t, mt)
-		require.Equal(t, model+":deepinfra", got["model"])
+		require.Equal(t, model+":"+slug, got["model"])
 	})
 
 	t.Run("keeps a request model that already carries a suffix", func(t *testing.T) {
@@ -251,6 +246,28 @@ func TestClientChat_DeepInfraProviderSuffix(t *testing.T) {
 		got := testutils.ReadRequestBody(t, mt)
 		require.Equal(t, model+":fastest", got["model"])
 	})
+}
+
+// TestClientChat_DeepInfraProviderSuffix pins the DeepInfra provider's chat
+// routing through the shared suffix-pin assertions.
+func TestClientChat_DeepInfraProviderSuffix(t *testing.T) {
+	t.Parallel()
+
+	provider, err := hfproviders.NewDeepInfraProvider(hfproviders.NewStaticModelResolver(nil))
+	require.NoError(t, err)
+
+	assertClientChatProviderSuffixPin(t, provider, "deepinfra")
+}
+
+// TestClientChat_ScalewayProviderSuffix pins the Scaleway provider's chat
+// routing through the shared suffix-pin assertions.
+func TestClientChat_ScalewayProviderSuffix(t *testing.T) {
+	t.Parallel()
+
+	provider, err := hfproviders.NewScalewayProvider(hfproviders.NewStaticModelResolver(nil))
+	require.NoError(t, err)
+
+	assertClientChatProviderSuffixPin(t, provider, "scaleway")
 }
 
 // TestClientChat_TogetherProvider pins the Together provider's chat wire
@@ -340,69 +357,14 @@ func TestClientChat_TogetherProvider(t *testing.T) {
 }
 
 // TestClientChat_NscaleProviderSuffix pins the Nscale provider's chat
-// routing: like the chat-only partner providers, it appends its model-string
-// suffix on the wire unless the request model already carries one. The
-// provider's text-to-image task needs a resolver, so a static (never
-// consulted by chat) resolver backs the provider here.
-//
-//nolint:dupl // Provider-suffix tests intentionally mirror each other; each provider documents its own pin behavior.
+// routing through the shared suffix-pin assertions.
 func TestClientChat_NscaleProviderSuffix(t *testing.T) {
 	t.Parallel()
 
 	provider, err := hfproviders.NewNscaleProvider(hfproviders.NewStaticModelResolver(nil))
 	require.NoError(t, err)
 
-	text := "hi"
-	request := hftypes.ChatRequest{
-		Messages: []hftypes.ChatMessage{
-			{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
-		},
-	}
-
-	const model = "meta-llama/Llama-3.1-8B-Instruct"
-
-	t.Run("appends the provider suffix to the wire model", func(t *testing.T) {
-		t.Parallel()
-
-		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
-		client := NewClient(
-			hfopts.WithHTTPClientFactory(
-				func() http.Client { return testutils.NewMockHTTPClient(mt) },
-			),
-			hfopts.WithModel(model),
-			hfopts.WithProvider(provider),
-		)
-
-		_, err := client.Chat(request)
-		require.NoError(t, err)
-
-		require.NotNil(t, mt.LastRequest)
-		require.Equal(t, "/v1/chat/completions", mt.LastRequest.URL.Path)
-
-		got := testutils.ReadRequestBody(t, mt)
-		require.Equal(t, model+":nscale", got["model"])
-	})
-
-	t.Run("keeps a request model that already carries a suffix", func(t *testing.T) {
-		t.Parallel()
-
-		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
-		client := NewClient(
-			hfopts.WithHTTPClientFactory(
-				func() http.Client { return testutils.NewMockHTTPClient(mt) },
-			),
-			hfopts.WithModel(model),
-			hfopts.WithProvider(provider),
-		)
-
-		req := request
-		req.Model = new(model + ":fastest")
-		_, err := client.Chat(req)
-		require.NoError(t, err)
-
-		got := testutils.ReadRequestBody(t, mt)
-		require.Equal(t, model+":fastest", got["model"])
-	})
+	assertClientChatProviderSuffixPin(t, provider, "nscale")
 }
 
 func TestClientChat_MissingModel(t *testing.T) {

@@ -206,44 +206,12 @@ func TestNscaleProvider_Contract(t *testing.T) {
 	}
 }
 
-//nolint:dupl // Chat-endpoint tests intentionally mirror each other; each provider documents its own endpoint wiring.
 func TestNscaleProvider_ChatEndpoint(t *testing.T) {
 	t.Parallel()
 
 	provider := newNscaleProvider(t)
 
-	chat, err := AsProvider[ChatProvider](provider)
-	require.NoError(t, err)
-	stream, err := AsProvider[ChatStreamProvider](provider)
-	require.NoError(t, err)
-
-	// Chat routes through the fixed OpenAI-compatible path, model-in-body:
-	// an empty Model is legal and no mapping is attached.
-	endpoint, err := chat.ChatEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "meta-llama/Llama-3.1-8B-Instruct:nscale",
-	})
-	require.NoError(t, err)
-	require.Equal(t, http.MethodPost, endpoint.Method)
-	require.Equal(t, "v1/chat/completions", endpoint.Path)
-	require.Nil(t, endpoint.Mapping)
-
-	endpoint, err = chat.ChatEndpoint(EndpointParams{Context: context.Background()})
-	require.NoError(t, err)
-	require.Equal(t, "v1/chat/completions", endpoint.Path)
-
-	// Codec wiring: the built-in JSON codecs, pinning that chat reuses the
-	// default OpenAI-compatible wire format.
-	require.IsType(
-		t,
-		JSONCodec[hftypes.ChatRequest, hftypes.ChatResponse]{},
-		chat.ChatCodec(),
-	)
-	require.IsType(
-		t,
-		JSONCodec[hftypes.ChatRequest, hftypes.ChatStreamResponse]{},
-		stream.ChatStreamCodec(),
-	)
+	requireOpenAIChatPartnerEndpoint(t, provider, "nscale")
 }
 
 func TestNscaleProvider_TextToImageEndpoint(t *testing.T) {

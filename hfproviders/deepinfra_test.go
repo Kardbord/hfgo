@@ -220,7 +220,7 @@ func TestDeepInfraProvider_Contract(t *testing.T) {
 
 	provider := newDeepInfraProvider(t)
 
-	for _, served := range []func(Provider) error{
+	requireServedTaskInterfaces(t, provider, []func(Provider) error{
 		func(p Provider) error {
 			_, err := AsProvider[ChatProvider](p)
 
@@ -246,14 +246,9 @@ func TestDeepInfraProvider_Contract(t *testing.T) {
 
 			return err
 		},
-	} {
-		require.NoError(t, served(provider))
-	}
+	})
 
-	for _, missing := range []struct {
-		typeName string
-		cast     func(Provider) error
-	}{
+	requireMissingTaskInterfaces(t, provider, "deepinfra", []taskCast{
 		{
 			typeName: "hfproviders.SummarizationProvider",
 			cast: func(p Provider) error {
@@ -294,51 +289,15 @@ func TestDeepInfraProvider_Contract(t *testing.T) {
 				return err
 			},
 		},
-	} {
-		err := missing.cast(provider)
-		require.Error(t, err, "must not implement %s", missing.typeName)
-		require.ErrorContains(t, err, "deepinfra does not implement "+missing.typeName)
-	}
+	})
 }
 
-//nolint:dupl // Chat-endpoint tests intentionally mirror each other; each provider documents its own endpoint wiring.
 func TestDeepInfraProvider_ChatEndpoint(t *testing.T) {
 	t.Parallel()
 
 	provider := newDeepInfraProvider(t)
 
-	chat, err := AsProvider[ChatProvider](provider)
-	require.NoError(t, err)
-	stream, err := AsProvider[ChatStreamProvider](provider)
-	require.NoError(t, err)
-
-	// Chat routes through the fixed OpenAI-compatible path, model-in-body:
-	// an empty Model is legal and no mapping is attached.
-	endpoint, err := chat.ChatEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "zai-org/GLM-5.3:deepinfra",
-	})
-	require.NoError(t, err)
-	require.Equal(t, http.MethodPost, endpoint.Method)
-	require.Equal(t, "v1/chat/completions", endpoint.Path)
-	require.Nil(t, endpoint.Mapping)
-
-	endpoint, err = chat.ChatEndpoint(EndpointParams{Context: context.Background()})
-	require.NoError(t, err)
-	require.Equal(t, "v1/chat/completions", endpoint.Path)
-
-	// Codec wiring: the built-in JSON codecs, pinning that chat reuses the
-	// default OpenAI-compatible wire format.
-	require.IsType(
-		t,
-		JSONCodec[hftypes.ChatRequest, hftypes.ChatResponse]{},
-		chat.ChatCodec(),
-	)
-	require.IsType(
-		t,
-		JSONCodec[hftypes.ChatRequest, hftypes.ChatStreamResponse]{},
-		stream.ChatStreamCodec(),
-	)
+	requireOpenAIChatPartnerEndpoint(t, provider, "deepinfra")
 }
 
 func TestDeepInfraProvider_SpeechRecognitionEndpoint(t *testing.T) {
@@ -381,28 +340,13 @@ func TestDeepInfraProvider_FeatureExtractionEndpoints(t *testing.T) {
 	provider, err := NewDeepInfraProvider(resolver)
 	require.NoError(t, err)
 
-	pooled, err := AsProvider[FeatureExtractionPooledProvider](provider)
-	require.NoError(t, err)
-	batch, err := AsProvider[FeatureExtractionPooledBatchProvider](provider)
-	require.NoError(t, err)
-
-	endpoint, err := pooled.FeatureExtractionEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   deepInfraEmbedModel,
-	})
-	require.NoError(t, err)
-	require.Equal(t, http.MethodPost, endpoint.Method)
-	require.Equal(t, "deepinfra/v1/openai/embeddings", endpoint.Path)
-	require.Equal(t, "BAAI/bge-base-en-v1.5", endpoint.Mapping.ProviderModelID)
-
-	endpoint, err = batch.FeatureExtractionBatchEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   deepInfraEmbedModel,
-	})
-	require.NoError(t, err)
-	require.Equal(t, http.MethodPost, endpoint.Method)
-	require.Equal(t, "deepinfra/v1/openai/embeddings", endpoint.Path)
-	require.Equal(t, "BAAI/bge-base-en-v1.5", endpoint.Mapping.ProviderModelID)
+	requireOpenAIEmbeddingsEndpoints(
+		t,
+		provider,
+		deepInfraEmbedModel,
+		"deepinfra/v1/openai/embeddings",
+		"BAAI/bge-base-en-v1.5",
+	)
 
 	require.Equal(t, ResolveModelParams{
 		Provider: "deepinfra",
@@ -851,137 +795,18 @@ func TestDeepInfraFeatureExtractionCodec_Encode(t *testing.T) {
 	t.Parallel()
 
 	provider := newDeepInfraProvider(t)
-	codec := provider.FeatureExtractionPooledCodec()
 
-	t.Run("openai-style payload", func(t *testing.T) {
-		t.Parallel()
-
-		body, headers, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Request: hftypes.FeatureExtractionRequest{
-				Input: "What is the capital of France?",
-			},
-			Model: deepInfraEmbedModel,
-		})
-		require.NoError(t, err)
-		require.Equal(t, "application/json", headers.Get("Content-Type"))
-		require.Equal(t, "application/json", headers.Get("Accept"))
-		require.JSONEq(
-			t,
-			`{"input":"What is the capital of France?","model":"BAAI/bge-base-en-v1.5"}`,
-			string(body),
-		)
-	})
-
-	t.Run("provider parameters merge and cannot override the model", func(t *testing.T) {
-		t.Parallel()
-
-		body, _, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Request: hftypes.FeatureExtractionRequest{
-				Input: "hello",
-				ProviderParams: map[string]any{
-					"dimensions":      256,
-					"encoding_format": "float",
-					"model":           "attacker-model",
-				},
-			},
-			Model: deepInfraEmbedModel,
-		})
-		require.NoError(t, err)
-		require.JSONEq(
-			t,
-			`{"input":"hello","dimensions":256,"encoding_format":"float","model":"BAAI/bge-base-en-v1.5"}`,
-			string(body),
-		)
-	})
-
-	t.Run("typed hf parameters are not forwarded", func(t *testing.T) {
-		t.Parallel()
-
-		normalize := true
-		body, _, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Request: hftypes.FeatureExtractionRequest{
-				Input:      "hello",
-				Parameters: &hftypes.FeatureExtractionParameters{Normalize: &normalize},
-			},
-			Model: deepInfraEmbedModel,
-		})
-		require.NoError(t, err)
-		require.JSONEq(
-			t,
-			`{"input":"hello","model":"BAAI/bge-base-en-v1.5"}`,
-			string(body),
-		)
-	})
-
-	t.Run("supplied mapping wins without a resolver call", func(t *testing.T) {
-		t.Parallel()
-
-		resolver := &countingResolver{}
-		codec := DeepInfraFeatureExtractionMixin{Resolver: resolver}.FeatureExtractionPooledCodec()
-
-		body, _, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Request: hftypes.FeatureExtractionRequest{Input: "hello"},
-			Model:   deepInfraEmbedModel,
-			Mapping: &ModelMapping{ProviderModelID: "mapped-at-endpoint-construction"},
-		})
-		require.NoError(t, err)
-		require.Zero(t, resolver.calls.Load())
-		require.JSONEq(
-			t,
-			`{"input":"hello","model":"mapped-at-endpoint-construction"}`,
-			string(body),
-		)
-	})
-
-	t.Run("unmarshalable provider parameter fails", func(t *testing.T) {
-		t.Parallel()
-
-		_, _, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Request: hftypes.FeatureExtractionRequest{
-				Input:          "hello",
-				ProviderParams: map[string]any{"bad": make(chan int)},
-			},
-			Model: deepInfraEmbedModel,
-		})
-		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-	})
-
-	t.Run("nil provider parameters are skipped", func(t *testing.T) {
-		t.Parallel()
-
-		body, _, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Request: hftypes.FeatureExtractionRequest{
-				Input:          "hello",
-				ProviderParams: map[string]any{"ignored": nil},
-			},
-			Model: deepInfraEmbedModel,
-		})
-		require.NoError(t, err)
-		require.JSONEq(
-			t,
-			`{"input":"hello","model":"BAAI/bge-base-en-v1.5"}`,
-			string(body),
-		)
-	})
-
-	t.Run("missing mapping and resolver fails", func(t *testing.T) {
-		t.Parallel()
-
-		codec := DeepInfraFeatureExtractionMixin{}.FeatureExtractionPooledCodec()
-
-		_, _, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Request: hftypes.FeatureExtractionRequest{Input: "hello"},
-			Model:   deepInfraEmbedModel,
-		})
-		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
-	})
+	assertOpenAIEmbeddingsCodecEncode(
+		t,
+		provider.FeatureExtractionPooledCodec(),
+		deepInfraEmbedModel,
+		deepInfraEmbedModel,
+		func(resolver ModelResolver) FeatureExtractionPooledCodec {
+			return DeepInfraFeatureExtractionMixin{
+				Resolver: resolver,
+			}.FeatureExtractionPooledCodec()
+		},
+	)
 }
 
 func TestDeepInfraFeatureExtractionBatchCodec_Encode(t *testing.T) {
@@ -1003,92 +828,6 @@ func TestDeepInfraFeatureExtractionBatchCodec_Encode(t *testing.T) {
 		`{"input":["first input","second input"],"model":"BAAI/bge-base-en-v1.5"}`,
 		string(body),
 	)
-}
-
-func TestDeepInfraFeatureExtractionCodecs_Decode(t *testing.T) {
-	t.Parallel()
-
-	jsonHeaders := func() http.Header {
-		headers := http.Header{}
-		headers.Set("Content-Type", "application/json")
-
-		return headers
-	}
-
-	t.Run("single returns the first embedding", func(t *testing.T) {
-		t.Parallel()
-
-		embedding, err := deepinfraFeatureExtractionCodec{}.Decode(DecodeParams{
-			Context: context.Background(),
-			Body: []byte(
-				`{"object":"list","data":[{"object":"embedding","index":0,"embedding":[1,2,3]},{"object":"embedding","index":1,"embedding":[4,5,6]}],"model":"BAAI/bge-base-en-v1.5"}`,
-			),
-			Headers: jsonHeaders(),
-		})
-		require.NoError(t, err)
-		require.Equal(t, hftypes.FeatureExtractionPooledEmbedding{1, 2, 3}, embedding)
-	})
-
-	t.Run("batch returns every embedding in order", func(t *testing.T) {
-		t.Parallel()
-
-		embeddings, err := deepinfraFeatureExtractionBatchCodec{}.Decode(DecodeParams{
-			Context: context.Background(),
-			Body: []byte(
-				`{"data":[{"embedding":[1,2]},{"embedding":[3,4]}]}`,
-			),
-			Headers: jsonHeaders(),
-		})
-		require.NoError(t, err)
-		require.Equal(t, []hftypes.FeatureExtractionPooledEmbedding{{1, 2}, {3, 4}}, embeddings)
-	})
-
-	t.Run("empty data fails", func(t *testing.T) {
-		t.Parallel()
-
-		_, err := deepinfraFeatureExtractionCodec{}.Decode(DecodeParams{
-			Context: context.Background(),
-			Body:    []byte(`{"data":[]}`),
-			Headers: jsonHeaders(),
-		})
-		require.ErrorContains(t, err, "contains no embeddings")
-	})
-
-	t.Run("missing embedding fails", func(t *testing.T) {
-		t.Parallel()
-
-		_, err := deepinfraFeatureExtractionBatchCodec{}.Decode(DecodeParams{
-			Context: context.Background(),
-			Body:    []byte(`{"data":[{"embedding":[1]},{"index":1}]}`),
-			Headers: jsonHeaders(),
-		})
-		require.ErrorContains(t, err, "entry 1 is missing an embedding")
-	})
-
-	t.Run("wrong content type fails", func(t *testing.T) {
-		t.Parallel()
-
-		headers := http.Header{}
-		headers.Set("Content-Type", "text/plain")
-
-		_, err := deepinfraFeatureExtractionCodec{}.Decode(DecodeParams{
-			Context: context.Background(),
-			Body:    []byte(`{"data":[{"embedding":[1]}]}`),
-			Headers: headers,
-		})
-		require.ErrorContains(t, err, "expected Content-Type application/json")
-	})
-
-	t.Run("malformed body fails", func(t *testing.T) {
-		t.Parallel()
-
-		_, err := deepinfraFeatureExtractionBatchCodec{}.Decode(DecodeParams{
-			Context: context.Background(),
-			Body:    []byte("{not json"),
-			Headers: jsonHeaders(),
-		})
-		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-	})
 }
 
 // deepInfraSubsetProvider serves only feature extraction by embedding the
@@ -1144,9 +883,9 @@ func TestDeepInfraMixin_SubsetProvider(t *testing.T) {
 	)
 }
 
-// TestDeepInfraProvider_Tasks is a compile-time pin that the provider's
-// zero value implements exactly the documented task interfaces; the casts
-// run through AsProvider like the dispatch layer does.
+// TestDeepInfraProvider_Tasks is a compile-time pin that the
+// constructor-built provider implements exactly the documented task
+// interfaces; the casts run through AsProvider like the dispatch layer does.
 func TestDeepInfraProvider_Tasks(t *testing.T) {
 	t.Parallel()
 

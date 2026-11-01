@@ -152,6 +152,20 @@ data live, while `static-resolver` pins the HF-to-Nscale mapping in code
 | ------------------------------------------ | ------------------------------------ |
 | [Chat](./nscale/chat)                      | `basic`, `streaming`, `conversation` |
 | [Text to Image](./nscale/text-to-image)    | `hub-resolver`, `static-resolver`    |
+### Scaleway
+
+The [Scaleway provider](../docs/providers/scaleway.md) pins chat completions
+to Scaleway and serves pooled feature extraction through Scaleway's
+OpenAI-compatible embeddings endpoint. Chat reuses the default provider's
+endpoint and codecs — the router receives the model with the `:scaleway`
+suffix appended — so its variants follow the standard naming scheme. The
+pipeline task resolves Scaleway's model identifiers through the Hub, so its
+variant is named for the resolver it wires:
+
+| Task                                                  | Variants                             |
+| ----------------------------------------------------- | ------------------------------------ |
+| [Chat](./scaleway/chat)                               | `basic`, `streaming`, `conversation` |
+| [Feature Extraction](./scaleway/feature-extraction)   | `hub-resolver`                       |
 
 ### Baseten
 

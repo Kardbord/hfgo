@@ -72,7 +72,10 @@
 // flattened wire shape. [NscaleProvider] follows the same composition:
 // [HuggingFaceChatMixin] for suffix-pinned chat completions plus a
 // resolver-bearing mixin for text-to-image, wired by [NewNscaleProvider].
-// Providers that need no resolver state reuse the zero-byte mixins
+// [ScalewayProvider] mixes the same two shapes: [HuggingFaceChatMixin] for
+// suffix-pinned chat completions and a resolver-bearing mixin for pooled
+// feature extraction, wired by [NewScalewayProvider]. Providers that need
+// no resolver state reuse the zero-byte mixins
 // directly: [BasetenProvider] embeds
 // [HuggingFaceChatMixin] and supplies only its identity, pinning chat
 // completions to Baseten through the ":baseten" model suffix.
