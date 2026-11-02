@@ -56,7 +56,10 @@ if err != nil {
 | Speech recognition       | `SpeechRecognitionEndpoint`          | `SpeechRecognitionCodec`       | `RecognizeSpeech`       |
 
 Each task returns the generated media together with the media type the provider
-advertised (`response.MediaType`). Replicate does not serve these tasks with
+advertised (`response.MediaType`), falling back to the type byte-sniffed from
+the payload when the advertised type is missing, garbled, or generic (CDNs
+commonly label every blob `application/octet-stream`). Replicate does not serve
+these tasks with
 the Hugging Face pipeline wire format:
 
 - **Requests** are encoded as Replicate's flat prediction payload. The prompt

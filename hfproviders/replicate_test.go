@@ -5,6 +5,7 @@ package hfproviders
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -340,6 +341,18 @@ func TestReplicateProvider_TextToVideoCodec_Encode(t *testing.T) {
 			`{"input":{"prompt":"a cat","num_frames":24,"seed":42}}`,
 		)
 	})
+
+	t.Run("resolution failure surfaces as an error", func(t *testing.T) {
+		t.Parallel()
+
+		codec := ReplicateTextToVideoMixin{Resolver: failingResolver{}}.TextToVideoCodec()
+		_, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
+			Context: context.Background(),
+			Request: hftypes.TextToVideoRequest{Input: "a cat"},
+			Model:   "Wan-AI/Wan2.2-T2V-A14B-Diffusers",
+		})
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+	})
 }
 
 func TestReplicateProvider_ImageToImageCodec_Encode(t *testing.T) {
@@ -425,6 +438,30 @@ func TestReplicateProvider_ImageToImageCodec_Encode(t *testing.T) {
 				`"input_image":"data:image/png;base64,`+base64PngMagic+`",`+
 				`"input_images":["data:image/png;base64,`+base64PngMagic+`"]}}`,
 		)
+	})
+
+	t.Run("invalid base64 input is a serialization error", func(t *testing.T) {
+		t.Parallel()
+
+		_, _, err := codec.Encode(EncodeParams[hftypes.ImageToImageRequest]{
+			Context: context.Background(),
+			Request: hftypes.ImageToImageRequest{Input: "not-base64!!!"},
+			Model:   "black-forest-labs/FLUX.2-klein-base-4B",
+		})
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		require.ErrorContains(t, err, "failed to decode base64 input")
+	})
+
+	t.Run("resolution failure surfaces as an error", func(t *testing.T) {
+		t.Parallel()
+
+		codec := ReplicateImageToImageMixin{Resolver: failingResolver{}}.ImageToImageCodec()
+		_, _, err := codec.Encode(EncodeParams[hftypes.ImageToImageRequest]{
+			Context: context.Background(),
+			Request: hftypes.ImageToImageRequest{Input: "data:image/png;base64,abc123"},
+			Model:   "black-forest-labs/FLUX.2-klein-base-4B",
+		})
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	})
 }
 
@@ -527,6 +564,22 @@ func TestReplicateProvider_SpeechRecognitionCodec_Encode(t *testing.T) {
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "failed to decode base64 input")
 	})
+
+	t.Run("resolution failure surfaces as an error", func(t *testing.T) {
+		t.Parallel()
+
+		codec := ReplicateAutomaticSpeechRecognitionMixin{
+			Resolver: failingResolver{},
+		}.SpeechRecognitionCodec()
+		_, _, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
+			Context: context.Background(),
+			Request: hftypes.SpeechRecognitionRequest{
+				Input: "data:audio/mp3;base64,abc123",
+			},
+			Model: "openai/whisper-large-v3",
+		})
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+	})
 }
 
 // fastReplicateImageCodec returns a text-to-image codec with fast polling,
@@ -561,6 +614,17 @@ func fastReplicateSpeechCodec() replicateSpeechRecognitionCodec {
 	}}
 }
 
+// fastReplicateImageToImageCodec mirrors fastReplicateImageCodec for the
+// image-to-image codec, whose exchange is otherwise identical.
+func fastReplicateImageToImageCodec() replicateImageToImageCodec {
+	return replicateImageToImageCodec{replicateAsyncCodec{
+		mediaPrefix:     replicateImageMediaPrefix,
+		pollInterval:    time.Millisecond,
+		pollStep:        time.Millisecond,
+		maxPollInterval: 2 * time.Millisecond,
+	}}
+}
+
 // replicatePostSubmitParams builds transport parameters targeting the given
 // test server.
 func replicatePostSubmitParams(server *httptest.Server) PostSubmitParams {
@@ -577,8 +641,11 @@ func replicatePostSubmitParams(server *httptest.Server) PostSubmitParams {
 // given data fields. It marshals the response through encoding/json rather
 // than string concatenation, so any error message or URL is escaped
 // correctly. A nil output marshals as JSON null, the value uncompleted
-// predictions carry.
-func replicatePredictionBody(status, getURL, predictionErr string, output any) string {
+// predictions carry. Each variadic map merges extra top-level fields (e.g.
+// created_at, metrics) over the base fields, in order.
+func replicatePredictionBody(
+	status, getURL, predictionErr string, output any, extras ...map[string]any,
+) string {
 	pred := map[string]any{
 		"id":     "pred_123",
 		"model":  "black-forest-labs/flux-dev",
@@ -590,6 +657,9 @@ func replicatePredictionBody(status, getURL, predictionErr string, output any) s
 	}
 	if predictionErr != "" {
 		pred["error"] = predictionErr
+	}
+	for _, extra := range extras {
+		maps.Copy(pred, extra)
 	}
 
 	body, err := json.Marshal(pred)
@@ -877,6 +947,8 @@ func TestReplicatePostSubmit_Complete(t *testing.T) {
 		replicatePostSubmitParams(server),
 		[]byte(replicatePredictionBody(
 			"succeeded", "", "", server.URL+"/output.png",
+			map[string]any{"created_at": "2026-01-01T00:00:00Z"},
+			map[string]any{"metrics": map[string]any{"predict_time": 1.5}},
 		)),
 		http.Header{},
 	)
@@ -889,6 +961,8 @@ func TestReplicatePostSubmit_Complete(t *testing.T) {
 	require.Equal(t, "pred_123", resp.ProviderMetadata["id"])
 	require.Equal(t, "black-forest-labs/flux-dev", resp.ProviderMetadata["model"])
 	require.Equal(t, "succeeded", resp.ProviderMetadata["status"])
+	require.Equal(t, "2026-01-01T00:00:00Z", resp.ProviderMetadata["created_at"])
+	require.Equal(t, map[string]any{"predict_time": 1.5}, resp.ProviderMetadata["metrics"])
 }
 
 // TestReplicatePostSubmit_InvalidOutputURL pins the structural credential
@@ -913,6 +987,28 @@ func TestReplicatePostSubmit_InvalidOutputURL(t *testing.T) {
 	var sdkErr *hferrors.SDKError
 	require.ErrorAs(t, err, &sdkErr)
 	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
+}
+
+// TestReplicatePostSubmit_MissingOutputURL exercises the exchange when a
+// succeeded prediction's output is an empty string: the output extraction
+// fails and surfaces as a serialization error before any download.
+func TestReplicatePostSubmit_MissingOutputURL(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Error("no request should be made for a missing output URL")
+	}))
+	defer server.Close()
+
+	codec := fastReplicateImageCodec()
+	_, err := codec.PostSubmit(
+		context.Background(),
+		replicatePostSubmitParams(server),
+		[]byte(replicatePredictionBody("succeeded", "", "", "")),
+		http.Header{},
+	)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+	require.ErrorContains(t, err, "output URL is empty")
 }
 
 // TestReplicatePostSubmit_PollUntilComplete exercises the full exchange when
@@ -987,6 +1083,64 @@ func TestReplicatePostSubmit_PollUntilComplete(t *testing.T) {
 	require.Empty(t, gotDownloadAuth)
 	require.Equal(t, "test-agent/1.0", gotPollUA)
 	require.Equal(t, "test-agent/1.0", gotDownloadUA)
+}
+
+// TestReplicatePostSubmit_PollQueryString exercises the poll-target
+// construction when the provider attaches a query string to the prediction
+// URL: the query rides on every poll request.
+func TestReplicatePostSubmit_PollQueryString(t *testing.T) {
+	t.Parallel()
+
+	const pollPath = "/v1/predictions/pred_123"
+
+	var (
+		polls     atomic.Int64
+		gotQuery  string
+		outputURL string
+	)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/cdn/output.png" {
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write([]byte{0x89, 'P', 'N', 'G'})
+
+			return
+		}
+		if r.URL.Path != pollPath {
+			t.Errorf("unexpected request path %q", r.URL.Path)
+
+			return
+		}
+		gotQuery = r.URL.RawQuery
+
+		w.Header().Set("Content-Type", "application/json")
+		if polls.Add(1) == 1 {
+			_, _ = w.Write(
+				[]byte(replicatePredictionBody("processing", pollPath, "", nil)),
+			)
+
+			return
+		}
+		_, _ = w.Write(
+			[]byte(replicatePredictionBody("succeeded", pollPath, "", outputURL)),
+		)
+	}))
+	defer server.Close()
+	outputURL = server.URL + "/cdn/output.png"
+
+	codec := fastReplicateImageCodec()
+	resp, err := codec.PostSubmit(
+		context.Background(),
+		replicatePostSubmitParams(server),
+		// The poll target is resolved once from the submit response, so the
+		// query string rides on the submit's urls.get.
+		[]byte(replicatePredictionBody("starting", pollPath+"?trace=abc", "", nil)),
+		http.Header{},
+	)
+	require.NoError(t, err)
+	require.Equal(t, []byte{0x89, 'P', 'N', 'G'}, resp.Image)
+	require.Equal(t, int64(2), polls.Load())
+	// The query string the provider attached to urls.get rides on the poll.
+	require.Equal(t, "trace=abc", gotQuery)
 }
 
 // TestReplicatePostSubmit_UnknownStatusKeepsPolling exercises the unknown
@@ -1189,6 +1343,60 @@ func TestReplicatePostSubmit_ClientErrorPoll(t *testing.T) {
 	require.Equal(t, int64(1), polls.Load(), "a client-error poll stops polling")
 }
 
+// TestReplicatePostSubmit_RetryAfterHonored exercises the server-provided
+// wait override: a 429 poll carrying Retry-After replaces the regular
+// schedule for the following round.
+func TestReplicatePostSubmit_RetryAfterHonored(t *testing.T) {
+	t.Parallel()
+
+	const pollPath = "/v1/predictions/pred_123"
+
+	var (
+		polls     atomic.Int64
+		downloads atomic.Int64
+		outputURL string
+	)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case pollPath:
+			w.Header().Set("Content-Type", "application/json")
+			switch polls.Add(1) {
+			case 1:
+				w.Header().Set("Retry-After", "1")
+				w.WriteHeader(http.StatusTooManyRequests)
+
+				return
+			case 2:
+				_, _ = w.Write(
+					[]byte(replicatePredictionBody("succeeded", pollPath, "", outputURL)),
+				)
+
+				return
+			}
+			t.Error("polling continued past the completed status")
+		default:
+			downloads.Add(1)
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write([]byte{0x89, 'P', 'N', 'G'})
+		}
+	}))
+	defer server.Close()
+	outputURL = server.URL + "/cdn/output.png"
+
+	codec := fastReplicateImageCodec()
+	resp, err := codec.PostSubmit(
+		context.Background(),
+		replicatePostSubmitParams(server),
+		[]byte(replicatePredictionBody("starting", pollPath, "", nil)),
+		http.Header{},
+	)
+	require.NoError(t, err)
+	require.Equal(t, []byte{0x89, 'P', 'N', 'G'}, resp.Image)
+	require.Equal(t, "image/png", resp.MediaType)
+	require.Equal(t, int64(2), polls.Load())
+	require.Equal(t, int64(1), downloads.Load())
+}
+
 // TestReplicatePostSubmit_MalformedResponses exercises the malformed-response
 // paths: non-JSON prediction bodies, completed predictions without outputs,
 // missing prediction URLs, and — on the poll side — non-JSON and oversized
@@ -1317,6 +1525,8 @@ func TestReplicatePostSubmit_MalformedResponses(t *testing.T) {
 
 // TestReplicatePostSubmit_MediaTypeMismatch exercises the output validation:
 // an image codec rejects a non-image output.
+//
+//nolint:dupl // Mirrors the parallel task-codec suites; sharing a helper would couple the codecs' fixtures.
 func TestReplicatePostSubmit_MediaTypeMismatch(t *testing.T) {
 	t.Parallel()
 
@@ -1380,6 +1590,161 @@ func TestReplicatePostSubmit_MediaTypeMismatch_VideoCodec(t *testing.T) {
 	require.ErrorContains(t, err, "video/")
 }
 
+// TestReplicatePostSubmit_ImageToImage_Complete mirrors the text-to-image
+// complete-submit exchange for the image-to-image codec: a succeeded
+// prediction downloads its output and returns the image bytes.
+func TestReplicatePostSubmit_ImageToImage_Complete(t *testing.T) {
+	t.Parallel()
+
+	var outputURL string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/output" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(
+				replicatePredictionBody("succeeded", "", "", outputURL),
+			))
+
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write([]byte{0x89, 'P', 'N', 'G'})
+	}))
+	defer server.Close()
+	outputURL = server.URL + "/output"
+
+	codec := fastReplicateImageToImageCodec()
+	resp, err := codec.PostSubmit(
+		context.Background(),
+		replicatePostSubmitParams(server),
+		[]byte(replicatePredictionBody("succeeded", "", "", outputURL)),
+		http.Header{},
+	)
+	require.NoError(t, err)
+	require.Equal(t, []byte{0x89, 'P', 'N', 'G'}, resp.Image)
+	require.Equal(t, "image/png", resp.MediaType)
+	require.Equal(t, "pred_123", resp.ProviderMetadata["id"])
+}
+
+// TestReplicatePostSubmit_ImageToImage_FailedPrediction mirrors the ASR
+// failure path for the image-to-image codec: a failed prediction surfaces
+// the provider's error.
+func TestReplicatePostSubmit_ImageToImage_FailedPrediction(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(
+			replicatePredictionBody("failed", "", "CUDA out of memory", nil),
+		))
+	}))
+	defer server.Close()
+
+	codec := fastReplicateImageToImageCodec()
+	_, err := codec.PostSubmit(
+		context.Background(),
+		replicatePostSubmitParams(server),
+		[]byte(replicatePredictionBody("failed", "", "CUDA out of memory", nil)),
+		http.Header{},
+	)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindProvider)
+	require.ErrorContains(t, err, "CUDA out of memory")
+}
+
+// TestReplicatePostSubmit_ImageToImage_MediaTypeMismatch mirrors the
+// media-type-mismatch test for the image-to-image codec: a non-image output
+// is rejected.
+//
+//nolint:dupl // Mirrors the parallel task-codec suites; sharing a helper would couple the codecs' fixtures.
+func TestReplicatePostSubmit_ImageToImage_MediaTypeMismatch(t *testing.T) {
+	t.Parallel()
+
+	var outputURL string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/output" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(
+				replicatePredictionBody("succeeded", "", "", outputURL),
+			))
+
+			return
+		}
+		w.Header().Set("Content-Type", "video/mp4")
+		_, _ = w.Write([]byte("not an image"))
+	}))
+	defer server.Close()
+	outputURL = server.URL + "/output"
+
+	codec := fastReplicateImageToImageCodec()
+	_, err := codec.PostSubmit(
+		context.Background(),
+		replicatePostSubmitParams(server),
+		[]byte(replicatePredictionBody("succeeded", "", "", outputURL)),
+		http.Header{},
+	)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+	require.ErrorContains(t, err, "image/")
+}
+
+// TestReplicatePostSubmit_TextToVideo_Complete mirrors the text-to-image
+// complete-submit exchange for the text-to-video codec: a succeeded
+// prediction downloads its output and returns the video bytes.
+func TestReplicatePostSubmit_TextToVideo_Complete(t *testing.T) {
+	t.Parallel()
+
+	var outputURL string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/output" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(
+				replicatePredictionBody("succeeded", "", "", outputURL),
+			))
+
+			return
+		}
+		w.Header().Set("Content-Type", "video/mp4")
+		_, _ = w.Write([]byte("not really an mp4"))
+	}))
+	defer server.Close()
+	outputURL = server.URL + "/output"
+
+	codec := fastReplicateVideoCodec()
+	resp, err := codec.PostSubmit(
+		context.Background(),
+		replicatePostSubmitParams(server),
+		[]byte(replicatePredictionBody("succeeded", "", "", outputURL)),
+		http.Header{},
+	)
+	require.NoError(t, err)
+	require.Equal(t, []byte("not really an mp4"), resp.Video)
+	require.Equal(t, "video/mp4", resp.MediaType)
+	require.Equal(t, "pred_123", resp.ProviderMetadata["id"])
+}
+
+// TestReplicatePostSubmit_TextToVideo_FailedPrediction mirrors the ASR
+// failure path for the text-to-video codec: a failed prediction surfaces the
+// provider's error.
+func TestReplicatePostSubmit_TextToVideo_FailedPrediction(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(
+			replicatePredictionBody("failed", "", "CUDA out of memory", nil),
+		))
+	}))
+	defer server.Close()
+
+	codec := fastReplicateVideoCodec()
+	_, err := codec.PostSubmit(
+		context.Background(),
+		replicatePostSubmitParams(server),
+		[]byte(replicatePredictionBody("failed", "", "CUDA out of memory", nil)),
+		http.Header{},
+	)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindProvider)
+	require.ErrorContains(t, err, "CUDA out of memory")
+}
+
 // TestReplicatePostSubmit_SniffedMediaType exercises the media-type fallback:
 // when the CDN omits Content-Type, the bytes are sniffed.
 func TestReplicatePostSubmit_SniffedMediaType(t *testing.T) {
@@ -1395,6 +1760,39 @@ func TestReplicatePostSubmit_SniffedMediaType(t *testing.T) {
 
 			return
 		}
+		_, _ = w.Write([]byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'})
+	}))
+	defer server.Close()
+	outputURL = server.URL + "/output"
+
+	codec := fastReplicateImageCodec()
+	resp, err := codec.PostSubmit(
+		context.Background(),
+		replicatePostSubmitParams(server),
+		[]byte(replicatePredictionBody("succeeded", "", "", outputURL)),
+		http.Header{},
+	)
+	require.NoError(t, err)
+	require.Equal(t, "image/png", resp.MediaType)
+}
+
+// TestReplicatePostSubmit_GarbledContentTypeSniffed exercises the download's
+// Content-Type fallback: a garbled Content-Type header is replaced by the
+// sniffed media type, which the codec then accepts.
+func TestReplicatePostSubmit_GarbledContentTypeSniffed(t *testing.T) {
+	t.Parallel()
+
+	var outputURL string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/output" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(
+				replicatePredictionBody("succeeded", "", "", outputURL),
+			))
+
+			return
+		}
+		w.Header().Set("Content-Type", "%%%")
 		_, _ = w.Write([]byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'})
 	}))
 	defer server.Close()
@@ -1816,10 +2214,71 @@ func TestReplicateSpeechRecognitionPostSubmit_TxtFileDownload(t *testing.T) {
 	require.Empty(t, gotDLResponse)
 }
 
+// TestReplicateSpeechRecognitionPostSubmit_TxtFileDownloadErrors exercises
+// the txt_file download's failure paths: a server error on the txt URL and
+// an oversized body both abort the exchange.
+func TestReplicateSpeechRecognitionPostSubmit_TxtFileDownloadErrors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("server error on the txt URL", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/transcript.txt" {
+				t.Errorf("unexpected request path %q", r.URL.Path)
+
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer server.Close()
+
+		codec := fastReplicateSpeechCodec()
+		_, err := codec.PostSubmit(
+			context.Background(),
+			replicatePostSubmitParams(server),
+			[]byte(replicatePredictionBody("succeeded", "", "", map[string]any{
+				"txt_file": server.URL + "/transcript.txt",
+			})),
+			http.Header{},
+		)
+		testutils.AssertAPIErrorStatus(t, err, http.StatusInternalServerError)
+	})
+
+	t.Run("oversized txt body", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/transcript.txt" {
+				t.Errorf("unexpected request path %q", r.URL.Path)
+
+				return
+			}
+			_, _ = w.Write([]byte("the quick brown fox"))
+		}))
+		defer server.Close()
+
+		params := replicatePostSubmitParams(server)
+		params.MaxResponseBodyBytes = 4
+
+		codec := fastReplicateSpeechCodec()
+		_, err := codec.PostSubmit(
+			context.Background(),
+			params,
+			[]byte(replicatePredictionBody("succeeded", "", "", map[string]any{
+				"txt_file": server.URL + "/transcript.txt",
+			})),
+			http.Header{},
+		)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+		require.ErrorContains(t, err, "exceeds max size")
+	})
+}
+
 // TestReplicateSpeechRecognitionPostSubmit_MalformedOutput exercises the
 // malformed-output paths: a non-transcript object, an empty output list, and
 // a numeric output are serialization errors; a succeeded prediction without
-// output reports the missing transcript.
+// output is rejected by the terminal-status classification.
 func TestReplicateSpeechRecognitionPostSubmit_MalformedOutput(t *testing.T) {
 	t.Parallel()
 
@@ -2069,54 +2528,6 @@ func TestReplicatePredictionURL(t *testing.T) {
 	})
 }
 
-// TestReplicateRetryAfter exercises the Retry-After parser: seconds are
-// honored, garbage is ignored, and the cap bounds pathological values.
-//
-//nolint:dupl // Mirrors the parallel queue-provider suites; sharing a helper would couple the providers' fixtures.
-func TestReplicateRetryAfter(t *testing.T) {
-	t.Parallel()
-
-	t.Run("seconds", func(t *testing.T) {
-		t.Parallel()
-
-		headers := http.Header{}
-		headers.Set("Retry-After", "3")
-
-		require.Equal(t, 3*time.Second, replicateRetryAfter(headers))
-	})
-
-	t.Run("garbage ignored", func(t *testing.T) {
-		t.Parallel()
-
-		headers := http.Header{}
-		headers.Set("Retry-After", "soon")
-
-		require.Equal(t, time.Duration(0), replicateRetryAfter(headers))
-	})
-
-	t.Run("zero and negative ignored", func(t *testing.T) {
-		t.Parallel()
-
-		headers := http.Header{}
-		headers.Set("Retry-After", "0")
-
-		require.Equal(t, time.Duration(0), replicateRetryAfter(headers))
-
-		headers.Set("Retry-After", "-3")
-
-		require.Equal(t, time.Duration(0), replicateRetryAfter(headers))
-	})
-
-	t.Run("capped", func(t *testing.T) {
-		t.Parallel()
-
-		headers := http.Header{}
-		headers.Set("Retry-After", "999999")
-
-		require.Equal(t, replicateMaxRetryAfter, replicateRetryAfter(headers))
-	})
-}
-
 // TestReplicateMetadata exercises provider-metadata extraction: an empty
 // prediction yields nil so callers never observe an empty map.
 func TestReplicateMetadata(t *testing.T) {
@@ -2132,15 +2543,19 @@ func TestReplicateMetadata(t *testing.T) {
 		t.Parallel()
 
 		meta := replicateMetadata(&replicatePrediction{
-			ID:     "pred_1",
-			Model:  "black-forest-labs/flux-dev",
-			Status: "succeeded",
-			Logs:   "running on H100",
+			ID:        "pred_1",
+			Model:     "black-forest-labs/flux-dev",
+			Status:    "succeeded",
+			CreatedAt: "2026-01-01T00:00:00Z",
+			Logs:      "running on H100",
+			Metrics:   &replicateMetrics{PredictTime: new(1.5)},
 		})
 		require.Equal(t, "pred_1", meta["id"])
 		require.Equal(t, "black-forest-labs/flux-dev", meta["model"])
 		require.Equal(t, "succeeded", meta["status"])
+		require.Equal(t, "2026-01-01T00:00:00Z", meta["created_at"])
 		require.Equal(t, "running on H100", meta["logs"])
+		require.Equal(t, map[string]any{"predict_time": 1.5}, meta["metrics"])
 	})
 
 	t.Run("logs omitted when empty", func(t *testing.T) {
@@ -2150,6 +2565,25 @@ func TestReplicateMetadata(t *testing.T) {
 		require.Equal(t, "pred_2", meta["id"])
 		require.NotContains(t, meta, "logs")
 		require.NotContains(t, meta, "model")
+	})
+
+	t.Run("timing fields omitted when absent", func(t *testing.T) {
+		t.Parallel()
+
+		meta := replicateMetadata(&replicatePrediction{ID: "pred_3", Status: "succeeded"})
+		require.NotContains(t, meta, "created_at")
+		require.NotContains(t, meta, "metrics")
+	})
+
+	t.Run("empty metrics breakdown omitted", func(t *testing.T) {
+		t.Parallel()
+
+		meta := replicateMetadata(&replicatePrediction{
+			ID:      "pred_4",
+			Metrics: &replicateMetrics{},
+		})
+		require.Equal(t, "pred_4", meta["id"])
+		require.NotContains(t, meta, "metrics")
 	})
 }
 
@@ -2282,46 +2716,6 @@ func TestReplicateMediaOutputURL(t *testing.T) {
 		_, err := replicateMediaOutputURL(&pred)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "neither a URL nor a list of URLs")
-	})
-}
-
-// TestReplicateFlattenParameters exercises the parameter-flattening helper:
-// nil parameters flatten to an empty map, marshal and flatten failures
-// surface as serialization SDK errors, and valid parameters flatten to their
-// JSON object form.
-func TestReplicateFlattenParameters(t *testing.T) {
-	t.Parallel()
-
-	t.Run("nil parameters flatten to an empty map", func(t *testing.T) {
-		t.Parallel()
-
-		flat, err := replicateFlattenParameters(nil)
-		require.NoError(t, err)
-		require.Empty(t, flat)
-	})
-
-	t.Run("marshal failure is a serialization error", func(t *testing.T) {
-		t.Parallel()
-
-		_, err := replicateFlattenParameters(failingParameters{})
-		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-	})
-
-	t.Run("non-object payload is a serialization error", func(t *testing.T) {
-		t.Parallel()
-
-		_, err := replicateFlattenParameters(arrayParameters{})
-		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-	})
-
-	t.Run("valid parameters flatten", func(t *testing.T) {
-		t.Parallel()
-
-		flat, err := replicateFlattenParameters(hftypes.TextToVideoParameters{
-			Seed: new(int64(42)),
-		})
-		require.NoError(t, err)
-		require.Equal(t, map[string]any{"seed": float64(42)}, flat)
 	})
 }
 

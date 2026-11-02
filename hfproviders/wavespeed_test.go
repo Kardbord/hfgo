@@ -5,7 +5,6 @@ package hfproviders
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -1850,54 +1849,6 @@ func TestWavespeedPostSubmit_ForeignResultURLCannotRedirect(t *testing.T) {
 	require.Equal(t, "Bearer test-token", gotPollAuth)
 }
 
-// TestWavespeedRetryAfter exercises the Retry-After parser: seconds are
-// honored, garbage is ignored, and the cap bounds pathological values.
-//
-//nolint:dupl // Mirrors the parallel queue-provider suites; sharing a helper would couple the providers' fixtures.
-func TestWavespeedRetryAfter(t *testing.T) {
-	t.Parallel()
-
-	t.Run("seconds", func(t *testing.T) {
-		t.Parallel()
-
-		headers := http.Header{}
-		headers.Set("Retry-After", "3")
-
-		require.Equal(t, 3*time.Second, wavespeedRetryAfter(headers))
-	})
-
-	t.Run("garbage ignored", func(t *testing.T) {
-		t.Parallel()
-
-		headers := http.Header{}
-		headers.Set("Retry-After", "soon")
-
-		require.Equal(t, time.Duration(0), wavespeedRetryAfter(headers))
-	})
-
-	t.Run("zero and negative ignored", func(t *testing.T) {
-		t.Parallel()
-
-		headers := http.Header{}
-		headers.Set("Retry-After", "0")
-
-		require.Equal(t, time.Duration(0), wavespeedRetryAfter(headers))
-
-		headers.Set("Retry-After", "-3")
-
-		require.Equal(t, time.Duration(0), wavespeedRetryAfter(headers))
-	})
-
-	t.Run("capped", func(t *testing.T) {
-		t.Parallel()
-
-		headers := http.Header{}
-		headers.Set("Retry-After", "999999")
-
-		require.Equal(t, wavespeedMaxRetryAfter, wavespeedRetryAfter(headers))
-	})
-}
-
 // TestWavespeedMetadata exercises provider-metadata extraction: an empty task
 // yields nil so callers never observe an empty map.
 func TestWavespeedMetadata(t *testing.T) {
@@ -2020,74 +1971,6 @@ func TestWavespeedCompletedWithOutputs(t *testing.T) {
 		})
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "without outputs")
-	})
-}
-
-// failingParameters fails to marshal, exercising the flatten step's marshal
-// error branch.
-type failingParameters struct{}
-
-// MarshalJSON implements [json.Marshaler].
-func (failingParameters) MarshalJSON() ([]byte, error) {
-	return nil, errors.New("marshal failure")
-}
-
-// arrayParameters marshals to a JSON array, exercising the flatten step's
-// unmarshal error branch: the payload cannot decode into a JSON object.
-type arrayParameters struct{}
-
-// MarshalJSON implements [json.Marshaler].
-func (arrayParameters) MarshalJSON() ([]byte, error) {
-	return []byte("[1,2,3]"), nil
-}
-
-// TestWavespeedFlattenParameters exercises the shared parameter-flattening
-// helper: nil parameters flatten to an empty map, marshal and flatten
-// failures surface as serialization SDK errors, and valid parameters flatten
-// to their JSON object form with exact numeric literals.
-func TestWavespeedFlattenParameters(t *testing.T) {
-	t.Parallel()
-
-	t.Run("nil parameters flatten to an empty map", func(t *testing.T) {
-		t.Parallel()
-
-		flat, err := flattenParameters(nil)
-		require.NoError(t, err)
-		require.Empty(t, flat)
-	})
-
-	t.Run("marshal failure is a serialization error", func(t *testing.T) {
-		t.Parallel()
-
-		_, err := flattenParameters(failingParameters{})
-		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-	})
-
-	t.Run("non-object payload is a serialization error", func(t *testing.T) {
-		t.Parallel()
-
-		_, err := flattenParameters(arrayParameters{})
-		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-	})
-
-	t.Run("valid parameters flatten", func(t *testing.T) {
-		t.Parallel()
-
-		flat, err := flattenParameters(hftypes.TextToVideoParameters{Seed: new(int64(42))})
-		require.NoError(t, err)
-		require.Equal(t, map[string]any{"seed": json.Number("42")}, flat)
-	})
-
-	t.Run("large seed preserves exact numeric literal", func(t *testing.T) {
-		t.Parallel()
-
-		// A seed beyond float64's 2^53 integer precision must arrive intact
-		// as a json.Number instead of being silently rounded.
-		flat, err := flattenParameters(hftypes.TextToVideoParameters{
-			Seed: new(int64(9223372036854775807)),
-		})
-		require.NoError(t, err)
-		require.Equal(t, map[string]any{"seed": json.Number("9223372036854775807")}, flat)
 	})
 }
 

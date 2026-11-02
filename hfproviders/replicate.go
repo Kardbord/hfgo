@@ -5,12 +5,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -61,10 +59,6 @@ const (
 	// replicateMaxPollInterval is the polling wait ceiling.
 	replicateMaxPollInterval = 5 * time.Second
 )
-
-// replicateMaxRetryAfter caps a server-provided Retry-After so a
-// pathological header cannot stall the polling loop for an unbounded time.
-const replicateMaxRetryAfter = 60 * time.Second
 
 // Input data-URI media-type fallbacks for raw base64 inputs. They match the
 // defaults the official Hugging Face clients label undecodable inputs with;
@@ -137,9 +131,9 @@ func replicateDefaultPollTiming() replicatePollTiming {
 // give up when the wait window expires; it is what makes cold-start and
 // long-running models usable. A prediction that fails surfaces as an
 // [hferrors.SDKError] of kind provider. Provider-specific response metadata
-// (prediction ID, model, status, logs) is exposed on the response's
-// ProviderMetadata field. Extra provider-specific request parameters ride
-// on the request's ProviderParams field.
+// (prediction ID, model, status, creation time, timing breakdown, logs) is
+// exposed on the response's ProviderMetadata field. Extra provider-specific
+// request parameters ride on the request's ProviderParams field.
 //
 // Per-task payload adaptations mirror the official Hugging Face clients:
 // generation prompts ride on "prompt" inside the prediction's "input"
@@ -461,22 +455,9 @@ func (c replicateAsyncCodec) timing() replicatePollTiming {
 
 // decodeMediaBody decodes a raw provider media body into its bytes and
 // parsed media type, validating the body's Content-Type against the codec's
-// required media prefix. It is the body of every media-output task codec's
-// Decode; the PostSubmit exchange routes the downloaded output through that
-// Decode too, so output media is validated the same way.
+// required media prefix (see [queueDecodeMediaBody]).
 func (c replicateAsyncCodec) decodeMediaBody(params DecodeParams) ([]byte, string, error) {
-	contentType := params.Headers.Get("Content-Type")
-
-	mediaType, ok := parseMediaType(contentType)
-	if !ok || !strings.HasPrefix(mediaType, c.mediaPrefix) {
-		return nil, "", &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "expected a " + c.mediaPrefix + "* Content-Type, got " + contentType,
-			Err:     nil,
-		}
-	}
-
-	return params.Body, mediaType, nil
+	return queueDecodeMediaBody(params, c.mediaPrefix)
 }
 
 // postSubmitPrediction runs the shared Replicate exchange up to the
@@ -524,18 +505,25 @@ func (c replicateAsyncCodec) postSubmitMedia(
 	return media, headers, replicateMetadata(pred), nil
 }
 
+// replicateMetrics holds the completed prediction's timing breakdown.
+type replicateMetrics struct {
+	PredictTime *float64 `json:"predict_time"`
+}
+
 // replicatePrediction is the prediction object Replicate returns on submit
 // and on every poll. Output stays absent (or JSON null) while the prediction
 // runs; with the "Prefer: wait" submit header it is usually already present
 // on the submit response.
 type replicatePrediction struct {
-	ID     string                  `json:"id"`
-	Model  string                  `json:"model"`
-	Status string                  `json:"status"`
-	Output json.RawMessage         `json:"output"`
-	Error  *string                 `json:"error"`
-	Logs   string                  `json:"logs"`
-	URLs   replicatePredictionURLs `json:"urls"`
+	ID        string                  `json:"id"`
+	Model     string                  `json:"model"`
+	Status    string                  `json:"status"`
+	CreatedAt string                  `json:"created_at"`
+	Output    json.RawMessage         `json:"output"`
+	Error     *string                 `json:"error"`
+	Logs      string                  `json:"logs"`
+	Metrics   *replicateMetrics       `json:"metrics"`
+	URLs      replicatePredictionURLs `json:"urls"`
 }
 
 // replicatePredictionURLs holds the prediction's URL set. Get is the
@@ -635,8 +623,14 @@ func replicateMetadata(pred *replicatePrediction) map[string]any {
 	if pred.Status != "" {
 		meta["status"] = pred.Status
 	}
+	if pred.CreatedAt != "" {
+		meta["created_at"] = pred.CreatedAt
+	}
 	if pred.Logs != "" {
 		meta["logs"] = pred.Logs
+	}
+	if pred.Metrics != nil && pred.Metrics.PredictTime != nil {
+		meta["metrics"] = map[string]any{"predict_time": *pred.Metrics.PredictTime}
 	}
 	if len(meta) == 0 {
 		return nil
@@ -819,42 +813,9 @@ func replicatePollOnce(
 	pollPath string,
 ) (*replicatePrediction, time.Duration, error) {
 	return queuePollOnce(ctx, params, pollParams, pollPath, queueExchange[replicatePrediction]{
-		isContextError:  replicateIsContextError,
-		transientStatus: replicateTransientStatus,
-		retryAfter:      replicateRetryAfter,
-		decode:          replicateDecodePrediction,
-		terminal:        replicateTerminalPrediction,
+		decode:   replicateDecodePrediction,
+		terminal: replicateTerminalPrediction,
 	})
-}
-
-// replicateIsContextError reports whether err is (or wraps) a context
-// cancellation or deadline expiry. Such errors are not transient: they must
-// stop polling immediately rather than be retried.
-func replicateIsContextError(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
-}
-
-// replicateTransientStatus reports whether an HTTP status is a transient
-// poll failure worth retrying (rate limiting and server errors).
-func replicateTransientStatus(statusCode int) bool {
-	return statusCode == http.StatusTooManyRequests || statusCode >= http.StatusInternalServerError
-}
-
-// replicateRetryAfter parses a Retry-After header in seconds. Values that
-// do not parse, or exceed the cap, are ignored (returning 0), keeping the
-// regular polling schedule.
-func replicateRetryAfter(headers http.Header) time.Duration {
-	seconds, err := strconv.Atoi(strings.TrimSpace(headers.Get("Retry-After")))
-	if err != nil || seconds <= 0 {
-		return 0
-	}
-
-	delay := time.Duration(seconds) * time.Second
-	if delay > replicateMaxRetryAfter {
-		return replicateMaxRetryAfter
-	}
-
-	return delay
 }
 
 // replicateDownloadOutput downloads the prediction's first output URL.
@@ -979,35 +940,6 @@ func replicateMediaOutputURL(pred *replicatePrediction) (string, error) {
 		Message: "Replicate prediction output is neither a URL nor a list of URLs",
 		Err:     nil,
 	}
-}
-
-// replicateFlattenParameters marshals a typed parameters struct into a JSON
-// object map so its non-nil fields can be merged into the prediction's input
-// object. Nil parameters yield an empty map.
-func replicateFlattenParameters(parameters any) (map[string]any, error) {
-	if parameters == nil {
-		return map[string]any{}, nil
-	}
-
-	raw, err := json.Marshal(parameters)
-	if err != nil {
-		return nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: errFailedToMarshalInferenceParameters,
-			Err:     err,
-		}
-	}
-
-	flat := map[string]any{}
-	if err := json.Unmarshal(raw, &flat); err != nil {
-		return nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: errFailedToFlattenInferenceParameters,
-			Err:     err,
-		}
-	}
-
-	return flat, nil
 }
 
 // replicateAudioMIME labels sniffed audio bytes for the prediction's audio
@@ -1194,7 +1126,7 @@ func (c replicateTextToImageCodec) Encode(
 
 	input := map[string]any{replicatePromptKey: req.Input}
 	if req.Parameters != nil {
-		flat, err := replicateFlattenParameters(req.Parameters)
+		flat, err := flattenParameters(req.Parameters)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1290,7 +1222,7 @@ func (c replicateImageToImageCodec) Encode(
 		"input_images": []string{image},
 	}
 	if req.Parameters != nil {
-		flat, err := replicateFlattenParameters(req.Parameters)
+		flat, err := flattenParameters(req.Parameters)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1372,7 +1304,7 @@ func (c replicateTextToVideoCodec) Encode(
 
 	input := map[string]any{replicatePromptKey: req.Input}
 	if req.Parameters != nil {
-		flat, err := replicateFlattenParameters(req.Parameters)
+		flat, err := flattenParameters(req.Parameters)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1460,7 +1392,7 @@ func (c replicateSpeechRecognitionCodec) Encode(
 
 	input := map[string]any{replicateAudioKey: audio}
 	if req.Parameters != nil {
-		flat, err := replicateFlattenParameters(req.Parameters)
+		flat, err := flattenParameters(req.Parameters)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1530,20 +1462,14 @@ func replicateMarshalPayload(payload map[string]any) (body []byte, headers http.
 // "translation", or a "txt_file" output URL whose text is downloaded. The
 // extraction accepts all three shapes, matching the official Hugging Face
 // clients; a transcription wins over a translation when both are present,
-// as huggingface.js orders them.
+// as huggingface.js orders them. The caller passes a prediction whose
+// output presence [replicateTerminalPrediction] already validated, so an
+// output is always present here.
 func replicateTranscript(
 	ctx context.Context,
 	params PostSubmitParams,
 	pred *replicatePrediction,
 ) (string, error) {
-	if !replicateHasOutput(pred) {
-		return "", &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "Replicate speech recognition prediction has no transcript",
-			Err:     nil,
-		}
-	}
-
 	var transcript string
 	if err := json.Unmarshal(pred.Output, &transcript); err == nil {
 		return transcript, nil

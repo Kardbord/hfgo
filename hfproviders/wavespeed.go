@@ -3,12 +3,10 @@ package hfproviders
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -69,10 +67,6 @@ func wavespeedDefaultPollTiming() wavespeedPollTiming {
 // URL targets it, provider-relative result paths resolve under the /wavespeed
 // prefix, mirroring the official Hugging Face clients.
 const wavespeedRouterHost = "router.huggingface.co"
-
-// wavespeedMaxRetryAfter caps a server-provided Retry-After so a pathological
-// header cannot stall the polling loop for an unbounded time.
-const wavespeedMaxRetryAfter = 60 * time.Second
 
 // WavespeedProvider serves text-to-video, text-to-image, and image-to-image
 // tasks through the Hugging Face router using WaveSpeed's partner model
@@ -331,23 +325,10 @@ func (c wavespeedAsyncCodec) timing() wavespeedPollTiming {
 
 // decodeMediaBody decodes a raw provider media body into its bytes and parsed
 // media type, validating the body's Content-Type against the codec's required
-// media prefix. It is the body of every WaveSpeed task codec's Decode; the
-// PostSubmit exchange routes the downloaded output through that Decode too, so
-// output media is validated the same way. Only the submit response bypasses
+// media prefix (see [queueDecodeMediaBody]). Only the submit response bypasses
 // it, routing through PostSubmit instead.
 func (c wavespeedAsyncCodec) decodeMediaBody(params DecodeParams) ([]byte, string, error) {
-	contentType := params.Headers.Get("Content-Type")
-
-	mediaType, ok := parseMediaType(contentType)
-	if !ok || !strings.HasPrefix(mediaType, c.mediaPrefix) {
-		return nil, "", &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "expected a " + c.mediaPrefix + "* Content-Type, got " + contentType,
-			Err:     nil,
-		}
-	}
-
-	return params.Body, mediaType, nil
+	return queueDecodeMediaBody(params, c.mediaPrefix)
 }
 
 // postSubmitMedia runs the shared WaveSpeed exchange: decode the submit
@@ -582,19 +563,9 @@ func wavespeedPollOnce(
 	resultPath string,
 ) (*wavespeedTaskData, time.Duration, error) {
 	return queuePollOnce(ctx, params, pollParams, resultPath, queueExchange[wavespeedTaskData]{
-		isContextError:  wavespeedIsContextError,
-		transientStatus: wavespeedTransientStatus,
-		retryAfter:      wavespeedRetryAfter,
-		decode:          wavespeedDecodeTaskData,
-		terminal:        wavespeedTerminalStatus,
+		decode:   wavespeedDecodeTaskData,
+		terminal: wavespeedTerminalStatus,
 	})
-}
-
-// wavespeedIsContextError reports whether err is (or wraps) a context
-// cancellation or deadline expiry. Such errors are not transient: they must
-// stop polling immediately rather than be retried.
-func wavespeedIsContextError(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 // wavespeedTerminalStatus classifies a decoded task's status. done reports
@@ -620,12 +591,6 @@ func wavespeedTerminalStatus(
 		// introduced statuses do not abort long-running tasks.
 		return nil, false, nil
 	}
-}
-
-// wavespeedTransientStatus reports whether an HTTP status is a transient poll
-// failure worth retrying (rate limiting and server errors).
-func wavespeedTransientStatus(statusCode int) bool {
-	return statusCode == http.StatusTooManyRequests || statusCode >= http.StatusInternalServerError
 }
 
 // completedWithOutputs validates a completed task's outputs and returns the
@@ -732,23 +697,6 @@ type wavespeedPolledURL struct {
 	base  string
 	path  string
 	query string
-}
-
-// wavespeedRetryAfter parses a Retry-After header in seconds. Values that do
-// not parse, or exceed the cap, are ignored (returning 0), keeping the
-// regular polling schedule.
-func wavespeedRetryAfter(headers http.Header) time.Duration {
-	seconds, err := strconv.Atoi(strings.TrimSpace(headers.Get("Retry-After")))
-	if err != nil || seconds <= 0 {
-		return 0
-	}
-
-	delay := time.Duration(seconds) * time.Second
-	if delay > wavespeedMaxRetryAfter {
-		return wavespeedMaxRetryAfter
-	}
-
-	return delay
 }
 
 // wavespeedDownloadOutput downloads the task's first output URL. Output URLs

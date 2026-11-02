@@ -2758,31 +2758,6 @@ func TestFalAIPostSubmit_DownloadBodyLimit(t *testing.T) {
 	require.Error(t, err)
 }
 
-// TestFalAIRetryAfter exercises the Retry-After parser as a table: seconds
-// are honored, garbage and non-positive values are ignored, and the cap
-// bounds pathological values.
-func TestFalAIRetryAfter(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		header string
-		want   time.Duration
-	}{
-		{header: "3", want: 3 * time.Second},
-		{header: "soon", want: 0},
-		{header: "0", want: 0},
-		{header: "-3", want: 0},
-		{header: "999999", want: falaiMaxRetryAfter},
-	}
-
-	for _, tc := range cases {
-		headers := http.Header{}
-		headers.Set("Retry-After", tc.header)
-
-		require.Equal(t, tc.want, falaiRetryAfter(headers), "Retry-After %q", tc.header)
-	}
-}
-
 // TestFalAIMetadata exercises provider-metadata extraction: an empty task
 // state yields nil so callers never observe an empty map.
 func TestFalAIMetadata(t *testing.T) {
@@ -2867,37 +2842,6 @@ func TestFalAITaskFailedError(t *testing.T) {
 			require.ErrorContains(t, err, tc.want)
 		})
 	}
-}
-
-// TestFalAIFlattenParameters exercises the shared parameter-flattening
-// helper: nil parameters flatten to an empty map, marshal and flatten
-// failures surface as serialization SDK errors, and valid parameters flatten
-// to their JSON object form with exact numeric literals.
-func TestFalAIFlattenParameters(t *testing.T) {
-	t.Parallel()
-
-	flat, err := flattenParameters(nil)
-	require.NoError(t, err)
-	require.Empty(t, flat)
-
-	_, err = flattenParameters(failingParameters{})
-	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-
-	_, err = flattenParameters(arrayParameters{})
-	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-
-	flat, err = flattenParameters(hftypes.TextToVideoParameters{Seed: new(int64(42))})
-	require.NoError(t, err)
-	require.Equal(t, map[string]any{"seed": json.Number("42")}, flat)
-
-	// The flatten round-trip preserves exact numeric literals: a seed beyond
-	// float64's 2^53 integer precision arrives intact as a json.Number
-	// instead of being silently rounded.
-	flat, err = flattenParameters(hftypes.TextToVideoParameters{
-		Seed: new(int64(9223372036854775807)),
-	})
-	require.NoError(t, err)
-	require.Equal(t, map[string]any{"seed": json.Number("9223372036854775807")}, flat)
 }
 
 // TestFalAINormalizeDataInput exercises the data-URI wrapping: data URIs and
