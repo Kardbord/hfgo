@@ -609,7 +609,7 @@ func (hfTextToImageCodec) Encode(
 	if err != nil {
 		return nil, nil, err
 	}
-	headers.Set("Accept", "*/*")
+	headers.Set("Accept", mimeTypeAny)
 
 	return body, headers, nil
 }

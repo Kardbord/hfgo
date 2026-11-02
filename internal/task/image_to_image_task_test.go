@@ -42,10 +42,17 @@ func TestGenerateImageToImage_ResponseDecoding(t *testing.T) {
 		},
 		{
 			name:        "non-image content type",
-			output:      pngSignature(),
+			output:      []byte("not an image"),
 			outputType:  "application/json",
 			wantErr:     true,
 			description: "non-image response is rejected",
+		},
+		{
+			name:          "mismatched content type is sniffed",
+			output:        pngSignature(),
+			outputType:    "application/json",
+			wantMediaType: "image/png",
+			description:   "mismatched content type falls back to byte sniffing",
 		},
 		{
 			name:          "missing content type is sniffed",

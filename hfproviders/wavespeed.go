@@ -3,12 +3,10 @@ package hfproviders
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -69,10 +67,6 @@ func wavespeedDefaultPollTiming() wavespeedPollTiming {
 // URL targets it, provider-relative result paths resolve under the /wavespeed
 // prefix, mirroring the official Hugging Face clients.
 const wavespeedRouterHost = "router.huggingface.co"
-
-// wavespeedMaxRetryAfter caps a server-provided Retry-After so a pathological
-// header cannot stall the polling loop for an unbounded time.
-const wavespeedMaxRetryAfter = 60 * time.Second
 
 // WavespeedProvider serves text-to-video, text-to-image, and image-to-image
 // tasks through the Hugging Face router using WaveSpeed's partner model
@@ -331,23 +325,10 @@ func (c wavespeedAsyncCodec) timing() wavespeedPollTiming {
 
 // decodeMediaBody decodes a raw provider media body into its bytes and parsed
 // media type, validating the body's Content-Type against the codec's required
-// media prefix. It is the body of every WaveSpeed task codec's Decode; the
-// PostSubmit exchange routes the downloaded output through that Decode too, so
-// output media is validated the same way. Only the submit response bypasses
+// media prefix (see [queueDecodeMediaBody]). Only the submit response bypasses
 // it, routing through PostSubmit instead.
 func (c wavespeedAsyncCodec) decodeMediaBody(params DecodeParams) ([]byte, string, error) {
-	contentType := params.Headers.Get("Content-Type")
-
-	mediaType, ok := parseMediaType(contentType)
-	if !ok || !strings.HasPrefix(mediaType, c.mediaPrefix) {
-		return nil, "", &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "expected a " + c.mediaPrefix + "* Content-Type, got " + contentType,
-			Err:     nil,
-		}
-	}
-
-	return params.Body, mediaType, nil
+	return queueDecodeMediaBody(params, c.mediaPrefix)
 }
 
 // postSubmitMedia runs the shared WaveSpeed exchange: decode the submit
@@ -573,65 +554,18 @@ func wavespeedPollWait(ctx context.Context, d time.Duration) error {
 // wavespeedPollOnce issues one poll request and classifies the result. data is
 // non-nil when the task reached a terminal status; retryAfter is a
 // server-provided wait override for the next round; any error stops polling.
+// The exchange shape is shared with the other queue providers (see
+// [queuePollOnce]).
 func wavespeedPollOnce(
 	ctx context.Context,
 	params PostSubmitParams,
 	pollParams request.Params,
 	resultPath string,
 ) (*wavespeedTaskData, time.Duration, error) {
-	//nolint:bodyclose // Drained and closed on transient and success branches;
-	// non-transient 4xx/5xx errors transfer the body to the returned APIError,
-	// which the caller must close per the APIError contract.
-	resp, err := request.DoRaw(ctx, pollParams, http.MethodGet, resultPath, nil)
-	if err != nil {
-		// Transport-level failures (dropped connections, timeouts) are
-		// transient: keep polling until the context expires, per the
-		// provider's documented polling behavior. Context cancellation and
-		// deadline expiry are not transient: they must surface immediately.
-		if wavespeedIsContextError(err) {
-			return nil, 0, err
-		}
-
-		return nil, 0, nil
-	}
-
-	if wavespeedTransientStatus(resp.StatusCode) {
-		override := wavespeedRetryAfter(resp.Header)
-		request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
-
-		return nil, override, nil
-	}
-	// Non-transient error: transfer the open body to the returned APIError so
-	// the caller can inspect it per the APIError contract.
-	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, 0, request.APIErrorFromResponse(resp, http.MethodGet)
-	}
-
-	body, readErr := request.ReadResponseBody(resp, params.MaxResponseBodyBytes)
-	request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
-	if readErr != nil {
-		return nil, 0, readErr
-	}
-
-	data, decodeErr := wavespeedDecodeTaskData(body)
-	if decodeErr != nil {
-		return nil, 0, decodeErr
-	}
-
-	out, done, terminalErr := wavespeedTerminalStatus(&data)
-	if done {
-		return out, 0, terminalErr
-	}
-
-	// Still running: keep polling on the regular schedule.
-	return nil, 0, nil
-}
-
-// wavespeedIsContextError reports whether err is (or wraps) a context
-// cancellation or deadline expiry. Such errors are not transient: they must
-// stop polling immediately rather than be retried.
-func wavespeedIsContextError(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+	return queuePollOnce(ctx, params, pollParams, resultPath, queueExchange[wavespeedTaskData]{
+		decode:   wavespeedDecodeTaskData,
+		terminal: wavespeedTerminalStatus,
+	})
 }
 
 // wavespeedTerminalStatus classifies a decoded task's status. done reports
@@ -657,12 +591,6 @@ func wavespeedTerminalStatus(
 		// introduced statuses do not abort long-running tasks.
 		return nil, false, nil
 	}
-}
-
-// wavespeedTransientStatus reports whether an HTTP status is a transient poll
-// failure worth retrying (rate limiting and server errors).
-func wavespeedTransientStatus(statusCode int) bool {
-	return statusCode == http.StatusTooManyRequests || statusCode >= http.StatusInternalServerError
 }
 
 // completedWithOutputs validates a completed task's outputs and returns the
@@ -771,23 +699,6 @@ type wavespeedPolledURL struct {
 	query string
 }
 
-// wavespeedRetryAfter parses a Retry-After header in seconds. Values that do
-// not parse, or exceed the cap, are ignored (returning 0), keeping the
-// regular polling schedule.
-func wavespeedRetryAfter(headers http.Header) time.Duration {
-	seconds, err := strconv.Atoi(strings.TrimSpace(headers.Get("Retry-After")))
-	if err != nil || seconds <= 0 {
-		return 0
-	}
-
-	delay := time.Duration(seconds) * time.Second
-	if delay > wavespeedMaxRetryAfter {
-		return wavespeedMaxRetryAfter
-	}
-
-	return delay
-}
-
 // wavespeedDownloadOutput downloads the task's first output URL. Output URLs
 // are provider-CDN addresses (often signed), so the request goes through
 // request.DoUnauthenticated, which structurally carries no caller
@@ -810,7 +721,7 @@ func wavespeedDownloadOutput(
 		},
 		http.MethodGet,
 		outputURL,
-		http.Header{"Accept": {"*/*"}},
+		http.Header{"Accept": {mimeTypeAny}},
 		http.NoBody,
 	)
 	if err != nil {
@@ -907,7 +818,7 @@ func wavespeedInjectAdapterLoras(
 func wavespeedEncodeHeaders() http.Header {
 	headers := http.Header{}
 	headers.Set("Content-Type", mimeTypeJSON)
-	headers.Set("Accept", "*/*")
+	headers.Set("Accept", mimeTypeAny)
 
 	return headers
 }

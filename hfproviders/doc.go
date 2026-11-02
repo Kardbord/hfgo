@@ -63,6 +63,10 @@
 // field; [WavespeedProvider] composes them and [NewWavespeedProvider]
 // wires the resolver into each. [FalAIProvider] composes its five mixins
 // the same way, and [NewFalAIProvider] wires the resolver into each.
+// [ReplicateProvider] composes four resolver-bearing mixins for text-to-
+// image, image-to-image, text-to-video, and speech recognition, wired by
+// [NewReplicateProvider]; its codecs drive Replicate's wait-poll-download
+// prediction exchange behind the synchronous task API.
 // [DeepInfraProvider] mixes both shapes: it embeds
 // [HuggingFaceChatMixin] for suffix-pinned chat completions and two
 // resolver-bearing mixins for speech recognition and pooled feature

@@ -4,12 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -68,10 +66,6 @@ const (
 	// falaiMaxPollInterval is the polling wait ceiling.
 	falaiMaxPollInterval = 5 * time.Second
 )
-
-// falaiMaxRetryAfter caps a server-provided Retry-After so a pathological
-// header cannot stall the polling loop for an unbounded time.
-const falaiMaxRetryAfter = 60 * time.Second
 
 // Input data-URI media types for raw base64 inputs. fal's data-URL decoder
 // keys off the declared label rather than the bytes, so these match the
@@ -459,22 +453,9 @@ func (c falaiQueueCodec) timing() falaiPollTiming {
 
 // decodeMediaBody validates a downloaded media body's Content-Type against
 // the codec's required media prefix and returns its bytes and parsed media
-// type. It is the body of every media-output task codec's Decode; the
-// PostSubmit exchange routes the downloaded output through it too, so output
-// media is validated the same way.
+// type (see [queueDecodeMediaBody]).
 func (c falaiQueueCodec) decodeMediaBody(params DecodeParams) ([]byte, string, error) {
-	contentType := params.Headers.Get("Content-Type")
-
-	mediaType, ok := parseMediaType(contentType)
-	if !ok || !strings.HasPrefix(mediaType, c.mediaPrefix) {
-		return nil, "", &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "expected a " + c.mediaPrefix + "* Content-Type, got " + contentType,
-			Err:     nil,
-		}
-	}
-
-	return params.Body, mediaType, nil
+	return queueDecodeMediaBody(params, c.mediaPrefix)
 }
 
 // postSubmitResult runs the shared fal.ai queue exchange: decode the submit
@@ -790,88 +771,30 @@ func falaiPollWait(ctx context.Context, d time.Duration) error {
 // falaiPollOnce issues one status request and classifies the result. state
 // is non-nil when the task reached a terminal status; retryAfter is a
 // server-provided wait override for the next round; any error stops polling.
+// The exchange shape is shared with the other queue providers (see
+// [queuePollOnce]).
 func falaiPollOnce(
 	ctx context.Context,
 	params PostSubmitParams,
 	pollParams request.Params,
 	statusPath string,
 ) (*falaiTaskState, time.Duration, error) {
-	//nolint:bodyclose // Drained and closed on transient and success branches;
-	// non-transient 4xx/5xx errors transfer the body to the returned APIError,
-	// which the caller must close per the APIError contract.
-	resp, err := request.DoRaw(ctx, pollParams, http.MethodGet, statusPath, nil)
-	if err != nil {
-		// Transport-level failures (dropped connections, timeouts) are
-		// transient: keep polling until the context expires, per the
-		// provider's documented polling behavior. Context cancellation and
-		// deadline expiry are not transient: they must surface immediately.
-		if falaiIsContextError(err) {
-			return nil, 0, err
-		}
+	return queuePollOnce(ctx, params, pollParams, statusPath, queueExchange[falaiTaskState]{
+		decode: falaiDecodeTaskState,
+		// falaiClassifyTask's two-value shape adapts to the shared
+		// exchange's three-value terminal predicate.
+		terminal: func(state *falaiTaskState) (*falaiTaskState, bool, error) {
+			done, taskErr := falaiClassifyTask(state)
+			if !done {
+				return nil, false, nil
+			}
+			if taskErr != nil {
+				return nil, true, taskErr
+			}
 
-		return nil, 0, nil
-	}
-
-	if falaiTransientStatus(resp.StatusCode) {
-		override := falaiRetryAfter(resp.Header)
-		request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
-
-		return nil, override, nil
-	}
-	// Non-transient error: transfer the open body to the returned APIError so
-	// the caller can inspect it per the APIError contract.
-	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, 0, request.APIErrorFromResponse(resp, http.MethodGet)
-	}
-
-	body, readErr := request.ReadResponseBody(resp, params.MaxResponseBodyBytes)
-	request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
-	if readErr != nil {
-		return nil, 0, readErr
-	}
-
-	state, decodeErr := falaiDecodeTaskState(body)
-	if decodeErr != nil {
-		return nil, 0, decodeErr
-	}
-
-	done, taskErr := falaiClassifyTask(&state)
-	if done {
-		return &state, 0, taskErr
-	}
-
-	// Still queued or running: keep polling on the regular schedule.
-	return nil, 0, nil
-}
-
-// falaiIsContextError reports whether err is (or wraps) a context
-// cancellation or deadline expiry. Such errors are not transient: they must
-// stop polling immediately rather than be retried.
-func falaiIsContextError(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
-}
-
-// falaiTransientStatus reports whether an HTTP status is a transient poll
-// failure worth retrying (rate limiting and server errors).
-func falaiTransientStatus(statusCode int) bool {
-	return statusCode == http.StatusTooManyRequests || statusCode >= http.StatusInternalServerError
-}
-
-// falaiRetryAfter parses a Retry-After header in seconds. Values that do
-// not parse, or exceed the cap, are ignored (returning 0), keeping the
-// regular polling schedule.
-func falaiRetryAfter(headers http.Header) time.Duration {
-	seconds, err := strconv.Atoi(strings.TrimSpace(headers.Get("Retry-After")))
-	if err != nil || seconds <= 0 {
-		return 0
-	}
-
-	delay := time.Duration(seconds) * time.Second
-	if delay > falaiMaxRetryAfter {
-		return falaiMaxRetryAfter
-	}
-
-	return delay
+			return state, true, nil
+		},
+	})
 }
 
 // fetchResult fetches the completed task's result JSON, retrying transient
@@ -928,15 +851,15 @@ func falaiFetchResultOnce(
 	// APIError, which the caller must close per the APIError contract.
 	resp, err := request.DoRaw(ctx, pollParams, http.MethodGet, resultPath, nil)
 	if err != nil {
-		if falaiIsContextError(err) {
+		if queueIsContextError(err) {
 			return nil, false, 0, err
 		}
 
 		return nil, true, 0, nil
 	}
 
-	if falaiTransientStatus(resp.StatusCode) {
-		override = falaiRetryAfter(resp.Header)
+	if queueTransientStatus(resp.StatusCode) {
+		override = queueRetryAfter(resp.Header)
 		request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
 
 		return nil, true, override, nil
@@ -976,7 +899,7 @@ func falaiDownloadOutput(
 		},
 		http.MethodGet,
 		outputURL,
-		http.Header{falaiAcceptKey: {"*/*"}},
+		http.Header{falaiAcceptKey: {mimeTypeAny}},
 		http.NoBody,
 	)
 	if err != nil {

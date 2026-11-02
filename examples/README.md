@@ -20,7 +20,7 @@ one client can be reused across every task — only the model changes. See
 > may incur charges on your account. The same applies to the integration tests
 > and the [Bruno collection](../tools/bruno/hfgo/). The `custom-provider`
 > example only resolves an endpoint and sends no request. The WaveSpeed, Fal AI,
-> DeepInfra, and Nscale `hub-resolver` examples additionally query the Hub's
+> DeepInfra, Nscale, and Replicate `hub-resolver` examples additionally query the Hub's
 > model mapping data; that metadata lookup is not an inference call.
 
 ## Running an example
@@ -50,9 +50,10 @@ Variant directories are named for what they add over the `basic` example:
 | `token-level`       | Returns token-level embeddings instead of pooled vectors. Feature extraction only. |
 | `token-level-batch` | Returns token-level embeddings for multiple inputs. Feature extraction only.       |
 
-Not every task has every variant. WaveSpeed and Fal AI examples are the
-exception to this naming scheme: their variants are named for the model
-resolver they wire (see [WaveSpeed](#wavespeed) and [Fal AI](#fal-ai)). The
+Not every task has every variant. WaveSpeed, Fal AI, and Replicate examples are
+the exception to this naming scheme: their variants are named for the model
+resolver they wire (see [WaveSpeed](#wavespeed), [Fal AI](#fal-ai), and
+[Replicate](#replicate)). The
 full matrix:
 
 | Task                                                             | Variants                                                       |
@@ -167,6 +168,23 @@ variant is named for the resolver it wires:
 | ----------------------------------------------------- | ------------------------------------ |
 | [Chat](./scaleway/chat)                               | `basic`, `streaming`, `conversation` |
 | [Feature Extraction](./scaleway/feature-extraction)   | `hub-resolver`                       |
+
+### Replicate
+
+The [Replicate provider](../docs/providers/replicate.md) serves text-to-image,
+image-to-image, text-to-video, and speech-recognition through Replicate's
+prediction API via the Hugging Face router. Its examples each show the provider
+and resolver wiring the default provider does not need. Like Fal AI, the model
+resolver is the piece that varies per deployment, so Replicate variants are
+named for the resolver they wire: `hub-resolver` resolves against the Hub's
+`inferenceProviderMapping` data live.
+
+| Task                                                 | Variants       |
+| ------------------------------------------------- | -------------- |
+| [Text to Image](./replicate/text-to-image)        | `hub-resolver` |
+| [Image to Image](./replicate/image-to-image)      | `hub-resolver` |
+| [Text to Video](./replicate/text-to-video)        | `hub-resolver` |
+| [Speech Recognition](./replicate/speech-recognition) | `hub-resolver` |
 
 ### Baseten
 

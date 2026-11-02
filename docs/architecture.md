@@ -19,7 +19,7 @@ and `examples/` for usage documentation, and the code itself for full detail.
 | `hfopts`      | `github.com/Kardbord/hfgo/v4/hfopts`      | `Options`, `Option`, and all `With*` helpers                                                                                      |
 | `hftypes`     | `github.com/Kardbord/hfgo/v4/hftypes`     | Request/response DTOs for every task                                                                                              |
 | `hferrors`    | `github.com/Kardbord/hfgo/v4/hferrors`    | `APIError`, `SDKError`, and `SDKErrorKind`                                                                                        |
-| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, per-task provider mixins (Hugging Face, WaveSpeed, fal.ai, DeepInfra, Scaleway, Nscale), `HuggingFaceProvider`, `WavespeedProvider`, `FalAIProvider`, `DeepInfraProvider`, `ScalewayProvider`, `TogetherProvider`, `NscaleProvider`, chat-only partner providers (e.g. `BasetenProvider`), `ModelResolver` |
+| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, per-task provider mixins (Hugging Face, WaveSpeed, fal.ai, DeepInfra, Scaleway, Nscale, Replicate), `HuggingFaceProvider`, `WavespeedProvider`, `FalAIProvider`, `DeepInfraProvider`, `ScalewayProvider`, `TogetherProvider`, `NscaleProvider`, `ReplicateProvider`, chat-only partner providers (e.g. `BasetenProvider`), `ModelResolver` |
 | `hfraw`       | `github.com/Kardbord/hfgo/v4/hfraw`       | Low-level HTTP/SSE escape hatch                                                                                                   |
 | `hfgoversion` | `github.com/Kardbord/hfgo/v4/hfgoversion` | `Version` constant and `UserAgent()` helper                                                                                       |
 
@@ -295,8 +295,8 @@ to an `AsyncCodec`, it calls `PostSubmit` instead of `Decode`, passing the
 submit response plus the transport configuration (HTTP client, base URL,
 token, response-size cap) so the codec can complete the exchange — polling,
 terminal-state handling, and output retrieval stay provider-owned wire-format
-logic inside the provider package. WaveSpeed and fal.ai use this for their
-submit-poll-download lifecycles.
+logic inside the provider package. WaveSpeed, fal.ai, and Replicate use this
+for their submit-poll-download lifecycles.
 
 ### Naming convention
 

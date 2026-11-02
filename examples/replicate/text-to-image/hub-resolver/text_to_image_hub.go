@@ -1,0 +1,74 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hfproviders"
+	"github.com/Kardbord/hfgo/v4/hftypes"
+)
+
+const outputFile = "replicate_text_to_image.png"
+
+func main() {
+	token := os.Getenv("HF_TOKEN")
+	if token == "" {
+		log.Fatal("HF_TOKEN environment variable is not set")
+	}
+
+	// Build a Hub model resolver, which queries the Hub's
+	// inferenceProviderMapping data for the configured model ID instead of
+	// using a pinned table. The token raises rate limits and is required for
+	// gated models; results are cached per resolver instance.
+	resolver := hfproviders.NewHubModelResolver(
+		hfproviders.WithHubToken(token),
+	)
+
+	// Create a ReplicateProvider backed by the resolver. The constructor
+	// returns an error if the resolver is nil.
+	provider, err := hfproviders.NewReplicateProvider(resolver)
+	if err != nil {
+		log.Fatalf("error creating Replicate provider: %v", err)
+	}
+
+	// Configure the client to route text-to-image requests through the
+	// Replicate provider. Generated images are binary and can exceed the
+	// default 1 MiB response cap, so raise it to leave headroom.
+	client := hfgo.NewClient(
+		hfopts.WithToken(token),
+		hfopts.WithModel("black-forest-labs/FLUX.1-dev"),
+		hfopts.WithProvider(provider),
+		hfopts.WithMaxResponseBodyBytes(16<<20),
+	)
+
+	const prompt = "A serene mountain landscape at sunset"
+	fmt.Println("Generating image for prompt: " + prompt)
+	fmt.Println("...")
+
+	// The SDK encodes the canonical request into Replicate's prediction
+	// payload and runs its prediction exchange: the submission asks Replicate
+	// to hold the request open with "Prefer: wait", polls past that window
+	// while the prediction runs, and downloads the generated output.
+	// Provider-specific request parameters that the canonical request types
+	// do not cover ride on ProviderParams.
+	image, err := client.GenerateImage(hftypes.TextToImageRequest{
+		Input: prompt,
+	})
+	if err != nil {
+		log.Fatalf("error generating image: %v", err)
+	}
+
+	// The response carries the raw image data, so write it straight to disk.
+	if err := os.WriteFile(outputFile, image.Image, 0o600); err != nil {
+		log.Fatalf("error writing image: %v", err)
+	}
+
+	fmt.Printf("Wrote %d bytes of %s to %s\n", len(image.Image), image.MediaType, outputFile)
+
+	// The same provider also serves image-to-image, text-to-video, and
+	// speech-recognition tasks; see the other examples under
+	// examples/replicate.
+}

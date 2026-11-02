@@ -58,8 +58,10 @@ if err != nil {
 | Speech recognition | `SpeechRecognitionEndpoint` | `SpeechRecognitionCodec` | `RecognizeSpeech`      |
 
 Media tasks return the generated media together with the media type the
-provider advertised (`response.MediaType`). fal does not serve these tasks
-with the Hugging Face pipeline wire format:
+provider advertised (`response.MediaType`), falling back to the type
+byte-sniffed from the payload when the advertised type is missing, garbled,
+or generic (CDNs commonly label every blob `application/octet-stream`). fal
+does not serve these tasks with the Hugging Face pipeline wire format:
 
 - **Requests** are encoded as fal's flat JSON body. The prompt and every
   generation parameter live at the top level — the canonical request's

@@ -4,6 +4,7 @@ package hfproviders
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -573,6 +574,76 @@ func TestParseMediaType(t *testing.T) {
 			require.Equal(t, tc.wantMedia, media)
 		})
 	}
+}
+
+// failingParameters fails to marshal, exercising the flatten step's marshal
+// error branch.
+type failingParameters struct{}
+
+// MarshalJSON implements [json.Marshaler].
+func (failingParameters) MarshalJSON() ([]byte, error) {
+	return nil, errors.New("marshal failure")
+}
+
+// arrayParameters marshals to a JSON array, exercising the flatten step's
+// unmarshal error branch: the payload cannot decode into a JSON object.
+type arrayParameters struct{}
+
+// MarshalJSON implements [json.Marshaler].
+func (arrayParameters) MarshalJSON() ([]byte, error) {
+	return []byte("[1,2,3]"), nil
+}
+
+// TestFlattenParameters exercises the shared parameter-flattening helper:
+// nil parameters flatten to an empty map, marshal and flatten failures
+// surface as serialization SDK errors, and valid parameters flatten to their
+// JSON object form with exact numeric literals.
+func TestFlattenParameters(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil parameters flatten to an empty map", func(t *testing.T) {
+		t.Parallel()
+
+		flat, err := flattenParameters(nil)
+		require.NoError(t, err)
+		require.Empty(t, flat)
+	})
+
+	t.Run("marshal failure is a serialization error", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := flattenParameters(failingParameters{})
+		assertSerializationError(t, err)
+	})
+
+	t.Run("non-object payload is a serialization error", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := flattenParameters(arrayParameters{})
+		assertSerializationError(t, err)
+	})
+
+	t.Run("valid parameters flatten", func(t *testing.T) {
+		t.Parallel()
+
+		flat, err := flattenParameters(hftypes.TextToVideoParameters{
+			Seed: new(int64(42)),
+		})
+		require.NoError(t, err)
+		require.Equal(t, map[string]any{"seed": json.Number("42")}, flat)
+	})
+
+	t.Run("large seed preserves exact numeric literal", func(t *testing.T) {
+		t.Parallel()
+
+		// A seed beyond float64's 2^53 integer precision must arrive intact
+		// as a json.Number instead of being silently rounded.
+		flat, err := flattenParameters(hftypes.TextToVideoParameters{
+			Seed: new(int64(9223372036854775807)),
+		})
+		require.NoError(t, err)
+		require.Equal(t, map[string]any{"seed": json.Number("9223372036854775807")}, flat)
+	})
 }
 
 func TestTextClassificationCodec_Decode(t *testing.T) {
