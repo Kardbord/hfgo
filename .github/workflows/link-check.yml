@@ -40,8 +40,12 @@ jobs:
             --verbose
             --no-progress
             --exclude-path '(^|/)\.github/workflows/link-check\.yml$'
+            --exclude-path '_test\.go$'
             --exclude '^https://router\.huggingface\.co/?$'
             --exclude '^https://openrouter\.ai/api/?$'
+            --exclude '^https://queue\.fal\.run/fal-ai/flux/requests/(%7Bid%7D|\{id\})$'
+            --exclude '^https://api\.replicate\.com/v1/predictions/(%7Bid%7D|\{id\})$'
+            --exclude '^https://user:pass@host/$'
             './**/*.md'
             './**/*.html'
             './**/*.go'
