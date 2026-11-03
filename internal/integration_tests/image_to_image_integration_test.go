@@ -33,7 +33,7 @@ func TestGenerateImageToImage_LiveAPI(t *testing.T) {
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(imageToImageModel),
 		hfopts.WithContext(ctx),
-		hfopts.WithProvider(newWavespeedProvider(t)),
+		hfopts.WithProvider(newWaveSpeedProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(16<<20), // Images can be large.
 	)
 
@@ -77,7 +77,7 @@ func TestGenerateImageToImage_ContextCancellation(t *testing.T) {
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(imageToImageModel),
 		hfopts.WithContext(ctx),
-		hfopts.WithProvider(newWavespeedProvider(t)),
+		hfopts.WithProvider(newWaveSpeedProvider(t)),
 	)
 
 	response, err := client.GenerateImageToImage(hftypes.ImageToImageRequest{

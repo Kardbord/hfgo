@@ -5,10 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
-	"maps"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -18,15 +15,6 @@ import (
 )
 
 const replicateProviderName = "replicate"
-
-// replicateAdapterLora is the Hub mapping adapter value marking a model
-// that ships LoRA weights applied on top of a provider-hosted base model.
-const replicateAdapterLora = "lora"
-
-// replicateRouterHost is the Hugging Face router host. When the caller's
-// base URL targets it, provider-relative prediction paths resolve under the
-// /replicate prefix, mirroring the official Hugging Face clients.
-const replicateRouterHost = "router.huggingface.co"
 
 // replicateRouterPrefix is the router path segment replicate requests are
 // proxied under.
@@ -81,7 +69,6 @@ const (
 	replicatePromptKey      = "prompt"
 	replicateAudioKey       = "audio"
 	replicateLoraWeightsKey = "lora_weights"
-	replicateAcceptKey      = "Accept"
 	replicatePreferKey      = "Prefer"
 	replicatePreferWait     = "wait"
 )
@@ -94,22 +81,20 @@ const (
 	replicateTxtFileKey       = "txt_file"
 )
 
-// replicatePollTiming bounds the polling loop's wait schedule: the first
-// wait, the per-poll increase, and the wait ceiling.
-type replicatePollTiming struct {
-	initial time.Duration
-	step    time.Duration
-	max     time.Duration
-}
-
 // replicateDefaultPollTiming returns the production polling schedule.
-func replicateDefaultPollTiming() replicatePollTiming {
-	return replicatePollTiming{
+func replicateDefaultPollTiming() queueSchedule {
+	return queueSchedule{
 		initial: replicateInitialPollInterval,
 		step:    replicatePollIntervalStep,
 		max:     replicateMaxPollInterval,
 	}
 }
+
+// replicateErrSucceededWithoutOutput is the serialization error surfaced
+// when a succeeded prediction carries no usable output. The terminal-status
+// classifier and the output extractor share it: reaching either with no
+// output means the same malformed completion.
+const replicateErrSucceededWithoutOutput = "Replicate prediction succeeded without output"
 
 // ReplicateProvider serves text-to-video, text-to-image, image-to-image,
 // and automatic-speech-recognition tasks through Replicate via the Hugging
@@ -162,7 +147,7 @@ type ReplicateProvider struct {
 	ReplicateTextToImageMixin
 	ReplicateImageToImageMixin
 	ReplicateTextToVideoMixin
-	ReplicateAutomaticSpeechRecognitionMixin
+	ReplicateSpeechRecognitionMixin
 }
 
 // Compile-time assertions that ReplicateProvider satisfies each supported
@@ -195,7 +180,7 @@ func NewReplicateProvider(resolver ModelResolver) (ReplicateProvider, error) {
 		ReplicateTextToVideoMixin: ReplicateTextToVideoMixin{
 			Resolver: resolver,
 		},
-		ReplicateAutomaticSpeechRecognitionMixin: ReplicateAutomaticSpeechRecognitionMixin{
+		ReplicateSpeechRecognitionMixin: ReplicateSpeechRecognitionMixin{
 			Resolver: resolver,
 		},
 	}, nil
@@ -287,10 +272,11 @@ func (m ReplicateTextToImageMixin) TextToImageEndpoint(
 // [replicateInjectAdapterLora]).
 func (m ReplicateTextToImageMixin) TextToImageCodec() TextToImageCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
-	return replicateTextToImageCodec{replicateAsyncCodec{
+	return replicateTextToImageCodec{replicateAsyncCodec{queueTaskCodec{
+		defaults:    replicateDefaultPollTiming(),
 		mediaPrefix: replicateImageMediaPrefix,
 		resolver:    m.Resolver,
-	}}
+	}}}
 }
 
 // ReplicateImageToImageMixin provides the Replicate endpoint and codec for
@@ -324,10 +310,11 @@ func (m ReplicateImageToImageMixin) ImageToImageEndpoint(
 // resolver when used standalone (see [replicateInjectAdapterLora]).
 func (m ReplicateImageToImageMixin) ImageToImageCodec() ImageToImageCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
-	return replicateImageToImageCodec{replicateAsyncCodec{
+	return replicateImageToImageCodec{replicateAsyncCodec{queueTaskCodec{
+		defaults:    replicateDefaultPollTiming(),
 		mediaPrefix: replicateImageMediaPrefix,
 		resolver:    m.Resolver,
-	}}
+	}}}
 }
 
 // ReplicateTextToVideoMixin provides the Replicate endpoint and codec for
@@ -361,19 +348,20 @@ func (m ReplicateTextToVideoMixin) TextToVideoEndpoint(
 // [replicateInjectAdapterLora]).
 func (m ReplicateTextToVideoMixin) TextToVideoCodec() TextToVideoCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
-	return replicateTextToVideoCodec{replicateAsyncCodec{
+	return replicateTextToVideoCodec{replicateAsyncCodec{queueTaskCodec{
+		defaults:    replicateDefaultPollTiming(),
 		mediaPrefix: replicateVideoMediaPrefix,
 		resolver:    m.Resolver,
-	}}
+	}}}
 }
 
-// ReplicateAutomaticSpeechRecognitionMixin provides the Replicate endpoint
+// ReplicateSpeechRecognitionMixin provides the Replicate endpoint
 // and codec for automatic speech recognition. It is a mixin: embed it in a
 // type that also implements Provider.Name and Provider.ProviderSuffix to
 // serve only speech recognition. Its [ModelResolver] maps the configured
 // Hugging Face model ID to Replicate's provider model identifier at
 // endpoint-construction time.
-type ReplicateAutomaticSpeechRecognitionMixin struct {
+type ReplicateSpeechRecognitionMixin struct {
 	// Resolver maps the configured Hugging Face model ID to Replicate's
 	// provider model identifier. It must be non-nil when the mixin's
 	// endpoint method is called.
@@ -383,7 +371,7 @@ type ReplicateAutomaticSpeechRecognitionMixin struct {
 // SpeechRecognitionEndpoint resolves the configured Hugging Face model ID
 // to Replicate's identifier and returns the router-proxied prediction route
 // for it.
-func (m ReplicateAutomaticSpeechRecognitionMixin) SpeechRecognitionEndpoint(
+func (m ReplicateSpeechRecognitionMixin) SpeechRecognitionEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
 	return resolveReplicateEndpoint(m.Resolver, params, TaskAutomaticSpeechRecognition)
@@ -393,71 +381,22 @@ func (m ReplicateAutomaticSpeechRecognitionMixin) SpeechRecognitionEndpoint(
 // encodes requests as a Replicate prediction (the input audio rides on
 // "audio" as a data: URI or URL) and completes Replicate's asynchronous
 // prediction exchange before returning the transcript.
-func (m ReplicateAutomaticSpeechRecognitionMixin) SpeechRecognitionCodec() SpeechRecognitionCodec {
+func (m ReplicateSpeechRecognitionMixin) SpeechRecognitionCodec() SpeechRecognitionCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs and media prefix are unused.
-	return replicateSpeechRecognitionCodec{replicateAsyncCodec{
+	return replicateSpeechRecognitionCodec{replicateAsyncCodec{queueTaskCodec{
+		defaults: replicateDefaultPollTiming(),
 		resolver: m.Resolver,
-	}}
+	}}}
 }
 
-// replicateAsyncCodec carries the pieces shared by every Replicate task
-// codec: the resolver needed to adapt payloads to adapter models, the
-// polling schedule, and — for media-output tasks — the expected output media
-// prefix. Codec structs embed it so their PostSubmit and Decode
-// implementations share one exchange; only the payload assembly and typed
-// response construction differ per task.
-//
-// The zero value is valid and encodes payloads without adapter handling,
-// using the default polling schedule.
+// replicateAsyncCodec is Replicate's queue task codec: the shared
+// [queueTaskCodec] base (resolver, polling knobs, media prefix, timing, and
+// media decoding) plus Replicate's prediction exchange steps. Codec structs
+// embed it so their PostSubmit and Decode implementations share one
+// exchange; only the payload assembly and typed response construction
+// differ per task.
 type replicateAsyncCodec struct {
-	// resolver maps the configured Hugging Face model ID to its provider
-	// mapping. When the pipeline does not supply the mapping resolved at
-	// endpoint-construction time (see [EncodeParams.Mapping]), Encode uses
-	// the resolver to detect adapter models and inject the provider's
-	// LoRA payload entry (see [replicateInjectAdapterLora]). Nil encodes
-	// without adapter handling unless a mapping is supplied.
-	resolver ModelResolver
-
-	// mediaPrefix is the required output media-type prefix ("image/" or
-	// "video/") enforced on the downloaded output. Unused by codecs whose
-	// Decode consumes a transcript instead.
-	mediaPrefix string
-
-	// pollInterval overrides the initial polling wait (tests only). Zero
-	// uses the default schedule.
-	pollInterval time.Duration
-
-	// pollStep overrides the per-poll wait increase (tests only). Zero uses
-	// the default schedule.
-	pollStep time.Duration
-
-	// maxPollInterval overrides the polling wait ceiling (tests only). Zero
-	// uses the default schedule.
-	maxPollInterval time.Duration
-}
-
-// timing returns the codec's polling schedule, falling back to the defaults
-// for any unset knob.
-func (c replicateAsyncCodec) timing() replicatePollTiming {
-	timing := replicateDefaultPollTiming()
-	if c.pollInterval > 0 {
-		timing.initial = c.pollInterval
-	}
-	if c.pollStep > 0 {
-		timing.step = c.pollStep
-	}
-	if c.maxPollInterval > 0 {
-		timing.max = c.maxPollInterval
-	}
-
-	return timing
-}
-
-// decodeMediaBody decodes a raw provider media body into its bytes and
-// parsed media type, validating the body's Content-Type against the codec's
-// required media prefix (see [queueDecodeMediaBody]).
-func (c replicateAsyncCodec) decodeMediaBody(params DecodeParams) ([]byte, string, error) {
-	return queueDecodeMediaBody(params, c.mediaPrefix)
+	queueTaskCodec
 }
 
 // postSubmitPrediction runs the shared Replicate exchange up to the
@@ -497,7 +436,7 @@ func (c replicateAsyncCodec) postSubmitMedia(
 		return nil, nil, nil, err
 	}
 
-	media, headers, err := replicateDownloadOutput(ctx, params, outputURL)
+	media, headers, err := queueDownloadOutput(ctx, params, outputURL)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -539,11 +478,7 @@ type replicatePredictionURLs struct {
 func replicateDecodePrediction(body []byte) (replicatePrediction, error) {
 	var pred replicatePrediction
 	if err := json.Unmarshal(body, &pred); err != nil {
-		return replicatePrediction{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "failed to decode Replicate prediction response",
-			Err:     err,
-		}
+		return replicatePrediction{}, queueDecodeTaskError("Replicate prediction response", err)
 	}
 
 	return pred, nil
@@ -570,7 +505,7 @@ func replicateTerminalPrediction(
 		if !replicateHasOutput(pred) {
 			return nil, true, &hferrors.SDKError{
 				Kind:    hferrors.SDKErrorKindSerialization,
-				Message: "Replicate prediction succeeded without output",
+				Message: replicateErrSucceededWithoutOutput,
 				Err:     nil,
 			}
 		}
@@ -588,10 +523,7 @@ func replicateTerminalPrediction(
 
 // replicatePredictionFailedError builds the error surfaced for a
 // terminally failed prediction, carrying the provider's error message and
-// the prediction ID when present. The provider reports the failure inside
-// an otherwise valid response, so it surfaces as an SDKError of kind
-// provider rather than an APIError: the HTTP exchange itself succeeded, and
-// APIError stays reserved for 4xx/5xx responses.
+// the prediction ID when present (see [queueTaskFailedError]).
 func replicatePredictionFailedError(pred *replicatePrediction) error {
 	message := "Replicate prediction failed"
 	if pred.Error != nil && *pred.Error != "" {
@@ -601,11 +533,7 @@ func replicatePredictionFailedError(pred *replicatePrediction) error {
 		message += " (prediction id " + pred.ID + ")"
 	}
 
-	return &hferrors.SDKError{
-		Kind:    hferrors.SDKErrorKindProvider,
-		Message: message,
-		Err:     nil,
-	}
+	return queueTaskFailedError(message)
 }
 
 // replicateMetadata extracts the provider-specific response metadata exposed
@@ -639,98 +567,25 @@ func replicateMetadata(pred *replicatePrediction) map[string]any {
 	return meta
 }
 
-// replicatePolledURL is the resolved poll request: a base URL to join
-// against, a request path, and any query string the provider attached.
-type replicatePolledURL struct {
-	base  string
-	path  string
-	query string
-}
-
-// replicatePredictionURL resolves the prediction's poll URL against the
-// caller's base URL. Replicate returns an absolute provider URL in
-// urls.get; when the base URL is the Hugging Face router, the path resolves
-// under the router's /replicate prefix, mirroring the official Hugging Face
-// clients. Only the path and query of an absolute URL are kept, so the poll
-// always targets the host the submit went through — a prediction response
-// can never redirect a poll (and its bearer token) to a foreign host. A
-// urls.get that already targets the router keeps its path unchanged, since
-// the router namespace prefix is already part of it.
-func replicatePredictionURL(baseURL, getURL string) (replicatePolledURL, error) {
-	if getURL == "" {
-		return replicatePolledURL{}, &hferrors.SDKError{
+// replicatePollTarget resolves the prediction's poll URL and builds the
+// request params for one poll. Polling always targets the host the submit
+// went through, so the caller's bearer token applies; the resolution and
+// request assembly are shared with the other queue providers (see
+// [queuePollTarget]). Output downloads (see [queueDownloadOutput]) target
+// Replicate's CDN and are sent unauthenticated.
+func replicatePollTarget(
+	params PostSubmitParams,
+	pred *replicatePrediction,
+) (request.Params, string, error) {
+	if pred.URLs.Get == "" {
+		return request.Params{}, "", &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindSerialization,
 			Message: "Replicate prediction response has no prediction URL",
 			Err:     nil,
 		}
 	}
 
-	parsedBase, err := url.Parse(baseURL)
-	if err != nil {
-		return replicatePolledURL{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: fmt.Sprintf("invalid base URL %q", baseURL),
-			Err:     err,
-		}
-	}
-
-	parsedGet, err := url.Parse(getURL)
-	if err != nil {
-		return replicatePolledURL{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: fmt.Sprintf("invalid Replicate prediction URL %q", getURL),
-			Err:     err,
-		}
-	}
-
-	path := parsedGet.Path
-	if path == "" || !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
-
-	resultBase := strings.TrimSuffix(baseURL, "/")
-	routed := strings.EqualFold(parsedBase.Host, replicateRouterHost)
-	alreadyRouted := parsedGet.Host != "" &&
-		strings.EqualFold(parsedGet.Host, replicateRouterHost)
-	if routed && !alreadyRouted {
-		resultBase += replicateRouterPrefix
-	}
-
-	return replicatePolledURL{
-		base:  resultBase,
-		path:  path,
-		query: parsedGet.RawQuery,
-	}, nil
-}
-
-// replicatePollTarget resolves the prediction's poll URL and builds the
-// request params for one poll. Polling always targets the host the submit
-// went through, so the caller's bearer token applies. Output downloads (see
-// [replicateDownloadOutput]) target Replicate's CDN and are sent
-// unauthenticated.
-func replicatePollTarget(
-	params PostSubmitParams,
-	pred *replicatePrediction,
-) (request.Params, string, error) {
-	polled, err := replicatePredictionURL(params.BaseURL, pred.URLs.Get)
-	if err != nil {
-		return request.Params{}, "", err
-	}
-
-	pollParams := request.Params{
-		HTTPClient: params.HTTPClient,
-		BaseURL:    polled.base,
-		UserAgent:  params.UserAgent,
-		Token:      params.Token,
-		Headers:    http.Header{replicateAcceptKey: {mimeTypeJSON}},
-	}
-
-	pollPath := polled.path
-	if polled.query != "" {
-		pollPath += "?" + polled.query
-	}
-
-	return pollParams, pollPath, nil
+	return queuePollTarget(params, pred.URLs.Get, replicateRouterPrefix, "Replicate prediction URL")
 }
 
 // awaitPrediction polls the prediction URL until the prediction completes,
@@ -752,53 +607,11 @@ func (c replicateAsyncCodec) awaitPrediction(
 		return nil, err
 	}
 
-	timing := c.timing()
-	wait := timing.initial
-	for {
-		// nextWait grows the regular schedule toward the ceiling. A
-		// server-provided Retry-After replaces the wait for the following
-		// round, and the schedule then resumes growing from that value,
-		// still capped by the ceiling.
-		nextWait := min(wait+timing.step, timing.max)
-
-		if err := replicatePollWait(ctx, wait); err != nil {
-			return nil, err
-		}
-
-		pred, override, err := replicatePollOnce(ctx, params, pollParams, pollPath)
-		if err != nil {
-			return nil, err
-		}
-		if pred != nil {
-			return pred, nil
-		}
-
-		wait = nextWait
-		if override > 0 {
-			wait = override
-		}
+	poll := func(ctx context.Context) (*replicatePrediction, time.Duration, error) {
+		return replicatePollOnce(ctx, params, pollParams, pollPath)
 	}
-}
 
-// replicatePollWait waits d, or until ctx expires, whichever comes first. It
-// returns ctx.Err() when the context ended during the wait.
-func replicatePollWait(ctx context.Context, d time.Duration) error {
-	// A fresh timer per call avoids the time.After leak: time.After timers
-	// cannot be stopped, so they keep running until they fire even when the
-	// context exits first. The drain after a failed Stop is safe because
-	// each timer's channel is consumed exactly once.
-	timer := time.NewTimer(d)
-
-	select {
-	case <-ctx.Done():
-		if !timer.Stop() {
-			<-timer.C
-		}
-
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
+	return queueAwait(ctx, c.timing(), poll)
 }
 
 // replicatePollOnce issues one poll request and classifies the result. pred
@@ -818,78 +631,16 @@ func replicatePollOnce(
 	})
 }
 
-// replicateDownloadOutput downloads the prediction's first output URL.
-// Output URLs are provider-CDN addresses (often signed), so the request goes
-// through request.DoUnauthenticated, which structurally carries no caller
-// credentials. The returned headers always carry a parseable Content-Type:
-// the advertised Content-Type is kept, falling back to byte-sniffing when
-// the CDN omits or garbles it.
-func replicateDownloadOutput(
-	ctx context.Context,
-	params PostSubmitParams,
-	outputURL string,
-) ([]byte, http.Header, error) {
-	//nolint:bodyclose // Drained and closed via defer below on success; error
-	// responses transfer the body to the returned APIError, which the caller
-	// must close per the APIError contract.
-	resp, err := request.DoUnauthenticated(
-		ctx,
-		request.UnauthenticatedParams{
-			HTTPClient: params.HTTPClient,
-			UserAgent:  params.UserAgent,
-		},
-		http.MethodGet,
-		outputURL,
-		http.Header{replicateAcceptKey: {mimeTypeAny}},
-		http.NoBody,
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
-
-	body, err := request.ReadResponseBody(resp, params.MaxResponseBodyBytes)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	headers := resp.Header.Clone()
-	if _, ok := parseMediaType(headers.Get("Content-Type")); !ok {
-		headers.Set("Content-Type", http.DetectContentType(body))
-	}
-
-	return body, headers, nil
-}
-
 // replicateDownloadText downloads a provider-hosted text output (the ASR
-// txt_file field) and returns its body as a string. Like the media
-// download, it goes through request.DoUnauthenticated: the URL is a
-// provider-owned output link, not a caller-authenticated follow-up.
+// txt_file field) and returns its body as a string. It routes through
+// [queueDownloadOutput]: the URL is a provider-owned output link, not a
+// caller-authenticated follow-up.
 func replicateDownloadText(
 	ctx context.Context,
 	params PostSubmitParams,
 	textURL string,
 ) (string, error) {
-	//nolint:bodyclose // Drained and closed via defer below on success; error
-	// responses transfer the body to the returned APIError, which the caller
-	// must close per the APIError contract.
-	resp, err := request.DoUnauthenticated(
-		ctx,
-		request.UnauthenticatedParams{
-			HTTPClient: params.HTTPClient,
-			UserAgent:  params.UserAgent,
-		},
-		http.MethodGet,
-		textURL,
-		http.Header{replicateAcceptKey: {mimeTypeAny}},
-		http.NoBody,
-	)
-	if err != nil {
-		return "", err
-	}
-	defer request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
-
-	body, err := request.ReadResponseBody(resp, params.MaxResponseBodyBytes)
+	body, _, err := queueDownloadOutput(ctx, params, textURL)
 	if err != nil {
 		return "", err
 	}
@@ -904,7 +655,7 @@ func replicateMediaOutputURL(pred *replicatePrediction) (string, error) {
 	if !replicateHasOutput(pred) {
 		return "", &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "Replicate prediction succeeded without output",
+			Message: replicateErrSucceededWithoutOutput,
 			Err:     nil,
 		}
 	}
@@ -944,14 +695,14 @@ func replicateMediaOutputURL(pred *replicatePrediction) (string, error) {
 
 // replicateAudioMIME labels sniffed audio bytes for the prediction's audio
 // data URI, falling back to the official clients' default when the
-// container is unrecognized. net/http's sniffer has no FLAC signature, so a
-// bare "fLaC" prefix is checked explicitly.
+// container is unrecognized. net/http's sniffer has no FLAC signature, so
+// the shared FLAC check (see [hasFLACPrefix]) labels those bytes explicitly.
 func replicateAudioMIME(raw []byte) string {
 	mediaType := http.DetectContentType(raw)
 	if strings.HasPrefix(mediaType, "audio/") {
 		return mediaType
 	}
-	if bytes.HasPrefix(raw, []byte("fLaC")) {
+	if hasFLACPrefix(raw) {
 		return mimeTypeFLAC
 	}
 
@@ -970,16 +721,13 @@ func replicateImageMIME(raw []byte) string {
 	return replicateImageInputMIME
 }
 
-// replicateInputDataURL passes data URIs and HTTP(S) URLs through unchanged
-// and wraps every other input as a data URI labeled by the sniff function,
+// replicateInputDataURL passes self-describing inputs through unchanged and
+// wraps every other input as a data URI labeled by the sniff function,
 // matching the official Hugging Face clients' payload preparation. The
 // canonical request DTOs carry base64 strings rather than media types, so
 // the label is derived from the bytes themselves.
 func replicateInputDataURL(input string, sniff func([]byte) string) (string, error) {
-	if input == "" ||
-		strings.HasPrefix(input, "data:") ||
-		strings.HasPrefix(input, "http://") ||
-		strings.HasPrefix(input, "https://") {
+	if inputIsSelfDescribing(input) {
 		return input, nil
 	}
 
@@ -1021,7 +769,7 @@ func replicateImageDataURL(input string) (string, error) {
 // Replicate resolves the repository's weights itself. A caller-supplied
 // "lora_weights" (via ProviderParams, merged before this call) wins.
 func replicateInjectAdapterLora(mapping *ModelMapping, hfModel string, input map[string]any) {
-	if mapping.Adapter != replicateAdapterLora || mapping.AdapterWeightsPath == "" {
+	if mapping.Adapter != adapterLora || mapping.AdapterWeightsPath == "" {
 		return
 	}
 	if _, ok := input[replicateLoraWeightsKey]; ok {
@@ -1094,9 +842,7 @@ func replicateEncodePayload(
 // the prediction finishes (bounded by the provider's server-side wait
 // window; the codec polls past it).
 func replicateEncodeHeaders() http.Header {
-	headers := http.Header{}
-	headers.Set("Content-Type", mimeTypeJSON)
-	headers.Set("Accept", mimeTypeJSON)
+	headers := jsonRequestHeaders(mimeTypeJSON)
 	headers.Set(replicatePreferKey, replicatePreferWait)
 
 	return headers
@@ -1125,14 +871,9 @@ func (c replicateTextToImageCodec) Encode(
 	req := params.Request
 
 	input := map[string]any{replicatePromptKey: req.Input}
-	if req.Parameters != nil {
-		flat, err := flattenParameters(req.Parameters)
-		if err != nil {
-			return nil, nil, err
-		}
-		maps.Copy(input, flat)
+	if err := mergeRequestParameters(input, req.Parameters, req.ProviderParams); err != nil {
+		return nil, nil, err
 	}
-	maps.Copy(input, req.ProviderParams)
 
 	payload, err := replicateEncodePayload(
 		params.Context, params.Mapping, c.resolver, TaskTextToImage, params.Model, input,
@@ -1170,18 +911,10 @@ func (c replicateTextToImageCodec) PostSubmit(
 		return hftypes.TextToImageResponse{}, err
 	}
 
-	resp, err := c.Decode(DecodeParams{
-		Context: ctx,
-		Body:    media,
-		Event:   "", // unary responses have no SSE framing
-		Headers: headers,
-	})
-	if err != nil {
-		return hftypes.TextToImageResponse{}, err
-	}
-	resp.ProviderMetadata = metadata
-
-	return resp, nil
+	return queueFinalizeResponse(ctx, c.Decode, media, headers, metadata,
+		func(resp *hftypes.TextToImageResponse, meta map[string]any) {
+			resp.ProviderMetadata = meta
+		})
 }
 
 // replicateImageToImageCodec is a [Codec] for image-to-image that encodes
@@ -1221,14 +954,9 @@ func (c replicateImageToImageCodec) Encode(
 		"input_image":  image,
 		"input_images": []string{image},
 	}
-	if req.Parameters != nil {
-		flat, err := flattenParameters(req.Parameters)
-		if err != nil {
-			return nil, nil, err
-		}
-		maps.Copy(input, flat)
+	if err := mergeRequestParameters(input, req.Parameters, req.ProviderParams); err != nil {
+		return nil, nil, err
 	}
-	maps.Copy(input, req.ProviderParams)
 
 	payload, err := replicateEncodePayload(
 		params.Context, params.Mapping, c.resolver, TaskImageToImage, params.Model, input,
@@ -1266,18 +994,10 @@ func (c replicateImageToImageCodec) PostSubmit(
 		return hftypes.ImageToImageResponse{}, err
 	}
 
-	resp, err := c.Decode(DecodeParams{
-		Context: ctx,
-		Body:    media,
-		Event:   "", // unary responses have no SSE framing
-		Headers: headers,
-	})
-	if err != nil {
-		return hftypes.ImageToImageResponse{}, err
-	}
-	resp.ProviderMetadata = metadata
-
-	return resp, nil
+	return queueFinalizeResponse(ctx, c.Decode, media, headers, metadata,
+		func(resp *hftypes.ImageToImageResponse, meta map[string]any) {
+			resp.ProviderMetadata = meta
+		})
 }
 
 // replicateTextToVideoCodec is a [Codec] for text-to-video that encodes
@@ -1303,14 +1023,9 @@ func (c replicateTextToVideoCodec) Encode(
 	req := params.Request
 
 	input := map[string]any{replicatePromptKey: req.Input}
-	if req.Parameters != nil {
-		flat, err := flattenParameters(req.Parameters)
-		if err != nil {
-			return nil, nil, err
-		}
-		maps.Copy(input, flat)
+	if err := mergeRequestParameters(input, req.Parameters, req.ProviderParams); err != nil {
+		return nil, nil, err
 	}
-	maps.Copy(input, req.ProviderParams)
 
 	payload, err := replicateEncodePayload(
 		params.Context, params.Mapping, c.resolver, TaskTextToVideo, params.Model, input,
@@ -1348,18 +1063,10 @@ func (c replicateTextToVideoCodec) PostSubmit(
 		return hftypes.TextToVideoResponse{}, err
 	}
 
-	resp, err := c.Decode(DecodeParams{
-		Context: ctx,
-		Body:    media,
-		Event:   "", // unary responses have no SSE framing
-		Headers: headers,
-	})
-	if err != nil {
-		return hftypes.TextToVideoResponse{}, err
-	}
-	resp.ProviderMetadata = metadata
-
-	return resp, nil
+	return queueFinalizeResponse(ctx, c.Decode, media, headers, metadata,
+		func(resp *hftypes.TextToVideoResponse, meta map[string]any) {
+			resp.ProviderMetadata = meta
+		})
 }
 
 // replicateSpeechRecognitionCodec is a [Codec] for automatic speech
@@ -1391,14 +1098,9 @@ func (c replicateSpeechRecognitionCodec) Encode(
 	}
 
 	input := map[string]any{replicateAudioKey: audio}
-	if req.Parameters != nil {
-		flat, err := flattenParameters(req.Parameters)
-		if err != nil {
-			return nil, nil, err
-		}
-		maps.Copy(input, flat)
+	if err := mergeRequestParameters(input, req.Parameters, req.ProviderParams); err != nil {
+		return nil, nil, err
 	}
-	maps.Copy(input, req.ProviderParams)
 
 	payload, err := replicateEncodePayload(
 		params.Context, params.Mapping, c.resolver,
@@ -1443,13 +1145,9 @@ func (c replicateSpeechRecognitionCodec) PostSubmit(
 // replicateMarshalPayload marshals a prediction payload into its request
 // body and headers.
 func replicateMarshalPayload(payload map[string]any) (body []byte, headers http.Header, err error) {
-	body, err = json.Marshal(payload)
+	body, err = marshalRequestBody(payload)
 	if err != nil {
-		return nil, nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: errFailedToMarshalRequestBody,
-			Err:     err,
-		}
+		return nil, nil, err
 	}
 
 	return body, replicateEncodeHeaders(), nil
@@ -1534,11 +1232,7 @@ func replicateTranscriptValue(
 func replicateDecodeTranscript(params DecodeParams) (hftypes.SpeechRecognitionResponse, error) {
 	contentType := params.Headers.Get("Content-Type")
 	if !isJSONContentType(contentType) {
-		return hftypes.SpeechRecognitionResponse{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "expected Content-Type application/json, got " + contentType,
-			Err:     nil,
-		}
+		return hftypes.SpeechRecognitionResponse{}, errUnexpectedContentType(contentType)
 	}
 
 	var fields struct {

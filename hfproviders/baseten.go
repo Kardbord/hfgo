@@ -10,7 +10,7 @@ const basetenProviderName = "baseten"
 // request/response schema across providers: only the routing differs,
 // expressed by appending the ":baseten" provider suffix to the model ID.
 //
-// Unlike [WavespeedProvider], Baseten needs no [ModelResolver]: the chat
+// Unlike [WaveSpeedProvider], Baseten needs no [ModelResolver]: the chat
 // endpoint is model-independent, and the router performs provider mapping
 // server-side. The ":baseten" suffix is a deterministic provider pin — the
 // router's automatic failover applies to unsuffixed models and routing

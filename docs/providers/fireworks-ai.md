@@ -1,6 +1,6 @@
 # Fireworks provider
 
-`hfproviders.FireworksProvider` pins chat completions to Fireworks through the
+`hfproviders.FireworksAIProvider` pins chat completions to Fireworks through the
 Hugging Face router. Fireworks serves OpenAI-compatible chat completion for
 both conversational LLMs and vision-language models, so the provider reuses
 the default Hugging Face chat endpoint and codecs and changes only the
@@ -41,7 +41,7 @@ the model already carries an explicit suffix, so
 client := hfgo.NewClient(
 	hfopts.WithToken(os.Getenv("HF_TOKEN")),
 	hfopts.WithModel("zai-org/GLM-5.3"),
-	hfopts.WithProvider(hfproviders.NewFireworksProvider()),
+	hfopts.WithProvider(hfproviders.NewFireworksAIProvider()),
 )
 
 response, err := client.Chat(hftypes.ChatRequest{

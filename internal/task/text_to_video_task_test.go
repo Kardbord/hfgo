@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func wavespeedTestProvider() hfproviders.WavespeedProvider {
+func wavespeedTestProvider() hfproviders.WaveSpeedProvider {
 	mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
 		{
 			Provider: "wavespeed",
@@ -46,7 +46,7 @@ func wavespeedTestProvider() hfproviders.WavespeedProvider {
 	}
 	mapper := hfproviders.NewStaticModelResolver(mappings)
 
-	provider, err := hfproviders.NewWavespeedProvider(mapper)
+	provider, err := hfproviders.NewWaveSpeedProvider(mapper)
 	if err != nil {
 		panic(err)
 	}

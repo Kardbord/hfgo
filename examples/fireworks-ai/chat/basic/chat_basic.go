@@ -23,7 +23,7 @@ func main() {
 	client := hfgo.NewClient(
 		hfopts.WithToken(token),
 		hfopts.WithModel("zai-org/GLM-5.3"),
-		hfopts.WithProvider(hfproviders.NewFireworksProvider()),
+		hfopts.WithProvider(hfproviders.NewFireworksAIProvider()),
 	)
 
 	// Create a chat request with a simple message

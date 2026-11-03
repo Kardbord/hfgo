@@ -3,11 +3,7 @@ package hfproviders
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"maps"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
@@ -16,10 +12,6 @@ import (
 )
 
 const wavespeedProviderName = "wavespeed"
-
-// wavespeedAdapterLora is the Hub mapping adapter value marking a model that
-// ships LoRA weights applied on top of a provider-hosted base model.
-const wavespeedAdapterLora = "lora"
 
 // WaveSpeed serving model, mirrored from the official Hugging Face clients:
 // submitting a task returns a JSON prediction object whose result URL must be
@@ -46,29 +38,20 @@ const (
 	wavespeedMaxPollInterval = 5 * time.Second
 )
 
-// wavespeedPollTiming bounds the polling loop's wait schedule: the first wait,
-// the per-poll increase, and the wait ceiling.
-type wavespeedPollTiming struct {
-	initial time.Duration
-	step    time.Duration
-	max     time.Duration
-}
-
 // wavespeedDefaultPollTiming returns the production polling schedule.
-func wavespeedDefaultPollTiming() wavespeedPollTiming {
-	return wavespeedPollTiming{
+func wavespeedDefaultPollTiming() queueSchedule {
+	return queueSchedule{
 		initial: wavespeedInitialPollInterval,
 		step:    wavespeedPollIntervalStep,
 		max:     wavespeedMaxPollInterval,
 	}
 }
 
-// wavespeedRouterHost is the Hugging Face router host. When the caller's base
-// URL targets it, provider-relative result paths resolve under the /wavespeed
-// prefix, mirroring the official Hugging Face clients.
-const wavespeedRouterHost = "router.huggingface.co"
+// wavespeedRouterPrefix is the router path segment WaveSpeed requests are
+// proxied under.
+const wavespeedRouterPrefix = "/wavespeed"
 
-// WavespeedProvider serves text-to-video, text-to-image, and image-to-image
+// WaveSpeedProvider serves text-to-video, text-to-image, and image-to-image
 // tasks through the Hugging Face router using WaveSpeed's partner model
 // identifiers. Callers configure the Hugging Face model ID they know; each
 // embedded mixin translates it to WaveSpeed's identifier at
@@ -90,62 +73,62 @@ const wavespeedRouterHost = "router.huggingface.co"
 //
 // The zero value is safe to use: endpoint methods return a configuration
 // [hferrors.SDKError] instead of dereferencing a nil resolver. Embedding all
-// three mixins means the promoted field WavespeedProvider.Resolver is
+// three mixins means the promoted field WaveSpeedProvider.Resolver is
 // ambiguous — access each mixin's resolver explicitly if you ever need to
-// (e.g. p.WavespeedTextToImageMixin.Resolver).
+// (e.g. p.WaveSpeedTextToImageMixin.Resolver).
 //
 // As with the Hugging Face mixins, each WaveSpeed mixin can be embedded on its
 // own in a custom provider that also implements Provider.Name and
 // Provider.ProviderSuffix.
-type WavespeedProvider struct {
-	WavespeedTextToVideoMixin
-	WavespeedTextToImageMixin
-	WavespeedImageToImageMixin
+type WaveSpeedProvider struct {
+	WaveSpeedTextToVideoMixin
+	WaveSpeedTextToImageMixin
+	WaveSpeedImageToImageMixin
 }
 
-// Compile-time assertions that WavespeedProvider satisfies each supported
+// Compile-time assertions that WaveSpeedProvider satisfies each supported
 // per-task provider interface.
 var (
-	_ ImageToImageProvider = (*WavespeedProvider)(nil)
-	_ TextToImageProvider  = (*WavespeedProvider)(nil)
-	_ TextToVideoProvider  = (*WavespeedProvider)(nil)
+	_ ImageToImageProvider = (*WaveSpeedProvider)(nil)
+	_ TextToImageProvider  = (*WaveSpeedProvider)(nil)
+	_ TextToVideoProvider  = (*WaveSpeedProvider)(nil)
 )
 
-// NewWavespeedProvider creates a [WavespeedProvider] backed by the given model
+// NewWaveSpeedProvider creates a [WaveSpeedProvider] backed by the given model
 // resolver, e.g. a [HubModelResolver] for live Hub mappings or a
 // [StaticModelResolver] for pinned deployments. It returns an error when
 // resolver is nil so callers cannot accidentally create a provider that fails
-// at request time. A zero-value WavespeedProvider is still safe to call; its
+// at request time. A zero-value WaveSpeedProvider is still safe to call; its
 // endpoint methods return a configuration [hferrors.SDKError].
-func NewWavespeedProvider(resolver ModelResolver) (WavespeedProvider, error) {
+func NewWaveSpeedProvider(resolver ModelResolver) (WaveSpeedProvider, error) {
 	if resolver == nil {
-		return WavespeedProvider{}, errNilResolver(wavespeedProviderName)
+		return WaveSpeedProvider{}, errNilResolver(wavespeedProviderName)
 	}
 
-	return WavespeedProvider{
-		WavespeedTextToVideoMixin:  WavespeedTextToVideoMixin{Resolver: resolver},
-		WavespeedTextToImageMixin:  WavespeedTextToImageMixin{Resolver: resolver},
-		WavespeedImageToImageMixin: WavespeedImageToImageMixin{Resolver: resolver},
+	return WaveSpeedProvider{
+		WaveSpeedTextToVideoMixin:  WaveSpeedTextToVideoMixin{Resolver: resolver},
+		WaveSpeedTextToImageMixin:  WaveSpeedTextToImageMixin{Resolver: resolver},
+		WaveSpeedImageToImageMixin: WaveSpeedImageToImageMixin{Resolver: resolver},
 	}, nil
 }
 
 // Name returns the name of the WaveSpeed provider for debug purposes.
-func (p WavespeedProvider) Name() string {
+func (p WaveSpeedProvider) Name() string {
 	return wavespeedProviderName
 }
 
 // ProviderSuffix returns an empty string. WaveSpeed routes via the endpoint
 // path, not a model suffix.
-func (p WavespeedProvider) ProviderSuffix() string {
+func (p WaveSpeedProvider) ProviderSuffix() string {
 	return ""
 }
 
-// resolveWavespeedEndpoint resolves the configured Hugging Face model ID to
+// resolveWaveSpeedEndpoint resolves the configured Hugging Face model ID to
 // WaveSpeed's provider model identifier and returns the router-proxied
 // endpoint for the given task. The provider slug given to the resolver is
 // WaveSpeed's Hub identifier — the key the Hub's mapping data uses — which is
 // a provider fact, not something the SDK derives.
-func resolveWavespeedEndpoint(
+func resolveWaveSpeedEndpoint(
 	resolver ModelResolver,
 	params EndpointParams,
 	task Task,
@@ -165,17 +148,17 @@ func resolveWavespeedEndpoint(
 
 	return Endpoint{
 		Method:  http.MethodPost,
-		Path:    "wavespeed/api/v3/" + mapping.ProviderModelID,
+		Path:    wavespeedProviderName + "/api/v3/" + mapping.ProviderModelID,
 		Mapping: &mapping,
 	}, nil
 }
 
-// WavespeedTextToVideoMixin provides the WaveSpeed endpoint and codec for
+// WaveSpeedTextToVideoMixin provides the WaveSpeed endpoint and codec for
 // text-to-video generation. It is a mixin: embed it in a type that also
 // implements Provider.Name and Provider.ProviderSuffix to serve only
 // text-to-video. Its [ModelResolver] maps the configured Hugging Face model ID
 // to WaveSpeed's provider model identifier at endpoint-construction time.
-type WavespeedTextToVideoMixin struct {
+type WaveSpeedTextToVideoMixin struct {
 	// Resolver maps the configured Hugging Face model ID to WaveSpeed's
 	// provider model identifier. It must be non-nil when the mixin's endpoint
 	// method is called.
@@ -184,10 +167,10 @@ type WavespeedTextToVideoMixin struct {
 
 // TextToVideoEndpoint resolves the configured Hugging Face model ID to
 // WaveSpeed's identifier and returns the router-proxied path for it.
-func (m WavespeedTextToVideoMixin) TextToVideoEndpoint(
+func (m WaveSpeedTextToVideoMixin) TextToVideoEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	return resolveWavespeedEndpoint(m.Resolver, params, TaskTextToVideo)
+	return resolveWaveSpeedEndpoint(m.Resolver, params, TaskTextToVideo)
 }
 
 // TextToVideoCodec returns the text-to-video codec, which encodes requests as
@@ -196,20 +179,21 @@ func (m WavespeedTextToVideoMixin) TextToVideoEndpoint(
 // The codec adapts the payload to adapter models with the mapping resolved at
 // endpoint-construction time, falling back to the mixin's resolver when used
 // standalone (see [wavespeedInjectAdapterLoras]).
-func (m WavespeedTextToVideoMixin) TextToVideoCodec() TextToVideoCodec {
+func (m WaveSpeedTextToVideoMixin) TextToVideoCodec() TextToVideoCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
-	return wavespeedTextToVideoCodec{wavespeedAsyncCodec{
+	return wavespeedTextToVideoCodec{wavespeedAsyncCodec{queueTaskCodec{
+		defaults:    wavespeedDefaultPollTiming(),
 		mediaPrefix: "video/",
 		resolver:    m.Resolver,
-	}}
+	}}}
 }
 
-// WavespeedTextToImageMixin provides the WaveSpeed endpoint and codec for
+// WaveSpeedTextToImageMixin provides the WaveSpeed endpoint and codec for
 // text-to-image generation. It is a mixin: embed it in a type that also
 // implements Provider.Name and Provider.ProviderSuffix to serve only
 // text-to-image. Its [ModelResolver] maps the configured Hugging Face model ID
 // to WaveSpeed's provider model identifier at endpoint-construction time.
-type WavespeedTextToImageMixin struct {
+type WaveSpeedTextToImageMixin struct {
 	// Resolver maps the configured Hugging Face model ID to WaveSpeed's
 	// provider model identifier. It must be non-nil when the mixin's endpoint
 	// method is called.
@@ -218,10 +202,10 @@ type WavespeedTextToImageMixin struct {
 
 // TextToImageEndpoint resolves the configured Hugging Face model ID to
 // WaveSpeed's identifier and returns the router-proxied path for it.
-func (m WavespeedTextToImageMixin) TextToImageEndpoint(
+func (m WaveSpeedTextToImageMixin) TextToImageEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	return resolveWavespeedEndpoint(m.Resolver, params, TaskTextToImage)
+	return resolveWaveSpeedEndpoint(m.Resolver, params, TaskTextToImage)
 }
 
 // TextToImageCodec returns the text-to-image codec, which encodes requests as
@@ -230,20 +214,21 @@ func (m WavespeedTextToImageMixin) TextToImageEndpoint(
 // The codec adapts the payload to adapter models with the mapping resolved at
 // endpoint-construction time, falling back to the mixin's resolver when used
 // standalone (see [wavespeedInjectAdapterLoras]).
-func (m WavespeedTextToImageMixin) TextToImageCodec() TextToImageCodec {
+func (m WaveSpeedTextToImageMixin) TextToImageCodec() TextToImageCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
-	return wavespeedTextToImageCodec{wavespeedAsyncCodec{
+	return wavespeedTextToImageCodec{wavespeedAsyncCodec{queueTaskCodec{
+		defaults:    wavespeedDefaultPollTiming(),
 		mediaPrefix: "image/",
 		resolver:    m.Resolver,
-	}}
+	}}}
 }
 
-// WavespeedImageToImageMixin provides the WaveSpeed endpoint and codec for
+// WaveSpeedImageToImageMixin provides the WaveSpeed endpoint and codec for
 // image-to-image generation. It is a mixin: embed it in a type that also
 // implements Provider.Name and Provider.ProviderSuffix to serve only
 // image-to-image. Its [ModelResolver] maps the configured Hugging Face model ID
 // to WaveSpeed's provider model identifier at endpoint-construction time.
-type WavespeedImageToImageMixin struct {
+type WaveSpeedImageToImageMixin struct {
 	// Resolver maps the configured Hugging Face model ID to WaveSpeed's
 	// provider model identifier. It must be non-nil when the mixin's endpoint
 	// method is called.
@@ -252,10 +237,10 @@ type WavespeedImageToImageMixin struct {
 
 // ImageToImageEndpoint resolves the configured Hugging Face model ID to
 // WaveSpeed's identifier and returns the router-proxied path for it.
-func (m WavespeedImageToImageMixin) ImageToImageEndpoint(
+func (m WaveSpeedImageToImageMixin) ImageToImageEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	return resolveWavespeedEndpoint(m.Resolver, params, TaskImageToImage)
+	return resolveWaveSpeedEndpoint(m.Resolver, params, TaskImageToImage)
 }
 
 // ImageToImageCodec returns the image-to-image codec, which encodes requests
@@ -264,71 +249,22 @@ func (m WavespeedImageToImageMixin) ImageToImageEndpoint(
 // The codec adapts the payload to adapter models with the mapping resolved at
 // endpoint-construction time, falling back to the mixin's resolver when used
 // standalone (see [wavespeedInjectAdapterLoras]).
-func (m WavespeedImageToImageMixin) ImageToImageCodec() ImageToImageCodec {
+func (m WaveSpeedImageToImageMixin) ImageToImageCodec() ImageToImageCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
-	return wavespeedImageToImageCodec{wavespeedAsyncCodec{
+	return wavespeedImageToImageCodec{wavespeedAsyncCodec{queueTaskCodec{
+		defaults:    wavespeedDefaultPollTiming(),
 		mediaPrefix: "image/",
 		resolver:    m.Resolver,
-	}}
+	}}}
 }
 
-// wavespeedAsyncCodec carries the pieces shared by every WaveSpeed task
-// codec: the resolver needed to adapt payloads to adapter models, the polling
-// schedule, and the expected output media prefix. Codec structs embed it so
-// their PostSubmit and Decode implementations share one exchange
+// wavespeedAsyncCodec is WaveSpeed's queue task codec: the shared
+// [queueTaskCodec] base (resolver, polling knobs, media prefix, timing, and
+// media decoding) plus WaveSpeed's media exchange steps. Codec structs
+// embed it so their PostSubmit and Decode implementations share one exchange
 // implementation; only the typed response construction differs per task.
-//
-// The zero value is valid and encodes payloads without adapter handling,
-// using the default polling schedule.
 type wavespeedAsyncCodec struct {
-	// resolver maps the configured Hugging Face model ID to its provider
-	// mapping. When the pipeline does not supply the mapping resolved at
-	// endpoint-construction time (see [EncodeParams.Mapping]), Encode uses
-	// the resolver to detect adapter models and inject the provider's LoRA
-	// payload entry (see [wavespeedInjectAdapterLoras]). Nil encodes
-	// without adapter handling unless a mapping is supplied.
-	resolver ModelResolver
-
-	// mediaPrefix is the required output media-type prefix ("image/" or
-	// "video/") enforced on the downloaded output.
-	mediaPrefix string
-
-	// pollInterval overrides the initial polling wait (tests only). Zero
-	// uses the default schedule.
-	pollInterval time.Duration
-
-	// pollStep overrides the per-poll wait increase (tests only). Zero uses
-	// the default schedule.
-	pollStep time.Duration
-
-	// maxPollInterval overrides the polling wait ceiling (tests only). Zero
-	// uses the default schedule.
-	maxPollInterval time.Duration
-}
-
-// timing returns the codec's polling schedule, falling back to the defaults
-// for any unset knob.
-func (c wavespeedAsyncCodec) timing() wavespeedPollTiming {
-	timing := wavespeedDefaultPollTiming()
-	if c.pollInterval > 0 {
-		timing.initial = c.pollInterval
-	}
-	if c.pollStep > 0 {
-		timing.step = c.pollStep
-	}
-	if c.maxPollInterval > 0 {
-		timing.max = c.maxPollInterval
-	}
-
-	return timing
-}
-
-// decodeMediaBody decodes a raw provider media body into its bytes and parsed
-// media type, validating the body's Content-Type against the codec's required
-// media prefix (see [queueDecodeMediaBody]). Only the submit response bypasses
-// it, routing through PostSubmit instead.
-func (c wavespeedAsyncCodec) decodeMediaBody(params DecodeParams) ([]byte, string, error) {
-	return queueDecodeMediaBody(params, c.mediaPrefix)
+	queueTaskCodec
 }
 
 // postSubmitMedia runs the shared WaveSpeed exchange: decode the submit
@@ -352,7 +288,7 @@ func (c wavespeedAsyncCodec) postSubmitMedia(
 		return nil, nil, nil, err
 	}
 
-	media, headers, err := wavespeedDownloadOutput(ctx, params, taskData.Outputs[0])
+	media, headers, err := queueDownloadOutput(ctx, params, taskData.Outputs[0])
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -405,11 +341,7 @@ type wavespeedTaskResponse struct {
 func wavespeedDecodeTaskData(body []byte) (wavespeedTaskData, error) {
 	var resp wavespeedTaskResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return wavespeedTaskData{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "failed to decode WaveSpeed task response",
-			Err:     err,
-		}
+		return wavespeedTaskData{}, queueDecodeTaskError("WaveSpeed task response", err)
 	}
 	if resp.Data == nil {
 		return wavespeedTaskData{}, &hferrors.SDKError{
@@ -455,29 +387,27 @@ func wavespeedMetadata(data *wavespeedTaskData) map[string]any {
 // wavespeedPollTarget resolves the task's result URL and builds the request
 // params for one poll. Polling always targets the provider host the submit
 // went through, so the caller's bearer token applies. Output downloads (see
-// wavespeedDownloadOutput) target WaveSpeed's CDN and are sent unauthenticated.
+// [queueDownloadOutput]) target WaveSpeed's CDN and are sent
+// unauthenticated. Resolution is shared with the other queue providers (see
+// [queuePollTarget]).
 func wavespeedPollTarget(
 	params PostSubmitParams,
 	submitData *wavespeedTaskData,
 ) (request.Params, string, error) {
-	resultURL, err := wavespeedResultURL(params.BaseURL, submitData.URLs.Get)
-	if err != nil {
-		return request.Params{}, "", err
+	if submitData.URLs.Get == "" {
+		return request.Params{}, "", &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindSerialization,
+			Message: "WaveSpeed task response has no result URL",
+			Err:     nil,
+		}
 	}
 
-	pollParams := request.Params{
-		HTTPClient: params.HTTPClient,
-		BaseURL:    resultURL.base,
-		UserAgent:  params.UserAgent,
-		Token:      params.Token,
-		Headers:    http.Header{"Accept": {mimeTypeJSON}},
-	}
-	pollPath := resultURL.path
-	if resultURL.query != "" {
-		pollPath += "?" + resultURL.query
-	}
-
-	return pollParams, pollPath, nil
+	return queuePollTarget(
+		params,
+		submitData.URLs.Get,
+		wavespeedRouterPrefix,
+		"WaveSpeed result URL",
+	)
 }
 
 // wavespeedAwaitResult polls the task's result URL until the task completes,
@@ -489,12 +419,12 @@ func wavespeedAwaitResult(
 	ctx context.Context,
 	params PostSubmitParams,
 	submitData *wavespeedTaskData,
-	timing wavespeedPollTiming,
+	timing queueSchedule,
 ) (*wavespeedTaskData, error) {
 	if submitData.Status == wavespeedStatusCompleted {
-		return completedWithOutputs(submitData)
+		return wavespeedCompletedWithOutputs(submitData)
 	}
-	if isWavespeedFailedStatus(submitData.Status) {
+	if wavespeedIsFailedStatus(submitData.Status) {
 		return nil, wavespeedTaskFailedError(submitData)
 	}
 
@@ -503,52 +433,11 @@ func wavespeedAwaitResult(
 		return nil, err
 	}
 
-	wait := timing.initial
-	for {
-		// nextWait grows the regular schedule toward the ceiling. A
-		// server-provided Retry-After replaces the wait for the following
-		// round, and the schedule then resumes growing from that value,
-		// still capped by the ceiling.
-		nextWait := min(wait+timing.step, timing.max)
-
-		if err := wavespeedPollWait(ctx, wait); err != nil {
-			return nil, err
-		}
-
-		data, override, err := wavespeedPollOnce(ctx, params, pollParams, pollPath)
-		if err != nil {
-			return nil, err
-		}
-		if data != nil {
-			return data, nil
-		}
-
-		wait = nextWait
-		if override > 0 {
-			wait = override
-		}
+	poll := func(ctx context.Context) (*wavespeedTaskData, time.Duration, error) {
+		return wavespeedPollOnce(ctx, params, pollParams, pollPath)
 	}
-}
 
-// wavespeedPollWait waits d, or until ctx expires, whichever comes first. It
-// returns ctx.Err() when the context ended during the wait.
-func wavespeedPollWait(ctx context.Context, d time.Duration) error {
-	// A fresh timer per call avoids the time.After leak: time.After timers
-	// cannot be stopped, so they keep running until they fire even when the
-	// context exits first. The drain after a failed Stop is safe because each
-	// timer's channel is consumed exactly once.
-	timer := time.NewTimer(d)
-
-	select {
-	case <-ctx.Done():
-		if !timer.Stop() {
-			<-timer.C
-		}
-
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
+	return queueAwait(ctx, timing, poll)
 }
 
 // wavespeedPollOnce issues one poll request and classifies the result. data is
@@ -578,10 +467,10 @@ func wavespeedTerminalStatus(
 ) (out *wavespeedTaskData, done bool, err error) {
 	switch {
 	case data.Status == wavespeedStatusCompleted:
-		out, err = completedWithOutputs(data)
+		out, err = wavespeedCompletedWithOutputs(data)
 
 		return out, true, err
-	case isWavespeedFailedStatus(data.Status):
+	case wavespeedIsFailedStatus(data.Status):
 		return nil, true, wavespeedTaskFailedError(data)
 	case data.Status == wavespeedStatusCreated, data.Status == wavespeedStatusProcessing:
 		// Still running: keep polling on the regular schedule.
@@ -593,10 +482,10 @@ func wavespeedTerminalStatus(
 	}
 }
 
-// completedWithOutputs validates a completed task's outputs and returns the
-// task data when at least one output is available. A nil result with a nil
-// error is never returned.
-func completedWithOutputs(data *wavespeedTaskData) (*wavespeedTaskData, error) {
+// wavespeedCompletedWithOutputs validates a completed task's outputs and
+// returns the task data when at least one output is available. A nil result
+// with a nil error is never returned.
+func wavespeedCompletedWithOutputs(data *wavespeedTaskData) (*wavespeedTaskData, error) {
 	if len(data.Outputs) == 0 || data.Outputs[0] == "" {
 		return nil, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindSerialization,
@@ -608,9 +497,9 @@ func completedWithOutputs(data *wavespeedTaskData) (*wavespeedTaskData, error) {
 	return data, nil
 }
 
-// isWavespeedFailedStatus reports whether status is one of WaveSpeed's
+// wavespeedIsFailedStatus reports whether status is one of WaveSpeed's
 // terminal failure statuses.
-func isWavespeedFailedStatus(status string) bool {
+func wavespeedIsFailedStatus(status string) bool {
 	switch status {
 	case "failed", "cancelled", "timeout", "deleted":
 		return true
@@ -620,11 +509,8 @@ func isWavespeedFailedStatus(status string) bool {
 }
 
 // wavespeedTaskFailedError builds the error surfaced for a terminally failed
-// task, carrying the provider's error message and the task ID when present.
-// The provider reports the failure inside an otherwise valid response, so it
-// surfaces as an SDKError of kind provider rather than an APIError: the HTTP
-// exchange itself succeeded, and APIError stays reserved for 4xx/5xx
-// responses.
+// task, carrying the provider's error message and the task ID when present
+// (see [queueTaskFailedError]).
 func wavespeedTaskFailedError(data *wavespeedTaskData) error {
 	message := "WaveSpeed task failed"
 	if data.Error != "" {
@@ -634,122 +520,14 @@ func wavespeedTaskFailedError(data *wavespeedTaskData) error {
 		message += " (task id " + data.ID + ")"
 	}
 
-	return &hferrors.SDKError{
-		Kind:    hferrors.SDKErrorKindProvider,
-		Message: message,
-		Err:     nil,
-	}
+	return queueTaskFailedError(message)
 }
 
-// wavespeedResultURL resolves the task's poll URL against the caller's base
-// URL. WaveSpeed returns the result path provider-relative (e.g.
-// "/api/v3/predictions/{id}/result"); when the base URL is the Hugging Face
-// router, the path resolves under the router's /wavespeed prefix, mirroring
-// the official Hugging Face clients. An absolute URLs.Get is resolved from its
-// path only, so the poll always targets the same host the submit did.
-func wavespeedResultURL(baseURL, resultPath string) (wavespeedPolledURL, error) {
-	if resultPath == "" {
-		return wavespeedPolledURL{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "WaveSpeed task response has no result URL",
-			Err:     nil,
-		}
-	}
-
-	parsedBase, err := url.Parse(baseURL)
-	if err != nil {
-		return wavespeedPolledURL{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: fmt.Sprintf("invalid base URL %q", baseURL),
-			Err:     err,
-		}
-	}
-
-	resultBase := baseURL
-	if strings.EqualFold(parsedBase.Host, wavespeedRouterHost) {
-		resultBase = strings.TrimSuffix(baseURL, "/") + "/wavespeed"
-	}
-
-	parsedPath, err := url.Parse(resultPath)
-	if err != nil {
-		return wavespeedPolledURL{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: fmt.Sprintf("invalid WaveSpeed result URL %q", resultPath),
-			Err:     err,
-		}
-	}
-
-	path := parsedPath.Path
-	if path == "" || !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
-
-	return wavespeedPolledURL{
-		base:  resultBase,
-		path:  path,
-		query: parsedPath.RawQuery,
-	}, nil
-}
-
-// wavespeedPolledURL is the resolved poll request: a base URL to join against,
-// a request path, and any query string the provider attached.
-type wavespeedPolledURL struct {
-	base  string
-	path  string
-	query string
-}
-
-// wavespeedDownloadOutput downloads the task's first output URL. Output URLs
-// are provider-CDN addresses (often signed), so the request goes through
-// request.DoUnauthenticated, which structurally carries no caller
-// credentials. The returned headers always carry a parseable Content-Type:
-// the advertised Content-Type is kept, falling back to byte-sniffing when the
-// CDN omits or garbles it.
-func wavespeedDownloadOutput(
-	ctx context.Context,
-	params PostSubmitParams,
-	outputURL string,
-) ([]byte, http.Header, error) {
-	//nolint:bodyclose // Drained and closed via defer below on success; error
-	// responses transfer the body to the returned APIError, which the caller
-	// must close per the APIError contract.
-	resp, err := request.DoUnauthenticated(
-		ctx,
-		request.UnauthenticatedParams{
-			HTTPClient: params.HTTPClient,
-			UserAgent:  params.UserAgent,
-		},
-		http.MethodGet,
-		outputURL,
-		http.Header{"Accept": {mimeTypeAny}},
-		http.NoBody,
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
-
-	body, err := request.ReadResponseBody(resp, params.MaxResponseBodyBytes)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	headers := resp.Header.Clone()
-	if _, ok := parseMediaType(headers.Get("Content-Type")); !ok {
-		headers.Set("Content-Type", http.DetectContentType(body))
-	}
-
-	return body, headers, nil
-}
-
-// wavespeedNormalizeImageInput passes data URIs and HTTP(S) URLs through and
+// wavespeedNormalizeImageInput passes self-describing inputs through and
 // wraps every other input as a JPEG data URI, matching the official Hugging
 // Face clients' image-to-image payload preparation.
 func wavespeedNormalizeImageInput(input string) string {
-	if input == "" ||
-		strings.HasPrefix(input, "data:") ||
-		strings.HasPrefix(input, "http://") ||
-		strings.HasPrefix(input, "https://") {
+	if inputIsSelfDescribing(input) {
 		return input
 	}
 
@@ -800,7 +578,7 @@ func wavespeedInjectAdapterLoras(
 		mapping = &resolved
 	}
 
-	if mapping.Adapter != wavespeedAdapterLora {
+	if mapping.Adapter != adapterLora {
 		return nil
 	}
 	if _, ok := payload["loras"]; ok {
@@ -816,11 +594,7 @@ func wavespeedInjectAdapterLoras(
 // encoders: a JSON body whose exact output subtype is provider-chosen, so
 // requests advertise "Accept: */*".
 func wavespeedEncodeHeaders() http.Header {
-	headers := http.Header{}
-	headers.Set("Content-Type", mimeTypeJSON)
-	headers.Set("Accept", mimeTypeAny)
-
-	return headers
+	return jsonRequestHeaders(mimeTypeAny)
 }
 
 // wavespeedTextToVideoCodec is a [Codec] for text-to-video that encodes
@@ -848,27 +622,18 @@ func (c wavespeedTextToVideoCodec) Encode(
 	// WaveSpeed's body is flat: the prompt and every generation parameter
 	// live at the top level.
 	payload := map[string]any{"prompt": req.Input}
-	if req.Parameters != nil {
-		flat, err := flattenParameters(req.Parameters)
-		if err != nil {
-			return nil, nil, err
-		}
-		maps.Copy(payload, flat)
+	if err := mergeRequestParameters(payload, req.Parameters, req.ProviderParams); err != nil {
+		return nil, nil, err
 	}
-	maps.Copy(payload, req.ProviderParams)
 	if err := wavespeedInjectAdapterLoras(
 		params.Context, params.Mapping, c.resolver, TaskTextToVideo, params.Model, payload,
 	); err != nil {
 		return nil, nil, err
 	}
 
-	body, err = json.Marshal(payload)
+	body, err = marshalRequestBody(payload)
 	if err != nil {
-		return nil, nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: errFailedToMarshalRequestBody,
-			Err:     err,
-		}
+		return nil, nil, err
 	}
 
 	return body, wavespeedEncodeHeaders(), nil
@@ -900,18 +665,10 @@ func (c wavespeedTextToVideoCodec) PostSubmit(
 		return hftypes.TextToVideoResponse{}, err
 	}
 
-	resp, err := c.Decode(DecodeParams{
-		Context: ctx,
-		Body:    media,
-		Event:   "", // unary responses have no SSE framing
-		Headers: headers,
-	})
-	if err != nil {
-		return hftypes.TextToVideoResponse{}, err
-	}
-	resp.ProviderMetadata = metadata
-
-	return resp, nil
+	return queueFinalizeResponse(ctx, c.Decode, media, headers, metadata,
+		func(resp *hftypes.TextToVideoResponse, meta map[string]any) {
+			resp.ProviderMetadata = meta
+		})
 }
 
 // wavespeedTextToImageCodec is a [Codec] for text-to-image that encodes
@@ -939,27 +696,18 @@ func (c wavespeedTextToImageCodec) Encode(
 	// WaveSpeed's body is flat: the prompt and every generation parameter
 	// live at the top level.
 	payload := map[string]any{"prompt": req.Input}
-	if req.Parameters != nil {
-		flat, err := flattenParameters(req.Parameters)
-		if err != nil {
-			return nil, nil, err
-		}
-		maps.Copy(payload, flat)
+	if err := mergeRequestParameters(payload, req.Parameters, req.ProviderParams); err != nil {
+		return nil, nil, err
 	}
-	maps.Copy(payload, req.ProviderParams)
 	if err := wavespeedInjectAdapterLoras(
 		params.Context, params.Mapping, c.resolver, TaskTextToImage, params.Model, payload,
 	); err != nil {
 		return nil, nil, err
 	}
 
-	body, err = json.Marshal(payload)
+	body, err = marshalRequestBody(payload)
 	if err != nil {
-		return nil, nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: errFailedToMarshalRequestBody,
-			Err:     err,
-		}
+		return nil, nil, err
 	}
 
 	return body, wavespeedEncodeHeaders(), nil
@@ -991,18 +739,10 @@ func (c wavespeedTextToImageCodec) PostSubmit(
 		return hftypes.TextToImageResponse{}, err
 	}
 
-	resp, err := c.Decode(DecodeParams{
-		Context: ctx,
-		Body:    media,
-		Event:   "", // unary responses have no SSE framing
-		Headers: headers,
-	})
-	if err != nil {
-		return hftypes.TextToImageResponse{}, err
-	}
-	resp.ProviderMetadata = metadata
-
-	return resp, nil
+	return queueFinalizeResponse(ctx, c.Decode, media, headers, metadata,
+		func(resp *hftypes.TextToImageResponse, meta map[string]any) {
+			resp.ProviderMetadata = meta
+		})
 }
 
 // wavespeedImageToImageCodec is a [Codec] for image-to-image that encodes
@@ -1040,27 +780,18 @@ func (c wavespeedImageToImageCodec) Encode(
 		"image":  image,
 		"images": []string{image},
 	}
-	if req.Parameters != nil {
-		flat, err := flattenParameters(req.Parameters)
-		if err != nil {
-			return nil, nil, err
-		}
-		maps.Copy(payload, flat)
+	if err := mergeRequestParameters(payload, req.Parameters, req.ProviderParams); err != nil {
+		return nil, nil, err
 	}
-	maps.Copy(payload, req.ProviderParams)
 	if err := wavespeedInjectAdapterLoras(
 		params.Context, params.Mapping, c.resolver, TaskImageToImage, params.Model, payload,
 	); err != nil {
 		return nil, nil, err
 	}
 
-	body, err = json.Marshal(payload)
+	body, err = marshalRequestBody(payload)
 	if err != nil {
-		return nil, nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: errFailedToMarshalRequestBody,
-			Err:     err,
-		}
+		return nil, nil, err
 	}
 
 	return body, wavespeedEncodeHeaders(), nil
@@ -1092,16 +823,8 @@ func (c wavespeedImageToImageCodec) PostSubmit(
 		return hftypes.ImageToImageResponse{}, err
 	}
 
-	resp, err := c.Decode(DecodeParams{
-		Context: ctx,
-		Body:    media,
-		Event:   "", // unary responses have no SSE framing
-		Headers: headers,
-	})
-	if err != nil {
-		return hftypes.ImageToImageResponse{}, err
-	}
-	resp.ProviderMetadata = metadata
-
-	return resp, nil
+	return queueFinalizeResponse(ctx, c.Decode, media, headers, metadata,
+		func(resp *hftypes.ImageToImageResponse, meta map[string]any) {
+			resp.ProviderMetadata = meta
+		})
 }

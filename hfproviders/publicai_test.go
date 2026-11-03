@@ -8,6 +8,5 @@ func publicAIChatOnlyCase() chatOnlyProviderCase {
 	return chatOnlyProviderCase{
 		slug:        "publicai",
 		newProvider: func() Provider { return NewPublicAIProvider() },
-		sampleModel: "speakleash/Bielik-11B-v3.0-Instruct",
 	}
 }

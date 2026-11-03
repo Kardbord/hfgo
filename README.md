@@ -280,9 +280,9 @@ Built-in providers have their own guides:
 Advanced users who want custom providers should implement the `Provider` interface
 plus the per-task interfaces you want to support, as shown by the `EchoProvider`
 example in the `hfproviders` package docs. The optional `HuggingFace*Mixin`,
-`Wavespeed*Mixin`, and `FalAI*Mixin` types exist as a convenience for reusing a
+`WaveSpeed*Mixin`, and `FalAI*Mixin` types exist as a convenience for reusing a
 built-in provider's endpoint and codec defaults: embed the ones you want (for
-example `HuggingFaceTextClassificationMixin`, `WavespeedTextToImageMixin`,
+example `HuggingFaceTextClassificationMixin`, `WaveSpeedTextToImageMixin`,
 `FalAITextToImageMixin`, or `ReplicateTextToImageMixin`).
 See [docs/architecture.md](./docs/architecture.md#per-task-provider-mixins).
 

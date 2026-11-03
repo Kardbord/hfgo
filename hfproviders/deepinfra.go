@@ -1,7 +1,7 @@
 package hfproviders
 
 import (
-	"context"
+	"bytes"
 	"net/http"
 
 	"github.com/Kardbord/hfgo/v4/hftypes"
@@ -11,6 +11,14 @@ import (
 // token the chat task pins routing with, and the Hub identifier the model
 // resolver looks mappings up by.
 const deepinfraProviderName = "deepinfra"
+
+// DeepInfra's router-proxied task endpoints. The OpenAI-compatible paths
+// embed the router's deepinfra prefix; single and batch embeddings share the
+// same path.
+const (
+	deepinfraTranscriptionsPath = deepinfraProviderName + "/v1/openai/audio/transcriptions"
+	deepinfraEmbeddingsPath     = deepinfraProviderName + "/v1/openai/embeddings"
+)
 
 // DeepInfraProvider serves chat completion and speech-recognition, and pooled
 // feature-extraction tasks through the Hugging Face router.
@@ -43,8 +51,8 @@ const deepinfraProviderName = "deepinfra"
 // instead. On both pipeline tasks the mapped model is applied to the payload
 // last, so ProviderParams entries cannot override it.
 //
-// Embedding all three mixins means the promoted field DeepInfraProvider
-// would derive for Resolver is ambiguous — access each mixin's resolver
+// Embedding all three mixins means the promoted field
+// DeepInfraProvider.Resolver is ambiguous — access each mixin's resolver
 // explicitly if you ever need to (e.g. p.DeepInfraSpeechRecognitionMixin.Resolver).
 //
 // The zero value is safe to use: pipeline endpoint methods return a
@@ -123,7 +131,7 @@ func (m DeepInfraSpeechRecognitionMixin) SpeechRecognitionEndpoint(
 		m.Resolver,
 		params,
 		TaskAutomaticSpeechRecognition,
-		"deepinfra/v1/openai/audio/transcriptions",
+		deepinfraTranscriptionsPath,
 	)
 }
 
@@ -163,7 +171,7 @@ func (m DeepInfraFeatureExtractionMixin) FeatureExtractionEndpoint(
 		m.Resolver,
 		params,
 		TaskFeatureExtraction,
-		"deepinfra/v1/openai/embeddings",
+		deepinfraEmbeddingsPath,
 	)
 }
 
@@ -177,7 +185,7 @@ func (m DeepInfraFeatureExtractionMixin) FeatureExtractionBatchEndpoint(
 		m.Resolver,
 		params,
 		TaskFeatureExtraction,
-		"deepinfra/v1/openai/embeddings",
+		deepinfraEmbeddingsPath,
 	)
 }
 
@@ -207,7 +215,14 @@ func resolveDeepInfraEndpoint(
 	task Task,
 	path string,
 ) (Endpoint, error) {
-	mapping, err := deepInfraMapping(params.Context, resolver, nil, params.Model, task)
+	mapping, err := resolveMapping(
+		params.Context,
+		deepinfraProviderName,
+		resolver,
+		nil,
+		task,
+		params.Model,
+	)
 	if err != nil {
 		return Endpoint{}, err
 	}
@@ -217,37 +232,6 @@ func resolveDeepInfraEndpoint(
 		Path:    path,
 		Mapping: mapping,
 	}, nil
-}
-
-// deepInfraMapping resolves the configured Hugging Face model ID to
-// DeepInfra's provider mapping. supplied — the mapping resolved while
-// constructing the endpoint (see [Endpoint.Mapping] and
-// [EncodeParams.Mapping]) — wins; otherwise the given resolver runs the
-// lookup, mirroring WaveSpeed's standalone-codec fallback.
-func deepInfraMapping(
-	ctx context.Context,
-	resolver ModelResolver,
-	supplied *ModelMapping,
-	model string,
-	task Task,
-) (*ModelMapping, error) {
-	if supplied != nil {
-		return supplied, nil
-	}
-	if resolver == nil {
-		return nil, errNilResolver(deepinfraProviderName)
-	}
-
-	mapping, err := resolver.ResolveModel(ctx, ResolveModelParams{
-		Provider: deepinfraProviderName,
-		Task:     task,
-		Model:    model,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &mapping, nil
 }
 
 // Compile-time assertions that the DeepInfra codecs implement their task
@@ -278,24 +262,31 @@ type deepinfraSpeechRecognitionCodec struct {
 func (c deepinfraSpeechRecognitionCodec) Encode(
 	params EncodeParams[hftypes.SpeechRecognitionRequest],
 ) (body []byte, headers http.Header, err error) {
-	mapping, err := deepInfraMapping(
+	mapping, err := resolveMapping(
 		params.Context,
+		deepinfraProviderName,
 		c.resolver,
 		params.Mapping,
-		params.Model,
 		TaskAutomaticSpeechRecognition,
+		params.Model,
 	)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return openAIEncodeTranscription(params.Request, mapping)
+	var bodyBuf bytes.Buffer
+	headers, err = encodeOpenAITranscription(&bodyBuf, params.Request, mapping)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return bodyBuf.Bytes(), headers, nil
 }
 
 func (c deepinfraSpeechRecognitionCodec) Decode(
 	params DecodeParams,
 ) (hftypes.SpeechRecognitionResponse, error) {
-	return openAIDecodeTranscription(params)
+	return decodeOpenAITranscription(params)
 }
 
 // deepinfraFeatureExtractionCodec is a [Codec] for the pooled output of the
@@ -312,12 +303,13 @@ type deepinfraFeatureExtractionCodec struct {
 func (c deepinfraFeatureExtractionCodec) Encode(
 	params EncodeParams[hftypes.FeatureExtractionRequest],
 ) (body []byte, headers http.Header, err error) {
-	mapping, err := deepInfraMapping(
+	mapping, err := resolveMapping(
 		params.Context,
+		deepinfraProviderName,
 		c.resolver,
 		params.Mapping,
-		params.Model,
 		TaskFeatureExtraction,
+		params.Model,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -351,12 +343,13 @@ type deepinfraFeatureExtractionBatchCodec struct {
 func (c deepinfraFeatureExtractionBatchCodec) Encode(
 	params EncodeParams[hftypes.FeatureExtractionBatchRequest],
 ) (body []byte, headers http.Header, err error) {
-	mapping, err := deepInfraMapping(
+	mapping, err := resolveMapping(
 		params.Context,
+		deepinfraProviderName,
 		c.resolver,
 		params.Mapping,
-		params.Model,
 		TaskFeatureExtraction,
+		params.Model,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -370,7 +363,3 @@ func (c deepinfraFeatureExtractionBatchCodec) Decode(
 ) ([]hftypes.FeatureExtractionPooledEmbedding, error) {
 	return decodeOpenAIEmbeddings(params)
 }
-
-// encodeOpenAIEmbeddings and decodeOpenAIEmbeddings in embeddings.go carry
-// the OpenAI-style embeddings wire format this codec family shares with the
-// Scaleway provider.

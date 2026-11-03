@@ -7,29 +7,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
-
-func jsonHeaders(ct string) http.Header {
-	return http.Header{"Content-Type": {ct}}
-}
-
-// ctJSON is spelled to avoid a JSON-suffixed identifier so testifylint's
-// encoded-compare heuristic treats header assertions as plain string
-// comparisons.
-const ctJSON = "application/json"
 
 func assertSerializationError(t *testing.T, err error) {
 	t.Helper()
 
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindSerialization, sdkErr.Kind)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 }
 
 type encodeReq struct {
@@ -96,10 +85,7 @@ func TestJSONCodec_EncodePreservesSDKError(t *testing.T) {
 		EncodeParams[sdkErrorReq]{Request: sdkErrorReq{}},
 	)
 	require.Error(t, err)
-
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
 
 func TestJSONCodec_DecodePreservesSDKError(t *testing.T) {
@@ -110,10 +96,7 @@ func TestJSONCodec_DecodePreservesSDKError(t *testing.T) {
 		Body:    []byte(`{}`),
 	})
 	require.Error(t, err)
-
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindValidation, sdkErr.Kind)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindValidation)
 }
 
 func TestJSONCodec_Decode(t *testing.T) {
@@ -643,6 +626,81 @@ func TestFlattenParameters(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, map[string]any{"seed": json.Number("9223372036854775807")}, flat)
+	})
+}
+
+// TestMergeInferenceParameters exercises the merge helper: nil parameters
+// leave the payload untouched, valid parameters merge in, and flatten failures
+// surface as errors.
+func TestMergeInferenceParameters(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil parameters leave payload untouched", func(t *testing.T) {
+		t.Parallel()
+
+		payload := map[string]any{"existing": "value"}
+		err := mergeInferenceParameters(payload, nil)
+		require.NoError(t, err)
+		require.Equal(t, map[string]any{"existing": "value"}, payload)
+	})
+
+	t.Run("parameters merge into payload", func(t *testing.T) {
+		t.Parallel()
+
+		payload := map[string]any{"existing": "value"}
+		err := mergeInferenceParameters(payload, hftypes.TextToVideoParameters{
+			Seed: new(int64(42)),
+		})
+		require.NoError(t, err)
+		require.Equal(t, map[string]any{
+			"existing": "value",
+			"seed":     json.Number("42"),
+		}, payload)
+	})
+
+	t.Run("flatten failure surfaces", func(t *testing.T) {
+		t.Parallel()
+
+		err := mergeInferenceParameters(map[string]any{}, failingParameters{})
+		assertSerializationError(t, err)
+	})
+}
+
+// TestMergeRequestParameters exercises the request-parameter merge: typed
+// parameters merge first, provider parameters override them, and a flatten
+// failure from the typed parameters surfaces before provider parameters apply.
+func TestMergeRequestParameters(t *testing.T) {
+	t.Parallel()
+
+	t.Run("provider parameters override typed parameters", func(t *testing.T) {
+		t.Parallel()
+
+		payload := map[string]any{}
+		err := mergeRequestParameters(payload, hftypes.TextToVideoParameters{
+			Seed: new(int64(42)),
+		}, map[string]any{"seed": 7, "extra": "value"})
+		require.NoError(t, err)
+		require.Equal(t, map[string]any{"seed": 7, "extra": "value"}, payload)
+	})
+
+	t.Run("nil typed parameters merge provider parameters only", func(t *testing.T) {
+		t.Parallel()
+
+		payload := map[string]any{"existing": "value"}
+		err := mergeRequestParameters(payload, nil, map[string]any{"extra": "value"})
+		require.NoError(t, err)
+		require.Equal(t, map[string]any{"existing": "value", "extra": "value"}, payload)
+	})
+
+	t.Run("typed parameter flatten failure surfaces", func(t *testing.T) {
+		t.Parallel()
+
+		err := mergeRequestParameters(
+			map[string]any{},
+			failingParameters{},
+			map[string]any{"extra": "value"},
+		)
+		assertSerializationError(t, err)
 	})
 }
 

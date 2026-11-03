@@ -33,23 +33,6 @@ const (
 	deepInfraMP3Audio = "ID3\x03\x00\x00\x00\x00\x00\x00"
 )
 
-// deepInfraRecordingResolver records the ResolveModel lookup key and serves a
-// fixed mapping, letting endpoint tests assert what the provider looked up.
-type deepInfraRecordingResolver struct {
-	got     ResolveModelParams
-	mapping ModelMapping
-}
-
-// ResolveModel implements [ModelResolver].
-func (r *deepInfraRecordingResolver) ResolveModel(
-	_ context.Context,
-	params ResolveModelParams,
-) (ModelMapping, error) {
-	r.got = params
-
-	return r.mapping, nil
-}
-
 // newDeepInfraProvider builds a DeepInfraProvider backed by a static resolver
 // covering the test models.
 func newDeepInfraProvider(t *testing.T) DeepInfraProvider {
@@ -70,77 +53,6 @@ func newDeepInfraProvider(t *testing.T) DeepInfraProvider {
 	require.NoError(t, err)
 
 	return provider
-}
-
-// TestMediaSniffingForDeepInfra pins the net/http byte-sniffing behavior the
-// DeepInfra speech-recognition codec relies on to pick the file part's
-// Content-Type and filename extension. If a Go release changes these
-// signatures, openAIAudioExtension needs revisiting.
-func TestMediaSniffingForDeepInfra(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name          string
-		wantMediaType string
-		audio         []byte
-	}{
-		{
-			name:          "wav",
-			wantMediaType: "audio/wave",
-			audio:         []byte(deepInfraWAVAudio),
-		},
-		{
-			name:          "mp3",
-			wantMediaType: "audio/mpeg",
-			audio:         []byte(deepInfraMP3Audio),
-		},
-		{
-			// MP4/M4A containers: net/http labels them video/mp4 when the
-			// ftyp brands contain "mp4", regardless of audio content.
-			name:          "mp4 container",
-			wantMediaType: "video/mp4",
-			audio:         []byte("\x00\x00\x00\x18ftypisom\x00\x00\x02\x00mp42isom"),
-		},
-		{
-			name:          "webm",
-			wantMediaType: "video/webm",
-			audio:         []byte{0x1A, 0x45, 0xDF, 0xA3},
-		},
-		{
-			name:          "ogg",
-			wantMediaType: "application/ogg",
-			audio:         []byte("OggS\x00\x02\x00\x00"),
-		},
-		{
-			// net/http has no AMR signature either, and AMR files are
-			// ASCII-ish: the sniffer reports text/plain, so AMR input falls
-			// back to the ".wav" filename like any unrecognized format.
-			name:          "amr (net/http undetected)",
-			wantMediaType: "text/plain; charset=utf-8",
-			audio:         []byte("#!AMR\n"),
-		},
-		{
-			// net/http has no FLAC signature: the sniffer reports
-			// application/octet-stream, and the speech-recognition codec
-			// checks the "fLaC" prefix explicitly to label FLAC input.
-			name:          "flac (net/http undetected)",
-			wantMediaType: "application/octet-stream",
-			audio:         []byte("fLaC\x00\x00\x00\x22"),
-		},
-		{
-			name:          "unknown binary",
-			wantMediaType: "application/octet-stream",
-			audio:         []byte{0x00, 0x01, 0x02, 0x03},
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			require.Equal(t, tc.wantMediaType, http.DetectContentType(tc.audio))
-		})
-	}
 }
 
 func TestDeepInfraProvider_NameAndSuffix(t *testing.T) {
@@ -303,7 +215,7 @@ func TestDeepInfraProvider_ChatEndpoint(t *testing.T) {
 func TestDeepInfraProvider_SpeechRecognitionEndpoint(t *testing.T) {
 	t.Parallel()
 
-	resolver := &deepInfraRecordingResolver{
+	resolver := &recordingResolver{
 		mapping: ModelMapping{
 			ProviderModelID: "openai/whisper-large-v3-turbo",
 			Status:          "live",
@@ -334,7 +246,7 @@ func TestDeepInfraProvider_SpeechRecognitionEndpoint(t *testing.T) {
 func TestDeepInfraProvider_FeatureExtractionEndpoints(t *testing.T) {
 	t.Parallel()
 
-	resolver := &deepInfraRecordingResolver{
+	resolver := &recordingResolver{
 		mapping: ModelMapping{ProviderModelID: "BAAI/bge-base-en-v1.5", Status: "live"},
 	}
 	provider, err := NewDeepInfraProvider(resolver)
@@ -595,7 +507,7 @@ func TestDeepInfraSpeechRecognitionCodec_Encode(t *testing.T) {
 	t.Run("supplied mapping wins without a resolver call", func(t *testing.T) {
 		t.Parallel()
 
-		resolver := &countingResolver{}
+		resolver := &recordingResolver{}
 		codec := DeepInfraSpeechRecognitionMixin{Resolver: resolver}.SpeechRecognitionCodec()
 
 		body, headers, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
@@ -640,20 +552,13 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 
 	codec := DeepInfraSpeechRecognitionMixin{}.SpeechRecognitionCodec()
 
-	jsonHeaders := func() http.Header {
-		headers := http.Header{}
-		headers.Set("Content-Type", "application/json")
-
-		return headers
-	}
-
 	t.Run("transcript only", func(t *testing.T) {
 		t.Parallel()
 
 		resp, err := codec.Decode(DecodeParams{
 			Context: context.Background(),
 			Body:    []byte(`{"text":"And my soul from out that shadow"}`),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		require.NoError(t, err)
 		require.Equal(t, "And my soul from out that shadow", resp.Text)
@@ -677,7 +582,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 				],
 				"usage": {"prompt_seconds": 1.5}
 			}`),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		require.NoError(t, err)
 		require.Equal(t, "hello world", resp.Text)
@@ -709,7 +614,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 		resp, err := codec.Decode(DecodeParams{
 			Context: context.Background(),
 			Body:    []byte(`{"text":"hi","segments":null}`),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		require.NoError(t, err)
 		require.Equal(t, "hi", resp.Text)
@@ -722,7 +627,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 		_, err := codec.Decode(DecodeParams{
 			Context: context.Background(),
 			Body:    []byte(`{"segments":[]}`),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		require.Error(t, err)
 
@@ -738,7 +643,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 		_, err := codec.Decode(DecodeParams{
 			Context: context.Background(),
 			Body:    []byte(`{"text":null}`),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		require.ErrorContains(t, err, "missing text")
 	})
@@ -749,7 +654,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 		_, err := codec.Decode(DecodeParams{
 			Context: context.Background(),
 			Body:    []byte(`{"text":42}`),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		require.ErrorContains(t, err, "must be a string")
 	})
@@ -760,7 +665,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 		_, err := codec.Decode(DecodeParams{
 			Context: context.Background(),
 			Body:    []byte(`{"text":"hi","segments":{}}`),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
@@ -785,7 +690,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 		_, err := codec.Decode(DecodeParams{
 			Context: context.Background(),
 			Body:    []byte("{not json"),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
@@ -902,24 +807,12 @@ func TestDeepInfraProvider_Tasks(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// deepInfraFailingResolver resolves nothing and always fails, emulating a
-// resolver outage that endpoints and codecs must propagate.
-type deepInfraFailingResolver struct{}
-
-// ResolveModel implements [ModelResolver].
-func (deepInfraFailingResolver) ResolveModel(
-	context.Context,
-	ResolveModelParams,
-) (ModelMapping, error) {
-	return ModelMapping{}, errors.New("resolver outage")
-}
-
 // TestDeepInfraEndpoint_ResolverErrorsPropagate pins that a resolver error
 // (not just a nil resolver) surfaces from the endpoint methods.
 func TestDeepInfraEndpoint_ResolverErrorsPropagate(t *testing.T) {
 	t.Parallel()
 
-	provider, err := NewDeepInfraProvider(deepInfraFailingResolver{})
+	provider, err := NewDeepInfraProvider(failingResolver{})
 	require.NoError(t, err)
 
 	speech, err := AsProvider[SpeechRecognitionProvider](provider)
@@ -955,7 +848,7 @@ func TestDeepInfraEndpoint_ResolverErrorsPropagate(t *testing.T) {
 func TestDeepInfraCodec_ResolverErrorsPropagate(t *testing.T) {
 	t.Parallel()
 
-	provider, err := NewDeepInfraProvider(deepInfraFailingResolver{})
+	provider, err := NewDeepInfraProvider(failingResolver{})
 	require.NoError(t, err)
 
 	_, _, err = provider.SpeechRecognitionCodec().Encode(

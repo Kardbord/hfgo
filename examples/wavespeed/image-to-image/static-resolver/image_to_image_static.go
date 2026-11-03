@@ -33,11 +33,11 @@ func main() {
 	}
 	mapper := hfproviders.NewStaticModelResolver(mappings)
 
-	// Create a WavespeedProvider backed by the resolver. The constructor
+	// Create a WaveSpeedProvider backed by the resolver. The constructor
 	// returns an error if the resolver is nil.
-	provider, err := hfproviders.NewWavespeedProvider(mapper)
+	provider, err := hfproviders.NewWaveSpeedProvider(mapper)
 	if err != nil {
-		log.Fatalf("error creating Wavespeed provider: %v", err)
+		log.Fatalf("error creating WaveSpeed provider: %v", err)
 	}
 
 	// Configure the client to route image-to-image requests through the

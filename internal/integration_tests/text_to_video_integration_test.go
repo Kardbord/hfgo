@@ -31,7 +31,7 @@ func TestGenerateVideo_LiveAPI(t *testing.T) {
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(textToVideoModel),
 		hfopts.WithContext(ctx),
-		hfopts.WithProvider(newWavespeedProvider(t)),
+		hfopts.WithProvider(newWaveSpeedProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(16<<20), // Videos can be large.
 	)
 
@@ -64,7 +64,7 @@ func TestGenerateVideo_ContextCancellation(t *testing.T) {
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(textToVideoModel),
 		hfopts.WithContext(ctx),
-		hfopts.WithProvider(newWavespeedProvider(t)),
+		hfopts.WithProvider(newWaveSpeedProvider(t)),
 	)
 
 	response, err := client.GenerateVideo(hftypes.TextToVideoRequest{

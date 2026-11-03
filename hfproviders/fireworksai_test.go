@@ -2,12 +2,11 @@
 
 package hfproviders
 
-// fireworksChatOnlyCase returns the Fireworks case for
+// fireworksAIChatOnlyCase returns the Fireworks AI case for
 // TestChatOnlyProviderContract.
-func fireworksChatOnlyCase() chatOnlyProviderCase {
+func fireworksAIChatOnlyCase() chatOnlyProviderCase {
 	return chatOnlyProviderCase{
 		slug:        "fireworks-ai",
-		newProvider: func() Provider { return NewFireworksProvider() },
-		sampleModel: "zai-org/GLM-5.3",
+		newProvider: func() Provider { return NewFireworksAIProvider() },
 	}
 }

@@ -1,7 +1,6 @@
 package hfproviders
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -25,11 +24,6 @@ import (
 // the canonical model translation is provider-owned and stays in each
 // provider's file.
 
-// openAIFLACSignature is the magic prefix of a FLAC stream. net/http's byte
-// sniffer has no FLAC signature, so the speech-recognition codecs check it
-// explicitly to label FLAC input correctly.
-const openAIFLACSignature = "fLaC"
-
 // openAIDefaultAudioExtension is the filename extension used for audio whose
 // media type is unknown, matching the official clients' fallback.
 const openAIDefaultAudioExtension = "wav"
@@ -41,28 +35,29 @@ const openAIDefaultAudioExtension = "wav"
 // [openAIMultipartBodyTo], whose extension table falls back to ".wav".
 func openAISniffAudioType(audio []byte) string {
 	sniffed := http.DetectContentType(audio)
-	if sniffed == "application/octet-stream" &&
-		bytes.HasPrefix(audio, []byte(openAIFLACSignature)) {
-		return "audio/flac"
+	if sniffed == "application/octet-stream" && hasFLACPrefix(audio) {
+		return mimeTypeFLAC
 	}
 
 	return sniffed
 }
 
-// openAIEncodeTranscription builds an OpenAI-compatible transcription
+// encodeOpenAITranscription builds an OpenAI-compatible transcription
 // endpoint's multipart/form-data body from the canonical request: the decoded
 // audio rides the "file" part with its media type sniffed from the bytes'
 // magic signature, the recognition and provider parameters ride the remaining
 // form fields, and the mapped provider model identifier rides the "model"
-// field — applied last, so provider parameters cannot override it. It returns
-// the body and the Content-Type/Accept headers describing the wire format.
-func openAIEncodeTranscription(
+// field — applied last, so provider parameters cannot override it. It writes
+// the body to dst and returns the Content-Type/Accept headers describing the
+// wire format.
+func encodeOpenAITranscription(
+	dst io.Writer,
 	req hftypes.SpeechRecognitionRequest,
 	mapping *ModelMapping,
-) (body []byte, headers http.Header, err error) {
+) (headers http.Header, err error) {
 	audio, err := base64.StdEncoding.DecodeString(req.Input)
 	if err != nil {
-		return nil, nil, &hferrors.SDKError{
+		return nil, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindSerialization,
 			Message: errFailedToDecodeBase64Input,
 			Err:     err,
@@ -75,23 +70,21 @@ func openAIEncodeTranscription(
 
 	fields, err := openAITranscriptionFields(&req)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	// Applied last so a caller-supplied entry cannot override the mapped
 	// provider model, matching the official clients.
 	fields["model"] = mapping.ProviderModelID
 
-	var bodyBuf bytes.Buffer
-	contentType, err := openAIMultipartBodyTo(&bodyBuf, audio, sniffed, fields)
+	contentType, err := openAIMultipartBodyTo(dst, audio, sniffed, fields)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	headers = http.Header{}
+	headers = jsonRequestHeaders(mimeTypeJSON)
 	headers.Set("Content-Type", contentType)
-	headers.Set("Accept", mimeTypeJSON)
 
-	return bodyBuf.Bytes(), headers, nil
+	return headers, nil
 }
 
 // openAITranscriptionFields collects the canonical recognition parameters and
@@ -131,20 +124,16 @@ type openAITranscriptionSegment struct {
 	Text  string  `json:"text"`
 }
 
-// openAIDecodeTranscription decodes an OpenAI-compatible transcription
+// decodeOpenAITranscription decodes an OpenAI-compatible transcription
 // endpoint's JSON response into the canonical response: the transcript rides
 // on "text" and segments map onto canonical chunks with [start, end] second
 // timestamps. Every other top-level field (e.g. usage, duration, language)
 // rides ProviderMetadata. A body without a string transcript is a
 // serialization error.
-func openAIDecodeTranscription(params DecodeParams) (hftypes.SpeechRecognitionResponse, error) {
+func decodeOpenAITranscription(params DecodeParams) (hftypes.SpeechRecognitionResponse, error) {
 	contentType := params.Headers.Get("Content-Type")
 	if !isJSONContentType(contentType) {
-		return hftypes.SpeechRecognitionResponse{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "expected Content-Type application/json, got " + contentType,
-			Err:     nil,
-		}
+		return hftypes.SpeechRecognitionResponse{}, errUnexpectedContentType(contentType)
 	}
 
 	var fields map[string]json.RawMessage

@@ -1,7 +1,6 @@
 package hfproviders
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/Kardbord/hfgo/v4/hftypes"
@@ -11,6 +10,10 @@ import (
 // the chat task pins routing with, and the Hub identifier the model resolver
 // looks mappings up by.
 const scalewayProviderName = "scaleway"
+
+// scalewayEmbeddingsPath is the router-proxied embeddings endpoint. Single
+// and batch requests share the same path.
+const scalewayEmbeddingsPath = scalewayProviderName + "/v1/embeddings"
 
 // ScalewayProvider serves chat completion and pooled feature-extraction
 // tasks through the Hugging Face router.
@@ -124,7 +127,7 @@ func (m ScalewayFeatureExtractionMixin) FeatureExtractionEndpoint(
 		m.Resolver,
 		params,
 		TaskFeatureExtraction,
-		"scaleway/v1/embeddings",
+		scalewayEmbeddingsPath,
 	)
 }
 
@@ -138,7 +141,7 @@ func (m ScalewayFeatureExtractionMixin) FeatureExtractionBatchEndpoint(
 		m.Resolver,
 		params,
 		TaskFeatureExtraction,
-		"scaleway/v1/embeddings",
+		scalewayEmbeddingsPath,
 	)
 }
 
@@ -168,7 +171,14 @@ func resolveScalewayEndpoint(
 	task Task,
 	path string,
 ) (Endpoint, error) {
-	mapping, err := scalewayMapping(params.Context, resolver, nil, params.Model, task)
+	mapping, err := resolveMapping(
+		params.Context,
+		scalewayProviderName,
+		resolver,
+		nil,
+		task,
+		params.Model,
+	)
 	if err != nil {
 		return Endpoint{}, err
 	}
@@ -178,37 +188,6 @@ func resolveScalewayEndpoint(
 		Path:    path,
 		Mapping: mapping,
 	}, nil
-}
-
-// scalewayMapping resolves the configured Hugging Face model ID to Scaleway's
-// provider mapping. supplied — the mapping resolved while constructing the
-// endpoint (see [Endpoint.Mapping] and [EncodeParams.Mapping]) — wins;
-// otherwise the given resolver runs the lookup, mirroring DeepInfra's
-// standalone-codec fallback.
-func scalewayMapping(
-	ctx context.Context,
-	resolver ModelResolver,
-	supplied *ModelMapping,
-	model string,
-	task Task,
-) (*ModelMapping, error) {
-	if supplied != nil {
-		return supplied, nil
-	}
-	if resolver == nil {
-		return nil, errNilResolver(scalewayProviderName)
-	}
-
-	mapping, err := resolver.ResolveModel(ctx, ResolveModelParams{
-		Provider: scalewayProviderName,
-		Task:     task,
-		Model:    model,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &mapping, nil
 }
 
 // Compile-time assertions that the Scaleway codecs implement their task
@@ -232,12 +211,13 @@ type scalewayFeatureExtractionCodec struct {
 func (c scalewayFeatureExtractionCodec) Encode(
 	params EncodeParams[hftypes.FeatureExtractionRequest],
 ) (body []byte, headers http.Header, err error) {
-	mapping, err := scalewayMapping(
+	mapping, err := resolveMapping(
 		params.Context,
+		scalewayProviderName,
 		c.resolver,
 		params.Mapping,
-		params.Model,
 		TaskFeatureExtraction,
+		params.Model,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -271,12 +251,13 @@ type scalewayFeatureExtractionBatchCodec struct {
 func (c scalewayFeatureExtractionBatchCodec) Encode(
 	params EncodeParams[hftypes.FeatureExtractionBatchRequest],
 ) (body []byte, headers http.Header, err error) {
-	mapping, err := scalewayMapping(
+	mapping, err := resolveMapping(
 		params.Context,
+		scalewayProviderName,
 		c.resolver,
 		params.Mapping,
-		params.Model,
 		TaskFeatureExtraction,
+		params.Model,
 	)
 	if err != nil {
 		return nil, nil, err

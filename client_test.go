@@ -127,7 +127,7 @@ func TestClientChat_ChatOnlyProviderSuffixes(t *testing.T) {
 		"cerebras":       func() hfproviders.Provider { return hfproviders.NewCerebrasProvider() },
 		"cohere":         func() hfproviders.Provider { return hfproviders.NewCohereProvider() },
 		"featherless-ai": func() hfproviders.Provider { return hfproviders.NewFeatherlessAIProvider() },
-		"fireworks-ai":   func() hfproviders.Provider { return hfproviders.NewFireworksProvider() },
+		"fireworks-ai":   func() hfproviders.Provider { return hfproviders.NewFireworksAIProvider() },
 		"groq":           func() hfproviders.Provider { return hfproviders.NewGroqProvider() },
 		"novita":         func() hfproviders.Provider { return hfproviders.NewNovitaProvider() },
 		"ovhcloud":       func() hfproviders.Provider { return hfproviders.NewOVHcloudProvider() },
@@ -859,7 +859,7 @@ func TestClient_GenerateImageToImageAndVideo(t *testing.T) {
 			}: {ProviderModelID: "wavespeed-ai/image-to-image"},
 		}
 		mapper := hfproviders.NewStaticModelResolver(mappings)
-		provider, err := hfproviders.NewWavespeedProvider(mapper)
+		provider, err := hfproviders.NewWaveSpeedProvider(mapper)
 		require.NoError(t, err)
 		client := NewClient(
 			hfopts.WithBaseURL(server.URL),
@@ -902,7 +902,7 @@ func TestClient_GenerateImageToImageAndVideo(t *testing.T) {
 			}: {ProviderModelID: "wavespeed-ai/minimax-h3/text-to-video"},
 		}
 		mapper := hfproviders.NewStaticModelResolver(mappings)
-		provider, err := hfproviders.NewWavespeedProvider(mapper)
+		provider, err := hfproviders.NewWaveSpeedProvider(mapper)
 		require.NoError(t, err)
 		client := NewClient(
 			hfopts.WithBaseURL(server.URL),

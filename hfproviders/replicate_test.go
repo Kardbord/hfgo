@@ -14,6 +14,7 @@ import (
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/request"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -26,21 +27,6 @@ const (
 	// (0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a).
 	base64PngMagic = "iVBORw0KGgo="
 )
-
-// failingResolver fails every lookup, exercising the resolver's error path.
-type failingResolver struct{}
-
-// ResolveModel implements [ModelResolver].
-func (failingResolver) ResolveModel(
-	_ context.Context,
-	_ ResolveModelParams,
-) (ModelMapping, error) {
-	return ModelMapping{}, &hferrors.SDKError{
-		Kind:    hferrors.SDKErrorKindConfiguration,
-		Message: "lookup failure",
-		Err:     nil,
-	}
-}
 
 func TestReplicateProvider_NameAndSuffix(t *testing.T) {
 	t.Parallel()
@@ -195,7 +181,7 @@ func TestReplicateProvider_Endpoint_ResolutionError(t *testing.T) {
 func requireReplicateEncode[Req any](
 	t *testing.T,
 	encode func(EncodeParams[Req]) ([]byte, http.Header, error),
-	request Req,
+	req Req,
 	model string,
 	mapping *ModelMapping,
 	wantJSON string,
@@ -204,7 +190,7 @@ func requireReplicateEncode[Req any](
 
 	body, headers, err := encode(EncodeParams[Req]{
 		Context: context.Background(),
-		Request: request,
+		Request: req,
 		Model:   model,
 		Mapping: mapping,
 	})
@@ -213,7 +199,7 @@ func requireReplicateEncode[Req any](
 	//nolint:testifylint // media type
 	require.Equal(t, mimeTypeJSON, headers.Get("Content-Type"))
 	//nolint:testifylint // media type
-	require.Equal(t, mimeTypeJSON, headers.Get(replicateAcceptKey))
+	require.Equal(t, mimeTypeJSON, headers.Get(headerAccept))
 	require.Equal(t, replicatePreferWait, headers.Get(replicatePreferKey))
 }
 
@@ -345,7 +331,7 @@ func TestReplicateProvider_TextToVideoCodec_Encode(t *testing.T) {
 	t.Run("resolution failure surfaces as an error", func(t *testing.T) {
 		t.Parallel()
 
-		codec := ReplicateTextToVideoMixin{Resolver: failingResolver{}}.TextToVideoCodec()
+		codec := ReplicateTextToVideoMixin{Resolver: sdkFailingResolver{}}.TextToVideoCodec()
 		_, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
 			Context: context.Background(),
 			Request: hftypes.TextToVideoRequest{Input: "a cat"},
@@ -455,7 +441,7 @@ func TestReplicateProvider_ImageToImageCodec_Encode(t *testing.T) {
 	t.Run("resolution failure surfaces as an error", func(t *testing.T) {
 		t.Parallel()
 
-		codec := ReplicateImageToImageMixin{Resolver: failingResolver{}}.ImageToImageCodec()
+		codec := ReplicateImageToImageMixin{Resolver: sdkFailingResolver{}}.ImageToImageCodec()
 		_, _, err := codec.Encode(EncodeParams[hftypes.ImageToImageRequest]{
 			Context: context.Background(),
 			Request: hftypes.ImageToImageRequest{Input: "data:image/png;base64,abc123"},
@@ -468,7 +454,7 @@ func TestReplicateProvider_ImageToImageCodec_Encode(t *testing.T) {
 func TestReplicateProvider_SpeechRecognitionCodec_Encode(t *testing.T) {
 	t.Parallel()
 
-	codec := ReplicateAutomaticSpeechRecognitionMixin{}.SpeechRecognitionCodec()
+	codec := ReplicateSpeechRecognitionMixin{}.SpeechRecognitionCodec()
 
 	t.Run("http URL rides under audio key", func(t *testing.T) {
 		t.Parallel()
@@ -568,8 +554,8 @@ func TestReplicateProvider_SpeechRecognitionCodec_Encode(t *testing.T) {
 	t.Run("resolution failure surfaces as an error", func(t *testing.T) {
 		t.Parallel()
 
-		codec := ReplicateAutomaticSpeechRecognitionMixin{
-			Resolver: failingResolver{},
+		codec := ReplicateSpeechRecognitionMixin{
+			Resolver: sdkFailingResolver{},
 		}.SpeechRecognitionCodec()
 		_, _, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
 			Context: context.Background(),
@@ -585,56 +571,44 @@ func TestReplicateProvider_SpeechRecognitionCodec_Encode(t *testing.T) {
 // fastReplicateImageCodec returns a text-to-image codec with fast polling,
 // so tests exercise the exchange's branching without real delays.
 func fastReplicateImageCodec() replicateTextToImageCodec {
-	return replicateTextToImageCodec{replicateAsyncCodec{
+	return replicateTextToImageCodec{replicateAsyncCodec{queueTaskCodec{
 		mediaPrefix:     replicateImageMediaPrefix,
 		pollInterval:    time.Millisecond,
 		pollStep:        time.Millisecond,
 		maxPollInterval: 2 * time.Millisecond,
-	}}
+	}}}
 }
 
 // fastReplicateVideoCodec mirrors fastReplicateImageCodec for the
 // text-to-video prefix.
 func fastReplicateVideoCodec() replicateTextToVideoCodec {
-	return replicateTextToVideoCodec{replicateAsyncCodec{
+	return replicateTextToVideoCodec{replicateAsyncCodec{queueTaskCodec{
 		mediaPrefix:     replicateVideoMediaPrefix,
 		pollInterval:    time.Millisecond,
 		pollStep:        time.Millisecond,
 		maxPollInterval: 2 * time.Millisecond,
-	}}
+	}}}
 }
 
 // fastReplicateSpeechCodec mirrors fastReplicateImageCodec for speech
 // recognition.
 func fastReplicateSpeechCodec() replicateSpeechRecognitionCodec {
-	return replicateSpeechRecognitionCodec{replicateAsyncCodec{
+	return replicateSpeechRecognitionCodec{replicateAsyncCodec{queueTaskCodec{
 		pollInterval:    time.Millisecond,
 		pollStep:        time.Millisecond,
 		maxPollInterval: 2 * time.Millisecond,
-	}}
+	}}}
 }
 
 // fastReplicateImageToImageCodec mirrors fastReplicateImageCodec for the
 // image-to-image codec, whose exchange is otherwise identical.
 func fastReplicateImageToImageCodec() replicateImageToImageCodec {
-	return replicateImageToImageCodec{replicateAsyncCodec{
+	return replicateImageToImageCodec{replicateAsyncCodec{queueTaskCodec{
 		mediaPrefix:     replicateImageMediaPrefix,
 		pollInterval:    time.Millisecond,
 		pollStep:        time.Millisecond,
 		maxPollInterval: 2 * time.Millisecond,
-	}}
-}
-
-// replicatePostSubmitParams builds transport parameters targeting the given
-// test server.
-func replicatePostSubmitParams(server *httptest.Server) PostSubmitParams {
-	return PostSubmitParams{
-		HTTPClient:           server.Client(),
-		BaseURL:              server.URL,
-		Token:                "test-token",
-		UserAgent:            "test-agent/1.0",
-		MaxResponseBodyBytes: 1 << 20,
-	}
+	}}}
 }
 
 // replicatePredictionBody builds a Replicate prediction response body for the
@@ -681,7 +655,7 @@ func TestReplicateProvider_LoraInjected(t *testing.T) {
 			Model:    "some-lora/flux-lora",
 		}: {
 			ProviderModelID:    "black-forest-labs/flux-dev",
-			Adapter:            replicateAdapterLora,
+			Adapter:            adapterLora,
 			AdapterWeightsPath: "some-lora/flux-lora",
 		},
 		{
@@ -690,7 +664,7 @@ func TestReplicateProvider_LoraInjected(t *testing.T) {
 			Model:    "some-lora/flux-lora",
 		}: {
 			ProviderModelID:    "bria/fibo-2.0/edit",
-			Adapter:            replicateAdapterLora,
+			Adapter:            adapterLora,
 			AdapterWeightsPath: "some-lora/flux-lora",
 		},
 	})
@@ -759,7 +733,7 @@ func TestReplicateProvider_LoraNotInjected(t *testing.T) {
 			Model:   "some-lora/flux-lora",
 			Mapping: &ModelMapping{
 				ProviderModelID: "black-forest-labs/flux-dev",
-				Adapter:         replicateAdapterLora,
+				Adapter:         adapterLora,
 			},
 		})
 		require.NoError(t, err)
@@ -781,7 +755,7 @@ func TestReplicateProvider_LoraNotInjected(t *testing.T) {
 			Model: "some-lora/flux-lora",
 			Mapping: &ModelMapping{
 				ProviderModelID:    "black-forest-labs/flux-dev",
-				Adapter:            replicateAdapterLora,
+				Adapter:            adapterLora,
 				AdapterWeightsPath: "some-lora/flux-lora",
 			},
 		})
@@ -797,7 +771,7 @@ func TestReplicateProvider_LoraNotInjected(t *testing.T) {
 		t.Parallel()
 
 		codec := replicateTextToImageCodec{
-			replicateAsyncCodec{resolver: &failingResolver{}},
+			replicateAsyncCodec{queueTaskCodec{resolver: &sdkFailingResolver{}}},
 		}
 		_, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
 			Context: context.Background(),
@@ -861,17 +835,14 @@ func TestReplicateProvider_TextToVideoCodec_Decode(t *testing.T) {
 			Headers: headers,
 		})
 		require.Error(t, err)
-
-		var sdkErr *hferrors.SDKError
-		require.ErrorAs(t, err, &sdkErr)
-		require.Equal(t, hferrors.SDKErrorKindSerialization, sdkErr.Kind)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 }
 
 func TestReplicateProvider_SpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Parallel()
 
-	codec := ReplicateAutomaticSpeechRecognitionMixin{}.SpeechRecognitionCodec()
+	codec := ReplicateSpeechRecognitionMixin{}.SpeechRecognitionCodec()
 
 	t.Run("valid transcript", func(t *testing.T) {
 		t.Parallel()
@@ -944,7 +915,7 @@ func TestReplicatePostSubmit_Complete(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody(
 			"succeeded", "", "", server.URL+"/output.png",
 			map[string]any{"created_at": "2026-01-01T00:00:00Z"},
@@ -979,14 +950,12 @@ func TestReplicatePostSubmit_InvalidOutputURL(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("succeeded", "", "", "cdn/output.png")),
 		http.Header{},
 	)
 
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
 
 // TestReplicatePostSubmit_MissingOutputURL exercises the exchange when a
@@ -1003,7 +972,7 @@ func TestReplicatePostSubmit_MissingOutputURL(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("succeeded", "", "", "")),
 		http.Header{},
 	)
@@ -1065,7 +1034,7 @@ func TestReplicatePostSubmit_PollUntilComplete(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("starting", pollPath, "", nil)),
 		http.Header{},
 	)
@@ -1130,7 +1099,7 @@ func TestReplicatePostSubmit_PollQueryString(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		// The poll target is resolved once from the submit response, so the
 		// query string rides on the submit's urls.get.
 		[]byte(replicatePredictionBody("starting", pollPath+"?trace=abc", "", nil)),
@@ -1184,7 +1153,7 @@ func TestReplicatePostSubmit_UnknownStatusKeepsPolling(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("starting", pollPath, "", nil)),
 		http.Header{},
 	)
@@ -1227,7 +1196,7 @@ func TestReplicatePostSubmit_TransientPollErrors(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("starting", pollPath, "", nil)),
 		http.Header{},
 	)
@@ -1258,7 +1227,7 @@ func TestReplicatePostSubmit_FailedStatus(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("starting", pollPath, "", nil)),
 		http.Header{},
 	)
@@ -1283,7 +1252,7 @@ func TestReplicatePostSubmit_FailedOnSubmit(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("failed", "", "CUDA out of memory", nil)),
 		http.Header{},
 	)
@@ -1308,7 +1277,7 @@ func TestReplicatePostSubmit_CanceledOnSubmit(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("canceled", "", "", nil)),
 		http.Header{},
 	)
@@ -1335,7 +1304,7 @@ func TestReplicatePostSubmit_ClientErrorPoll(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("starting", pollPath, "", nil)),
 		http.Header{},
 	)
@@ -1386,7 +1355,7 @@ func TestReplicatePostSubmit_RetryAfterHonored(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("starting", pollPath, "", nil)),
 		http.Header{},
 	)
@@ -1417,7 +1386,7 @@ func TestReplicatePostSubmit_MalformedResponses(t *testing.T) {
 		codec := fastReplicateImageCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			replicatePostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte("not json"),
 			http.Header{},
 		)
@@ -1435,7 +1404,7 @@ func TestReplicatePostSubmit_MalformedResponses(t *testing.T) {
 		codec := fastReplicateImageCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			replicatePostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(replicatePredictionBody("succeeded", "", "", nil)),
 			http.Header{},
 		)
@@ -1454,7 +1423,7 @@ func TestReplicatePostSubmit_MalformedResponses(t *testing.T) {
 		codec := fastReplicateImageCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			replicatePostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(replicatePredictionBody("starting", "", "", nil)),
 			http.Header{},
 		)
@@ -1481,7 +1450,7 @@ func TestReplicatePostSubmit_MalformedResponses(t *testing.T) {
 		codec := fastReplicateImageCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			replicatePostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(replicatePredictionBody("starting", pollPath, "", nil)),
 			http.Header{},
 		)
@@ -1509,7 +1478,7 @@ func TestReplicatePostSubmit_MalformedResponses(t *testing.T) {
 		defer server.Close()
 
 		codec := fastReplicateImageCodec()
-		params := replicatePostSubmitParams(server)
+		params := postSubmitParams(server)
 		params.MaxResponseBodyBytes = 4
 		_, err := codec.PostSubmit(
 			context.Background(),
@@ -1524,70 +1493,96 @@ func TestReplicatePostSubmit_MalformedResponses(t *testing.T) {
 }
 
 // TestReplicatePostSubmit_MediaTypeMismatch exercises the output validation:
-// an image codec rejects a non-image output.
-//
-//nolint:dupl // Mirrors the parallel task-codec suites; sharing a helper would couple the codecs' fixtures.
+// each media-output codec rejects a downloaded output whose media type
+// belongs to another family.
 func TestReplicatePostSubmit_MediaTypeMismatch(t *testing.T) {
 	t.Parallel()
 
-	var outputURL string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/output" {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(
-				replicatePredictionBody("succeeded", "", "", outputURL),
-			))
+	cases := []struct {
+		name        string
+		postSubmit  func(server *httptest.Server) error
+		outputType  string
+		outputBytes []byte
+		wantPrefix  string
+	}{
+		{
+			name: "image codec gets video",
+			postSubmit: func(server *httptest.Server) error {
+				_, err := fastReplicateImageCodec().PostSubmit(
+					context.Background(),
+					postSubmitParams(server),
+					[]byte(replicatePredictionBody("succeeded", "", "", server.URL+"/output")),
+					http.Header{},
+				)
 
-			return
-		}
-		w.Header().Set("Content-Type", "video/mp4")
-		_, _ = w.Write([]byte("not an image"))
-	}))
-	defer server.Close()
-	outputURL = server.URL + "/output"
+				return err
+			},
+			outputType:  "video/mp4",
+			outputBytes: []byte("not an image"),
+			wantPrefix:  "image/",
+		},
+		{
+			name: "video codec gets image",
+			postSubmit: func(server *httptest.Server) error {
+				_, err := fastReplicateVideoCodec().PostSubmit(
+					context.Background(),
+					postSubmitParams(server),
+					[]byte(replicatePredictionBody("succeeded", "", "", server.URL+"/output")),
+					http.Header{},
+				)
 
-	codec := fastReplicateImageCodec()
-	_, err := codec.PostSubmit(
-		context.Background(),
-		replicatePostSubmitParams(server),
-		[]byte(replicatePredictionBody("succeeded", "", "", outputURL)),
-		http.Header{},
-	)
-	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-	require.ErrorContains(t, err, "image/")
-}
+				return err
+			},
+			outputType:  "image/png",
+			outputBytes: []byte{0x89, 'P', 'N', 'G'},
+			wantPrefix:  "video/",
+		},
+		{
+			name: "image-to-image codec gets video",
+			postSubmit: func(server *httptest.Server) error {
+				_, err := fastReplicateImageToImageCodec().PostSubmit(
+					context.Background(),
+					postSubmitParams(server),
+					[]byte(replicatePredictionBody("succeeded", "", "", server.URL+"/output")),
+					http.Header{},
+				)
 
-// TestReplicatePostSubmit_MediaTypeMismatch_VideoCodec mirrors the image
-// media-type-mismatch test for the text-to-video codec: a non-video output is
-// rejected.
-func TestReplicatePostSubmit_MediaTypeMismatch_VideoCodec(t *testing.T) {
-	t.Parallel()
+				return err
+			},
+			outputType:  "video/mp4",
+			outputBytes: []byte("not an image"),
+			wantPrefix:  "image/",
+		},
+	}
 
-	var outputURL string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/output" {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(
-				replicatePredictionBody("succeeded", "", "", outputURL),
-			))
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-			return
-		}
-		w.Header().Set("Content-Type", "image/png")
-		_, _ = w.Write([]byte{0x89, 'P', 'N', 'G'})
-	}))
-	defer server.Close()
-	outputURL = server.URL + "/output"
+			// The /output path serves the wrong-family blob; everything
+			// else serves a succeeded prediction pointing at it.
+			var predURL string
+			handler := func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/output" {
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(
+						replicatePredictionBody("succeeded", "", "", predURL),
+					))
 
-	codec := fastReplicateVideoCodec()
-	_, err := codec.PostSubmit(
-		context.Background(),
-		replicatePostSubmitParams(server),
-		[]byte(replicatePredictionBody("succeeded", "", "", outputURL)),
-		http.Header{},
-	)
-	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-	require.ErrorContains(t, err, "video/")
+					return
+				}
+				w.Header().Set("Content-Type", tc.outputType)
+				_, _ = w.Write(tc.outputBytes)
+			}
+			server := httptest.NewServer(http.HandlerFunc(handler))
+			defer server.Close()
+			predURL = server.URL + "/output"
+
+			err := tc.postSubmit(server)
+			testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+			require.ErrorContains(t, err, tc.wantPrefix)
+		})
+	}
 }
 
 // TestReplicatePostSubmit_ImageToImage_Complete mirrors the text-to-image
@@ -1615,7 +1610,7 @@ func TestReplicatePostSubmit_ImageToImage_Complete(t *testing.T) {
 	codec := fastReplicateImageToImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("succeeded", "", "", outputURL)),
 		http.Header{},
 	)
@@ -1642,47 +1637,12 @@ func TestReplicatePostSubmit_ImageToImage_FailedPrediction(t *testing.T) {
 	codec := fastReplicateImageToImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("failed", "", "CUDA out of memory", nil)),
 		http.Header{},
 	)
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindProvider)
 	require.ErrorContains(t, err, "CUDA out of memory")
-}
-
-// TestReplicatePostSubmit_ImageToImage_MediaTypeMismatch mirrors the
-// media-type-mismatch test for the image-to-image codec: a non-image output
-// is rejected.
-//
-//nolint:dupl // Mirrors the parallel task-codec suites; sharing a helper would couple the codecs' fixtures.
-func TestReplicatePostSubmit_ImageToImage_MediaTypeMismatch(t *testing.T) {
-	t.Parallel()
-
-	var outputURL string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/output" {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(
-				replicatePredictionBody("succeeded", "", "", outputURL),
-			))
-
-			return
-		}
-		w.Header().Set("Content-Type", "video/mp4")
-		_, _ = w.Write([]byte("not an image"))
-	}))
-	defer server.Close()
-	outputURL = server.URL + "/output"
-
-	codec := fastReplicateImageToImageCodec()
-	_, err := codec.PostSubmit(
-		context.Background(),
-		replicatePostSubmitParams(server),
-		[]byte(replicatePredictionBody("succeeded", "", "", outputURL)),
-		http.Header{},
-	)
-	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-	require.ErrorContains(t, err, "image/")
 }
 
 // TestReplicatePostSubmit_TextToVideo_Complete mirrors the text-to-image
@@ -1710,7 +1670,7 @@ func TestReplicatePostSubmit_TextToVideo_Complete(t *testing.T) {
 	codec := fastReplicateVideoCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("succeeded", "", "", outputURL)),
 		http.Header{},
 	)
@@ -1737,7 +1697,7 @@ func TestReplicatePostSubmit_TextToVideo_FailedPrediction(t *testing.T) {
 	codec := fastReplicateVideoCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("failed", "", "CUDA out of memory", nil)),
 		http.Header{},
 	)
@@ -1768,7 +1728,7 @@ func TestReplicatePostSubmit_SniffedMediaType(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("succeeded", "", "", outputURL)),
 		http.Header{},
 	)
@@ -1801,7 +1761,7 @@ func TestReplicatePostSubmit_GarbledContentTypeSniffed(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("succeeded", "", "", outputURL)),
 		http.Header{},
 	)
@@ -1825,7 +1785,7 @@ func TestReplicatePostSubmit_ContextCanceled(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	_, err := codec.PostSubmit(
 		ctx,
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("starting", pollPath, "", nil)),
 		http.Header{},
 	)
@@ -1874,7 +1834,7 @@ func TestReplicatePostSubmit_ContextCanceledDuringPoll(t *testing.T) {
 	go func() {
 		resp, err := codec.PostSubmit(
 			ctx,
-			replicatePostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(replicatePredictionBody("starting", pollPath, "", nil)),
 			http.Header{},
 		)
@@ -1936,7 +1896,7 @@ func TestReplicatePostSubmit_DeadlineExceededDuringPoll(t *testing.T) {
 	go func() {
 		resp, err := codec.PostSubmit(
 			ctx,
-			replicatePostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(replicatePredictionBody("starting", pollPath, "", nil)),
 			http.Header{},
 		)
@@ -2005,7 +1965,7 @@ func TestReplicatePostSubmit_ForeignPredictionURLCannotRedirect(t *testing.T) {
 	codec := fastReplicateImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		// The submit response carries an absolute prediction URL pointing
 		// at a foreign host; the poll must still resolve to the caller's
 		// host.
@@ -2044,7 +2004,7 @@ func TestReplicatePostSubmit_DownloadBodyLimit(t *testing.T) {
 	outputURL = server.URL + "/output"
 
 	codec := fastReplicateImageCodec()
-	params := replicatePostSubmitParams(server)
+	params := postSubmitParams(server)
 	params.MaxResponseBodyBytes = 4
 	_, err := codec.PostSubmit(
 		context.Background(),
@@ -2089,7 +2049,7 @@ func TestReplicateSpeechRecognitionPostSubmit_PollUntilTranscript(t *testing.T) 
 	codec := fastReplicateSpeechCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("starting", pollPath, "", nil)),
 		http.Header{},
 	)
@@ -2157,7 +2117,7 @@ func TestReplicateSpeechRecognitionPostSubmit_TranscriptShapes(t *testing.T) {
 			codec := fastReplicateSpeechCodec()
 			resp, err := codec.PostSubmit(
 				context.Background(),
-				replicatePostSubmitParams(server),
+				postSubmitParams(server),
 				[]byte(replicatePredictionBody("succeeded", "", "", tc.output)),
 				http.Header{},
 			)
@@ -2198,7 +2158,7 @@ func TestReplicateSpeechRecognitionPostSubmit_TxtFileDownload(t *testing.T) {
 	codec := fastReplicateSpeechCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("succeeded", "", "", map[string]any{
 			"txt_file": server.URL + "/transcript.txt",
 		})),
@@ -2236,7 +2196,7 @@ func TestReplicateSpeechRecognitionPostSubmit_TxtFileDownloadErrors(t *testing.T
 		codec := fastReplicateSpeechCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			replicatePostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(replicatePredictionBody("succeeded", "", "", map[string]any{
 				"txt_file": server.URL + "/transcript.txt",
 			})),
@@ -2258,7 +2218,7 @@ func TestReplicateSpeechRecognitionPostSubmit_TxtFileDownloadErrors(t *testing.T
 		}))
 		defer server.Close()
 
-		params := replicatePostSubmitParams(server)
+		params := postSubmitParams(server)
 		params.MaxResponseBodyBytes = 4
 
 		codec := fastReplicateSpeechCodec()
@@ -2314,7 +2274,7 @@ func TestReplicateSpeechRecognitionPostSubmit_MalformedOutput(t *testing.T) {
 			codec := fastReplicateSpeechCodec()
 			_, err := codec.PostSubmit(
 				context.Background(),
-				replicatePostSubmitParams(server),
+				postSubmitParams(server),
 				[]byte(replicatePredictionBody("succeeded", "", "", tc.output)),
 				http.Header{},
 			)
@@ -2338,7 +2298,7 @@ func TestReplicateSpeechRecognitionPostSubmit_MalformedOutput(t *testing.T) {
 		codec := fastReplicateSpeechCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			replicatePostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(replicatePredictionBody("succeeded", "", "", nil)),
 			http.Header{},
 		)
@@ -2360,7 +2320,7 @@ func TestReplicateSpeechRecognitionPostSubmit_FailedPrediction(t *testing.T) {
 	codec := fastReplicateSpeechCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		replicatePostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(replicatePredictionBody("failed", "", "audio decoding failed", nil)),
 		http.Header{},
 	)
@@ -2405,125 +2365,133 @@ func TestReplicatePredictionRoute(t *testing.T) {
 	})
 }
 
-// TestReplicatePredictionURL exercises the poll-URL resolution: the Hugging
+// TestReplicatePollTarget exercises the poll-target resolution: the Hugging
 // Face router gains a /replicate prefix, already-routed URLs keep their
-// path, other hosts resolve paths as-is, and a missing prediction URL is an
-// error.
-func TestReplicatePredictionURL(t *testing.T) {
+// path, other hosts resolve as-is, queries ride along, and missing or
+// unparseable inputs fail with their respective kinds.
+func TestReplicatePollTarget(t *testing.T) {
 	t.Parallel()
+
+	pollTarget := func(t *testing.T, baseURL, getURL string) (request.Params, string) {
+		t.Helper()
+
+		pollParams, pollPath, err := replicatePollTarget(
+			PostSubmitParams{BaseURL: baseURL},
+			&replicatePrediction{URLs: replicatePredictionURLs{Get: getURL}},
+		)
+		require.NoError(t, err)
+
+		return pollParams, pollPath
+	}
 
 	t.Run("router host gains /replicate prefix", func(t *testing.T) {
 		t.Parallel()
 
-		resolved, err := replicatePredictionURL(
-			"https://router.huggingface.co",
-			"/v1/predictions/pred_123",
+		pollParams, pollPath := pollTarget(
+			t, "https://router.huggingface.co", "/v1/predictions/pred_123",
 		)
-		require.NoError(t, err)
-		require.Equal(t, "https://router.huggingface.co/replicate", resolved.base)
-		require.Equal(t, "/v1/predictions/pred_123", resolved.path)
-		require.Empty(t, resolved.query)
+		require.Equal(t, "https://router.huggingface.co/replicate", pollParams.BaseURL)
+		require.Equal(t, "/v1/predictions/pred_123", pollPath)
 	})
 
 	t.Run("router host matched case-insensitively", func(t *testing.T) {
 		t.Parallel()
 
-		resolved, err := replicatePredictionURL(
-			"https://Router.HuggingFace.CO",
-			"/v1/predictions/pred_123",
+		pollParams, pollPath := pollTarget(
+			t, "https://Router.HuggingFace.CO", "/v1/predictions/pred_123",
 		)
-		require.NoError(t, err)
-		require.Equal(t, "https://Router.HuggingFace.CO/replicate", resolved.base)
-		require.Equal(t, "/v1/predictions/pred_123", resolved.path)
+		require.Equal(t, "https://Router.HuggingFace.CO/replicate", pollParams.BaseURL)
+		require.Equal(t, "/v1/predictions/pred_123", pollPath)
 	})
 
 	t.Run("already-routed URL keeps its path", func(t *testing.T) {
 		t.Parallel()
 
-		resolved, err := replicatePredictionURL(
+		pollParams, pollPath := pollTarget(
+			t,
 			"https://router.huggingface.co",
 			"https://router.huggingface.co/replicate/v1/predictions/pred_123",
 		)
-		require.NoError(t, err)
-		require.Equal(t, "https://router.huggingface.co", resolved.base)
-		require.Equal(t, "/replicate/v1/predictions/pred_123", resolved.path)
+		require.Equal(t, "https://router.huggingface.co", pollParams.BaseURL)
+		require.Equal(t, "/replicate/v1/predictions/pred_123", pollPath)
 	})
 
 	t.Run("other hosts resolve as-is", func(t *testing.T) {
 		t.Parallel()
 
-		resolved, err := replicatePredictionURL(
-			"https://api.example.com",
-			"/v1/predictions/pred_123",
+		pollParams, pollPath := pollTarget(
+			t, "https://api.example.com", "/v1/predictions/pred_123",
 		)
-		require.NoError(t, err)
-		require.Equal(t, "https://api.example.com", resolved.base)
-		require.Equal(t, "/v1/predictions/pred_123", resolved.path)
+		require.Equal(t, "https://api.example.com", pollParams.BaseURL)
+		require.Equal(t, "/v1/predictions/pred_123", pollPath)
 	})
 
 	t.Run("trailing slash trimmed before prefixing", func(t *testing.T) {
 		t.Parallel()
 
-		resolved, err := replicatePredictionURL(
-			"https://router.huggingface.co/",
-			"/v1/predictions/pred_123",
+		pollParams, _ := pollTarget(
+			t, "https://router.huggingface.co/", "/v1/predictions/pred_123",
 		)
-		require.NoError(t, err)
-		require.Equal(t, "https://router.huggingface.co/replicate", resolved.base)
+		require.Equal(t, "https://router.huggingface.co/replicate", pollParams.BaseURL)
 	})
 
-	t.Run("query string preserved", func(t *testing.T) {
+	t.Run("query string appended to the path", func(t *testing.T) {
 		t.Parallel()
 
-		resolved, err := replicatePredictionURL(
-			"https://router.huggingface.co",
-			"/v1/predictions/pred_123?trace=1",
+		_, pollPath := pollTarget(
+			t, "https://router.huggingface.co", "/v1/predictions/pred_123?trace=1",
 		)
-		require.NoError(t, err)
-		require.Equal(t, "trace=1", resolved.query)
+		require.Equal(t, "/v1/predictions/pred_123?trace=1", pollPath)
 	})
 
 	t.Run("absolute get URL resolved from its path", func(t *testing.T) {
 		t.Parallel()
 
-		resolved, err := replicatePredictionURL(
+		pollParams, pollPath := pollTarget(
+			t,
 			"https://router.huggingface.co",
 			"https://api.replicate.com/v1/predictions/pred_123",
 		)
-		require.NoError(t, err)
-		require.Equal(t, "https://router.huggingface.co/replicate", resolved.base)
-		require.Equal(t, "/v1/predictions/pred_123", resolved.path)
+		require.Equal(t, "https://router.huggingface.co/replicate", pollParams.BaseURL)
+		require.Equal(t, "/v1/predictions/pred_123", pollPath)
 	})
 
 	t.Run("relative get path gains a leading slash", func(t *testing.T) {
 		t.Parallel()
 
-		resolved, err := replicatePredictionURL(
-			"https://router.huggingface.co",
-			"v1/predictions/pred_123",
+		_, pollPath := pollTarget(
+			t, "https://router.huggingface.co", "v1/predictions/pred_123",
 		)
-		require.NoError(t, err)
-		require.Equal(t, "/v1/predictions/pred_123", resolved.path)
+		require.Equal(t, "/v1/predictions/pred_123", pollPath)
 	})
 
 	t.Run("empty prediction URL is an error", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := replicatePredictionURL("https://router.huggingface.co", "")
+		_, _, err := replicatePollTarget(
+			PostSubmitParams{BaseURL: "https://router.huggingface.co"},
+			&replicatePrediction{},
+		)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 
 	t.Run("invalid base URL is an error", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := replicatePredictionURL("http://[::1:bad", "/v1/predictions/pred_123")
+		_, _, err := replicatePollTarget(
+			PostSubmitParams{BaseURL: "http://[::1:bad"},
+			&replicatePrediction{URLs: replicatePredictionURLs{Get: "/v1/predictions/pred_123"}},
+		)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	})
 
 	t.Run("invalid prediction URL is an error", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := replicatePredictionURL("https://router.huggingface.co", "http://h/%zz")
+		_, _, err := replicatePollTarget(
+			PostSubmitParams{BaseURL: "https://router.huggingface.co"},
+			&replicatePrediction{URLs: replicatePredictionURLs{Get: "http://h/%zz"}},
+		)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 }
@@ -2826,9 +2794,7 @@ func TestReplicateClassifyPrediction(t *testing.T) {
 				return
 			}
 
-			var sdkErr *hferrors.SDKError
-			require.ErrorAs(t, err, &sdkErr)
-			require.Equal(t, tc.wantKind, sdkErr.Kind)
+			testutils.AssertSDKErrorKind(t, err, tc.wantKind)
 			require.Nil(t, out)
 		})
 	}

@@ -11,7 +11,7 @@ const ovhcloudProviderName = "ovhcloud"
 // request/response schema across providers: only the routing differs,
 // expressed by appending the ":ovhcloud" provider suffix to the model ID.
 //
-// Unlike [WavespeedProvider], OVHcloud needs no [ModelResolver]: the chat
+// Unlike [WaveSpeedProvider], OVHcloud needs no [ModelResolver]: the chat
 // endpoint is model-independent, and the router performs provider mapping
 // server-side. The ":ovhcloud" suffix is a deterministic provider pin — the
 // router's automatic failover applies to unsuffixed models and routing

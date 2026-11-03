@@ -131,13 +131,6 @@ func requireOpenAIEmbeddingsEndpoints(
 func TestOpenAIEmbeddingsCodecs_Decode(t *testing.T) {
 	t.Parallel()
 
-	jsonHeaders := func() http.Header {
-		headers := http.Header{}
-		headers.Set("Content-Type", "application/json")
-
-		return headers
-	}
-
 	type singleCodecCase struct {
 		name  string
 		codec FeatureExtractionPooledCodec
@@ -170,7 +163,7 @@ func TestOpenAIEmbeddingsCodecs_Decode(t *testing.T) {
 					Body: []byte(
 						`{"object":"list","data":[{"object":"embedding","index":0,"embedding":[1,2,3]},{"object":"embedding","index":1,"embedding":[4,5,6]}],"model":"m"}`,
 					),
-					Headers: jsonHeaders(),
+					Headers: jsonHeaders(ctJSON),
 				})
 				require.NoError(t, err)
 				require.Equal(t, hftypes.FeatureExtractionPooledEmbedding{1, 2, 3}, embedding)
@@ -188,7 +181,7 @@ func TestOpenAIEmbeddingsCodecs_Decode(t *testing.T) {
 				embeddings, err := tc.codec.Decode(DecodeParams{
 					Context: context.Background(),
 					Body:    []byte(`{"data":[{"embedding":[1,2]},{"embedding":[3,4]}]}`),
-					Headers: jsonHeaders(),
+					Headers: jsonHeaders(ctJSON),
 				})
 				require.NoError(t, err)
 				require.Equal(
@@ -210,7 +203,7 @@ func TestOpenAIEmbeddingsCodecs_Decode(t *testing.T) {
 				_, err := tc.codec.Decode(DecodeParams{
 					Context: context.Background(),
 					Body:    []byte(`{"data":[]}`),
-					Headers: jsonHeaders(),
+					Headers: jsonHeaders(ctJSON),
 				})
 				require.ErrorContains(t, err, "contains no embeddings")
 			})
@@ -227,7 +220,7 @@ func TestOpenAIEmbeddingsCodecs_Decode(t *testing.T) {
 				_, err := tc.codec.Decode(DecodeParams{
 					Context: context.Background(),
 					Body:    []byte(`{"data":[{"embedding":[1]},{"index":1}]}`),
-					Headers: jsonHeaders(),
+					Headers: jsonHeaders(ctJSON),
 				})
 				require.ErrorContains(t, err, "entry 1 is missing an embedding")
 			})
@@ -264,7 +257,7 @@ func TestOpenAIEmbeddingsCodecs_Decode(t *testing.T) {
 				_, err := tc.codec.Decode(DecodeParams{
 					Context: context.Background(),
 					Body:    []byte("{not json"),
-					Headers: jsonHeaders(),
+					Headers: jsonHeaders(ctJSON),
 				})
 				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 			})
@@ -360,7 +353,7 @@ func assertOpenAIEmbeddingsCodecEncode(
 	t.Run("supplied mapping wins without a resolver call", func(t *testing.T) {
 		t.Parallel()
 
-		resolver := &countingResolver{}
+		resolver := &recordingResolver{}
 		mixinCodec := resolverCodec(resolver)
 
 		body, _, err := mixinCodec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{

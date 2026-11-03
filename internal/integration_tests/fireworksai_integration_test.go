@@ -24,7 +24,7 @@ func newFireworksClient(ctx context.Context) hfgo.Client {
 	return hfgo.NewClient(
 		hfopts.WithToken(os.Getenv("HF_TOKEN")),
 		hfopts.WithModel("zai-org/GLM-5.3"),
-		hfopts.WithProvider(hfproviders.NewFireworksProvider()),
+		hfopts.WithProvider(hfproviders.NewFireworksAIProvider()),
 		hfopts.WithContext(ctx),
 	)
 }

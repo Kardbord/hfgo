@@ -35,20 +35,12 @@ func encodeOpenAIEmbeddings[T string | []string](
 	payload["input"] = input
 	payload["model"] = mapping.ProviderModelID
 
-	body, err = json.Marshal(payload)
+	body, err = marshalRequestBody(payload)
 	if err != nil {
-		return nil, nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: errFailedToMarshalRequestBody,
-			Err:     err,
-		}
+		return nil, nil, err
 	}
 
-	headers = http.Header{}
-	headers.Set("Content-Type", mimeTypeJSON)
-	headers.Set("Accept", mimeTypeJSON)
-
-	return body, headers, nil
+	return body, jsonRequestHeaders(mimeTypeJSON), nil
 }
 
 // openAIEmbeddingEntry is one embedding in the embeddings endpoint's
@@ -72,11 +64,7 @@ func decodeOpenAIEmbeddings(
 ) ([]hftypes.FeatureExtractionPooledEmbedding, error) {
 	contentType := params.Headers.Get("Content-Type")
 	if !isJSONContentType(contentType) {
-		return nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "expected Content-Type application/json, got " + contentType,
-			Err:     nil,
-		}
+		return nil, errUnexpectedContentType(contentType)
 	}
 
 	var resp openAIEmbeddingsResponse

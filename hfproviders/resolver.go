@@ -130,3 +130,36 @@ func (r *StaticModelResolver) ResolveModel(
 
 	return resolved, nil
 }
+
+// resolveMapping resolves the configured Hugging Face model ID to a
+// provider's mapping. The mapping supplied while constructing the endpoint
+// (see [Endpoint.Mapping] and [EncodeParams.Mapping]) wins; otherwise the
+// given resolver runs the lookup, which is the fallback path of the
+// provider's standalone codecs. A nil resolver with no supplied mapping
+// fails with the provider-named configuration error (see [errNilResolver]).
+func resolveMapping(
+	ctx context.Context,
+	providerName string,
+	resolver ModelResolver,
+	supplied *ModelMapping,
+	task Task,
+	model string,
+) (*ModelMapping, error) {
+	if supplied != nil {
+		return supplied, nil
+	}
+	if resolver == nil {
+		return nil, errNilResolver(providerName)
+	}
+
+	mapping, err := resolver.ResolveModel(ctx, ResolveModelParams{
+		Provider: providerName,
+		Task:     task,
+		Model:    model,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &mapping, nil
+}

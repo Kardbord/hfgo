@@ -12,6 +12,7 @@ import (
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -91,18 +92,7 @@ func TestHubModelResolver_ImplementsInterface(t *testing.T) {
 func TestHubModelResolver_ResolvesMapping(t *testing.T) {
 	t.Parallel()
 
-	payload := `{
-		"id": "black-forest-labs/FLUX.1-dev",
-		"inferenceProviderMapping": {
-			"fal-ai": {
-				"status": "live",
-				"providerId": "fal-ai/flux/dev",
-				"task": "text-to-image",
-				"isModelAuthor": false
-			}
-		}
-	}`
-	hs := newHubServer(t, payload)
+	hs := newHubServer(t, hubModelInfoPayload)
 
 	resolver := hfproviders.NewHubModelResolver(hfproviders.WithHubBaseURL(hs.server.URL))
 
@@ -156,18 +146,7 @@ func TestHubModelResolver_ResolvesAdapterMapping(t *testing.T) {
 func TestHubModelResolver_CachesResults(t *testing.T) {
 	t.Parallel()
 
-	payload := `{
-		"id": "black-forest-labs/FLUX.1-dev",
-		"inferenceProviderMapping": {
-			"fal-ai": {
-				"status": "live",
-				"providerId": "fal-ai/flux/dev",
-				"task": "text-to-image",
-				"isModelAuthor": false
-			}
-		}
-	}`
-	hs := newHubServer(t, payload)
+	hs := newHubServer(t, hubModelInfoPayload)
 
 	resolver := hfproviders.NewHubModelResolver(hfproviders.WithHubBaseURL(hs.server.URL))
 
@@ -189,18 +168,7 @@ func TestHubModelResolver_CachesResults(t *testing.T) {
 func TestHubModelResolver_AbsentMappingErrors(t *testing.T) {
 	t.Parallel()
 
-	payload := `{
-		"id": "black-forest-labs/FLUX.1-dev",
-		"inferenceProviderMapping": {
-			"fal-ai": {
-				"status": "live",
-				"providerId": "fal-ai/flux/dev",
-				"task": "text-to-image",
-				"isModelAuthor": false
-			}
-		}
-	}`
-	hs := newHubServer(t, payload)
+	hs := newHubServer(t, hubModelInfoPayload)
 
 	resolver := hfproviders.NewHubModelResolver(hfproviders.WithHubBaseURL(hs.server.URL))
 
@@ -211,9 +179,7 @@ func TestHubModelResolver_AbsentMappingErrors(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
 
 func TestHubModelResolver_WithHubTokenSendsAuthorization(t *testing.T) {
@@ -247,9 +213,7 @@ func TestHubModelResolver_NilHTTPClientFactoryIsConfigurationError(t *testing.T)
 	)
 	require.Error(t, err)
 
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
 
 func TestHubModelResolver_WithHubCacheTTLRefetches(t *testing.T) {

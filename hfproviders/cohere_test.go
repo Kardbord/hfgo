@@ -7,6 +7,5 @@ func cohereChatOnlyCase() chatOnlyProviderCase {
 	return chatOnlyProviderCase{
 		slug:        "cohere",
 		newProvider: func() Provider { return NewCohereProvider() },
-		sampleModel: "CohereLabs/tiny-aya-global",
 	}
 }

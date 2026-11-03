@@ -46,7 +46,7 @@ func TestTogetherProvider_Contract(t *testing.T) {
 
 	provider := NewTogetherProvider()
 
-	for _, served := range []func(Provider) error{
+	requireServedTaskInterfaces(t, provider, []func(Provider) error{
 		func(p Provider) error {
 			_, err := AsProvider[ChatProvider](p)
 
@@ -57,14 +57,9 @@ func TestTogetherProvider_Contract(t *testing.T) {
 
 			return err
 		},
-	} {
-		require.NoError(t, served(provider))
-	}
+	})
 
-	for _, missing := range []struct {
-		typeName string
-		cast     func(Provider) error
-	}{
+	requireMissingTaskInterfaces(t, provider, togetherProviderName, []taskCast{
 		{
 			typeName: "hfproviders.SpeechRecognitionProvider",
 			cast: func(p Provider) error {
@@ -89,11 +84,7 @@ func TestTogetherProvider_Contract(t *testing.T) {
 				return err
 			},
 		},
-	} {
-		err := missing.cast(provider)
-		require.Error(t, err, "must not implement %s", missing.typeName)
-		require.ErrorContains(t, err, "together does not implement "+missing.typeName)
-	}
+	})
 }
 
 func TestTogetherProvider_ChatEndpoint(t *testing.T) {
@@ -426,22 +417,9 @@ func TestTogetherChatStreamCodec(t *testing.T) {
 	require.Equal(t, "gen-2", chunk.ID)
 	require.Equal(t, "hi", *chunk.Choices[0].Delta.Content)
 
-	t.Run("invalid request fails before the rewrite", func(t *testing.T) {
-		t.Parallel()
-
-		req := togetherChatRequest()
-		// json_schema requires the envelope, so this fails MarshalJSON.
-		req.ResponseFormat = &hftypes.ChatResponseFormat{
-			Type: hftypes.ResponseFormatTypeJSONSchema,
-		}
-
-		_, _, err := codec.Encode(EncodeParams[hftypes.ChatRequest]{
-			Context: context.Background(),
-			Request: req,
-		})
-		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
-		require.ErrorContains(t, err, "json_schema requires json_schema field")
-	})
+	// The invalid-request error branch is shared with the unary codec and
+	// asserted by TestTogetherChatCodec_ResponseFormatRewrite: it fails in
+	// the request's MarshalJSON before either codec's rewrite runs.
 }
 
 // mustMarshal panics on failure; test-only helper for comparison targets.

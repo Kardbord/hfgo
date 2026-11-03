@@ -45,9 +45,7 @@ func TestAsProvider_WrongType(t *testing.T) {
 		"minimal does not implement hfproviders.SummarizationProvider",
 	)
 
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
 
 func TestAsProvider_NilProvider(t *testing.T) {
@@ -69,9 +67,7 @@ func TestAsProvider_TypedNilProvider(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorContains(t, err, "provider must not be nil")
 
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
 
 func TestAsProvider_ExactType(t *testing.T) {
@@ -108,31 +104,6 @@ func TestAsProvider_MixinSubset(t *testing.T) {
 	_, err = AsProvider[ChatProvider](p)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "subset does not implement hfproviders.ChatProvider")
-}
-
-// TestHuggingFaceProvider_TaskCoverage asserts the Hugging Face provider does
-// not advertise tasks it does not serve. Text-to-video and image-to-image are
-// served through partner providers only, e.g. [WavespeedProvider].
-func TestHuggingFaceProvider_TaskCoverage(t *testing.T) {
-	t.Parallel()
-
-	p := NewHuggingFaceProvider()
-
-	_, err := AsProvider[ImageToImageProvider](p)
-	require.Error(t, err)
-	require.ErrorContains(
-		t,
-		err,
-		"huggingface does not implement hfproviders.ImageToImageProvider",
-	)
-
-	_, err = AsProvider[TextToVideoProvider](p)
-	require.Error(t, err)
-	require.ErrorContains(
-		t,
-		err,
-		"huggingface does not implement hfproviders.TextToVideoProvider",
-	)
 }
 
 // absolutePathProvider implements SummarizationProvider but returns an
@@ -180,9 +151,7 @@ func TestProvider_AbsoluteEndpointPathIsRejected(t *testing.T) {
 		nil,
 	)
 
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	require.ErrorContains(t, err, "path must be relative")
 	// The redirect is blocked before dispatch: no request reaches the wire.
 	require.Nil(t, mt.LastRequest)

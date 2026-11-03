@@ -13,71 +13,34 @@ import (
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/request"
 	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
-// TestMediaSniffingFallback pins the net/http byte-sniffing behavior the
-// WaveSpeed exchange relies on when a CDN output omits Content-Type: the
-// downloaded bytes must sniff to the task's expected media family. If a Go
-// release changes these signatures, the sniffing fallback in the WaveSpeed
-// codecs needs revisiting.
-func TestMediaSniffingFallback(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name          string
-		wantMediaType string
-		bytes         []byte
-	}{
-		{
-			name:          "webm",
-			wantMediaType: "video/webm",
-			bytes:         []byte{0x1A, 0x45, 0xDF, 0xA3},
-		},
-		{
-			name:          "png",
-			wantMediaType: "image/png",
-			bytes:         []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a},
-		},
-		{
-			name:          "jpeg",
-			wantMediaType: "image/jpeg",
-			bytes:         []byte{0xFF, 0xD8, 0xFF, 0xE0},
-		},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			require.Equal(t, tc.wantMediaType, http.DetectContentType(tc.bytes))
-		})
-	}
-}
-
-func TestWavespeedProvider_NameAndSuffix(t *testing.T) {
+func TestWaveSpeedProvider_NameAndSuffix(t *testing.T) {
 	t.Parallel()
 
 	mapper := NewStaticModelResolver(nil)
-	p, err := NewWavespeedProvider(mapper)
+	p, err := NewWaveSpeedProvider(mapper)
 	require.NoError(t, err)
 
 	require.Equal(t, "wavespeed", p.Name())
 	require.Empty(t, p.ProviderSuffix())
 }
 
-func TestNewWavespeedProvider_NilResolver(t *testing.T) {
+func TestNewWaveSpeedProvider_NilResolver(t *testing.T) {
 	t.Parallel()
 
-	p, err := NewWavespeedProvider(nil)
+	p, err := NewWaveSpeedProvider(nil)
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
-	require.Equal(t, WavespeedProvider{}, p)
+	require.Equal(t, WaveSpeedProvider{}, p)
 }
 
-func TestWavespeedProvider_ZeroValueIsSafe(t *testing.T) {
+func TestWaveSpeedProvider_ZeroValueIsSafe(t *testing.T) {
 	t.Parallel()
 
-	var p WavespeedProvider
+	var p WaveSpeedProvider
 
 	_, err := p.TextToVideoEndpoint(EndpointParams{
 		Context: context.Background(),
@@ -105,10 +68,10 @@ type wavespeedEndpointCase struct {
 	task            Task
 	model           string
 	providerModelID string
-	endpoint        func(WavespeedProvider, EndpointParams) (Endpoint, error)
+	endpoint        func(WaveSpeedProvider, EndpointParams) (Endpoint, error)
 }
 
-func TestWavespeedProvider_Endpoints(t *testing.T) {
+func TestWaveSpeedProvider_Endpoints(t *testing.T) {
 	t.Parallel()
 
 	cases := []wavespeedEndpointCase{
@@ -117,21 +80,21 @@ func TestWavespeedProvider_Endpoints(t *testing.T) {
 			task:            TaskTextToVideo,
 			model:           "ZhengmingYu/DMAD",
 			providerModelID: "wavespeed-ai/minimax-h3/text-to-video-lora",
-			endpoint:        WavespeedProvider.TextToVideoEndpoint,
+			endpoint:        WaveSpeedProvider.TextToVideoEndpoint,
 		},
 		{
 			name:            "TextToImageEndpoint",
 			task:            TaskTextToImage,
 			model:           "black-forest-labs/FLUX.1-dev",
 			providerModelID: "wavespeed-ai/flux-dev",
-			endpoint:        WavespeedProvider.TextToImageEndpoint,
+			endpoint:        WaveSpeedProvider.TextToImageEndpoint,
 		},
 		{
 			name:            "ImageToImageEndpoint",
 			task:            TaskImageToImage,
 			model:           "black-forest-labs/FLUX.2-klein-base-4B",
 			providerModelID: "bria/fibo-2.0/edit",
-			endpoint:        WavespeedProvider.ImageToImageEndpoint,
+			endpoint:        WaveSpeedProvider.ImageToImageEndpoint,
 		},
 	}
 
@@ -146,7 +109,7 @@ func TestWavespeedProvider_Endpoints(t *testing.T) {
 					Model:    tc.model,
 				}: {ProviderModelID: tc.providerModelID},
 			})
-			p, err := NewWavespeedProvider(mapper)
+			p, err := NewWaveSpeedProvider(mapper)
 			require.NoError(t, err)
 
 			endpoint, err := tc.endpoint(p, EndpointParams{
@@ -162,11 +125,11 @@ func TestWavespeedProvider_Endpoints(t *testing.T) {
 	}
 }
 
-func TestWavespeedProvider_Endpoint_ResolutionError(t *testing.T) {
+func TestWaveSpeedProvider_Endpoint_ResolutionError(t *testing.T) {
 	t.Parallel()
 
 	mapper := NewStaticModelResolver(nil)
-	p, err := NewWavespeedProvider(mapper)
+	p, err := NewWaveSpeedProvider(mapper)
 	require.NoError(t, err)
 
 	_, err = p.TextToVideoEndpoint(EndpointParams{
@@ -181,14 +144,14 @@ func TestWavespeedProvider_Endpoint_ResolutionError(t *testing.T) {
 func requireFlatEncode[Req any](
 	t *testing.T,
 	encode func(EncodeParams[Req]) ([]byte, http.Header, error),
-	request Req,
+	req Req,
 	wantJSON string,
 ) {
 	t.Helper()
 
 	body, headers, err := encode(EncodeParams[Req]{
 		Context: context.Background(),
-		Request: request,
+		Request: req,
 	})
 	require.NoError(t, err)
 	require.JSONEq(t, wantJSON, string(body))
@@ -196,7 +159,7 @@ func requireFlatEncode[Req any](
 	require.Equal(t, "*/*", headers.Get("Accept"))
 }
 
-func TestWavespeedProvider_TextToVideoCodec_Encode(t *testing.T) {
+func TestWaveSpeedProvider_TextToVideoCodec_Encode(t *testing.T) {
 	t.Parallel()
 
 	codec := wavespeedTextToVideoCodec{}
@@ -251,7 +214,7 @@ func TestWavespeedProvider_TextToVideoCodec_Encode(t *testing.T) {
 	})
 }
 
-func TestWavespeedProvider_TextToImageCodec_Encode(t *testing.T) {
+func TestWaveSpeedProvider_TextToImageCodec_Encode(t *testing.T) {
 	t.Parallel()
 
 	codec := wavespeedTextToImageCodec{}
@@ -289,7 +252,7 @@ func TestWavespeedProvider_TextToImageCodec_Encode(t *testing.T) {
 	})
 }
 
-func TestWavespeedProvider_ImageToImageCodec_Encode(t *testing.T) {
+func TestWaveSpeedProvider_ImageToImageCodec_Encode(t *testing.T) {
 	t.Parallel()
 
 	codec := wavespeedImageToImageCodec{}
@@ -395,12 +358,12 @@ func TestWavespeedProvider_ImageToImageCodec_Encode(t *testing.T) {
 	})
 }
 
-// TestWavespeedProvider_AdapterLorasInjection exercises the LoRA payload
+// TestWaveSpeedProvider_AdapterLorasInjection exercises the LoRA payload
 // injection: a LoRA-adapter mapping injects the "loras" entry naming the
 // Hugging Face model ID, a caller-supplied "loras" wins, non-adapter models
 // and nil resolvers leave the payload untouched, and lookup failures
 // propagate.
-func TestWavespeedProvider_AdapterLorasInjection(t *testing.T) {
+func TestWaveSpeedProvider_AdapterLorasInjection(t *testing.T) {
 	t.Parallel()
 
 	t.Run("injected on all tasks", func(t *testing.T) {
@@ -429,7 +392,7 @@ func TestWavespeedProvider_AdapterLorasInjection(t *testing.T) {
 			}: {ProviderModelID: "wavespeed-ai/flux-dev", Adapter: "lora"},
 		})
 
-		video := WavespeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
+		video := WaveSpeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
 		body, _, err := video.Encode(EncodeParams[hftypes.TextToVideoRequest]{
 			Context: context.Background(),
 			Request: hftypes.TextToVideoRequest{Input: "a cat"},
@@ -442,7 +405,7 @@ func TestWavespeedProvider_AdapterLorasInjection(t *testing.T) {
 			string(body),
 		)
 
-		image := WavespeedTextToImageMixin{Resolver: resolver}.TextToImageCodec()
+		image := WaveSpeedTextToImageMixin{Resolver: resolver}.TextToImageCodec()
 		body, _, err = image.Encode(EncodeParams[hftypes.TextToImageRequest]{
 			Context: context.Background(),
 			Request: hftypes.TextToImageRequest{Input: "a cat"},
@@ -455,7 +418,7 @@ func TestWavespeedProvider_AdapterLorasInjection(t *testing.T) {
 			string(body),
 		)
 
-		i2i := WavespeedImageToImageMixin{Resolver: resolver}.ImageToImageCodec()
+		i2i := WaveSpeedImageToImageMixin{Resolver: resolver}.ImageToImageCodec()
 		body, _, err = i2i.Encode(EncodeParams[hftypes.ImageToImageRequest]{
 			Context: context.Background(),
 			Request: hftypes.ImageToImageRequest{Input: "abc123"},
@@ -483,7 +446,7 @@ func TestWavespeedProvider_AdapterLorasInjection(t *testing.T) {
 				Model:    "ZhengmingYu/DMAD",
 			}: {ProviderModelID: "wavespeed-ai/minimax-h3/text-to-video-lora", Adapter: "lora"},
 		})
-		codec := WavespeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
+		codec := WaveSpeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
 
 		body, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
 			Context: context.Background(),
@@ -513,7 +476,7 @@ func TestWavespeedProvider_AdapterLorasInjection(t *testing.T) {
 				Model:    "black-forest-labs/FLUX.1-dev",
 			}: {ProviderModelID: "wavespeed-ai/flux-dev"},
 		})
-		codec := WavespeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
+		codec := WaveSpeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
 
 		body, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
 			Context: context.Background(),
@@ -541,7 +504,7 @@ func TestWavespeedProvider_AdapterLorasInjection(t *testing.T) {
 	t.Run("lookup failure propagates", func(t *testing.T) {
 		t.Parallel()
 
-		codec := WavespeedTextToVideoMixin{Resolver: NewStaticModelResolver(nil)}.TextToVideoCodec()
+		codec := WaveSpeedTextToVideoMixin{Resolver: NewStaticModelResolver(nil)}.TextToVideoCodec()
 
 		_, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
 			Context: context.Background(),
@@ -552,30 +515,13 @@ func TestWavespeedProvider_AdapterLorasInjection(t *testing.T) {
 	})
 }
 
-// countingResolver counts ResolveModel calls and serves a fixed mapping,
-// letting tests prove which source a lookup result came from.
-type countingResolver struct {
-	calls   atomic.Int64
-	mapping ModelMapping
-}
-
-// ResolveModel implements [ModelResolver].
-func (r *countingResolver) ResolveModel(
-	_ context.Context,
-	_ ResolveModelParams,
-) (ModelMapping, error) {
-	r.calls.Add(1)
-
-	return r.mapping, nil
-}
-
-// TestWavespeedProvider_EncodePrefersEndpointMapping verifies that Encode
+// TestWaveSpeedProvider_EncodePrefersEndpointMapping verifies that Encode
 // reuses the mapping resolved at endpoint-construction time
 // ([EncodeParams.Mapping]) instead of looking it up again: the LoRA entry is
 // injected from the supplied mapping while the codec's resolver is never
 // called. When no mapping is supplied, the resolver is consulted exactly
 // once.
-func TestWavespeedProvider_EncodePrefersEndpointMapping(t *testing.T) {
+func TestWaveSpeedProvider_EncodePrefersEndpointMapping(t *testing.T) {
 	t.Parallel()
 
 	t.Run("supplied mapping used without resolver call", func(t *testing.T) {
@@ -583,10 +529,10 @@ func TestWavespeedProvider_EncodePrefersEndpointMapping(t *testing.T) {
 
 		// The resolver would answer with a non-adapter mapping: if Encode
 		// consulted it, no loras entry would appear in the body.
-		resolver := &countingResolver{
+		resolver := &recordingResolver{
 			mapping: ModelMapping{ProviderModelID: "wavespeed-ai/flux-dev"},
 		}
-		codec := WavespeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
+		codec := WaveSpeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
 
 		body, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
 			Context: context.Background(),
@@ -609,10 +555,10 @@ func TestWavespeedProvider_EncodePrefersEndpointMapping(t *testing.T) {
 	t.Run("nil mapping falls back to resolver", func(t *testing.T) {
 		t.Parallel()
 
-		resolver := &countingResolver{
+		resolver := &recordingResolver{
 			mapping: ModelMapping{ProviderModelID: "wavespeed-ai/flux-dev", Adapter: "lora"},
 		}
-		codec := WavespeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
+		codec := WaveSpeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
 
 		body, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
 			Context: context.Background(),
@@ -629,10 +575,12 @@ func TestWavespeedProvider_EncodePrefersEndpointMapping(t *testing.T) {
 	})
 }
 
-func TestWavespeedProvider_TextToVideoCodec_Decode(t *testing.T) {
+func TestWaveSpeedProvider_TextToVideoCodec_Decode(t *testing.T) {
 	t.Parallel()
 
-	codec := wavespeedTextToVideoCodec{wavespeedAsyncCodec{mediaPrefix: "video/"}}
+	codec := wavespeedTextToVideoCodec{wavespeedAsyncCodec{
+		queueTaskCodec{mediaPrefix: "video/"},
+	}}
 
 	t.Run("valid video", func(t *testing.T) {
 		t.Parallel()
@@ -663,71 +611,21 @@ func TestWavespeedProvider_TextToVideoCodec_Decode(t *testing.T) {
 			Headers: headers,
 		})
 		require.Error(t, err)
-
-		var sdkErr *hferrors.SDKError
-		require.ErrorAs(t, err, &sdkErr)
-		require.Equal(t, hferrors.SDKErrorKindSerialization, sdkErr.Kind)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 }
 
-// assertImageMediaDecode exercises an image-output codec's Decode: a valid
-// image response is returned with its media type, and a non-image Content-Type
-// is rejected as a serialization error. getPayload extracts the image bytes
-// and advertised media type from the response.
-func assertImageMediaDecode[Res any](
-	t *testing.T,
-	decode func(DecodeParams) (Res, error),
-	getPayload func(Res) ([]byte, string),
-) {
-	t.Helper()
-
-	t.Run("valid image", func(t *testing.T) {
-		t.Parallel()
-
-		headers := http.Header{}
-		headers.Set("Content-Type", "image/png; charset=utf-8")
-		body := []byte{0x89, 'P', 'N', 'G'}
-
-		resp, err := decode(DecodeParams{
-			Context: context.Background(),
-			Body:    body,
-			Headers: headers,
-		})
-		require.NoError(t, err)
-
-		image, mediaType := getPayload(resp)
-		require.Equal(t, body, image)
-		require.Equal(t, "image/png", mediaType)
-	})
-
-	t.Run("invalid content type", func(t *testing.T) {
-		t.Parallel()
-
-		headers := http.Header{}
-		headers.Set("Content-Type", "application/json")
-
-		_, err := decode(DecodeParams{
-			Context: context.Background(),
-			Body:    []byte(`{"foo":"bar"}`),
-			Headers: headers,
-		})
-		require.Error(t, err)
-
-		var sdkErr *hferrors.SDKError
-		require.ErrorAs(t, err, &sdkErr)
-		require.Equal(t, hferrors.SDKErrorKindSerialization, sdkErr.Kind)
-	})
-}
-
-// TestWavespeedProvider_ImageCodecDecodes exercises the image-output codecs
+// TestWaveSpeedProvider_ImageCodecDecodes exercises the image-output codecs
 // shared by the text-to-image and image-to-image mixins.
-func TestWavespeedProvider_ImageCodecDecodes(t *testing.T) {
+func TestWaveSpeedProvider_ImageCodecs_Decode(t *testing.T) {
 	t.Parallel()
 
 	t.Run("text-to-image codec", func(t *testing.T) {
 		t.Parallel()
 
-		codec := wavespeedTextToImageCodec{wavespeedAsyncCodec{mediaPrefix: "image/"}}
+		codec := wavespeedTextToImageCodec{wavespeedAsyncCodec{
+			queueTaskCodec{mediaPrefix: "image/"},
+		}}
 		assertImageMediaDecode(t, codec.Decode,
 			func(r hftypes.TextToImageResponse) ([]byte, string) {
 				return r.Image, r.MediaType
@@ -737,7 +635,9 @@ func TestWavespeedProvider_ImageCodecDecodes(t *testing.T) {
 	t.Run("image-to-image codec", func(t *testing.T) {
 		t.Parallel()
 
-		codec := wavespeedImageToImageCodec{wavespeedAsyncCodec{mediaPrefix: "image/"}}
+		codec := wavespeedImageToImageCodec{wavespeedAsyncCodec{
+			queueTaskCodec{mediaPrefix: "image/"},
+		}}
 		assertImageMediaDecode(t, codec.Decode,
 			func(r hftypes.ImageToImageResponse) ([]byte, string) {
 				return r.Image, r.MediaType
@@ -747,20 +647,20 @@ func TestWavespeedProvider_ImageCodecDecodes(t *testing.T) {
 
 // wavespeedSubsetProvider serves only text-to-image by embedding the
 // corresponding WaveSpeed mixin with a resolver set directly, without going
-// through NewWavespeedProvider.
+// through NewWaveSpeedProvider.
 type wavespeedSubsetProvider struct {
-	WavespeedTextToImageMixin
+	WaveSpeedTextToImageMixin
 }
 
 func (wavespeedSubsetProvider) ProviderSuffix() string { return "" }
 
 func (wavespeedSubsetProvider) Name() string { return "subset" }
 
-func TestWavespeedMixin_SubsetProvider(t *testing.T) {
+func TestWaveSpeedMixin_SubsetProvider(t *testing.T) {
 	t.Parallel()
 
 	p := wavespeedSubsetProvider{
-		WavespeedTextToImageMixin{
+		WaveSpeedTextToImageMixin{
 			Resolver: NewStaticModelResolver(map[StaticMapping]ModelMapping{
 				{
 					Provider: "wavespeed",
@@ -798,13 +698,13 @@ func TestWavespeedMixin_SubsetProvider(t *testing.T) {
 	)
 }
 
-func TestWavespeedMixins_ZeroValueResolvers(t *testing.T) {
+func TestWaveSpeedMixins_ZeroValueResolvers(t *testing.T) {
 	t.Parallel()
 
 	var (
-		videoMixin  WavespeedTextToVideoMixin
-		imageMixin  WavespeedTextToImageMixin
-		image2Mixin WavespeedImageToImageMixin
+		videoMixin  WaveSpeedTextToVideoMixin
+		imageMixin  WaveSpeedTextToImageMixin
+		image2Mixin WaveSpeedImageToImageMixin
 	)
 
 	_, err := videoMixin.TextToVideoEndpoint(EndpointParams{
@@ -826,12 +726,12 @@ func TestWavespeedMixins_ZeroValueResolvers(t *testing.T) {
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
 
-// TestWavespeedMixins_CodecsAsync asserts every WaveSpeed mixin serves an
+// TestWaveSpeedMixins_CodecsAsync asserts every WaveSpeed mixin serves an
 // AsyncCodec, so the task pipeline routes their responses through PostSubmit.
-func TestWavespeedMixins_CodecsAsync(t *testing.T) {
+func TestWaveSpeedMixins_CodecsAsync(t *testing.T) {
 	t.Parallel()
 
-	p, err := NewWavespeedProvider(NewStaticModelResolver(nil))
+	p, err := NewWaveSpeedProvider(NewStaticModelResolver(nil))
 	require.NoError(t, err)
 
 	videoAsync, ok := any(p.TextToVideoCodec()).(AsyncCodec[hftypes.TextToVideoRequest, hftypes.TextToVideoResponse])
@@ -849,44 +749,32 @@ func TestWavespeedMixins_CodecsAsync(t *testing.T) {
 // fastImageCodec returns a text-to-image codec with fast polling, so tests
 // exercise the exchange's branching without real delays.
 func fastImageCodec() wavespeedTextToImageCodec {
-	return wavespeedTextToImageCodec{wavespeedAsyncCodec{
+	return wavespeedTextToImageCodec{wavespeedAsyncCodec{queueTaskCodec{
 		mediaPrefix:     "image/",
 		pollInterval:    time.Millisecond,
 		pollStep:        time.Millisecond,
 		maxPollInterval: 2 * time.Millisecond,
-	}}
+	}}}
 }
 
 // fastVideoCodec mirrors fastImageCodec for the text-to-video prefix.
 func fastVideoCodec() wavespeedTextToVideoCodec {
-	return wavespeedTextToVideoCodec{wavespeedAsyncCodec{
+	return wavespeedTextToVideoCodec{wavespeedAsyncCodec{queueTaskCodec{
 		mediaPrefix:     "video/",
 		pollInterval:    time.Millisecond,
 		pollStep:        time.Millisecond,
 		maxPollInterval: 2 * time.Millisecond,
-	}}
+	}}}
 }
 
 // fastImageToImageCodec mirrors fastImageCodec for image-to-image.
 func fastImageToImageCodec() wavespeedImageToImageCodec {
-	return wavespeedImageToImageCodec{wavespeedAsyncCodec{
+	return wavespeedImageToImageCodec{wavespeedAsyncCodec{queueTaskCodec{
 		mediaPrefix:     "image/",
 		pollInterval:    time.Millisecond,
 		pollStep:        time.Millisecond,
 		maxPollInterval: 2 * time.Millisecond,
-	}}
-}
-
-// wavespeedPostSubmitParams builds transport parameters targeting the given
-// test server.
-func wavespeedPostSubmitParams(server *httptest.Server) PostSubmitParams {
-	return PostSubmitParams{
-		HTTPClient:           server.Client(),
-		BaseURL:              server.URL,
-		Token:                "test-token",
-		UserAgent:            "test-agent/1.0",
-		MaxResponseBodyBytes: 1 << 20,
-	}
+	}}}
 }
 
 // wavespeedTaskBody builds a WaveSpeed task response body for the given data
@@ -921,10 +809,10 @@ func wavespeedTaskBody(status, resultPath, taskErr string, outputs []string) str
 	return string(body)
 }
 
-// TestWavespeedPostSubmit_SyncModeComplete exercises the exchange when the
+// TestWaveSpeedPostSubmit_SyncModeComplete exercises the exchange when the
 // submit response already carries the completed task (sync mode): the output
 // is downloaded without any polling requests.
-func TestWavespeedPostSubmit_SyncModeComplete(t *testing.T) {
+func TestWaveSpeedPostSubmit_SyncModeComplete(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -947,7 +835,7 @@ func TestWavespeedPostSubmit_SyncModeComplete(t *testing.T) {
 	codec := fastImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		wavespeedPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(wavespeedTaskBody("completed", "", "", []string{server.URL + "/output.png"})),
 		http.Header{},
 	)
@@ -961,10 +849,10 @@ func TestWavespeedPostSubmit_SyncModeComplete(t *testing.T) {
 	require.Equal(t, "wavespeed-ai/flux-dev", resp.ProviderMetadata["model"])
 }
 
-// TestWavespeedPostSubmit_InvalidOutputURL pins the structural credential
+// TestWaveSpeedPostSubmit_InvalidOutputURL pins the structural credential
 // guard: an output URL that is not an absolute http(s) URL is a
 // configuration error, and no request is made for it.
-func TestWavespeedPostSubmit_InvalidOutputURL(t *testing.T) {
+func TestWaveSpeedPostSubmit_InvalidOutputURL(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
@@ -975,21 +863,19 @@ func TestWavespeedPostSubmit_InvalidOutputURL(t *testing.T) {
 	codec := fastImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		wavespeedPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(wavespeedTaskBody("completed", "", "", []string{"cdn/output.png"})),
 		http.Header{},
 	)
 
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
 
-// TestWavespeedPostSubmit_PollUntilComplete exercises the full exchange when
+// TestWaveSpeedPostSubmit_PollUntilComplete exercises the full exchange when
 // the task is still running on submit: the result URL is polled (with the
 // caller's bearer token) until it completes, then the output is downloaded
 // unauthenticated from the provider CDN.
-func TestWavespeedPostSubmit_PollUntilComplete(t *testing.T) {
+func TestWaveSpeedPostSubmit_PollUntilComplete(t *testing.T) {
 	t.Parallel()
 
 	const resultPath = "/api/v3/predictions/pred_123/result"
@@ -1037,7 +923,7 @@ func TestWavespeedPostSubmit_PollUntilComplete(t *testing.T) {
 	codec := fastImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		wavespeedPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(wavespeedTaskBody("created", resultPath, "", nil)),
 		http.Header{},
 	)
@@ -1057,11 +943,11 @@ func TestWavespeedPostSubmit_PollUntilComplete(t *testing.T) {
 	require.Equal(t, "test-agent/1.0", gotDownloadUA)
 }
 
-// TestWavespeedPostSubmit_UnknownStatusKeepsPolling exercises the unknown
+// TestWaveSpeedPostSubmit_UnknownStatusKeepsPolling exercises the unknown
 // terminal-status classification: a status WaveSpeed introduces after this
 // SDK shipped must not abort a running task, so an unrecognized status keeps
 // polling on the regular schedule until a known terminal status arrives.
-func TestWavespeedPostSubmit_UnknownStatusKeepsPolling(t *testing.T) {
+func TestWaveSpeedPostSubmit_UnknownStatusKeepsPolling(t *testing.T) {
 	t.Parallel()
 
 	const resultPath = "/api/v3/predictions/pred_123/result"
@@ -1095,7 +981,7 @@ func TestWavespeedPostSubmit_UnknownStatusKeepsPolling(t *testing.T) {
 	codec := fastImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		wavespeedPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(wavespeedTaskBody("created", resultPath, "", nil)),
 		http.Header{},
 	)
@@ -1105,10 +991,10 @@ func TestWavespeedPostSubmit_UnknownStatusKeepsPolling(t *testing.T) {
 	require.Equal(t, int64(1), downloads.Load())
 }
 
-// TestWavespeedPostSubmit_TransientPollErrors exercises the transient-error
+// TestWaveSpeedPostSubmit_TransientPollErrors exercises the transient-error
 // path: a 429 poll response (without Retry-After) falls back to the regular
 // schedule and the exchange completes.
-func TestWavespeedPostSubmit_TransientPollErrors(t *testing.T) {
+func TestWaveSpeedPostSubmit_TransientPollErrors(t *testing.T) {
 	t.Parallel()
 
 	const resultPath = "/api/v3/predictions/pred_123/result"
@@ -1136,7 +1022,7 @@ func TestWavespeedPostSubmit_TransientPollErrors(t *testing.T) {
 	codec := fastImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		wavespeedPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(wavespeedTaskBody("created", resultPath, "", nil)),
 		http.Header{},
 	)
@@ -1145,11 +1031,11 @@ func TestWavespeedPostSubmit_TransientPollErrors(t *testing.T) {
 	require.Equal(t, int64(2), polls.Load())
 }
 
-// TestWavespeedPostSubmit_FailedStatus exercises the terminal-failure path: a
+// TestWaveSpeedPostSubmit_FailedStatus exercises the terminal-failure path: a
 // failed task stops polling and surfaces the provider's error message.
 //
 //nolint:dupl // Mirrors the parallel queue-provider suites; sharing a helper would couple the providers' fixtures.
-func TestWavespeedPostSubmit_FailedStatus(t *testing.T) {
+func TestWaveSpeedPostSubmit_FailedStatus(t *testing.T) {
 	t.Parallel()
 
 	const resultPath = "/api/v3/predictions/pred_123/result"
@@ -1165,7 +1051,7 @@ func TestWavespeedPostSubmit_FailedStatus(t *testing.T) {
 	codec := fastImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		wavespeedPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(wavespeedTaskBody("created", resultPath, "", nil)),
 		http.Header{},
 	)
@@ -1175,10 +1061,10 @@ func TestWavespeedPostSubmit_FailedStatus(t *testing.T) {
 	require.Equal(t, int64(1), polls.Load(), "a failed task stops polling")
 }
 
-// TestWavespeedPostSubmit_FailedOnSubmit exercises the submit short-circuit:
+// TestWaveSpeedPostSubmit_FailedOnSubmit exercises the submit short-circuit:
 // a submit response that already carries a terminal failure status fails
 // immediately without issuing any poll request.
-func TestWavespeedPostSubmit_FailedOnSubmit(t *testing.T) {
+func TestWaveSpeedPostSubmit_FailedOnSubmit(t *testing.T) {
 	t.Parallel()
 
 	var polls atomic.Int64
@@ -1190,7 +1076,7 @@ func TestWavespeedPostSubmit_FailedOnSubmit(t *testing.T) {
 	codec := fastImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		wavespeedPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(wavespeedTaskBody("failed", "", "CUDA out of memory", nil)),
 		http.Header{},
 	)
@@ -1200,11 +1086,11 @@ func TestWavespeedPostSubmit_FailedOnSubmit(t *testing.T) {
 	require.Equal(t, int64(0), polls.Load(), "a failed submit should not poll")
 }
 
-// TestWavespeedPostSubmit_TerminalFailureStatuses pins the full set of
+// TestWaveSpeedPostSubmit_TerminalFailureStatuses pins the full set of
 // WaveSpeed's terminal failure statuses: each one stops the exchange with the
 // provider's error without issuing any poll request. ("failed" is covered by
-// TestWavespeedPostSubmit_FailedOnSubmit.)
-func TestWavespeedPostSubmit_TerminalFailureStatuses(t *testing.T) {
+// TestWaveSpeedPostSubmit_FailedOnSubmit.)
+func TestWaveSpeedPostSubmit_TerminalFailureStatuses(t *testing.T) {
 	t.Parallel()
 
 	for _, status := range []string{"cancelled", "timeout", "deleted"} {
@@ -1222,7 +1108,7 @@ func TestWavespeedPostSubmit_TerminalFailureStatuses(t *testing.T) {
 			codec := fastImageCodec()
 			_, err := codec.PostSubmit(
 				context.Background(),
-				wavespeedPostSubmitParams(server),
+				postSubmitParams(server),
 				[]byte(wavespeedTaskBody(status, "", "provider gave up", nil)),
 				http.Header{},
 			)
@@ -1233,9 +1119,9 @@ func TestWavespeedPostSubmit_TerminalFailureStatuses(t *testing.T) {
 	}
 }
 
-// TestWavespeedPostSubmit_ClientErrorPoll exercises the non-transient poll
+// TestWaveSpeedPostSubmit_ClientErrorPoll exercises the non-transient poll
 // failure path: a 4xx poll response stops polling and surfaces the API error.
-func TestWavespeedPostSubmit_ClientErrorPoll(t *testing.T) {
+func TestWaveSpeedPostSubmit_ClientErrorPoll(t *testing.T) {
 	t.Parallel()
 
 	const resultPath = "/api/v3/predictions/pred_123/result"
@@ -1250,7 +1136,7 @@ func TestWavespeedPostSubmit_ClientErrorPoll(t *testing.T) {
 	codec := fastImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		wavespeedPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(wavespeedTaskBody("created", resultPath, "", nil)),
 		http.Header{},
 	)
@@ -1258,11 +1144,11 @@ func TestWavespeedPostSubmit_ClientErrorPoll(t *testing.T) {
 	require.Equal(t, int64(1), polls.Load(), "a client-error poll stops polling")
 }
 
-// TestWavespeedPostSubmit_MalformedResponses exercises the malformed-response
+// TestWaveSpeedPostSubmit_MalformedResponses exercises the malformed-response
 // paths: non-JSON task bodies, completed tasks without outputs, missing
 // result URLs, and — on the poll side — non-JSON and oversized bodies are
 // errors that stop polling.
-func TestWavespeedPostSubmit_MalformedResponses(t *testing.T) {
+func TestWaveSpeedPostSubmit_MalformedResponses(t *testing.T) {
 	t.Parallel()
 
 	t.Run("non-JSON submit body", func(t *testing.T) {
@@ -1278,7 +1164,7 @@ func TestWavespeedPostSubmit_MalformedResponses(t *testing.T) {
 		codec := fastImageCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			wavespeedPostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte("not json"),
 			http.Header{},
 		)
@@ -1296,7 +1182,7 @@ func TestWavespeedPostSubmit_MalformedResponses(t *testing.T) {
 		codec := fastImageCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			wavespeedPostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(wavespeedTaskBody("completed", "", "", nil)),
 			http.Header{},
 		)
@@ -1315,7 +1201,7 @@ func TestWavespeedPostSubmit_MalformedResponses(t *testing.T) {
 		codec := fastImageCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			wavespeedPostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(wavespeedTaskBody("created", "", "", nil)),
 			http.Header{},
 		)
@@ -1337,7 +1223,7 @@ func TestWavespeedPostSubmit_MalformedResponses(t *testing.T) {
 		codec := fastImageCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			wavespeedPostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(`{"code":200,"message":"success"}`),
 			http.Header{},
 		)
@@ -1367,7 +1253,7 @@ func TestWavespeedPostSubmit_MalformedResponses(t *testing.T) {
 		codec := fastImageCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			wavespeedPostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(wavespeedTaskBody("created", resultPath, "", nil)),
 			http.Header{},
 		)
@@ -1396,7 +1282,7 @@ func TestWavespeedPostSubmit_MalformedResponses(t *testing.T) {
 		defer server.Close()
 
 		codec := fastImageCodec()
-		params := wavespeedPostSubmitParams(server)
+		params := postSubmitParams(server)
 		params.MaxResponseBodyBytes = 4
 		_, err := codec.PostSubmit(
 			context.Background(),
@@ -1410,9 +1296,9 @@ func TestWavespeedPostSubmit_MalformedResponses(t *testing.T) {
 	})
 }
 
-// TestWavespeedPostSubmit_MediaTypeMismatch exercises the output validation:
+// TestWaveSpeedPostSubmit_MediaTypeMismatch exercises the output validation:
 // an image codec rejects a non-image output.
-func TestWavespeedPostSubmit_MediaTypeMismatch(t *testing.T) {
+func TestWaveSpeedPostSubmit_MediaTypeMismatch(t *testing.T) {
 	t.Parallel()
 
 	var outputURL string
@@ -1432,7 +1318,7 @@ func TestWavespeedPostSubmit_MediaTypeMismatch(t *testing.T) {
 	codec := fastImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		wavespeedPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(wavespeedTaskBody("completed", "", "", []string{outputURL})),
 		http.Header{},
 	)
@@ -1440,10 +1326,10 @@ func TestWavespeedPostSubmit_MediaTypeMismatch(t *testing.T) {
 	require.ErrorContains(t, err, "image/")
 }
 
-// TestWavespeedPostSubmit_MediaTypeMismatch_VideoCodec mirrors the image
+// TestWaveSpeedPostSubmit_MediaTypeMismatch_VideoCodec mirrors the image
 // media-type-mismatch test for the text-to-video codec: a non-video output is
 // rejected.
-func TestWavespeedPostSubmit_MediaTypeMismatch_VideoCodec(t *testing.T) {
+func TestWaveSpeedPostSubmit_MediaTypeMismatch_VideoCodec(t *testing.T) {
 	t.Parallel()
 
 	var outputURL string
@@ -1463,7 +1349,7 @@ func TestWavespeedPostSubmit_MediaTypeMismatch_VideoCodec(t *testing.T) {
 	codec := fastVideoCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		wavespeedPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(wavespeedTaskBody("completed", "", "", []string{outputURL})),
 		http.Header{},
 	)
@@ -1471,10 +1357,10 @@ func TestWavespeedPostSubmit_MediaTypeMismatch_VideoCodec(t *testing.T) {
 	require.ErrorContains(t, err, "video/")
 }
 
-// TestWavespeedPostSubmit_MediaTypeMismatch_ImageToImageCodec mirrors the
+// TestWaveSpeedPostSubmit_MediaTypeMismatch_ImageToImageCodec mirrors the
 // image media-type-mismatch test for the image-to-image codec: a non-image
 // output is rejected.
-func TestWavespeedPostSubmit_MediaTypeMismatch_ImageToImageCodec(t *testing.T) {
+func TestWaveSpeedPostSubmit_MediaTypeMismatch_ImageToImageCodec(t *testing.T) {
 	t.Parallel()
 
 	var outputURL string
@@ -1494,7 +1380,7 @@ func TestWavespeedPostSubmit_MediaTypeMismatch_ImageToImageCodec(t *testing.T) {
 	codec := fastImageToImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		wavespeedPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(wavespeedTaskBody("completed", "", "", []string{outputURL})),
 		http.Header{},
 	)
@@ -1502,9 +1388,9 @@ func TestWavespeedPostSubmit_MediaTypeMismatch_ImageToImageCodec(t *testing.T) {
 	require.ErrorContains(t, err, "image/")
 }
 
-// TestWavespeedPostSubmit_SniffedMediaType exercises the media-type fallback:
+// TestWaveSpeedPostSubmit_SniffedMediaType exercises the media-type fallback:
 // when the CDN omits Content-Type, the bytes are sniffed.
-func TestWavespeedPostSubmit_SniffedMediaType(t *testing.T) {
+func TestWaveSpeedPostSubmit_SniffedMediaType(t *testing.T) {
 	t.Parallel()
 
 	var outputURL string
@@ -1523,7 +1409,7 @@ func TestWavespeedPostSubmit_SniffedMediaType(t *testing.T) {
 	codec := fastImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		wavespeedPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(wavespeedTaskBody("completed", "", "", []string{outputURL})),
 		http.Header{},
 	)
@@ -1531,9 +1417,9 @@ func TestWavespeedPostSubmit_SniffedMediaType(t *testing.T) {
 	require.Equal(t, "image/png", resp.MediaType)
 }
 
-// TestWavespeedPostSubmit_ContextCanceled exercises cancellation: a canceled
+// TestWaveSpeedPostSubmit_ContextCanceled exercises cancellation: a canceled
 // context aborts the exchange with the context error.
-func TestWavespeedPostSubmit_ContextCanceled(t *testing.T) {
+func TestWaveSpeedPostSubmit_ContextCanceled(t *testing.T) {
 	t.Parallel()
 
 	const resultPath = "/api/v3/predictions/pred_123/result"
@@ -1547,19 +1433,19 @@ func TestWavespeedPostSubmit_ContextCanceled(t *testing.T) {
 	codec := fastImageCodec()
 	_, err := codec.PostSubmit(
 		ctx,
-		wavespeedPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(wavespeedTaskBody("created", resultPath, "", nil)),
 		http.Header{},
 	)
 	require.ErrorIs(t, err, context.Canceled)
 }
 
-// TestWavespeedPostSubmit_ContextCanceledDuringPoll exercises cancellation
+// TestWaveSpeedPostSubmit_ContextCanceledDuringPoll exercises cancellation
 // after polling has started: the context is canceled while the second poll
 // request is in flight, and the resulting transport error — which wraps
 // context.Canceled — must surface immediately instead of being swallowed as
 // a transient failure worth retrying.
-func TestWavespeedPostSubmit_ContextCanceledDuringPoll(t *testing.T) {
+func TestWaveSpeedPostSubmit_ContextCanceledDuringPoll(t *testing.T) {
 	t.Parallel()
 
 	const resultPath = "/api/v3/predictions/pred_123/result"
@@ -1600,7 +1486,7 @@ func TestWavespeedPostSubmit_ContextCanceledDuringPoll(t *testing.T) {
 	go func() {
 		resp, err := codec.PostSubmit(
 			ctx,
-			wavespeedPostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(wavespeedTaskBody("created", resultPath, "", nil)),
 			http.Header{},
 		)
@@ -1619,14 +1505,14 @@ func TestWavespeedPostSubmit_ContextCanceledDuringPoll(t *testing.T) {
 	require.Equal(t, int64(2), polls.Load(), "cancellation stops further polling")
 }
 
-// TestWavespeedPostSubmit_DeadlineExceededDuringPoll exercises deadline expiry
+// TestWaveSpeedPostSubmit_DeadlineExceededDuringPoll exercises deadline expiry
 // after polling has started: the caller's deadline lapses while a poll request
 // is in flight, and the resulting transport error — which wraps
 // context.DeadlineExceeded — must surface immediately instead of being
 // swallowed as a transient failure worth retrying. This is the deadline twin
-// of TestWavespeedPostSubmit_ContextCanceledDuringPoll, pinning that both
+// of TestWaveSpeedPostSubmit_ContextCanceledDuringPoll, pinning that both
 // context endings stop the poll loop promptly.
-func TestWavespeedPostSubmit_DeadlineExceededDuringPoll(t *testing.T) {
+func TestWaveSpeedPostSubmit_DeadlineExceededDuringPoll(t *testing.T) {
 	t.Parallel()
 
 	const resultPath = "/api/v3/predictions/pred_123/result"
@@ -1668,7 +1554,7 @@ func TestWavespeedPostSubmit_DeadlineExceededDuringPoll(t *testing.T) {
 	go func() {
 		resp, err := codec.PostSubmit(
 			ctx,
-			wavespeedPostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(wavespeedTaskBody("created", resultPath, "", nil)),
 			http.Header{},
 		)
@@ -1688,111 +1574,121 @@ func TestWavespeedPostSubmit_DeadlineExceededDuringPoll(t *testing.T) {
 	require.Equal(t, int64(2), polls.Load(), "deadline expiry stops further polling")
 }
 
-// TestWavespeedResultURL exercises the poll-URL resolution: the Hugging Face
-// router gains a /wavespeed prefix, other hosts resolve paths as-is, and a
-// missing result path is an error.
-func TestWavespeedResultURL(t *testing.T) {
+// TestWaveSpeedPollTarget exercises the poll-target resolution: the Hugging
+// Face router gains a /wavespeed prefix, other hosts resolve as-is, an
+// absolute URL contributes only its path, queries ride along, and missing or
+// unparseable inputs fail with their respective kinds.
+func TestWaveSpeedPollTarget(t *testing.T) {
 	t.Parallel()
+
+	pollTarget := func(t *testing.T, baseURL, resultPath string) (request.Params, string) {
+		t.Helper()
+
+		pollParams, pollPath, err := wavespeedPollTarget(
+			PostSubmitParams{BaseURL: baseURL},
+			&wavespeedTaskData{URLs: wavespeedTaskURLs{Get: resultPath}},
+		)
+		require.NoError(t, err)
+
+		return pollParams, pollPath
+	}
 
 	t.Run("router host gains /wavespeed prefix", func(t *testing.T) {
 		t.Parallel()
 
-		resolved, err := wavespeedResultURL(
-			"https://router.huggingface.co",
-			"/api/v3/predictions/pred_123/result",
+		pollParams, pollPath := pollTarget(
+			t, "https://router.huggingface.co", "/api/v3/predictions/pred_123/result",
 		)
-		require.NoError(t, err)
-		require.Equal(t, "https://router.huggingface.co/wavespeed", resolved.base)
-		require.Equal(t, "/api/v3/predictions/pred_123/result", resolved.path)
-		require.Empty(t, resolved.query)
+		require.Equal(t, "https://router.huggingface.co/wavespeed", pollParams.BaseURL)
+		require.Equal(t, "/api/v3/predictions/pred_123/result", pollPath)
 	})
 
 	t.Run("router host matched case-insensitively", func(t *testing.T) {
 		t.Parallel()
 
-		resolved, err := wavespeedResultURL(
-			"https://Router.HuggingFace.CO",
-			"/api/v3/predictions/pred_123/result",
+		pollParams, pollPath := pollTarget(
+			t, "https://Router.HuggingFace.CO", "/api/v3/predictions/pred_123/result",
 		)
-		require.NoError(t, err)
-		require.Equal(t, "https://Router.HuggingFace.CO/wavespeed", resolved.base)
-		require.Equal(t, "/api/v3/predictions/pred_123/result", resolved.path)
-		require.Empty(t, resolved.query)
+		require.Equal(t, "https://Router.HuggingFace.CO/wavespeed", pollParams.BaseURL)
+		require.Equal(t, "/api/v3/predictions/pred_123/result", pollPath)
 	})
 
 	t.Run("other hosts resolve as-is", func(t *testing.T) {
 		t.Parallel()
 
-		resolved, err := wavespeedResultURL(
-			"https://api.example.com",
-			"/api/v3/predictions/pred_123/result",
+		pollParams, pollPath := pollTarget(
+			t, "https://api.example.com", "/api/v3/predictions/pred_123/result",
 		)
-		require.NoError(t, err)
-		require.Equal(t, "https://api.example.com", resolved.base)
-		require.Equal(t, "/api/v3/predictions/pred_123/result", resolved.path)
+		require.Equal(t, "https://api.example.com", pollParams.BaseURL)
+		require.Equal(t, "/api/v3/predictions/pred_123/result", pollPath)
 	})
 
-	t.Run("query string preserved", func(t *testing.T) {
+	t.Run("query string appended to the path", func(t *testing.T) {
 		t.Parallel()
 
-		resolved, err := wavespeedResultURL(
-			"https://router.huggingface.co",
-			"/api/v3/predictions/pred_123/result?trace=1",
+		_, pollPath := pollTarget(
+			t, "https://router.huggingface.co", "/api/v3/predictions/pred_123/result?trace=1",
 		)
-		require.NoError(t, err)
-		require.Equal(t, "trace=1", resolved.query)
+		require.Equal(t, "/api/v3/predictions/pred_123/result?trace=1", pollPath)
 	})
 
 	t.Run("absolute result URL resolved from its path", func(t *testing.T) {
 		t.Parallel()
 
-		resolved, err := wavespeedResultURL(
+		pollParams, pollPath := pollTarget(
+			t,
 			"https://router.huggingface.co",
 			"https://api.wavespeed.ai/api/v3/predictions/pred_123/result",
 		)
-		require.NoError(t, err)
-		require.Equal(t, "https://router.huggingface.co/wavespeed", resolved.base)
-		require.Equal(t, "/api/v3/predictions/pred_123/result", resolved.path)
+		require.Equal(t, "https://router.huggingface.co/wavespeed", pollParams.BaseURL)
+		require.Equal(t, "/api/v3/predictions/pred_123/result", pollPath)
 	})
 
 	t.Run("relative result path gains a leading slash", func(t *testing.T) {
 		t.Parallel()
 
-		resolved, err := wavespeedResultURL(
-			"https://router.huggingface.co",
-			"api/v3/predictions/pred_123/result",
+		_, pollPath := pollTarget(
+			t, "https://router.huggingface.co", "api/v3/predictions/pred_123/result",
 		)
-		require.NoError(t, err)
-		require.Equal(t, "/api/v3/predictions/pred_123/result", resolved.path)
+		require.Equal(t, "/api/v3/predictions/pred_123/result", pollPath)
 	})
 
 	t.Run("empty result path is an error", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := wavespeedResultURL("https://router.huggingface.co", "")
+		_, _, err := wavespeedPollTarget(
+			PostSubmitParams{BaseURL: "https://router.huggingface.co"},
+			&wavespeedTaskData{},
+		)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 
 	t.Run("invalid base URL is an error", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := wavespeedResultURL("http://[::1:bad", "/api/v3/predictions/pred_123/result")
+		_, _, err := wavespeedPollTarget(
+			PostSubmitParams{BaseURL: "http://[::1:bad"},
+			&wavespeedTaskData{URLs: wavespeedTaskURLs{Get: "/api/v3/predictions/pred_123/result"}},
+		)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	})
 
 	t.Run("invalid result path is an error", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := wavespeedResultURL("https://router.huggingface.co", "http://h/%zz")
+		_, _, err := wavespeedPollTarget(
+			PostSubmitParams{BaseURL: "https://router.huggingface.co"},
+			&wavespeedTaskData{URLs: wavespeedTaskURLs{Get: "http://h/%zz"}},
+		)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 }
 
-// TestWavespeedPostSubmit_ForeignResultURLCannotRedirect pins the poll
+// TestWaveSpeedPostSubmit_ForeignResultURLCannotRedirect pins the poll
 // invariant end to end: a provider-supplied absolute result URL pointing at a
 // foreign host cannot redirect the token-bearing poll — the host is discarded
 // and the path resolves against the caller's base URL.
-func TestWavespeedPostSubmit_ForeignResultURLCannotRedirect(t *testing.T) {
+func TestWaveSpeedPostSubmit_ForeignResultURLCannotRedirect(t *testing.T) {
 	t.Parallel()
 
 	const resultPath = "/api/v3/predictions/pred_123/result"
@@ -1835,7 +1731,7 @@ func TestWavespeedPostSubmit_ForeignResultURLCannotRedirect(t *testing.T) {
 	codec := fastImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		wavespeedPostSubmitParams(server),
+		postSubmitParams(server),
 		// The submit response carries an absolute result URL pointing at a
 		// foreign host; the poll must still resolve to the caller's host.
 		[]byte(wavespeedTaskBody("created", foreign.URL+resultPath, "", nil)),
@@ -1849,9 +1745,9 @@ func TestWavespeedPostSubmit_ForeignResultURLCannotRedirect(t *testing.T) {
 	require.Equal(t, "Bearer test-token", gotPollAuth)
 }
 
-// TestWavespeedMetadata exercises provider-metadata extraction: an empty task
+// TestWaveSpeedMetadata exercises provider-metadata extraction: an empty task
 // yields nil so callers never observe an empty map.
-func TestWavespeedMetadata(t *testing.T) {
+func TestWaveSpeedMetadata(t *testing.T) {
 	t.Parallel()
 
 	t.Run("empty task data", func(t *testing.T) {
@@ -1888,9 +1784,9 @@ func TestWavespeedMetadata(t *testing.T) {
 	})
 }
 
-// TestWavespeedTaskFailedError exercises the terminal-failure error message:
+// TestWaveSpeedTaskFailedError exercises the terminal-failure error message:
 // the provider's error message and task ID are appended only when present.
-func TestWavespeedTaskFailedError(t *testing.T) {
+func TestWaveSpeedTaskFailedError(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -1936,10 +1832,10 @@ func TestWavespeedTaskFailedError(t *testing.T) {
 	}
 }
 
-// TestWavespeedCompletedWithOutputs exercises the completed-task output
+// TestWaveSpeedCompletedWithOutputs exercises the completed-task output
 // validation: valid outputs return the task data, while an empty output list
 // or an empty first output is a serialization error.
-func TestWavespeedCompletedWithOutputs(t *testing.T) {
+func TestWaveSpeedCompletedWithOutputs(t *testing.T) {
 	t.Parallel()
 
 	t.Run("with outputs", func(t *testing.T) {
@@ -1949,7 +1845,7 @@ func TestWavespeedCompletedWithOutputs(t *testing.T) {
 			Status:  "completed",
 			Outputs: []string{"https://cdn.example.com/output.png"},
 		}
-		out, err := completedWithOutputs(&data)
+		out, err := wavespeedCompletedWithOutputs(&data)
 		require.NoError(t, err)
 		require.Same(t, &data, out)
 	})
@@ -1957,7 +1853,7 @@ func TestWavespeedCompletedWithOutputs(t *testing.T) {
 	t.Run("without outputs", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := completedWithOutputs(&wavespeedTaskData{Status: "completed"})
+		_, err := wavespeedCompletedWithOutputs(&wavespeedTaskData{Status: "completed"})
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "without outputs")
 	})
@@ -1965,7 +1861,7 @@ func TestWavespeedCompletedWithOutputs(t *testing.T) {
 	t.Run("empty first output", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := completedWithOutputs(&wavespeedTaskData{
+		_, err := wavespeedCompletedWithOutputs(&wavespeedTaskData{
 			Status:  "completed",
 			Outputs: []string{""},
 		})
@@ -1974,11 +1870,11 @@ func TestWavespeedCompletedWithOutputs(t *testing.T) {
 	})
 }
 
-// TestWavespeedCodec_EncodeUnmarshalableProviderParams exercises every task
+// TestWaveSpeedCodec_EncodeUnmarshalableProviderParams exercises every task
 // codec's encode-side marshal guard: a ProviderParams entry json cannot
 // encode makes the whole flat body unmarshalable, which surfaces as a
 // serialization error instead of a garbled request.
-func TestWavespeedCodec_EncodeUnmarshalableProviderParams(t *testing.T) {
+func TestWaveSpeedCodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 	t.Parallel()
 
 	t.Run("text-to-video", func(t *testing.T) {
@@ -2030,11 +1926,11 @@ func TestWavespeedCodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 	})
 }
 
-// TestWavespeedPostSubmit_DownloadBodyLimit exercises the download-side
+// TestWaveSpeedPostSubmit_DownloadBodyLimit exercises the download-side
 // response-size cap: a completed task whose CDN output exceeds
 // PostSubmitParams.MaxResponseBodyBytes fails instead of downloading without
 // bound.
-func TestWavespeedPostSubmit_DownloadBodyLimit(t *testing.T) {
+func TestWaveSpeedPostSubmit_DownloadBodyLimit(t *testing.T) {
 	t.Parallel()
 
 	const resultPath = "/api/v3/predictions/pred_123/result"
@@ -2057,7 +1953,7 @@ func TestWavespeedPostSubmit_DownloadBodyLimit(t *testing.T) {
 	outputURL = server.URL + "/cdn/output.png"
 
 	codec := fastImageCodec()
-	params := wavespeedPostSubmitParams(server)
+	params := postSubmitParams(server)
 	params.MaxResponseBodyBytes = 4
 	_, err := codec.PostSubmit(
 		context.Background(),

@@ -11,7 +11,7 @@ const publicAIProviderName = "publicai"
 // request/response schema across providers: only the routing differs,
 // expressed by appending the ":publicai" provider suffix to the model ID.
 //
-// Unlike [WavespeedProvider], Public AI needs no [ModelResolver]: the chat
+// Unlike [WaveSpeedProvider], Public AI needs no [ModelResolver]: the chat
 // endpoint is model-independent, and the router performs provider mapping
 // server-side. The ":publicai" suffix is a deterministic provider pin — the
 // router's automatic failover applies to unsuffixed models and routing

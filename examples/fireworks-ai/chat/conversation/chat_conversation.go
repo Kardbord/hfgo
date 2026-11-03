@@ -45,7 +45,7 @@ func NewChatClient(sysPrompt string) ChatClient {
 		hfClient: hfgo.NewClient(
 			hfopts.WithToken(token),
 			hfopts.WithModel(Model),
-			hfopts.WithProvider(hfproviders.NewFireworksProvider()),
+			hfopts.WithProvider(hfproviders.NewFireworksAIProvider()),
 		),
 		scanner: bufio.NewScanner(os.Stdin),
 		history: make([]hftypes.ChatMessage, 1, 20),
