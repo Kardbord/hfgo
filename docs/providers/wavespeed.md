@@ -1,6 +1,6 @@
 # WaveSpeed provider
 
-`hfproviders.WavespeedProvider` routes text-to-video, text-to-image, and
+`hfproviders.WaveSpeedProvider` routes text-to-video, text-to-image, and
 image-to-image tasks through WaveSpeed's inference platform via the Hugging
 Face router. The Hugging Face provider does not serve these tasks, so requests
 need an explicit provider.
@@ -40,7 +40,7 @@ mapper := hfproviders.NewStaticModelResolver(map[hfproviders.StaticMapping]hfpro
 	}: {ProviderModelID: "wavespeed-ai/flux-dev"},
 })
 
-provider, err := hfproviders.NewWavespeedProvider(mapper)
+provider, err := hfproviders.NewWaveSpeedProvider(mapper)
 if err != nil {
 	log.Fatal(err)
 }
@@ -133,7 +133,7 @@ resolver := hfproviders.NewHubModelResolver(
 	hfproviders.WithHubToken(os.Getenv("HF_TOKEN")),
 )
 
-provider, err := hfproviders.NewWavespeedProvider(resolver)
+provider, err := hfproviders.NewWaveSpeedProvider(resolver)
 if err != nil {
 	log.Fatal(err)
 }
@@ -165,12 +165,12 @@ the routed-versus-custom-key comparison.
 ## Reusing its mixins
 
 Like the Hugging Face provider, WaveSpeed is composed from per-task mixins:
-`WavespeedTextToVideoMixin`, `WavespeedTextToImageMixin`, and
-`WavespeedImageToImageMixin`. Unlike the Hugging Face mixins, each carries an
+`WaveSpeedTextToVideoMixin`, `WaveSpeedTextToImageMixin`, and
+`WaveSpeedImageToImageMixin`. Unlike the Hugging Face mixins, each carries an
 exported `Resolver ModelResolver` field that maps the configured Hugging Face
 model ID to WaveSpeed's identifier at endpoint-construction time — embed the
 mixins for the tasks you serve and set each `Resolver` explicitly (or use
-`NewWavespeedProvider` to wire all three). The resolved mapping is attached to
+`NewWaveSpeedProvider` to wire all three). The resolved mapping is attached to
 the endpoint and the pipeline hands it to the codec, so adapter-model payloads
 get their LoRA injection without a second lookup; standalone codec use falls
 back to the codec's own resolver. Each mixin serves an

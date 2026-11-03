@@ -5,7 +5,6 @@ package hfproviders
 import (
 	"context"
 	"encoding/base64"
-	"errors"
 	"net/http"
 	"testing"
 
@@ -16,35 +15,6 @@ import (
 )
 
 const nscaleTestModel = "black-forest-labs/FLUX.1-schnell"
-
-// nscaleRecordingResolver records the ResolveModel lookup key and serves a
-// fixed mapping, letting endpoint tests assert what the provider looked up.
-type nscaleRecordingResolver struct {
-	got     ResolveModelParams
-	mapping ModelMapping
-}
-
-// ResolveModel implements [ModelResolver].
-func (r *nscaleRecordingResolver) ResolveModel(
-	_ context.Context,
-	params ResolveModelParams,
-) (ModelMapping, error) {
-	r.got = params
-
-	return r.mapping, nil
-}
-
-// nscaleFailingResolver resolves nothing and always fails, emulating a
-// resolver outage that endpoints and codecs must propagate.
-type nscaleFailingResolver struct{}
-
-// ResolveModel implements [ModelResolver].
-func (nscaleFailingResolver) ResolveModel(
-	context.Context,
-	ResolveModelParams,
-) (ModelMapping, error) {
-	return ModelMapping{}, errors.New("resolver outage")
-}
 
 // newNscaleProvider builds an NscaleProvider backed by a static resolver
 // covering the test model.
@@ -115,42 +85,25 @@ func TestNscaleProvider_Contract(t *testing.T) {
 
 	provider := newNscaleProvider(t)
 
-	for _, served := range []struct {
-		typeName string
-		cast     func(Provider) error
-	}{
-		{
-			typeName: "hfproviders.ChatProvider",
-			cast: func(p Provider) error {
-				_, err := AsProvider[ChatProvider](p)
+	requireServedTaskInterfaces(t, provider, []func(Provider) error{
+		func(p Provider) error {
+			_, err := AsProvider[ChatProvider](p)
 
-				return err
-			},
+			return err
 		},
-		{
-			typeName: "hfproviders.ChatStreamProvider",
-			cast: func(p Provider) error {
-				_, err := AsProvider[ChatStreamProvider](p)
+		func(p Provider) error {
+			_, err := AsProvider[ChatStreamProvider](p)
 
-				return err
-			},
+			return err
 		},
-		{
-			typeName: "hfproviders.TextToImageProvider",
-			cast: func(p Provider) error {
-				_, err := AsProvider[TextToImageProvider](p)
+		func(p Provider) error {
+			_, err := AsProvider[TextToImageProvider](p)
 
-				return err
-			},
+			return err
 		},
-	} {
-		require.NoError(t, served.cast(provider), "must implement %s", served.typeName)
-	}
+	})
 
-	for _, missing := range []struct {
-		typeName string
-		cast     func(Provider) error
-	}{
+	requireMissingTaskInterfaces(t, provider, nscaleProviderName, []taskCast{
 		{
 			typeName: "hfproviders.SummarizationProvider",
 			cast: func(p Provider) error {
@@ -199,11 +152,7 @@ func TestNscaleProvider_Contract(t *testing.T) {
 				return err
 			},
 		},
-	} {
-		err := missing.cast(provider)
-		require.Error(t, err, "must not implement %s", missing.typeName)
-		require.ErrorContains(t, err, "nscale does not implement "+missing.typeName)
-	}
+	})
 }
 
 func TestNscaleProvider_ChatEndpoint(t *testing.T) {
@@ -217,7 +166,7 @@ func TestNscaleProvider_ChatEndpoint(t *testing.T) {
 func TestNscaleProvider_TextToImageEndpoint(t *testing.T) {
 	t.Parallel()
 
-	resolver := &nscaleRecordingResolver{
+	resolver := &recordingResolver{
 		mapping: ModelMapping{
 			ProviderModelID: nscaleTestModel,
 			Status:          "live",
@@ -399,7 +348,7 @@ func TestNscaleTextToImageCodec_Encode(t *testing.T) {
 	t.Run("supplied mapping wins without a resolver call", func(t *testing.T) {
 		t.Parallel()
 
-		resolver := &countingResolver{}
+		resolver := &recordingResolver{}
 		codec := NscaleTextToImageMixin{Resolver: resolver}.TextToImageCodec()
 
 		body, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
@@ -431,7 +380,7 @@ func TestNscaleTextToImageCodec_Encode(t *testing.T) {
 	t.Run("resolver errors propagate", func(t *testing.T) {
 		t.Parallel()
 
-		codec := NscaleTextToImageMixin{Resolver: nscaleFailingResolver{}}.TextToImageCodec()
+		codec := NscaleTextToImageMixin{Resolver: failingResolver{}}.TextToImageCodec()
 
 		_, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
 			Context: context.Background(),
@@ -450,13 +399,6 @@ func TestNscaleTextToImageCodec_Decode(t *testing.T) {
 	png, err := base64.StdEncoding.DecodeString(testutils.TinyPNGBase64)
 	require.NoError(t, err)
 
-	jsonHeaders := func() http.Header {
-		headers := http.Header{}
-		headers.Set("Content-Type", "application/json")
-
-		return headers
-	}
-
 	t.Run("first image decodes with sniffed media type", func(t *testing.T) {
 		t.Parallel()
 
@@ -465,7 +407,7 @@ func TestNscaleTextToImageCodec_Decode(t *testing.T) {
 			Body: []byte(`{"created":123,"data":[` +
 				`{"b64_json":"` + testutils.TinyPNGBase64 + `"},` +
 				`{"b64_json":"bm90LXVzZWQ="}]}`),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		require.NoError(t, err)
 		require.Equal(t, png, resp.Image)
@@ -480,7 +422,7 @@ func TestNscaleTextToImageCodec_Decode(t *testing.T) {
 		resp, err := codec.Decode(DecodeParams{
 			Context: context.Background(),
 			Body:    []byte(`{"data":[{"b64_json":"` + testutils.TinyPNGBase64 + `"}]}`),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		require.NoError(t, err)
 		require.Equal(t, png, resp.Image)
@@ -493,13 +435,11 @@ func TestNscaleTextToImageCodec_Decode(t *testing.T) {
 		_, err := codec.Decode(DecodeParams{
 			Context: context.Background(),
 			Body:    []byte(`{"created":123,"data":[]}`),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		require.ErrorContains(t, err, "contains no image data")
 
-		var sdkErr *hferrors.SDKError
-		require.ErrorAs(t, err, &sdkErr)
-		require.Equal(t, hferrors.SDKErrorKindSerialization, sdkErr.Kind)
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 
 	t.Run("empty b64_json fails", func(t *testing.T) {
@@ -508,7 +448,7 @@ func TestNscaleTextToImageCodec_Decode(t *testing.T) {
 		_, err := codec.Decode(DecodeParams{
 			Context: context.Background(),
 			Body:    []byte(`{"data":[{"b64_json":""}]}`),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		require.ErrorContains(t, err, "contains no image data")
 	})
@@ -519,9 +459,21 @@ func TestNscaleTextToImageCodec_Decode(t *testing.T) {
 		_, err := codec.Decode(DecodeParams{
 			Context: context.Background(),
 			Body:    []byte(`{"data":[{"b64_json":"not base64!!"}]}`),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		require.ErrorContains(t, err, "failed to decode base64 image data")
+	})
+
+	t.Run("non-image payload fails", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := codec.Decode(DecodeParams{
+			Context: context.Background(),
+			Body:    []byte(`{"data":[{"b64_json":"bm90IGFuIGltYWdl"}]}`),
+			Headers: jsonHeaders(ctJSON),
+		})
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		require.ErrorContains(t, err, "image/")
 	})
 
 	t.Run("wrong content type fails", func(t *testing.T) {
@@ -544,7 +496,7 @@ func TestNscaleTextToImageCodec_Decode(t *testing.T) {
 		_, err := codec.Decode(DecodeParams{
 			Context: context.Background(),
 			Body:    []byte("{not json"),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})

@@ -7,6 +7,5 @@ func zaiChatOnlyCase() chatOnlyProviderCase {
 	return chatOnlyProviderCase{
 		slug:        "zai-org",
 		newProvider: func() Provider { return NewZAIProvider() },
-		sampleModel: "zai-org/GLM-5.3",
 	}
 }

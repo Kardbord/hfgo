@@ -16,12 +16,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const textToImageWavespeedModel = "black-forest-labs/FLUX.1-dev"
+const textToImageWaveSpeedModel = "black-forest-labs/FLUX.1-dev"
 
-// TestGenerateImage_WavespeedLiveAPI tests a basic text-to-image request
+// TestGenerateImage_WaveSpeedLiveAPI tests a basic text-to-image request
 // against the live HF API using the WaveSpeed provider.
 // This test requires the HF_TOKEN environment variable to be set.
-func TestGenerateImage_WavespeedLiveAPI(t *testing.T) {
+func TestGenerateImage_WaveSpeedLiveAPI(t *testing.T) {
 	apiToken := os.Getenv("HF_TOKEN")
 	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
 
@@ -30,9 +30,9 @@ func TestGenerateImage_WavespeedLiveAPI(t *testing.T) {
 
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
-		hfopts.WithModel(textToImageWavespeedModel),
+		hfopts.WithModel(textToImageWaveSpeedModel),
 		hfopts.WithContext(ctx),
-		hfopts.WithProvider(newWavespeedProvider(t)),
+		hfopts.WithProvider(newWaveSpeedProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
 
@@ -62,10 +62,10 @@ func TestGenerateImage_WavespeedLiveAPI(t *testing.T) {
 	)
 }
 
-// TestGenerateImage_WavespeedContextCancellation tests that context
+// TestGenerateImage_WaveSpeedContextCancellation tests that context
 // cancellation is respected.
 // This test requires the HF_TOKEN environment variable to be set.
-func TestGenerateImage_WavespeedContextCancellation(t *testing.T) {
+func TestGenerateImage_WaveSpeedContextCancellation(t *testing.T) {
 	apiToken := os.Getenv("HF_TOKEN")
 	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
 
@@ -75,9 +75,9 @@ func TestGenerateImage_WavespeedContextCancellation(t *testing.T) {
 
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
-		hfopts.WithModel(textToImageWavespeedModel),
+		hfopts.WithModel(textToImageWaveSpeedModel),
 		hfopts.WithContext(ctx),
-		hfopts.WithProvider(newWavespeedProvider(t)),
+		hfopts.WithProvider(newWaveSpeedProvider(t)),
 	)
 
 	response, err := client.GenerateImage(hftypes.TextToImageRequest{

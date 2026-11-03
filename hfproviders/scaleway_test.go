@@ -4,7 +4,6 @@ package hfproviders
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
@@ -167,27 +166,10 @@ func TestScalewayProvider_ChatEndpoint(t *testing.T) {
 	requireOpenAIChatPartnerEndpoint(t, provider, scalewayProviderName)
 }
 
-// scalewayRecordingResolver records the ResolveModel lookup key and serves a
-// fixed mapping, letting endpoint tests assert what the provider looked up.
-type scalewayRecordingResolver struct {
-	got     ResolveModelParams
-	mapping ModelMapping
-}
-
-// ResolveModel implements [ModelResolver].
-func (r *scalewayRecordingResolver) ResolveModel(
-	_ context.Context,
-	params ResolveModelParams,
-) (ModelMapping, error) {
-	r.got = params
-
-	return r.mapping, nil
-}
-
 func TestScalewayProvider_FeatureExtractionEndpoints(t *testing.T) {
 	t.Parallel()
 
-	resolver := &scalewayRecordingResolver{
+	resolver := &recordingResolver{
 		mapping: ModelMapping{
 			ProviderModelID: "qwen3-embedding-8b",
 			Status:          "live",
@@ -325,24 +307,12 @@ func TestScalewayProvider_Tasks(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// scalewayFailingResolver resolves nothing and always fails, emulating a
-// resolver outage that endpoints and codecs must propagate.
-type scalewayFailingResolver struct{}
-
-// ResolveModel implements [ModelResolver].
-func (scalewayFailingResolver) ResolveModel(
-	context.Context,
-	ResolveModelParams,
-) (ModelMapping, error) {
-	return ModelMapping{}, errors.New("resolver outage")
-}
-
 // TestScalewayEndpoint_ResolverErrorsPropagate pins that a resolver error
 // (not just a nil resolver) surfaces from the endpoint methods.
 func TestScalewayEndpoint_ResolverErrorsPropagate(t *testing.T) {
 	t.Parallel()
 
-	provider, err := NewScalewayProvider(scalewayFailingResolver{})
+	provider, err := NewScalewayProvider(failingResolver{})
 	require.NoError(t, err)
 
 	feature, err := AsProvider[FeatureExtractionPooledProvider](provider)
@@ -369,7 +339,7 @@ func TestScalewayEndpoint_ResolverErrorsPropagate(t *testing.T) {
 func TestScalewayCodec_ResolverErrorsPropagate(t *testing.T) {
 	t.Parallel()
 
-	provider, err := NewScalewayProvider(scalewayFailingResolver{})
+	provider, err := NewScalewayProvider(failingResolver{})
 	require.NoError(t, err)
 
 	_, _, err = provider.FeatureExtractionPooledCodec().Encode(

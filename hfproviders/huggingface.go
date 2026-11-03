@@ -38,8 +38,43 @@ type HuggingFaceProvider struct {
 	HuggingFaceZeroShotTextClassificationMixin
 }
 
-// NewHuggingFaceProvider returns a HuggingFaceProvider with the default
-// identity codec. This is the recommended way to construct a HuggingFaceProvider.
+// Compile-time assertions that HuggingFaceProvider satisfies each supported
+// per-task provider interface.
+var (
+	_ ChatProvider                         = (*HuggingFaceProvider)(nil)
+	_ ChatStreamProvider                   = (*HuggingFaceProvider)(nil)
+	_ FeatureExtractionPooledBatchProvider = (*HuggingFaceProvider)(nil)
+	_ FeatureExtractionPooledProvider      = (*HuggingFaceProvider)(nil)
+	_ FeatureExtractionTokenProvider       = (*HuggingFaceProvider)(nil)
+	_ FeatureExtractionTokenBatchProvider  = (*HuggingFaceProvider)(nil)
+	_ FillMaskProvider                     = (*HuggingFaceProvider)(nil)
+	_ ImageClassificationProvider          = (*HuggingFaceProvider)(nil)
+	_ ImageSegmentationProvider            = (*HuggingFaceProvider)(nil)
+	_ ObjectDetectionProvider              = (*HuggingFaceProvider)(nil)
+	_ QuestionAnsweringProvider            = (*HuggingFaceProvider)(nil)
+	_ SpeechRecognitionProvider            = (*HuggingFaceProvider)(nil)
+	_ SummarizationProvider                = (*HuggingFaceProvider)(nil)
+	_ TableQuestionAnsweringProvider       = (*HuggingFaceProvider)(nil)
+	_ TextClassificationProvider           = (*HuggingFaceProvider)(nil)
+	_ TextToImageProvider                  = (*HuggingFaceProvider)(nil)
+	_ TokenClassificationProvider          = (*HuggingFaceProvider)(nil)
+	_ TranslationProvider                  = (*HuggingFaceProvider)(nil)
+	_ ZeroShotTextClassificationProvider   = (*HuggingFaceProvider)(nil)
+)
+
+// Compile-time assertions that the Hugging Face provider's custom codecs
+// participate in their task pipelines. The rest reuse [JSONCodec] through
+// their mixins and need no per-codec assertion.
+var (
+	_ QuestionAnsweringCodec  = (*hfQuestionAnsweringCodec)(nil)
+	_ TextClassificationCodec = (*hfTextClassificationCodec)(nil)
+	_ TextToImageCodec        = (*hfTextToImageCodec)(nil)
+	_ SpeechRecognitionCodec  = (*hfSpeechRecognitionCodec)(nil)
+)
+
+// NewHuggingFaceProvider returns a HuggingFaceProvider composing every
+// built-in per-task mixin. This is the recommended way to construct a
+// HuggingFaceProvider.
 func NewHuggingFaceProvider() HuggingFaceProvider {
 	return HuggingFaceProvider{}
 }
@@ -100,10 +135,10 @@ func (HuggingFaceChatMixin) ChatStreamCodec() ChatStreamCodec {
 type HuggingFaceFeatureExtractionMixin struct{}
 
 // FeatureExtractionBatchEndpoint returns the endpoint for batch feature extraction.
-func (e HuggingFaceFeatureExtractionMixin) FeatureExtractionBatchEndpoint(
+func (m HuggingFaceFeatureExtractionMixin) FeatureExtractionBatchEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	return e.FeatureExtractionEndpoint(params)
+	return m.FeatureExtractionEndpoint(params)
 }
 
 // FeatureExtractionEndpoint returns the endpoint for feature extraction.
@@ -406,11 +441,7 @@ func (hfQuestionAnsweringCodec) Encode(
 func (hfQuestionAnsweringCodec) Decode(params DecodeParams) ([]hftypes.QuestionAnswer, error) {
 	contentType := params.Headers.Get("Content-Type")
 	if !isJSONContentType(contentType) {
-		return nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "expected Content-Type application/json, got " + contentType,
-			Err:     nil,
-		}
+		return nil, errUnexpectedContentType(contentType)
 	}
 
 	// Spec-compliant response
@@ -545,11 +576,7 @@ func (hfTextClassificationCodec) Encode(
 func (hfTextClassificationCodec) Decode(params DecodeParams) ([]hftypes.TextClassification, error) {
 	contentType := params.Headers.Get("Content-Type")
 	if !isJSONContentType(contentType) {
-		return nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "expected Content-Type application/json, got " + contentType,
-			Err:     nil,
-		}
+		return nil, errUnexpectedContentType(contentType)
 	}
 
 	// Documented/spec shape: a flat array of classification objects. Observed on
@@ -621,11 +648,7 @@ func (hfTextToImageCodec) Decode(
 
 	mediaType, ok := parseMediaType(contentType)
 	if !ok || !strings.HasPrefix(mediaType, "image/") {
-		return hftypes.TextToImageResponse{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "expected an image Content-Type, got " + contentType,
-			Err:     nil,
-		}
+		return hftypes.TextToImageResponse{}, errUnexpectedMediaPrefix("image/", contentType)
 	}
 
 	return hftypes.TextToImageResponse{

@@ -11,7 +11,7 @@ const featherlessAIProviderName = "featherless-ai"
 // request/response schema across providers: only the routing differs,
 // expressed by appending the ":featherless-ai" provider suffix to the model ID.
 //
-// Unlike [WavespeedProvider], Featherless AI needs no [ModelResolver]: the
+// Unlike [WaveSpeedProvider], Featherless AI needs no [ModelResolver]: the
 // chat endpoint is model-independent, and the router performs provider mapping
 // server-side. The ":featherless-ai" suffix is a deterministic provider pin —
 // the router's automatic failover applies to unsuffixed models and routing

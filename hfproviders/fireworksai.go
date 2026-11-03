@@ -1,17 +1,17 @@
 package hfproviders
 
-// fireworksProviderName is the Fireworks provider slug and the model-suffix
-// token appended to chat model IDs, matching the router's ":fireworks-ai"
-// provider pin.
-const fireworksProviderName = "fireworks-ai"
+// fireworksAIProviderName is the Fireworks AI provider slug and the
+// model-suffix token appended to chat model IDs, matching the router's
+// ":fireworks-ai" provider pin.
+const fireworksAIProviderName = "fireworks-ai"
 
-// FireworksProvider serves chat completion tasks through the Hugging Face
+// FireworksAIProvider serves chat completion tasks through the Hugging Face
 // router by implementing [ChatProvider] and [ChatStreamProvider]. It reuses
 // [HuggingFaceChatMixin], as the chat task has the same OpenAI-compatible
 // request/response schema across providers: only the routing differs,
 // expressed by appending the ":fireworks-ai" provider suffix to the model ID.
 //
-// Unlike [WavespeedProvider], Fireworks needs no [ModelResolver]: the chat
+// Unlike [WaveSpeedProvider], Fireworks needs no [ModelResolver]: the chat
 // endpoint is model-independent, and the router performs provider mapping
 // server-side. The ":fireworks-ai" suffix is a deterministic provider pin —
 // the router's automatic failover applies to unsuffixed models and routing
@@ -22,30 +22,30 @@ const fireworksProviderName = "fireworks-ai"
 //
 // The zero value is ready to use. The provider is immutable and safe for
 // concurrent use.
-type FireworksProvider struct {
+type FireworksAIProvider struct {
 	HuggingFaceChatMixin
 }
 
-// Compile-time assertions that FireworksProvider satisfies each supported
+// Compile-time assertions that FireworksAIProvider satisfies each supported
 // per-task provider interface.
 var (
-	_ ChatProvider       = (*FireworksProvider)(nil)
-	_ ChatStreamProvider = (*FireworksProvider)(nil)
+	_ ChatProvider       = (*FireworksAIProvider)(nil)
+	_ ChatStreamProvider = (*FireworksAIProvider)(nil)
 )
 
-// NewFireworksProvider returns a FireworksProvider that serves
+// NewFireworksAIProvider returns a FireworksAIProvider that serves
 // chat completion tasks.
-func NewFireworksProvider() FireworksProvider {
-	return FireworksProvider{}
+func NewFireworksAIProvider() FireworksAIProvider {
+	return FireworksAIProvider{}
 }
 
 // ProviderSuffix returns the "fireworks-ai" provider suffix for
 // appending to the model selection in chat completion tasks.
-func (p FireworksProvider) ProviderSuffix() string {
-	return fireworksProviderName
+func (p FireworksAIProvider) ProviderSuffix() string {
+	return fireworksAIProviderName
 }
 
-// Name returns the name of the Fireworks provider for debug purposes.
-func (p FireworksProvider) Name() string {
-	return fireworksProviderName
+// Name returns the name of the Fireworks AI provider for debug purposes.
+func (p FireworksAIProvider) Name() string {
+	return fireworksAIProviderName
 }

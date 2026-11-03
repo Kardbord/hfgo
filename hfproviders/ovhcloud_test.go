@@ -8,6 +8,5 @@ func ovhcloudChatOnlyCase() chatOnlyProviderCase {
 	return chatOnlyProviderCase{
 		slug:        "ovhcloud",
 		newProvider: func() Provider { return NewOVHcloudProvider() },
-		sampleModel: "openai/gpt-oss-120b",
 	}
 }

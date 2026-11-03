@@ -9,6 +9,7 @@ import (
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -112,9 +113,7 @@ func TestHuggingFaceProvider_EmptyModel(t *testing.T) {
 			}
 
 			require.Error(t, err)
-			var sdkErr *hferrors.SDKError
-			require.ErrorAs(t, err, &sdkErr)
-			require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
+			testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 			require.ErrorContains(t, err, errModelIsRequired)
 		})
 	}
@@ -269,9 +268,7 @@ func TestSpeechRecognitionCodec_Encode(t *testing.T) {
 			validate: func(t *testing.T, _ []byte, _ http.Header, err error) {
 				t.Helper()
 				require.Error(t, err)
-				var sdkErr *hferrors.SDKError
-				require.ErrorAs(t, err, &sdkErr)
-				require.Equal(t, hferrors.SDKErrorKindSerialization, sdkErr.Kind)
+				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 			},
 		},
 	}
@@ -300,6 +297,31 @@ func TestSpeechRecognitionCodec_Decode(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "hello world", resp.Text)
 	require.Nil(t, resp.Chunks)
+}
+
+// TestHuggingFaceProvider_TaskCoverage asserts the Hugging Face provider does
+// not advertise tasks it does not serve. Text-to-video and image-to-image are
+// served through partner providers only, e.g. [WaveSpeedProvider].
+func TestHuggingFaceProvider_TaskCoverage(t *testing.T) {
+	t.Parallel()
+
+	p := NewHuggingFaceProvider()
+
+	_, err := AsProvider[ImageToImageProvider](p)
+	require.Error(t, err)
+	require.ErrorContains(
+		t,
+		err,
+		"huggingface does not implement hfproviders.ImageToImageProvider",
+	)
+
+	_, err = AsProvider[TextToVideoProvider](p)
+	require.Error(t, err)
+	require.ErrorContains(
+		t,
+		err,
+		"huggingface does not implement hfproviders.TextToVideoProvider",
+	)
 }
 
 // TestHuggingFaceProvider_ImplementsEveryTaskProvider pins the aggregate's

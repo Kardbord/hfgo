@@ -19,7 +19,7 @@ and `examples/` for usage documentation, and the code itself for full detail.
 | `hfopts`      | `github.com/Kardbord/hfgo/v4/hfopts`      | `Options`, `Option`, and all `With*` helpers                                                                                      |
 | `hftypes`     | `github.com/Kardbord/hfgo/v4/hftypes`     | Request/response DTOs for every task                                                                                              |
 | `hferrors`    | `github.com/Kardbord/hfgo/v4/hferrors`    | `APIError`, `SDKError`, and `SDKErrorKind`                                                                                        |
-| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, per-task provider mixins (Hugging Face, WaveSpeed, fal.ai, DeepInfra, Scaleway, Nscale, Replicate), `HuggingFaceProvider`, `WavespeedProvider`, `FalAIProvider`, `DeepInfraProvider`, `ScalewayProvider`, `TogetherProvider`, `NscaleProvider`, `ReplicateProvider`, chat-only partner providers (e.g. `BasetenProvider`), `ModelResolver` |
+| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, per-task provider mixins (Hugging Face, WaveSpeed, fal.ai, DeepInfra, Scaleway, Nscale, Replicate), `HuggingFaceProvider`, `WaveSpeedProvider`, `FalAIProvider`, `DeepInfraProvider`, `ScalewayProvider`, `TogetherProvider`, `NscaleProvider`, `ReplicateProvider`, chat-only partner providers (e.g. `BasetenProvider`), `ModelResolver` |
 | `hfraw`       | `github.com/Kardbord/hfgo/v4/hfraw`       | Low-level HTTP/SSE escape hatch                                                                                                   |
 | `hfgoversion` | `github.com/Kardbord/hfgo/v4/hfgoversion` | `Version` constant and `UserAgent()` helper                                                                                       |
 
@@ -143,10 +143,10 @@ func (MyProvider) ProviderSuffix() string { return "" }
 ```
 
 Partner providers that need model resolution use the same pattern with one
-addition: their mixins carry the resolver as state. `WavespeedProvider`, for
-example, composes `WavespeedTextToVideoMixin`, `WavespeedTextToImageMixin`, and
-`WavespeedImageToImageMixin`, each with an exported `Resolver ModelResolver`
-field that its endpoint methods consult. `NewWavespeedProvider` sets every
+addition: their mixins carry the resolver as state. `WaveSpeedProvider`, for
+example, composes `WaveSpeedTextToVideoMixin`, `WaveSpeedTextToImageMixin`, and
+`WaveSpeedImageToImageMixin`, each with an exported `Resolver ModelResolver`
+field that its endpoint methods consult. `NewWaveSpeedProvider` sets every
 field; a custom provider embedding a single mixin sets it directly. Mixins that
 need no per-instance state (like the Hugging Face ones) stay zero-byte.
 

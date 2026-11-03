@@ -7,6 +7,5 @@ func novitaChatOnlyCase() chatOnlyProviderCase {
 	return chatOnlyProviderCase{
 		slug:        novitaProviderName,
 		newProvider: func() Provider { return NewNovitaProvider() },
-		sampleModel: "openai/gpt-oss-120b",
 	}
 }

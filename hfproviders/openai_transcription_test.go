@@ -178,23 +178,16 @@ func TestOpenAIFormFieldValue(t *testing.T) {
 func TestOpenAIDecodeTranscription(t *testing.T) {
 	t.Parallel()
 
-	jsonHeaders := func() http.Header {
-		headers := http.Header{}
-		headers.Set("Content-Type", "application/json")
-
-		return headers
-	}
-
 	t.Run("transcript, segments, and metadata", func(t *testing.T) {
 		t.Parallel()
 
-		resp, err := openAIDecodeTranscription(DecodeParams{
+		resp, err := decodeOpenAITranscription(DecodeParams{
 			Context: t.Context(),
 			Body: []byte(
 				`{"text":"hello","segments":[{"id":0,"start":0.5,"end":1.5,"text":"hello"}],` +
 					`"language":"en","duration":1.5}`,
 			),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		require.NoError(t, err)
 		require.Equal(t, "hello", resp.Text)
@@ -206,10 +199,10 @@ func TestOpenAIDecodeTranscription(t *testing.T) {
 	t.Run("missing text fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := openAIDecodeTranscription(DecodeParams{
+		_, err := decodeOpenAITranscription(DecodeParams{
 			Context: t.Context(),
 			Body:    []byte(`{"segments":[]}`),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		require.ErrorContains(t, err, "transcription response missing text")
 	})
@@ -220,7 +213,7 @@ func TestOpenAIDecodeTranscription(t *testing.T) {
 		headers := http.Header{}
 		headers.Set("Content-Type", "text/plain")
 
-		_, err := openAIDecodeTranscription(DecodeParams{
+		_, err := decodeOpenAITranscription(DecodeParams{
 			Context: t.Context(),
 			Body:    []byte(`{"text":"hi"}`),
 			Headers: headers,
@@ -231,10 +224,10 @@ func TestOpenAIDecodeTranscription(t *testing.T) {
 	t.Run("invalid JSON body fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := openAIDecodeTranscription(DecodeParams{
+		_, err := decodeOpenAITranscription(DecodeParams{
 			Context: t.Context(),
 			Body:    []byte("not json"),
-			Headers: jsonHeaders(),
+			Headers: jsonHeaders(ctJSON),
 		})
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, errFailedToDecodeResponseBody)

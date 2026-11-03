@@ -7,29 +7,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"testing"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
-
-func jsonHeaders(ct string) http.Header {
-	return http.Header{"Content-Type": {ct}}
-}
-
-// ctJSON is spelled to avoid a JSON-suffixed identifier so testifylint's
-// encoded-compare heuristic treats header assertions as plain string
-// comparisons.
-const ctJSON = "application/json"
 
 func assertSerializationError(t *testing.T, err error) {
 	t.Helper()
 
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindSerialization, sdkErr.Kind)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 }
 
 type encodeReq struct {
@@ -96,10 +85,7 @@ func TestJSONCodec_EncodePreservesSDKError(t *testing.T) {
 		EncodeParams[sdkErrorReq]{Request: sdkErrorReq{}},
 	)
 	require.Error(t, err)
-
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
 
 func TestJSONCodec_DecodePreservesSDKError(t *testing.T) {
@@ -110,10 +96,7 @@ func TestJSONCodec_DecodePreservesSDKError(t *testing.T) {
 		Body:    []byte(`{}`),
 	})
 	require.Error(t, err)
-
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindValidation, sdkErr.Kind)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindValidation)
 }
 
 func TestJSONCodec_Decode(t *testing.T) {

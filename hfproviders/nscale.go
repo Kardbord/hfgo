@@ -1,11 +1,9 @@
 package hfproviders
 
 import (
-	"context"
 	"encoding/base64"
-	"encoding/json"
-	"maps"
 	"net/http"
+	"strings"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hftypes"
@@ -20,7 +18,7 @@ const nscaleProviderName = "nscale"
 // nscaleTextToImagePath is the router-proxied path for Nscale's
 // OpenAI-compatible image-generation endpoint, relative to the caller's base
 // URL.
-const nscaleTextToImagePath = "nscale/v1/images/generations"
+const nscaleTextToImagePath = nscaleProviderName + "/v1/images/generations"
 
 // nscaleResponseFormatB64 is the response format the text-to-image codec
 // pins: the base64 JSON shape is the only envelope the codec decodes, so a
@@ -127,7 +125,14 @@ type NscaleTextToImageMixin struct {
 func (m NscaleTextToImageMixin) TextToImageEndpoint(
 	params EndpointParams,
 ) (Endpoint, error) {
-	mapping, err := nscaleMapping(params.Context, m.Resolver, nil, params.Model)
+	mapping, err := resolveMapping(
+		params.Context,
+		nscaleProviderName,
+		m.Resolver,
+		nil,
+		TaskTextToImage,
+		params.Model,
+	)
 	if err != nil {
 		return Endpoint{}, err
 	}
@@ -145,36 +150,6 @@ func (m NscaleTextToImageMixin) TextToImageEndpoint(
 // falling back to the mixin's resolver when used standalone.
 func (m NscaleTextToImageMixin) TextToImageCodec() TextToImageCodec {
 	return nscaleTextToImageCodec{resolver: m.Resolver}
-}
-
-// nscaleMapping resolves the configured Hugging Face model ID to Nscale's
-// provider mapping. supplied — the mapping resolved while constructing the
-// endpoint (see [Endpoint.Mapping] and [EncodeParams.Mapping]) — wins;
-// otherwise the given resolver runs the lookup, mirroring DeepInfra's
-// standalone-codec fallback.
-func nscaleMapping(
-	ctx context.Context,
-	resolver ModelResolver,
-	supplied *ModelMapping,
-	model string,
-) (*ModelMapping, error) {
-	if supplied != nil {
-		return supplied, nil
-	}
-	if resolver == nil {
-		return nil, errNilResolver(nscaleProviderName)
-	}
-
-	mapping, err := resolver.ResolveModel(ctx, ResolveModelParams{
-		Provider: nscaleProviderName,
-		Task:     TaskTextToImage,
-		Model:    model,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &mapping, nil
 }
 
 // nscaleImageGenerationData is one generated image in Nscale's response. The
@@ -213,14 +188,21 @@ type nscaleTextToImageCodec struct {
 
 // Compile-time assertion that the codec implements the text-to-image task
 // codec.
-var _ TextToImageCodec = nscaleTextToImageCodec{resolver: nil}
+var _ TextToImageCodec = (*nscaleTextToImageCodec)(nil)
 
 func (c nscaleTextToImageCodec) Encode(
 	params EncodeParams[hftypes.TextToImageRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
 
-	mapping, err := nscaleMapping(params.Context, c.resolver, params.Mapping, params.Model)
+	mapping, err := resolveMapping(
+		params.Context,
+		nscaleProviderName,
+		c.resolver,
+		params.Mapping,
+		TaskTextToImage,
+		params.Model,
+	)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -228,32 +210,19 @@ func (c nscaleTextToImageCodec) Encode(
 	// Nscale's body is flat: the prompt, the mapped model, and every
 	// generation parameter live at the top level.
 	payload := map[string]any{}
-	if req.Parameters != nil {
-		flat, err := flattenParameters(req.Parameters)
-		if err != nil {
-			return nil, nil, err
-		}
-		maps.Copy(payload, flat)
+	if err := mergeRequestParameters(payload, req.Parameters, req.ProviderParams); err != nil {
+		return nil, nil, err
 	}
-	maps.Copy(payload, req.ProviderParams)
 	payload["response_format"] = nscaleResponseFormatB64
 	payload["prompt"] = req.Input
 	payload["model"] = mapping.ProviderModelID
 
-	body, err = json.Marshal(payload)
+	body, err = marshalRequestBody(payload)
 	if err != nil {
-		return nil, nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: errFailedToMarshalRequestBody,
-			Err:     err,
-		}
+		return nil, nil, err
 	}
 
-	headers = http.Header{}
-	headers.Set("Content-Type", mimeTypeJSON)
-	headers.Set("Accept", mimeTypeJSON)
-
-	return body, headers, nil
+	return body, jsonRequestHeaders(mimeTypeJSON), nil
 }
 
 func (c nscaleTextToImageCodec) Decode(
@@ -280,6 +249,15 @@ func (c nscaleTextToImageCodec) Decode(
 		}
 	}
 
+	// The envelope is JSON, so the image's media type is not on a header; it
+	// is sniffed from the decoded bytes. A payload that is not an image
+	// family is rejected rather than surfaced as response MediaType of
+	// "application/octet-stream" or worse.
+	mediaType := http.DetectContentType(image)
+	if !strings.HasPrefix(mediaType, "image/") {
+		return hftypes.TextToImageResponse{}, errUnexpectedMediaPrefix("image/", mediaType)
+	}
+
 	var metadata map[string]any
 	if envelope.Created != nil {
 		metadata = map[string]any{"created": *envelope.Created}
@@ -287,7 +265,7 @@ func (c nscaleTextToImageCodec) Decode(
 
 	return hftypes.TextToImageResponse{
 		Image:            image,
-		MediaType:        http.DetectContentType(image),
+		MediaType:        mediaType,
 		ProviderMetadata: metadata,
 	}, nil
 }

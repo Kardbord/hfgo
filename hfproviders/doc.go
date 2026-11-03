@@ -58,9 +58,9 @@
 // and [Provider.ProviderSuffix]. Mixins carry no provider identity, so
 // composing several is unambiguous.
 //
-// Partner-provider mixins such as [WavespeedTextToImageMixin] follow the
+// Partner-provider mixins such as [WaveSpeedTextToImageMixin] follow the
 // same pattern but additionally carry a model resolver in an exported
-// field; [WavespeedProvider] composes them and [NewWavespeedProvider]
+// field; [WaveSpeedProvider] composes them and [NewWaveSpeedProvider]
 // wires the resolver into each. [FalAIProvider] composes its five mixins
 // the same way, and [NewFalAIProvider] wires the resolver into each.
 // [ReplicateProvider] composes four resolver-bearing mixins for text-to-
@@ -79,10 +79,12 @@
 // [ScalewayProvider] mixes the same two shapes: [HuggingFaceChatMixin] for
 // suffix-pinned chat completions and a resolver-bearing mixin for pooled
 // feature extraction, wired by [NewScalewayProvider]. Providers that need
-// no resolver state reuse the zero-byte mixins
-// directly: [BasetenProvider] embeds
-// [HuggingFaceChatMixin] and supplies only its identity, pinning chat
-// completions to Baseten through the ":baseten" model suffix.
+// no resolver state reuse the zero-byte [HuggingFaceChatMixin]
+// directly: [BasetenProvider] and its chat-only siblings ([CerebrasProvider],
+// [CohereProvider], [FeatherlessAIProvider], [FireworksAIProvider],
+// [GroqProvider], [NovitaProvider], [OVHcloudProvider], [PublicAIProvider],
+// and [ZAIProvider]) embed it and supply only their identity, pinning chat
+// completions to the provider through the router's ":<slug>" model suffix.
 //
 // # Model resolution
 //

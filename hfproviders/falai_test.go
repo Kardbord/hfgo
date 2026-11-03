@@ -58,68 +58,56 @@ func falaiStateBody(status, taskErr, errType string) string {
 	return falaiState(status, fields)
 }
 
-// falaiPostSubmitParams builds transport parameters targeting the given test
-// server.
-func falaiPostSubmitParams(server *httptest.Server) PostSubmitParams {
-	return PostSubmitParams{
-		HTTPClient:           server.Client(),
-		BaseURL:              server.URL,
-		Token:                "test-token",
-		UserAgent:            "test-agent/1.0",
-		MaxResponseBodyBytes: 1 << 20,
-	}
-}
-
 // falaiFastImageCodec returns a text-to-image codec with fast polling, so
 // tests exercise the exchange's branching without real delays.
 func falaiFastImageCodec() falaiTextToImageCodec {
-	return falaiTextToImageCodec{falaiQueueCodec{
+	return falaiTextToImageCodec{falaiQueueCodec{queueTaskCodec{
 		mediaPrefix:     falaiImageMediaPrefix,
 		pollInterval:    time.Millisecond,
 		pollStep:        time.Millisecond,
 		maxPollInterval: 2 * time.Millisecond,
-	}}
+	}}}
 }
 
 // falaiFastVideoCodec mirrors falaiFastImageCodec for the text-to-video
 // prefix.
 func falaiFastVideoCodec() falaiTextToVideoCodec {
-	return falaiTextToVideoCodec{falaiQueueCodec{
+	return falaiTextToVideoCodec{falaiQueueCodec{queueTaskCodec{
 		mediaPrefix:     falaiVideoMediaPrefix,
 		pollInterval:    time.Millisecond,
 		pollStep:        time.Millisecond,
 		maxPollInterval: 2 * time.Millisecond,
-	}}
+	}}}
 }
 
 // falaiFastImageToImageCodec mirrors falaiFastImageCodec for image-to-image.
 func falaiFastImageToImageCodec() falaiImageToImageCodec {
-	return falaiImageToImageCodec{falaiQueueCodec{
+	return falaiImageToImageCodec{falaiQueueCodec{queueTaskCodec{
 		mediaPrefix:     falaiImageMediaPrefix,
 		pollInterval:    time.Millisecond,
 		pollStep:        time.Millisecond,
 		maxPollInterval: 2 * time.Millisecond,
-	}}
+	}}}
 }
 
 // falaiFastSegmentationCodec mirrors falaiFastImageCodec for image
 // segmentation.
 func falaiFastSegmentationCodec() falaiImageSegmentationCodec {
-	return falaiImageSegmentationCodec{falaiQueueCodec{
+	return falaiImageSegmentationCodec{falaiQueueCodec{queueTaskCodec{
 		mediaPrefix:     falaiImageMediaPrefix,
 		pollInterval:    time.Millisecond,
 		pollStep:        time.Millisecond,
 		maxPollInterval: 2 * time.Millisecond,
-	}}
+	}}}
 }
 
 // falaiFastSpeechCodec returns a speech-recognition codec with fast polling.
 func falaiFastSpeechCodec() falaiSpeechRecognitionCodec {
-	return falaiSpeechRecognitionCodec{falaiQueueCodec{
+	return falaiSpeechRecognitionCodec{falaiQueueCodec{queueTaskCodec{
 		pollInterval:    time.Millisecond,
 		pollStep:        time.Millisecond,
 		maxPollInterval: 2 * time.Millisecond,
-	}}
+	}}}
 }
 
 func TestFalAIProvider_NameAndSuffix(t *testing.T) {
@@ -973,7 +961,7 @@ func TestFalAIProvider_EncodePrefersEndpointMapping(t *testing.T) {
 
 		// The resolver would answer with a non-adapter mapping: if Encode
 		// consulted it, no loras entry would appear in the body.
-		resolver := &countingResolver{
+		resolver := &recordingResolver{
 			mapping: ModelMapping{ProviderModelID: "fal-ai/flux-dev"},
 		}
 		codec := FalAITextToImageMixin{Resolver: resolver}.TextToImageCodec()
@@ -1002,7 +990,7 @@ func TestFalAIProvider_EncodePrefersEndpointMapping(t *testing.T) {
 	t.Run("nil mapping falls back to resolver", func(t *testing.T) {
 		t.Parallel()
 
-		resolver := &countingResolver{
+		resolver := &recordingResolver{
 			mapping: ModelMapping{
 				ProviderModelID:    "fal-ai/flux-dev",
 				Adapter:            "lora",
@@ -1028,15 +1016,17 @@ func TestFalAIProvider_EncodePrefersEndpointMapping(t *testing.T) {
 	})
 }
 
-// TestFalAIProvider_CodecDecodes exercises the media-output codecs shared by
+// TestFalAIProvider_MediaCodecs_Decode exercises the media-output codecs shared by
 // the text-to-image, image-to-image, and text-to-video mixins.
-func TestFalAIProvider_CodecDecodes(t *testing.T) {
+func TestFalAIProvider_MediaCodecs_Decode(t *testing.T) {
 	t.Parallel()
 
 	t.Run("text-to-image codec", func(t *testing.T) {
 		t.Parallel()
 
-		codec := falaiTextToImageCodec{falaiQueueCodec{mediaPrefix: falaiImageMediaPrefix}}
+		codec := falaiTextToImageCodec{falaiQueueCodec{
+			queueTaskCodec{mediaPrefix: falaiImageMediaPrefix},
+		}}
 		assertImageMediaDecode(t, codec.Decode,
 			func(r hftypes.TextToImageResponse) ([]byte, string) {
 				return r.Image, r.MediaType
@@ -1046,7 +1036,9 @@ func TestFalAIProvider_CodecDecodes(t *testing.T) {
 	t.Run("image-to-image codec", func(t *testing.T) {
 		t.Parallel()
 
-		codec := falaiImageToImageCodec{falaiQueueCodec{mediaPrefix: falaiImageMediaPrefix}}
+		codec := falaiImageToImageCodec{falaiQueueCodec{
+			queueTaskCodec{mediaPrefix: falaiImageMediaPrefix},
+		}}
 		assertImageMediaDecode(t, codec.Decode,
 			func(r hftypes.ImageToImageResponse) ([]byte, string) {
 				return r.Image, r.MediaType
@@ -1056,7 +1048,9 @@ func TestFalAIProvider_CodecDecodes(t *testing.T) {
 	t.Run("text-to-video codec", func(t *testing.T) {
 		t.Parallel()
 
-		codec := falaiTextToVideoCodec{falaiQueueCodec{mediaPrefix: falaiVideoMediaPrefix}}
+		codec := falaiTextToVideoCodec{falaiQueueCodec{
+			queueTaskCodec{mediaPrefix: falaiVideoMediaPrefix},
+		}}
 
 		t.Run("valid video", func(t *testing.T) {
 			t.Parallel()
@@ -1094,7 +1088,9 @@ func TestFalAIProvider_CodecDecodes(t *testing.T) {
 func TestFalAIProvider_ImageSegmentationCodec_Decode(t *testing.T) {
 	t.Parallel()
 
-	codec := falaiImageSegmentationCodec{falaiQueueCodec{mediaPrefix: falaiImageMediaPrefix}}
+	codec := falaiImageSegmentationCodec{falaiQueueCodec{
+		queueTaskCodec{mediaPrefix: falaiImageMediaPrefix},
+	}}
 
 	t.Run("valid mask image", func(t *testing.T) {
 		t.Parallel()
@@ -1207,6 +1203,21 @@ func TestFalAIProvider_SpeechRecognitionCodec_Decode(t *testing.T) {
 			Headers: http.Header{"Content-Type": {"application/json"}},
 		})
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+	})
+
+	t.Run("non-JSON content type is rejected", func(t *testing.T) {
+		t.Parallel()
+
+		headers := http.Header{}
+		headers.Set("Content-Type", "text/plain")
+
+		_, err := codec.Decode(DecodeParams{
+			Context: context.Background(),
+			Body:    []byte(`{"text":"hello"}`),
+			Headers: headers,
+		})
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		require.ErrorContains(t, err, "expected Content-Type application/json")
 	})
 }
 
@@ -1368,7 +1379,7 @@ func TestFalAIPostSubmit_CompleteOnSubmit(t *testing.T) {
 	codec := falaiFastImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("COMPLETED", "", "")),
 		http.Header{},
 	)
@@ -1441,7 +1452,7 @@ func TestFalAIPostSubmit_PollUntilComplete(t *testing.T) {
 	codec := falaiFastImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -1494,7 +1505,7 @@ func TestFalAIPostSubmit_FailedTask(t *testing.T) {
 	codec := falaiFastImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -1521,7 +1532,7 @@ func TestFalAIPostSubmit_FailedOnSubmit(t *testing.T) {
 	codec := falaiFastImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("COMPLETED", "provider gave up", "")),
 		http.Header{},
 	)
@@ -1569,7 +1580,7 @@ func TestFalAIPostSubmit_UnknownStatusKeepsPolling(t *testing.T) {
 	codec := falaiFastImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -1613,7 +1624,7 @@ func TestFalAIPostSubmit_TransientPollErrors(t *testing.T) {
 	codec := falaiFastImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -1666,7 +1677,7 @@ func TestFalAIPostSubmit_RetryAfterHonored(t *testing.T) {
 	codec := falaiFastImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -1691,7 +1702,7 @@ func TestFalAIPostSubmit_ClientErrorPoll(t *testing.T) {
 	codec := falaiFastImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -1725,7 +1736,7 @@ func TestFalAIPostSubmit_ResultError(t *testing.T) {
 	codec := falaiFastImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -1752,7 +1763,7 @@ func TestFalAIPostSubmit_MalformedResponses(t *testing.T) {
 		codec := falaiFastImageCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			falaiPostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte("not json"),
 			http.Header{},
 		)
@@ -1770,7 +1781,7 @@ func TestFalAIPostSubmit_MalformedResponses(t *testing.T) {
 		codec := falaiFastImageCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			falaiPostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(
 				`{"status":"IN_QUEUE","response_url":"https://queue.fal.run`+falaiTestTaskPath+`"}`,
 			),
@@ -1791,7 +1802,7 @@ func TestFalAIPostSubmit_MalformedResponses(t *testing.T) {
 		codec := falaiFastImageCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			falaiPostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(`{"request_id":"req_123","status":"IN_QUEUE"}`),
 			http.Header{},
 		)
@@ -1820,7 +1831,7 @@ func TestFalAIPostSubmit_MalformedResponses(t *testing.T) {
 		codec := falaiFastImageCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			falaiPostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(falaiStateBody("IN_QUEUE", "", "")),
 			http.Header{},
 		)
@@ -1848,7 +1859,7 @@ func TestFalAIPostSubmit_MalformedResponses(t *testing.T) {
 		defer server.Close()
 
 		codec := falaiFastImageCodec()
-		params := falaiPostSubmitParams(server)
+		params := postSubmitParams(server)
 		params.MaxResponseBodyBytes = 4
 		_, err := codec.PostSubmit(
 			context.Background(),
@@ -1953,15 +1964,15 @@ func TestFalAIPostSubmit_MalformedResponses(t *testing.T) {
 				switch tc.codec {
 				case "image":
 					_, err = falaiFastImageCodec().PostSubmit(
-						context.Background(), falaiPostSubmitParams(server), submit, http.Header{},
+						context.Background(), postSubmitParams(server), submit, http.Header{},
 					)
 				case "video":
 					_, err = falaiFastVideoCodec().PostSubmit(
-						context.Background(), falaiPostSubmitParams(server), submit, http.Header{},
+						context.Background(), postSubmitParams(server), submit, http.Header{},
 					)
 				case "segmentation":
 					_, err = falaiFastSegmentationCodec().PostSubmit(
-						context.Background(), falaiPostSubmitParams(server), submit, http.Header{},
+						context.Background(), postSubmitParams(server), submit, http.Header{},
 					)
 				}
 				testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
@@ -1998,7 +2009,7 @@ func TestFalAIPostSubmit_TextToVideo(t *testing.T) {
 	codec := falaiFastVideoCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -2035,7 +2046,7 @@ func TestFalAIPostSubmit_ImageToImage(t *testing.T) {
 	codec := falaiFastImageToImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -2070,7 +2081,7 @@ func TestFalAIPostSubmit_Segmentation_DataURL(t *testing.T) {
 	codec := falaiFastSegmentationCodec()
 	segments, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -2111,7 +2122,7 @@ func TestFalAIPostSubmit_Segmentation_Download(t *testing.T) {
 	codec := falaiFastSegmentationCodec()
 	segments, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -2150,7 +2161,7 @@ func TestFalAIPostSubmit_SpeechRecognition(t *testing.T) {
 	codec := falaiFastSpeechCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -2187,7 +2198,7 @@ func TestFalAIPostSubmit_MediaTypeMismatch(t *testing.T) {
 				codec := falaiFastImageCodec()
 				_, err := codec.PostSubmit(
 					context.Background(),
-					falaiPostSubmitParams(server),
+					postSubmitParams(server),
 					[]byte(falaiStateBody("COMPLETED", "", "")),
 					http.Header{},
 				)
@@ -2204,7 +2215,7 @@ func TestFalAIPostSubmit_MediaTypeMismatch(t *testing.T) {
 				codec := falaiFastVideoCodec()
 				_, err := codec.PostSubmit(
 					context.Background(),
-					falaiPostSubmitParams(server),
+					postSubmitParams(server),
 					[]byte(falaiStateBody("COMPLETED", "", "")),
 					http.Header{},
 				)
@@ -2221,7 +2232,7 @@ func TestFalAIPostSubmit_MediaTypeMismatch(t *testing.T) {
 				codec := falaiFastSegmentationCodec()
 				_, err := codec.PostSubmit(
 					context.Background(),
-					falaiPostSubmitParams(server),
+					postSubmitParams(server),
 					[]byte(falaiStateBody("COMPLETED", "", "")),
 					http.Header{},
 				)
@@ -2286,7 +2297,7 @@ func TestFalAIPostSubmit_SniffedMediaType(t *testing.T) {
 	codec := falaiFastImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("COMPLETED", "", "")),
 		http.Header{},
 	)
@@ -2308,7 +2319,7 @@ func TestFalAIPostSubmit_ContextCanceled(t *testing.T) {
 	codec := falaiFastImageCodec()
 	_, err := codec.PostSubmit(
 		ctx,
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -2359,7 +2370,7 @@ func TestFalAIPostSubmit_ContextCanceledDuringPoll(t *testing.T) {
 	go func() {
 		resp, err := codec.PostSubmit(
 			ctx,
-			falaiPostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(falaiStateBody("IN_QUEUE", "", "")),
 			http.Header{},
 		)
@@ -2420,7 +2431,7 @@ func TestFalAIPostSubmit_DeadlineExceededDuringPoll(t *testing.T) {
 	go func() {
 		resp, err := codec.PostSubmit(
 			ctx,
-			falaiPostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(falaiStateBody("IN_QUEUE", "", "")),
 			http.Header{},
 		)
@@ -2438,110 +2449,6 @@ func TestFalAIPostSubmit_DeadlineExceededDuringPoll(t *testing.T) {
 	result := <-results
 	require.ErrorIs(t, result.err, context.DeadlineExceeded)
 	require.Equal(t, int64(2), polls.Load(), "deadline expiry stops further polling")
-}
-
-// TestFalAIQueueBase exercises the follow-up base resolution: the Hugging
-// Face router gains the /fal-ai prefix, other hosts resolve as-is, and an
-// unparseable base URL is a configuration error.
-func TestFalAIQueueBase(t *testing.T) {
-	t.Parallel()
-
-	t.Run("router host gains /fal-ai prefix", func(t *testing.T) {
-		t.Parallel()
-
-		base, routed, err := falaiPollBase("https://router.huggingface.co")
-		require.NoError(t, err)
-		require.True(t, routed)
-		require.Equal(t, "https://router.huggingface.co/fal-ai", base)
-	})
-
-	t.Run("router base with trailing slash", func(t *testing.T) {
-		t.Parallel()
-
-		base, routed, err := falaiPollBase("https://router.huggingface.co/")
-		require.NoError(t, err)
-		require.True(t, routed)
-		require.Equal(t, "https://router.huggingface.co/fal-ai", base)
-	})
-
-	t.Run("router host matched case-insensitively", func(t *testing.T) {
-		t.Parallel()
-
-		base, routed, err := falaiPollBase("https://Router.HuggingFace.CO")
-		require.NoError(t, err)
-		require.True(t, routed)
-		require.Equal(t, "https://Router.HuggingFace.CO/fal-ai", base)
-	})
-
-	t.Run("other hosts resolve as-is", func(t *testing.T) {
-		t.Parallel()
-
-		base, routed, err := falaiPollBase("https://queue.fal.run")
-		require.NoError(t, err)
-		require.False(t, routed)
-		require.Equal(t, "https://queue.fal.run", base)
-	})
-
-	t.Run("invalid base URL is an error", func(t *testing.T) {
-		t.Parallel()
-
-		_, _, err := falaiPollBase("http://[::1:bad")
-		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
-	})
-}
-
-// TestFalAIResultPath exercises the response-URL extraction: absolute URLs
-// contribute only their path and query (so a foreign host cannot redirect
-// the poll), relative paths gain a leading slash, and unparseable URLs are
-// serialization errors.
-func TestFalAIResultPath(t *testing.T) {
-	t.Parallel()
-
-	t.Run("absolute URL resolves from its path", func(t *testing.T) {
-		t.Parallel()
-
-		path, query, err := falaiResultPath("https://queue.fal.run/fal-ai/flux/requests/req_1")
-		require.NoError(t, err)
-		require.Equal(t, "/fal-ai/flux/requests/req_1", path)
-		require.Empty(t, query)
-	})
-
-	t.Run("query is preserved", func(t *testing.T) {
-		t.Parallel()
-
-		path, query, err := falaiResultPath(
-			"https://queue.fal.run/fal-ai/flux/requests/req_1?sig=abc&exp=2",
-		)
-		require.NoError(t, err)
-		require.Equal(t, "/fal-ai/flux/requests/req_1", path)
-		require.Equal(t, "sig=abc&exp=2", query)
-	})
-
-	t.Run("relative path gains a leading slash", func(t *testing.T) {
-		t.Parallel()
-
-		path, query, err := falaiResultPath("fal-ai/flux/requests/req_1")
-		require.NoError(t, err)
-		require.Equal(t, "/fal-ai/flux/requests/req_1", path)
-		require.Empty(t, query)
-	})
-
-	t.Run("empty path normalizes to root", func(t *testing.T) {
-		t.Parallel()
-
-		path, _, err := falaiResultPath("https://queue.fal.run")
-		require.NoError(t, err)
-		// The exchange then fails at the status request, which is the
-		// provider's concern, not the extractor's.
-		require.Equal(t, "/", path)
-	})
-
-	t.Run("unparseable URL is an error", func(t *testing.T) {
-		t.Parallel()
-
-		_, _, err := falaiResultPath("http://h/%zz")
-		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
-	})
 }
 
 // TestFalAIQueueTargets exercises the follow-up target composition: the
@@ -2673,7 +2580,7 @@ func TestFalAIPostSubmit_ForeignResponseURLCannotRedirect(t *testing.T) {
 	codec := falaiFastImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		// The submit response carries an absolute response URL pointing at a
 		// foreign host; the poll must still resolve to the caller's host.
 		[]byte(falaiState("IN_QUEUE", map[string]any{
@@ -2710,14 +2617,12 @@ func TestFalAIPostSubmit_InvalidOutputURL(t *testing.T) {
 	codec := falaiFastImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("COMPLETED", "", "")),
 		http.Header{},
 	)
 
-	var sdkErr *hferrors.SDKError
-	require.ErrorAs(t, err, &sdkErr)
-	require.Equal(t, hferrors.SDKErrorKindConfiguration, sdkErr.Kind)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
 
 // TestFalAIPostSubmit_DownloadBodyLimit exercises the download-side
@@ -2747,7 +2652,7 @@ func TestFalAIPostSubmit_DownloadBodyLimit(t *testing.T) {
 	outputURL = server.URL + "/cdn/output.png"
 
 	codec := falaiFastImageCodec()
-	params := falaiPostSubmitParams(server)
+	params := postSubmitParams(server)
 	params.MaxResponseBodyBytes = 4
 	_, err := codec.PostSubmit(
 		context.Background(),
@@ -3146,7 +3051,7 @@ func TestFalAIPostSubmit_PollTransportBlip(t *testing.T) {
 	codec := falaiFastImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -3206,7 +3111,7 @@ func TestFalAIPostSubmit_ResultTransientRetries(t *testing.T) {
 			codec := falaiFastImageCodec()
 			resp, err := codec.PostSubmit(
 				context.Background(),
-				falaiPostSubmitParams(server),
+				postSubmitParams(server),
 				[]byte(falaiStateBody("IN_QUEUE", "", "")),
 				http.Header{},
 			)
@@ -3237,7 +3142,7 @@ func TestFalAIPostSubmit_ResultTransientRetries(t *testing.T) {
 		codec := falaiFastImageCodec()
 		_, err := codec.PostSubmit(
 			context.Background(),
-			falaiPostSubmitParams(server),
+			postSubmitParams(server),
 			[]byte(falaiStateBody("IN_QUEUE", "", "")),
 			http.Header{},
 		)
@@ -3292,7 +3197,7 @@ func TestFalAIPostSubmit_ResultTransportBlip(t *testing.T) {
 	codec := falaiFastImageCodec()
 	resp, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -3326,7 +3231,7 @@ func TestFalAIPostSubmit_ResultRetryDeadlineExceeded(t *testing.T) {
 	codec := falaiFastImageCodec()
 	_, err := codec.PostSubmit(
 		ctx,
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -3368,7 +3273,7 @@ func TestFalAIPostSubmit_ResponseQueryPreserved(t *testing.T) {
 	codec := falaiFastImageCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		// The submit response carries a response URL with its own query.
 		[]byte(falaiState("IN_QUEUE", map[string]any{
 			"response_url": "https://queue.fal.run" + falaiTestTaskPath + "?sig=abc",
@@ -3403,7 +3308,7 @@ func TestFalAIPostSubmit_ASRMissingTranscript(t *testing.T) {
 	codec := falaiFastSpeechCodec()
 	_, err := codec.PostSubmit(
 		context.Background(),
-		falaiPostSubmitParams(server),
+		postSubmitParams(server),
 		[]byte(falaiStateBody("IN_QUEUE", "", "")),
 		http.Header{},
 	)
@@ -3431,7 +3336,7 @@ func TestFalAIPostSubmit_InvalidOutputURLPerCodec(t *testing.T) {
 				codec := falaiFastVideoCodec()
 				_, err := codec.PostSubmit(
 					context.Background(),
-					falaiPostSubmitParams(server),
+					postSubmitParams(server),
 					[]byte(falaiStateBody("COMPLETED", "", "")),
 					http.Header{},
 				)
@@ -3446,7 +3351,7 @@ func TestFalAIPostSubmit_InvalidOutputURLPerCodec(t *testing.T) {
 				codec := falaiFastImageToImageCodec()
 				_, err := codec.PostSubmit(
 					context.Background(),
-					falaiPostSubmitParams(server),
+					postSubmitParams(server),
 					[]byte(falaiStateBody("COMPLETED", "", "")),
 					http.Header{},
 				)
@@ -3480,39 +3385,4 @@ func TestFalAIPostSubmit_InvalidOutputURLPerCodec(t *testing.T) {
 			testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 		})
 	}
-}
-
-// TestFalAIPollTiming exercises the polling-schedule knobs: a zero-value
-// codec selects the production defaults, and each knob overrides only its
-// own bound.
-func TestFalAIPollTiming(t *testing.T) {
-	t.Parallel()
-
-	t.Run("zero value selects defaults", func(t *testing.T) {
-		t.Parallel()
-
-		require.Equal(t, falaiDefaultPollTiming(), falaiQueueCodec{}.timing())
-	})
-
-	t.Run("knobs override individually", func(t *testing.T) {
-		t.Parallel()
-
-		codec := falaiQueueCodec{pollInterval: 10 * time.Millisecond}
-		timing := codec.timing()
-		require.Equal(t, 10*time.Millisecond, timing.initial)
-		require.Equal(t, falaiPollIntervalStep, timing.step)
-		require.Equal(t, falaiMaxPollInterval, timing.max)
-
-		codec = falaiQueueCodec{pollStep: 20 * time.Millisecond}
-		timing = codec.timing()
-		require.Equal(t, falaiInitialPollInterval, timing.initial)
-		require.Equal(t, 20*time.Millisecond, timing.step)
-		require.Equal(t, falaiMaxPollInterval, timing.max)
-
-		codec = falaiQueueCodec{maxPollInterval: 30 * time.Millisecond}
-		timing = codec.timing()
-		require.Equal(t, falaiInitialPollInterval, timing.initial)
-		require.Equal(t, falaiPollIntervalStep, timing.step)
-		require.Equal(t, 30*time.Millisecond, timing.max)
-	})
 }

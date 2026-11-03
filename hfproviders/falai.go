@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"maps"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -17,15 +15,6 @@ import (
 )
 
 const falaiProviderName = "fal-ai"
-
-// falaiAdapterLora is the Hub mapping adapter value marking a model that
-// ships LoRA weights applied on top of a provider-hosted base model.
-const falaiAdapterLora = "lora"
-
-// falaiRouterHost is the Hugging Face router host. When the caller's base
-// URL targets it, provider-relative status and result paths resolve under
-// the /fal-ai prefix, mirroring the official Hugging Face clients.
-const falaiRouterHost = "router.huggingface.co"
 
 // falaiRouterPrefix is the router path segment fal-ai requests are proxied
 // under.
@@ -88,21 +77,12 @@ const (
 // Flat payload keys and canonical labels shared across fal.ai codecs.
 const (
 	falaiPromptKey = "prompt"
-	falaiAcceptKey = "Accept"
 	falaiMaskLabel = "mask"
 )
 
-// falaiPollTiming bounds the polling loop's wait schedule: the first wait,
-// the per-poll increase, and the wait ceiling.
-type falaiPollTiming struct {
-	initial time.Duration
-	step    time.Duration
-	max     time.Duration
-}
-
 // falaiDefaultPollTiming returns the production polling schedule.
-func falaiDefaultPollTiming() falaiPollTiming {
-	return falaiPollTiming{
+func falaiDefaultPollTiming() queueSchedule {
+	return queueSchedule{
 		initial: falaiInitialPollInterval,
 		step:    falaiPollIntervalStep,
 		max:     falaiMaxPollInterval,
@@ -123,9 +103,9 @@ func falaiDefaultPollTiming() falaiPollTiming {
 // task, polls the task's status URL until it reaches the terminal COMPLETED
 // status (500 ms initial wait growing toward 5 s; transient poll and
 // result-fetch failures are retried and a server Retry-After is honored),
-// fetches the result, and
-// — for media tasks — downloads the first output URL, surfacing the media
-// bytes or transcript as the typed response. A task that fails reports
+// fetches the result, and — for media tasks — downloads the first output
+// URL, surfacing the media bytes or transcript as the typed response. A task
+// that fails reports
 // COMPLETED with an error payload; the SDK surfaces that as an
 // [hferrors.SDKError] of kind provider. Provider-specific response metadata
 // (request ID, queue position, inference time) is exposed on the response's
@@ -260,10 +240,11 @@ func (m FalAITextToImageMixin) TextToImageEndpoint(
 // standalone (see [falaiInjectAdapterLoras]).
 func (m FalAITextToImageMixin) TextToImageCodec() TextToImageCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
-	return falaiTextToImageCodec{falaiQueueCodec{
+	return falaiTextToImageCodec{falaiQueueCodec{queueTaskCodec{
+		defaults:    falaiDefaultPollTiming(),
 		mediaPrefix: falaiImageMediaPrefix,
 		resolver:    m.Resolver,
-	}}
+	}}}
 }
 
 // FalAIImageToImageMixin provides the fal.ai endpoint and codec for
@@ -295,10 +276,11 @@ func (m FalAIImageToImageMixin) ImageToImageEndpoint(
 // standalone (see [falaiInjectAdapterLoras]).
 func (m FalAIImageToImageMixin) ImageToImageCodec() ImageToImageCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
-	return falaiImageToImageCodec{falaiQueueCodec{
+	return falaiImageToImageCodec{falaiQueueCodec{queueTaskCodec{
+		defaults:    falaiDefaultPollTiming(),
 		mediaPrefix: falaiImageMediaPrefix,
 		resolver:    m.Resolver,
-	}}
+	}}}
 }
 
 // FalAITextToVideoMixin provides the fal.ai endpoint and codec for
@@ -329,10 +311,11 @@ func (m FalAITextToVideoMixin) TextToVideoEndpoint(
 // [falaiInjectAdapterLoras]).
 func (m FalAITextToVideoMixin) TextToVideoCodec() TextToVideoCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
-	return falaiTextToVideoCodec{falaiQueueCodec{
+	return falaiTextToVideoCodec{falaiQueueCodec{queueTaskCodec{
+		defaults:    falaiDefaultPollTiming(),
 		mediaPrefix: falaiVideoMediaPrefix,
 		resolver:    m.Resolver,
-	}}
+	}}}
 }
 
 // FalAIImageSegmentationMixin provides the fal.ai endpoint and codec for
@@ -361,10 +344,11 @@ func (m FalAIImageSegmentationMixin) ImageSegmentationEndpoint(
 // segments.
 func (m FalAIImageSegmentationMixin) ImageSegmentationCodec() ImageSegmentationCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
-	return falaiImageSegmentationCodec{falaiQueueCodec{
+	return falaiImageSegmentationCodec{falaiQueueCodec{queueTaskCodec{
+		defaults:    falaiDefaultPollTiming(),
 		mediaPrefix: falaiImageMediaPrefix,
 		resolver:    m.Resolver,
-	}}
+	}}}
 }
 
 // FalAISpeechRecognitionMixin provides the fal.ai endpoint and codec for
@@ -393,69 +377,19 @@ func (m FalAISpeechRecognitionMixin) SpeechRecognitionEndpoint(
 // the transcript.
 func (m FalAISpeechRecognitionMixin) SpeechRecognitionCodec() SpeechRecognitionCodec {
 	//nolint:exhaustruct_v5 // Zero polling knobs and media prefix are unused.
-	return falaiSpeechRecognitionCodec{falaiQueueCodec{
+	return falaiSpeechRecognitionCodec{falaiQueueCodec{queueTaskCodec{
+		defaults: falaiDefaultPollTiming(),
 		resolver: m.Resolver,
-	}}
+	}}}
 }
 
-// falaiQueueCodec carries the pieces shared by every fal.ai task codec: the
-// resolver needed to adapt payloads to adapter models, the polling schedule,
-// and — for media-output tasks — the expected output media prefix. Codec
-// structs embed it so their exchange implementations share one polling
-// loop; only the result parsing and typed response construction differ per
-// task.
-//
-// The zero value is valid and encodes payloads without adapter handling,
-// using the default polling schedule.
+// falaiQueueCodec is fal.ai's queue task codec: the shared [queueTaskCodec]
+// base (resolver, polling knobs, media prefix, timing, and media decoding)
+// plus fal.ai's queue exchange steps. Codec structs embed it so their
+// exchange implementations share one polling loop; only the result parsing
+// and typed response construction differ per task.
 type falaiQueueCodec struct {
-	// resolver maps the configured Hugging Face model ID to its provider
-	// mapping. When the pipeline does not supply the mapping resolved at
-	// endpoint-construction time (see [EncodeParams.Mapping]), Encode uses
-	// the resolver to detect adapter models and inject the provider's LoRA
-	// payload entry (see [falaiInjectAdapterLoras]). Nil encodes without
-	// adapter handling unless a mapping is supplied.
-	resolver ModelResolver
-
-	// mediaPrefix is the required output media-type prefix ("image/" or
-	// "video/") enforced on the downloaded output. Unused by codecs whose
-	// Decode consumes a JSON result body instead.
-	mediaPrefix string
-
-	// pollInterval overrides the initial polling wait (tests only). Zero
-	// uses the default schedule.
-	pollInterval time.Duration
-
-	// pollStep overrides the per-poll wait increase (tests only). Zero uses
-	// the default schedule.
-	pollStep time.Duration
-
-	// maxPollInterval overrides the polling wait ceiling (tests only). Zero
-	// uses the default schedule.
-	maxPollInterval time.Duration
-}
-
-// timing returns the codec's polling schedule, falling back to the defaults
-// for any unset knob.
-func (c falaiQueueCodec) timing() falaiPollTiming {
-	timing := falaiDefaultPollTiming()
-	if c.pollInterval > 0 {
-		timing.initial = c.pollInterval
-	}
-	if c.pollStep > 0 {
-		timing.step = c.pollStep
-	}
-	if c.maxPollInterval > 0 {
-		timing.max = c.maxPollInterval
-	}
-
-	return timing
-}
-
-// decodeMediaBody validates a downloaded media body's Content-Type against
-// the codec's required media prefix and returns its bytes and parsed media
-// type (see [queueDecodeMediaBody]).
-func (c falaiQueueCodec) decodeMediaBody(params DecodeParams) ([]byte, string, error) {
-	return queueDecodeMediaBody(params, c.mediaPrefix)
+	queueTaskCodec
 }
 
 // postSubmitResult runs the shared fal.ai queue exchange: decode the submit
@@ -517,11 +451,7 @@ type falaiTaskState struct {
 func falaiDecodeTaskState(body []byte) (falaiTaskState, error) {
 	var state falaiTaskState
 	if err := json.Unmarshal(body, &state); err != nil {
-		return falaiTaskState{}, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "failed to decode fal.ai queue response",
-			Err:     err,
-		}
+		return falaiTaskState{}, queueDecodeTaskError("fal.ai queue response", err)
 	}
 	if state.RequestID == "" {
 		return falaiTaskState{}, &hferrors.SDKError{
@@ -561,10 +491,7 @@ func falaiClassifyTask(state *falaiTaskState) (done bool, err error) {
 
 // falaiTaskFailedError builds the error surfaced for a terminally failed
 // task, carrying the provider's error message and category plus the request
-// ID when present. The provider reports the failure inside an otherwise
-// valid response, so it surfaces as an SDKError of kind provider rather than
-// an APIError: the HTTP exchange itself succeeded, and APIError stays
-// reserved for 4xx/5xx responses.
+// ID when present (see [queueTaskFailedError]).
 func falaiTaskFailedError(state *falaiTaskState) error {
 	message := "fal.ai task failed"
 	if state.Error != nil && *state.Error != "" {
@@ -577,11 +504,7 @@ func falaiTaskFailedError(state *falaiTaskState) error {
 		message += " (request id " + state.RequestID + ")"
 	}
 
-	return &hferrors.SDKError{
-		Kind:    hferrors.SDKErrorKindProvider,
-		Message: message,
-		Err:     nil,
-	}
+	return queueTaskFailedError(message)
 }
 
 // falaiMetadata extracts the provider-specific response metadata exposed on
@@ -613,17 +536,20 @@ func falaiMetadata(state *falaiTaskState) map[string]any {
 // along, mirroring the official Hugging Face clients. Only the response
 // URL's path is used, so a provider response can never redirect a poll (and
 // its bearer token) to a foreign host. Output downloads (see
-// falaiDownloadOutput) target fal's CDN and are sent unauthenticated.
+// [queueDownloadOutput]) target fal's CDN and are sent unauthenticated.
+// Base and task-URL resolution are shared with the other queue providers
+// (see [queuePollBase] and [queueParseTaskURL]); only the queue-subdomain
+// composition is fal's own.
 func falaiQueueTargets(
 	params PostSubmitParams,
 	submit *falaiTaskState,
 ) (pollParams request.Params, statusPath, resultPath string, err error) {
-	base, routed, err := falaiPollBase(params.BaseURL)
+	taskURL, err := queueParseTaskURL(submit.ResponseURL, "fal.ai response URL")
 	if err != nil {
 		return request.Params{}, "", "", err
 	}
 
-	path, query, err := falaiResultPath(submit.ResponseURL)
+	base, routed, err := queuePollBase(params.BaseURL, falaiRouterPrefix, taskURL.host)
 	if err != nil {
 		return request.Params{}, "", "", err
 	}
@@ -633,7 +559,7 @@ func falaiQueueTargets(
 		BaseURL:    base,
 		UserAgent:  params.UserAgent,
 		Token:      params.Token,
-		Headers:    http.Header{falaiAcceptKey: {mimeTypeJSON}},
+		Headers:    http.Header{headerAccept: {mimeTypeJSON}},
 	}
 
 	// Compose the follow-up query: the router's queue-subdomain directive
@@ -642,62 +568,19 @@ func falaiQueueTargets(
 	if routed {
 		suffix = falaiQueueSubdomain
 	}
-	if query != "" {
+	if taskURL.query != "" {
 		if suffix != "" {
 			suffix += "&"
 		}
-		suffix += query
+		suffix += taskURL.query
 	}
 	if suffix != "" {
 		suffix = "?" + suffix
 	}
 
-	statusPath, resultPath = path+"/status"+suffix, path+suffix
+	statusPath, resultPath = taskURL.path+"/status"+suffix, taskURL.path+suffix
 
 	return pollParams, statusPath, resultPath, nil
-}
-
-// falaiPollBase resolves the base URL for credentialed follow-up requests
-// and reports whether the submit went through the Hugging Face router (which
-// requires the /fal-ai prefix and the queue-subdomain query on follow-ups).
-func falaiPollBase(baseURL string) (base string, routed bool, err error) {
-	parsedBase, err := url.Parse(baseURL)
-	if err != nil {
-		return "", false, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindConfiguration,
-			Message: fmt.Sprintf("invalid base URL %q", baseURL),
-			Err:     err,
-		}
-	}
-	if strings.EqualFold(parsedBase.Host, falaiRouterHost) {
-		return strings.TrimSuffix(baseURL, "/") + falaiRouterPrefix, true, nil
-	}
-
-	return baseURL, false, nil
-}
-
-// falaiResultPath extracts the request path and query from the task's
-// response URL. fal serves response URLs on its own host (e.g.
-// "https://queue.fal.run/fal-ai/flux/requests/{id}"); only the path and
-// query are kept so follow-up requests target the host the submit went
-// through, and any query fal attaches to the response URL is preserved
-// (matching the WaveSpeed implementation).
-func falaiResultPath(responseURL string) (path, query string, err error) {
-	parsedPath, err := url.Parse(responseURL)
-	if err != nil {
-		return "", "", &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: fmt.Sprintf("invalid fal.ai response URL %q", responseURL),
-			Err:     err,
-		}
-	}
-
-	path = parsedPath.Path
-	if path == "" || !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
-
-	return path, parsedPath.RawQuery, nil
 }
 
 // awaitResult polls the task's status URL until the task completes, then
@@ -720,52 +603,11 @@ func (c falaiQueueCodec) awaitResult(
 	}
 
 	timing := c.timing()
-	wait := timing.initial
-	for {
-		// nextWait grows the regular schedule toward the ceiling. A
-		// server-provided Retry-After replaces the wait for the following
-		// round, and the schedule then resumes growing from that value,
-		// still capped by the ceiling.
-		nextWait := min(wait+timing.step, timing.max)
-
-		if err := falaiPollWait(ctx, wait); err != nil {
-			return nil, err
-		}
-
-		state, override, err := falaiPollOnce(ctx, params, pollParams, statusPath)
-		if err != nil {
-			return nil, err
-		}
-		if state != nil {
-			return state, nil
-		}
-
-		wait = nextWait
-		if override > 0 {
-			wait = override
-		}
+	poll := func(ctx context.Context) (*falaiTaskState, time.Duration, error) {
+		return falaiPollOnce(ctx, params, pollParams, statusPath)
 	}
-}
 
-// falaiPollWait waits d, or until ctx expires, whichever comes first. It
-// returns ctx.Err() when the context ended during the wait.
-func falaiPollWait(ctx context.Context, d time.Duration) error {
-	// A fresh timer per call avoids the time.After leak: time.After timers
-	// cannot be stopped, so they keep running until they fire even when the
-	// context exits first. The drain after a failed Stop is safe because each
-	// timer's channel is consumed exactly once.
-	timer := time.NewTimer(d)
-
-	select {
-	case <-ctx.Done():
-		if !timer.Stop() {
-			<-timer.C
-		}
-
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
+	return queueAwait(ctx, timing, poll)
 }
 
 // falaiPollOnce issues one status request and classifies the result. state
@@ -798,126 +640,22 @@ func falaiPollOnce(
 }
 
 // fetchResult fetches the completed task's result JSON, retrying transient
-// failures on the same schedule as the status poll. The task is already
-// complete — and billed — by the time this runs, so a rate limit or a
-// server blip must not discard the generation. Client errors surface
-// immediately as an APIError: a failed task whose status carried no error
-// is reported here, as fal returns the request error as a 4xx result
-// response. Context errors end the exchange immediately. This goes beyond
-// both official Hugging Face clients, whose result fetch is one-shot.
+// failures on the same schedule as the status poll (see [queueFetchRetry]).
+// Client errors surface immediately as an APIError: a failed task whose
+// status carried no error is reported here, as fal returns the request
+// error as a 4xx result response. This goes beyond both official Hugging
+// Face clients, whose result fetch is one-shot.
 func (c falaiQueueCodec) fetchResult(
 	ctx context.Context,
 	params PostSubmitParams,
 	pollParams request.Params,
 	resultPath string,
 ) ([]byte, error) {
-	timing := c.timing()
-	wait := timing.initial
-	for {
-		nextWait := min(wait+timing.step, timing.max)
-
-		body, transient, override, err := falaiFetchResultOnce(ctx, params, pollParams, resultPath)
-		if err != nil {
-			return nil, err
-		}
-		if !transient {
-			return body, nil
-		}
-
-		if err := falaiPollWait(ctx, wait); err != nil {
-			return nil, err
-		}
-
-		wait = nextWait
-		if override > 0 {
-			wait = override
-		}
-	}
-}
-
-// falaiFetchResultOnce issues one result request. transient reports whether
-// the attempt failed in a way worth retrying (a transport blip or a 429/5xx
-// response); override is a server-provided wait for the next attempt. A
-// non-transient error response — including a failed task's error — stops the
-// exchange as an APIError, and a read failure stops it as an SDKError.
-func falaiFetchResultOnce(
-	ctx context.Context,
-	params PostSubmitParams,
-	pollParams request.Params,
-	resultPath string,
-) (body []byte, transient bool, override time.Duration, err error) {
-	//nolint:bodyclose // Transient bodies are drained and closed below;
-	// non-transient 4xx/5xx errors transfer the body to the returned
-	// APIError, which the caller must close per the APIError contract.
-	resp, err := request.DoRaw(ctx, pollParams, http.MethodGet, resultPath, nil)
-	if err != nil {
-		if queueIsContextError(err) {
-			return nil, false, 0, err
-		}
-
-		return nil, true, 0, nil
+	fetch := func(ctx context.Context) ([]byte, bool, time.Duration, error) {
+		return queueFetchOnce(ctx, params, pollParams, resultPath)
 	}
 
-	if queueTransientStatus(resp.StatusCode) {
-		override = queueRetryAfter(resp.Header)
-		request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
-
-		return nil, true, override, nil
-	}
-	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, false, 0, request.APIErrorFromResponse(resp, http.MethodGet)
-	}
-
-	body, readErr := request.ReadResponseBody(resp, params.MaxResponseBodyBytes)
-	request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
-	if readErr != nil {
-		return nil, false, 0, readErr
-	}
-
-	return body, false, 0, nil
-}
-
-// falaiDownloadOutput downloads the task's first output URL. Output URLs are
-// provider-CDN addresses (often signed), so the request goes through
-// request.DoUnauthenticated, which structurally carries no caller
-// credentials. The returned headers always carry a parseable Content-Type:
-// the advertised Content-Type is kept, falling back to byte-sniffing when
-// the CDN omits or garbles it.
-func falaiDownloadOutput(
-	ctx context.Context,
-	params PostSubmitParams,
-	outputURL string,
-) ([]byte, http.Header, error) {
-	//nolint:bodyclose // Drained and closed via defer below on success; error
-	// responses transfer the body to the returned APIError, which the caller
-	// must close per the APIError contract.
-	resp, err := request.DoUnauthenticated(
-		ctx,
-		request.UnauthenticatedParams{
-			HTTPClient: params.HTTPClient,
-			UserAgent:  params.UserAgent,
-		},
-		http.MethodGet,
-		outputURL,
-		http.Header{falaiAcceptKey: {mimeTypeAny}},
-		http.NoBody,
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer request.DrainAndCloseBody(resp.Body, params.MaxResponseBodyBytes)
-
-	body, err := request.ReadResponseBody(resp, params.MaxResponseBodyBytes)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	headers := resp.Header.Clone()
-	if _, ok := parseMediaType(headers.Get("Content-Type")); !ok {
-		headers.Set("Content-Type", http.DetectContentType(body))
-	}
-
-	return body, headers, nil
+	return queueFetchRetry(ctx, c.timing(), fetch)
 }
 
 // falaiMediaRef is a downloaded-output reference inside a fal result: an
@@ -1132,16 +870,13 @@ func falaiSegmentTimestamp(start, end *float64) []float64 {
 	return []float64{startSec, endSec}
 }
 
-// falaiNormalizeDataInput passes data URIs and HTTP(S) URLs through and
-// wraps every other input as a data URI with the given media type, matching
-// the official Hugging Face clients' payload preparation. fal's data-URL
-// decoder keys off the declared label, so the label is a provider fact
-// (see the input media-type constants above).
+// falaiNormalizeDataInput passes self-describing inputs through and wraps
+// every other input as a data URI with the given media type, matching the
+// official Hugging Face clients' payload preparation. fal's data-URL decoder
+// keys off the declared label, so the label is a provider fact (see the
+// input media-type constants above).
 func falaiNormalizeDataInput(input, mediaType string) string {
-	if input == "" ||
-		strings.HasPrefix(input, "data:") ||
-		strings.HasPrefix(input, "http://") ||
-		strings.HasPrefix(input, "https://") {
+	if inputIsSelfDescribing(input) {
 		return input
 	}
 
@@ -1226,7 +961,7 @@ func falaiInjectAdapterLoras(
 		mapping = &resolved
 	}
 
-	if mapping.Adapter != falaiAdapterLora || mapping.AdapterWeightsPath == "" {
+	if mapping.Adapter != adapterLora || mapping.AdapterWeightsPath == "" {
 		return nil
 	}
 	falaiApplyLoraBaseModel(task, mapping, payload)
@@ -1261,11 +996,7 @@ func falaiApplyLoraBaseModel(task Task, mapping *ModelMapping, payload map[strin
 // falaiEncodeHeaders returns the request headers shared by fal.ai encoders:
 // a JSON body whose submit response is always JSON.
 func falaiEncodeHeaders() http.Header {
-	headers := http.Header{}
-	headers.Set("Content-Type", mimeTypeJSON)
-	headers.Set("Accept", mimeTypeJSON)
-
-	return headers
+	return jsonRequestHeaders(mimeTypeJSON)
 }
 
 // falaiTextToImageCodec is a [Codec] for text-to-image that encodes
@@ -1295,12 +1026,8 @@ func (c falaiTextToImageCodec) Encode(
 	// object before ProviderParams merge, so callers can override image_size
 	// directly.
 	payload := map[string]any{falaiPromptKey: req.Input}
-	if req.Parameters != nil {
-		flat, err := flattenParameters(req.Parameters)
-		if err != nil {
-			return nil, nil, err
-		}
-		maps.Copy(payload, flat)
+	if err := mergeInferenceParameters(payload, req.Parameters); err != nil {
+		return nil, nil, err
 	}
 	falaiApplyImageSize(payload)
 	maps.Copy(payload, req.ProviderParams)
@@ -1310,13 +1037,9 @@ func (c falaiTextToImageCodec) Encode(
 		return nil, nil, err
 	}
 
-	body, err = json.Marshal(payload)
+	body, err = marshalRequestBody(payload)
 	if err != nil {
-		return nil, nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: errFailedToMarshalRequestBody,
-			Err:     err,
-		}
+		return nil, nil, err
 	}
 
 	return body, falaiEncodeHeaders(), nil
@@ -1353,23 +1076,15 @@ func (c falaiTextToImageCodec) PostSubmit(
 		return hftypes.TextToImageResponse{}, err
 	}
 
-	media, headers, err := falaiDownloadOutput(ctx, params, outputURL)
+	media, headers, err := queueDownloadOutput(ctx, params, outputURL)
 	if err != nil {
 		return hftypes.TextToImageResponse{}, err
 	}
 
-	resp, err := c.Decode(DecodeParams{
-		Context: ctx,
-		Body:    media,
-		Event:   "", // unary responses have no SSE framing
-		Headers: headers,
-	})
-	if err != nil {
-		return hftypes.TextToImageResponse{}, err
-	}
-	resp.ProviderMetadata = falaiMetadata(state)
-
-	return resp, nil
+	return queueFinalizeResponse(ctx, c.Decode, media, headers, falaiMetadata(state),
+		func(resp *hftypes.TextToImageResponse, meta map[string]any) {
+			resp.ProviderMetadata = meta
+		})
 }
 
 // falaiImageToImageCodec is a [Codec] for image-to-image that encodes
@@ -1407,12 +1122,8 @@ func (c falaiImageToImageCodec) Encode(
 		"image_url":  image,
 		"image_urls": []string{image},
 	}
-	if req.Parameters != nil {
-		flat, err := flattenParameters(req.Parameters)
-		if err != nil {
-			return nil, nil, err
-		}
-		maps.Copy(payload, flat)
+	if err := mergeInferenceParameters(payload, req.Parameters); err != nil {
+		return nil, nil, err
 	}
 	falaiApplyTargetSize(payload)
 	maps.Copy(payload, req.ProviderParams)
@@ -1422,13 +1133,9 @@ func (c falaiImageToImageCodec) Encode(
 		return nil, nil, err
 	}
 
-	body, err = json.Marshal(payload)
+	body, err = marshalRequestBody(payload)
 	if err != nil {
-		return nil, nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: errFailedToMarshalRequestBody,
-			Err:     err,
-		}
+		return nil, nil, err
 	}
 
 	return body, falaiEncodeHeaders(), nil
@@ -1465,23 +1172,15 @@ func (c falaiImageToImageCodec) PostSubmit(
 		return hftypes.ImageToImageResponse{}, err
 	}
 
-	media, headers, err := falaiDownloadOutput(ctx, params, outputURL)
+	media, headers, err := queueDownloadOutput(ctx, params, outputURL)
 	if err != nil {
 		return hftypes.ImageToImageResponse{}, err
 	}
 
-	resp, err := c.Decode(DecodeParams{
-		Context: ctx,
-		Body:    media,
-		Event:   "", // unary responses have no SSE framing
-		Headers: headers,
-	})
-	if err != nil {
-		return hftypes.ImageToImageResponse{}, err
-	}
-	resp.ProviderMetadata = falaiMetadata(state)
-
-	return resp, nil
+	return queueFinalizeResponse(ctx, c.Decode, media, headers, falaiMetadata(state),
+		func(resp *hftypes.ImageToImageResponse, meta map[string]any) {
+			resp.ProviderMetadata = meta
+		})
 }
 
 // falaiTextToVideoCodec is a [Codec] for text-to-video that encodes
@@ -1508,27 +1207,18 @@ func (c falaiTextToVideoCodec) Encode(
 	// fal's body is flat: the prompt and every generation parameter live at
 	// the top level.
 	payload := map[string]any{falaiPromptKey: req.Input}
-	if req.Parameters != nil {
-		flat, err := flattenParameters(req.Parameters)
-		if err != nil {
-			return nil, nil, err
-		}
-		maps.Copy(payload, flat)
+	if err := mergeRequestParameters(payload, req.Parameters, req.ProviderParams); err != nil {
+		return nil, nil, err
 	}
-	maps.Copy(payload, req.ProviderParams)
 	if err := falaiInjectAdapterLoras(
 		params.Context, params.Mapping, c.resolver, TaskTextToVideo, params.Model, payload,
 	); err != nil {
 		return nil, nil, err
 	}
 
-	body, err = json.Marshal(payload)
+	body, err = marshalRequestBody(payload)
 	if err != nil {
-		return nil, nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: errFailedToMarshalRequestBody,
-			Err:     err,
-		}
+		return nil, nil, err
 	}
 
 	return body, falaiEncodeHeaders(), nil
@@ -1565,23 +1255,15 @@ func (c falaiTextToVideoCodec) PostSubmit(
 		return hftypes.TextToVideoResponse{}, err
 	}
 
-	media, headers, err := falaiDownloadOutput(ctx, params, outputURL)
+	media, headers, err := queueDownloadOutput(ctx, params, outputURL)
 	if err != nil {
 		return hftypes.TextToVideoResponse{}, err
 	}
 
-	resp, err := c.Decode(DecodeParams{
-		Context: ctx,
-		Body:    media,
-		Event:   "", // unary responses have no SSE framing
-		Headers: headers,
-	})
-	if err != nil {
-		return hftypes.TextToVideoResponse{}, err
-	}
-	resp.ProviderMetadata = falaiMetadata(state)
-
-	return resp, nil
+	return queueFinalizeResponse(ctx, c.Decode, media, headers, falaiMetadata(state),
+		func(resp *hftypes.TextToVideoResponse, meta map[string]any) {
+			resp.ProviderMetadata = meta
+		})
 }
 
 // falaiImageSegmentationCodec is a [Codec] for image segmentation that
@@ -1615,23 +1297,14 @@ func (c falaiImageSegmentationCodec) Encode(
 	payload := map[string]any{
 		"image_url": falaiNormalizeDataInput(req.Input, falaiMaskInputMIME),
 	}
-	if req.Parameters != nil {
-		flat, err := flattenParameters(req.Parameters)
-		if err != nil {
-			return nil, nil, err
-		}
-		maps.Copy(payload, flat)
+	if err := mergeRequestParameters(payload, req.Parameters, req.ProviderParams); err != nil {
+		return nil, nil, err
 	}
-	maps.Copy(payload, req.ProviderParams)
 	payload["sync_mode"] = true
 
-	body, err = json.Marshal(payload)
+	body, err = marshalRequestBody(payload)
 	if err != nil {
-		return nil, nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: errFailedToMarshalRequestBody,
-			Err:     err,
-		}
+		return nil, nil, err
 	}
 
 	return body, falaiEncodeHeaders(), nil
@@ -1682,23 +1355,15 @@ func (c falaiImageSegmentationCodec) PostSubmit(
 		}}, nil
 	}
 
-	media, headers, err := falaiDownloadOutput(ctx, params, maskRef)
+	media, headers, err := queueDownloadOutput(ctx, params, maskRef)
 	if err != nil {
 		return nil, err
 	}
 
-	segments, err := c.Decode(DecodeParams{
-		Context: ctx,
-		Body:    media,
-		Event:   "", // unary responses have no SSE framing
-		Headers: headers,
-	})
-	if err != nil {
-		return nil, err
-	}
-	segments[0].ProviderMetadata = metadata
-
-	return segments, nil
+	return queueFinalizeResponse(ctx, c.Decode, media, headers, metadata,
+		func(segments *[]hftypes.ImageSegmentation, meta map[string]any) {
+			(*segments)[0].ProviderMetadata = meta
+		})
 }
 
 // falaiSpeechRecognitionCodec is a [Codec] for speech recognition that
@@ -1729,30 +1394,31 @@ func (c falaiSpeechRecognitionCodec) Encode(
 	payload := map[string]any{
 		"audio_url": falaiNormalizeDataInput(req.Input, falaiAudioInputMIME),
 	}
-	if req.Parameters != nil {
-		flat, err := flattenParameters(req.Parameters)
-		if err != nil {
-			return nil, nil, err
-		}
-		maps.Copy(payload, flat)
+	if err := mergeRequestParameters(payload, req.Parameters, req.ProviderParams); err != nil {
+		return nil, nil, err
 	}
-	maps.Copy(payload, req.ProviderParams)
 
-	body, err = json.Marshal(payload)
+	body, err = marshalRequestBody(payload)
 	if err != nil {
-		return nil, nil, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: errFailedToMarshalRequestBody,
-			Err:     err,
-		}
+		return nil, nil, err
 	}
 
 	return body, falaiEncodeHeaders(), nil
 }
 
+// Decode validates a JSON Content-Type and parses fal's speech-recognition
+// result body (see [falaiDecodeASRResult]). The queue result endpoint always
+// serves JSON — PostSubmit synthesizes that header for the fetched body — so
+// a direct Decode of anything but a JSON-labeled body is rejected rather
+// than trusted, matching Replicate's speech-recognition codec.
 func (c falaiSpeechRecognitionCodec) Decode(
 	params DecodeParams,
 ) (hftypes.SpeechRecognitionResponse, error) {
+	contentType := params.Headers.Get("Content-Type")
+	if !isJSONContentType(contentType) {
+		return hftypes.SpeechRecognitionResponse{}, errUnexpectedContentType(contentType)
+	}
+
 	return falaiDecodeASRResult(params.Body)
 }
 
@@ -1767,16 +1433,9 @@ func (c falaiSpeechRecognitionCodec) PostSubmit(
 		return hftypes.SpeechRecognitionResponse{}, err
 	}
 
-	resp, err := c.Decode(DecodeParams{
-		Context: ctx,
-		Body:    result,
-		Event:   "", // unary responses have no SSE framing
-		Headers: http.Header{"Content-Type": {mimeTypeJSON}},
-	})
-	if err != nil {
-		return hftypes.SpeechRecognitionResponse{}, err
-	}
-	resp.ProviderMetadata = falaiMetadata(state)
-
-	return resp, nil
+	return queueFinalizeResponse(ctx, c.Decode, result,
+		http.Header{"Content-Type": {mimeTypeJSON}}, falaiMetadata(state),
+		func(resp *hftypes.SpeechRecognitionResponse, meta map[string]any) {
+			resp.ProviderMetadata = meta
+		})
 }

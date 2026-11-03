@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"mime"
 	"net/http"
 	"strings"
@@ -33,7 +34,32 @@ const (
 	mimeTypeJSON                          = "application/json"
 	mimeTypeAny                           = "*/*"
 	mimeTypeFLAC                          = "audio/flac"
+	// headerAccept is the Accept request header name, used by every encoder
+	// that describes its wire format through [jsonRequestHeaders] and by the
+	// queue providers' follow-up requests.
+	headerAccept = "Accept"
 )
+
+// adapterLora is the Hub mapping adapter value marking a model that ships
+// LoRA weights applied on top of a provider-hosted base model. The
+// media-output providers key their LoRA payload injection on it (see
+// [ModelMapping.Adapter]).
+const adapterLora = "lora"
+
+// flacMagic is the magic prefix of a FLAC stream. net/http's byte sniffer
+// has no FLAC signature, so the media-type sniffers in this package layer an
+// explicit [hasFLACPrefix] check on top of the sniffer's verdict.
+const flacMagic = "fLaC"
+
+// hasFLACPrefix reports whether raw begins with the FLAC stream magic.
+func hasFLACPrefix(raw []byte) bool {
+	return bytes.HasPrefix(raw, []byte(flacMagic))
+}
+
+// huggingfaceRouterHost is the Hugging Face router host. Providers that
+// resolve router-proxied follow-up URLs compare the caller's base URL host
+// against it.
+const huggingfaceRouterHost = "router.huggingface.co"
 
 // EncodeParams carries the inputs to [Codec.Encode].
 type EncodeParams[Req any] struct {
@@ -259,6 +285,18 @@ type (
 	SpeechRecognitionCodec = Codec[hftypes.SpeechRecognitionRequest, hftypes.SpeechRecognitionResponse]
 )
 
+// jsonRequestHeaders returns the request headers shared by JSON-body request
+// encoders: the body's Content-Type is application/json, and accept names the
+// media type the response is expected to carry. Providers whose response
+// subtype is provider-chosen (e.g. media bytes) pass [mimeTypeAny].
+func jsonRequestHeaders(accept string) http.Header {
+	headers := http.Header{}
+	headers.Set("Content-Type", mimeTypeJSON)
+	headers.Set(headerAccept, accept)
+
+	return headers
+}
+
 // JSONCodec is a generic Codec implementation that encodes requests and decodes
 // responses as JSON.
 type JSONCodec[Req, Resp any] struct{}
@@ -284,11 +322,7 @@ func (JSONCodec[Req, Resp]) Encode(
 		}
 	}
 
-	headers = http.Header{}
-	headers.Set("Content-Type", mimeTypeJSON)
-	headers.Set("Accept", mimeTypeJSON)
-
-	return body, headers, nil
+	return body, jsonRequestHeaders(mimeTypeJSON), nil
 }
 
 // Decode unmarshals a JSON response body into the response type. The body
@@ -304,11 +338,7 @@ func (JSONCodec[Req, Resp]) Encode(
 func (JSONCodec[Req, Resp]) Decode(params DecodeParams) (resp Resp, err error) {
 	contentType := params.Headers.Get("Content-Type")
 	if !isJSONContentType(contentType) {
-		return resp, &hferrors.SDKError{
-			Kind:    hferrors.SDKErrorKindSerialization,
-			Message: "expected Content-Type application/json, got " + contentType,
-			Err:     nil,
-		}
+		return resp, errUnexpectedContentType(contentType)
 	}
 
 	if err := json.Unmarshal(params.Body, &resp); err != nil {
@@ -393,4 +423,67 @@ func flattenParameters(parameters any) (map[string]any, error) {
 	}
 
 	return flat, nil
+}
+
+// mergeInferenceParameters flattens a request's typed inference parameters
+// and merges them into payload. Nil parameters leave payload untouched; see
+// [flattenParameters] for the flattening semantics.
+func mergeInferenceParameters(payload map[string]any, parameters any) error {
+	if parameters == nil {
+		return nil
+	}
+
+	flat, err := flattenParameters(parameters)
+	if err != nil {
+		return err
+	}
+	maps.Copy(payload, flat)
+
+	return nil
+}
+
+// mergeRequestParameters merges a request's typed inference parameters and
+// its ProviderParams into payload, in that order: ProviderParams entries win
+// over typed-parameter entries. This is the merge order every flat-wire
+// provider encodes; callers with additional payload post-processing (size
+// folds, forced keys) sequence it between their own steps.
+func mergeRequestParameters(
+	payload map[string]any,
+	parameters any,
+	providerParams map[string]any,
+) error {
+	if err := mergeInferenceParameters(payload, parameters); err != nil {
+		return err
+	}
+	maps.Copy(payload, providerParams)
+
+	return nil
+}
+
+// marshalRequestBody marshals a request payload map into its JSON request
+// body, wrapping marshal failures in the package's shared serialization
+// error.
+func marshalRequestBody(payload map[string]any) ([]byte, error) {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindSerialization,
+			Message: errFailedToMarshalRequestBody,
+			Err:     err,
+		}
+	}
+
+	return body, nil
+}
+
+// inputIsSelfDescribing reports whether input already carries its own
+// addressing — a data URI or an absolute HTTP(S) URL — and so passes through
+// provider payloads unchanged rather than being wrapped as a data URI. The
+// queue-based media providers share this rule when preparing image, video,
+// and audio inputs.
+func inputIsSelfDescribing(input string) bool {
+	return input == "" ||
+		strings.HasPrefix(input, "data:") ||
+		strings.HasPrefix(input, "http://") ||
+		strings.HasPrefix(input, "https://")
 }

@@ -33,11 +33,11 @@ func main() {
 		hfproviders.WithHubToken(token),
 	)
 
-	// Create a WavespeedProvider backed by the resolver. The constructor
+	// Create a WaveSpeedProvider backed by the resolver. The constructor
 	// returns an error if the resolver is nil.
-	provider, err := hfproviders.NewWavespeedProvider(resolver)
+	provider, err := hfproviders.NewWaveSpeedProvider(resolver)
 	if err != nil {
-		log.Fatalf("error creating Wavespeed provider: %v", err)
+		log.Fatalf("error creating WaveSpeed provider: %v", err)
 	}
 
 	// Configure the client to route text-to-video requests through the

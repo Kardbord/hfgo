@@ -41,8 +41,7 @@ var _ ModelResolver = (*HubModelResolver)(nil)
 // The default configuration uses the Hub base URL, no token, a default HTTP
 // client, and the documented cache defaults.
 func NewHubModelResolver(opts ...HubModelResolverOption) *HubModelResolver {
-	//nolint:exhaustruct_v5 // A zero-value http.Client uses the stdlib default transport and no timeout.
-	defaultClient := http.Client{}
+	var defaultClient http.Client
 
 	//nolint:exhaustruct_v5 // Optional fields are intentionally zero; hub.Client applies documented defaults.
 	cfg := hubResolverConfig{

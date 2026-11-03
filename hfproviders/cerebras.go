@@ -10,7 +10,7 @@ const cerebrasProviderName = "cerebras"
 // request/response schema across providers: only the routing differs,
 // expressed by appending the ":cerebras" provider suffix to the model ID.
 //
-// Unlike [WavespeedProvider], Cerebras needs no [ModelResolver]: the chat
+// Unlike [WaveSpeedProvider], Cerebras needs no [ModelResolver]: the chat
 // endpoint is model-independent, and the router performs provider mapping
 // server-side. The ":cerebras" suffix is a deterministic provider pin — the
 // router's automatic failover applies to unsuffixed models and routing

@@ -152,7 +152,7 @@ the routed-versus-custom-key comparison.
 Like the Hugging Face provider, Replicate is composed from per-task mixins:
 `ReplicateTextToImageMixin`, `ReplicateImageToImageMixin`,
 `ReplicateTextToVideoMixin`, and
-`ReplicateAutomaticSpeechRecognitionMixin`. Unlike the Hugging Face mixins,
+`ReplicateSpeechRecognitionMixin`. Unlike the Hugging Face mixins,
 each carries an exported `Resolver ModelResolver` field that maps the
 configured Hugging Face model ID to Replicate's identifier at
 endpoint-construction time — embed the mixins for the tasks you serve and set

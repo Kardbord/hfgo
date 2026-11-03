@@ -10,7 +10,7 @@ const cohereProviderName = "cohere"
 // request/response schema across providers: only the routing differs,
 // expressed by appending the ":cohere" provider suffix to the model ID.
 //
-// Unlike [WavespeedProvider], Cohere needs no [ModelResolver]: the chat
+// Unlike [WaveSpeedProvider], Cohere needs no [ModelResolver]: the chat
 // endpoint is model-independent, and the router performs provider mapping
 // server-side. The ":cohere" suffix is a deterministic provider pin — the
 // router's automatic failover applies to unsuffixed models and routing
