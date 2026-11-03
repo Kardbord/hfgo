@@ -86,15 +86,13 @@ func queueRetryAfter(headers http.Header) time.Duration {
 func queuePollWait(ctx context.Context, d time.Duration) error {
 	// A fresh timer per call avoids the time.After leak: time.After timers
 	// cannot be stopped, so they keep running until they fire even when the
-	// context exits first. The drain after a failed Stop is safe because each
-	// timer's channel is consumed exactly once.
+	// context exits first. Stop releases the timer; since Go 1.23 it reports
+	// true whenever the value is undelivered, so no channel drain is needed.
 	timer := time.NewTimer(d)
 
 	select {
 	case <-ctx.Done():
-		if !timer.Stop() {
-			<-timer.C
-		}
+		timer.Stop()
 
 		return ctx.Err()
 	case <-timer.C:
@@ -581,7 +579,8 @@ func queueDownloadOutput(
 // PostSubmit: decode the downloaded output body through the codec's own
 // Decode and attach the completed task's provider metadata. Response types
 // are per-task hftypes DTOs with no shared interface, so each codec passes
-// its own setter for the ProviderMetadata field.
+// its own setter for the ProviderMetadata field. The helper does not constrain
+// what decode returns, so attach must tolerate a zero or empty T.
 func queueFinalizeResponse[T any](
 	ctx context.Context,
 	decode func(DecodeParams) (T, error),

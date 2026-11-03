@@ -1362,7 +1362,9 @@ func (c falaiImageSegmentationCodec) PostSubmit(
 
 	return queueFinalizeResponse(ctx, c.Decode, media, headers, metadata,
 		func(segments *[]hftypes.ImageSegmentation, meta map[string]any) {
-			(*segments)[0].ProviderMetadata = meta
+			if len(*segments) > 0 {
+				(*segments)[0].ProviderMetadata = meta
+			}
 		})
 }
 
