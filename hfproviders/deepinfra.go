@@ -1,6 +1,7 @@
 package hfproviders
 
 import (
+	"bytes"
 	"net/http"
 
 	"github.com/Kardbord/hfgo/v4/hftypes"
@@ -273,7 +274,13 @@ func (c deepinfraSpeechRecognitionCodec) Encode(
 		return nil, nil, err
 	}
 
-	return encodeOpenAITranscription(params.Request, mapping)
+	var bodyBuf bytes.Buffer
+	headers, err = encodeOpenAITranscription(&bodyBuf, params.Request, mapping)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return bodyBuf.Bytes(), headers, nil
 }
 
 func (c deepinfraSpeechRecognitionCodec) Decode(

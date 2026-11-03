@@ -527,6 +527,28 @@ func TestQueueDownloadOutput(t *testing.T) {
 	require.Equal(t, "image/png", headers.Get("Content-Type"))
 }
 
+// TestQueueDownloadOutput_MalformedContentType verifies that a response whose
+// advertised Content-Type cannot be parsed falls back to byte sniffing.
+func TestQueueDownloadOutput_MalformedContentType(t *testing.T) {
+	t.Parallel()
+
+	png := []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "not a media type")
+		_, _ = w.Write(png)
+	}))
+	defer server.Close()
+
+	body, headers, err := queueDownloadOutput(context.Background(),
+		PostSubmitParams{HTTPClient: server.Client(), MaxResponseBodyBytes: 1 << 20},
+		server.URL+"/output.png",
+	)
+	require.NoError(t, err)
+	require.Equal(t, png, body)
+	require.Equal(t, "image/png", headers.Get("Content-Type"))
+}
+
 // TestQueueErrorHelpers exercises the shared task-error constructors: a
 // failed task surfaces as a provider-kind error, and a decode failure as a
 // serialization-kind error carrying the provider label.

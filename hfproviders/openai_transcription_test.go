@@ -3,6 +3,7 @@
 package hfproviders
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -299,4 +300,21 @@ func TestOpenAIMultipartBodyTo_WriteFailures(t *testing.T) {
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, errFailedToMarshalRequestBody)
 	}
+}
+
+// TestEncodeOpenAITranscription_MultipartWriteFailure covers the encode path's
+// defensive error branch when the multipart body cannot be built: the
+// destination writer fails mid-exchange.
+func TestEncodeOpenAITranscription_MultipartWriteFailure(t *testing.T) {
+	t.Parallel()
+
+	_, err := encodeOpenAITranscription(
+		&openAIFailWriter{failOn: 1},
+		hftypes.SpeechRecognitionRequest{
+			Input: base64.StdEncoding.EncodeToString([]byte("audio")),
+		},
+		&ModelMapping{ProviderModelID: "test-model"},
+	)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+	require.ErrorContains(t, err, errFailedToMarshalRequestBody)
 }

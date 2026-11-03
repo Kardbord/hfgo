@@ -1,7 +1,6 @@
 package hfproviders
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -48,15 +47,17 @@ func openAISniffAudioType(audio []byte) string {
 // audio rides the "file" part with its media type sniffed from the bytes'
 // magic signature, the recognition and provider parameters ride the remaining
 // form fields, and the mapped provider model identifier rides the "model"
-// field — applied last, so provider parameters cannot override it. It returns
-// the body and the Content-Type/Accept headers describing the wire format.
+// field — applied last, so provider parameters cannot override it. It writes
+// the body to dst and returns the Content-Type/Accept headers describing the
+// wire format.
 func encodeOpenAITranscription(
+	dst io.Writer,
 	req hftypes.SpeechRecognitionRequest,
 	mapping *ModelMapping,
-) (body []byte, headers http.Header, err error) {
+) (headers http.Header, err error) {
 	audio, err := base64.StdEncoding.DecodeString(req.Input)
 	if err != nil {
-		return nil, nil, &hferrors.SDKError{
+		return nil, &hferrors.SDKError{
 			Kind:    hferrors.SDKErrorKindSerialization,
 			Message: errFailedToDecodeBase64Input,
 			Err:     err,
@@ -69,22 +70,21 @@ func encodeOpenAITranscription(
 
 	fields, err := openAITranscriptionFields(&req)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	// Applied last so a caller-supplied entry cannot override the mapped
 	// provider model, matching the official clients.
 	fields["model"] = mapping.ProviderModelID
 
-	var bodyBuf bytes.Buffer
-	contentType, err := openAIMultipartBodyTo(&bodyBuf, audio, sniffed, fields)
+	contentType, err := openAIMultipartBodyTo(dst, audio, sniffed, fields)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	headers = jsonRequestHeaders(mimeTypeJSON)
 	headers.Set("Content-Type", contentType)
 
-	return bodyBuf.Bytes(), headers, nil
+	return headers, nil
 }
 
 // openAITranscriptionFields collects the canonical recognition parameters and
