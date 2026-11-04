@@ -1,0 +1,28 @@
+# PR-Agent repository configuration. Read from the default branch only.
+# Docs: https://docs.pr-agent.ai/usage-guide/configuration_reference/
+
+[config]
+# Default review model. Override per review with:
+#   /review --config.model=openrouter/<vendor>/<model>
+model = "openrouter/moonshotai/kimi-k2.6"
+repo_context_from_default_branch = false
+bot_user_indicators = ["codium", "bot_", "bot-", "_bot", "-bot", "renovate", "[bot]"]
+restricted_mode = true
+
+# /review
+[pr_review]
+require_tests_review = true
+require_estimate_effort_to_review = false
+require_security_review = true
+require_ticket_analysis_review = false
+require_merge_recommendation = true
+inline_key_issues = true
+num_max_findings = 5
+
+# /improve
+[pr_code_suggestions]
+focus_only_on_problems = true
+
+[github]
+deployment_type = "user"
+ignore_bot_pr = false
