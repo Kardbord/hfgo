@@ -1,12 +1,9 @@
----
 name: Integration Tests
-
 on:
   push:
     branches:
       - main
       - v*-draft
-
   pull_request_target:
     types:
       - opened
@@ -15,16 +12,12 @@ on:
     branches:
       - main
       - v*-draft
-
   schedule:
     - cron: "5 6 * * 1"
-
   workflow_dispatch:
-
 permissions:
   contents: read
   issues: write # For creating/closing failure issues
-
 # Prevents multiple integration test runs from executing simultaneously.
 # This avoids API rate limiting and resource conflicts.
 #
@@ -40,7 +33,6 @@ concurrency:
       format('integration-tests-{0}', github.ref_name)
     }}
   cancel-in-progress: true
-
 jobs:
   check-changes:
     name: Check for code changes
@@ -69,7 +61,7 @@ jobs:
           CHANGED_FILES="$(gh api --paginate "repos/${{ github.repository }}/pulls/$PR_NUMBER/files" --jq '.[].filename')"
           echo "Changed files:"
           echo "$CHANGED_FILES"
-          CODE_CHANGES=$(echo "$CHANGED_FILES" | grep -v '^docs/' | grep -v '\.md$' | grep -v '^LICENSE$' | grep -v '^\.github/' || true)
+          CODE_CHANGES=$(echo "$CHANGED_FILES" | grep -v '^docs/' | grep -v '\.md$' | grep -v '^LICENSE$' | grep -v '^\.github/' | grep -v '^.pr_agent.toml$' || true)
           # Re-include this workflow file as a code change
           if echo "$CHANGED_FILES" | grep -q -x '\.github/workflows/integration-tests\.yml'; then
             CODE_CHANGES=".github/workflows/integration-tests.yml"$'\n'"$CODE_CHANGES"
@@ -81,7 +73,6 @@ jobs:
             echo "Code changes detected. Running integration tests."
             echo "run_tests=true" >> "$GITHUB_OUTPUT"
           fi
-
   run-integration-tests:
     needs: check-changes
     if: needs.check-changes.outputs.run_tests == 'true'
@@ -105,18 +96,15 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.base.ref || github.ref }}
-
       - name: Checkout and reconstruct PR merge
         uses: ./.github/actions/checkout-pr-merge
         with:
           ref: ${{ github.event.pull_request.base.ref || github.ref }}
           pr-number: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.number || '' }}
-
       - name: Set up Go
         uses: ./.github/actions/setup-go
         with:
           install-gotestsum: 'true'
-
       # Tests are retried up to 3 times with 10-second delays between attempts.
       # This helps mitigate transient API failures and network issues.
       #
@@ -139,14 +127,12 @@ jobs:
             -timeout=600s \
             -coverprofile=coverage.out \
             -covermode=atomic
-
       - name: Upload coverage to Codecov
         if: ${{ !cancelled() }}
         uses: ./.github/actions/upload-codecov
         with:
           flags: integration
           artifact-name: integration-test-results
-
       # Creates branch-specific labels if they don't already exist.
       # This ensures that the subsequent issue creation/update steps can use these labels.
       # Uses try/catch since the API errors if label already exists.
@@ -178,7 +164,6 @@ jobs:
                 throw error;
               }
             }
-
       # When tests fail on tracked branches or scheduled runs:
       # - Creates a new GitHub issue (if none exists for this branch)
       # - Adds a comment to existing issue with failure details
@@ -229,7 +214,6 @@ jobs:
                 body: bodyUpdate
               });
             }
-
       # When tests pass after previous failures:
       # - Adds a success comment to the issue
       # - Closes the issue
@@ -272,7 +256,6 @@ jobs:
                 state: "closed"
               });
             }
-
   integration-tests:
     needs: [check-changes, run-integration-tests]
     if: always()
