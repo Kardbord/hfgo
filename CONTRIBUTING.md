@@ -79,6 +79,12 @@ design decisions, and [AGENTS.md](./AGENTS.md) for agent-oriented instructions.
 Code review etiquette: be responsive and polite. Make requested changes in
 new commits (don't force push during review).
 
+Maintainers can request an automated PR review by commenting `/review` and `/improve`.
+To narrow the focus for one run:
+`/review --pr_reviewer.extra_instructions="focus on X"`.
+To override the default model for one run:
+`/review --config.model=openrouter/<vendor>/<model>`.
+
 ## Release Process
 
 hfgo uses [release-please](https://github.com/googleapis/release-please) with
