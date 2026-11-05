@@ -17,7 +17,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
-const Model = "meta-llama/Llama-3.1-8B-Instruct"
+const Model = "zai-org/GLM-5.3"
 
 func main() {
 	chatClient := NewChatClient(
