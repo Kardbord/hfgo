@@ -36,7 +36,7 @@ func main() {
 	// Create a new client with your API token and model
 	client := hfgo.NewClient(
 		hfopts.WithToken(token),
-		hfopts.WithModel("meta-llama/Llama-3.1-8B-Instruct"),
+		hfopts.WithModel("zai-org/GLM-5.3"),
 		hfopts.WithProvider(provider),
 	)
 

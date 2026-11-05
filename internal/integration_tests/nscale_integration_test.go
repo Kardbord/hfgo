@@ -20,7 +20,7 @@ import (
 
 const (
 	// nscaleChatModel is a conversational model Nscale serves on the router.
-	nscaleChatModel = "meta-llama/Llama-3.1-8B-Instruct"
+	nscaleChatModel = "zai-org/GLM-5.3"
 	// nscaleTextToImageModel is a text-to-image model Nscale serves on the
 	// router.
 	nscaleTextToImageModel = "black-forest-labs/FLUX.1-schnell"
@@ -145,6 +145,7 @@ func TestChatCompletion_NscaleStreamingLiveAPI(t *testing.T) {
 // the live HF API using the Nscale provider.
 // This test requires the HF_TOKEN environment variable to be set.
 func TestGenerateImage_NscaleLiveAPI(t *testing.T) {
+	t.Skip("skipped until Nscale hosts a model that supports the text to image task on huggingface")
 	apiToken := os.Getenv("HF_TOKEN")
 	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
 
