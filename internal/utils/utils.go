@@ -4,6 +4,9 @@ import (
 	"context"
 	"net/http"
 	"reflect"
+	"strconv"
+	"strings"
+	"time"
 )
 
 // NormalizeContext returns ctx when non-nil, otherwise context.Background.
@@ -52,6 +55,24 @@ func EnsureHeader(h http.Header, key, value string) http.Header {
 	}
 
 	return out
+}
+
+// ParseRetryAfter parses a Retry-After header expressed in seconds. It
+// returns the delay capped at limit, or 0 when the header is absent, does not
+// parse, or holds a non-positive value. A pathological value cannot stall a
+// caller's retry loop longer than limit.
+func ParseRetryAfter(h http.Header, limit time.Duration) time.Duration {
+	seconds, err := strconv.Atoi(strings.TrimSpace(h.Get("Retry-After")))
+	if err != nil || seconds <= 0 {
+		return 0
+	}
+
+	delay := time.Duration(seconds) * time.Second
+	if delay > limit {
+		return limit
+	}
+
+	return delay
 }
 
 // IsNil reports whether value is nil, including a nil pointer, map, slice,

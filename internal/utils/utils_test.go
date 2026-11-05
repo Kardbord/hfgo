@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -85,6 +86,59 @@ func TestCloneHeader(t *testing.T) {
 		2,
 		"original slice must not be reused",
 	)
+}
+
+func TestParseRetryAfter(t *testing.T) {
+	t.Parallel()
+
+	const retryCap = 60 * time.Second
+
+	tests := []struct {
+		name   string
+		header string
+		want   time.Duration
+	}{
+		{"missing header", "", 0},
+		{"valid seconds", "30", 30 * time.Second},
+		{"padded whitespace", "  45  ", 45 * time.Second},
+		{"zero is ignored", "0", 0},
+		{"negative is ignored", "-5", 0},
+		{"not an integer", "soon", 0},
+		{"not a plain integer", "1.5", 0},
+		{"capped at max", "999999", retryCap},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			h := http.Header{}
+			if tt.header != "" {
+				h.Set("Retry-After", tt.header)
+			}
+
+			require.Equal(
+				t,
+				tt.want,
+				ParseRetryAfter(h, retryCap),
+				"ParseRetryAfter(%q)",
+				tt.header,
+			)
+		})
+	}
+
+	t.Run("nil header", func(t *testing.T) {
+		t.Parallel()
+
+		require.Equal(t, time.Duration(0), ParseRetryAfter(nil, retryCap))
+	})
+
+	t.Run("unbounded max", func(t *testing.T) {
+		t.Parallel()
+
+		h := http.Header{"Retry-After": []string{"90"}}
+		require.Equal(t, 90*time.Second, ParseRetryAfter(h, time.Hour))
+	})
 }
 
 func TestOverrideHeaders(t *testing.T) {
