@@ -336,9 +336,9 @@ returned by `Recv`.
 Errors are categorized into two types in the `hferrors` package:
 
 - **`APIError`**: returned by the API (4xx/5xx HTTP responses). Carries the
-  status code, message, body reader, request ID, method, and URL. Helper
+  status code, message, body reader, response headers, method, and URL. Helper
   methods: `IsClientError()`, `IsServerError()`, `IsAuthenticationError()`,
-  `IsRateLimitError()`.
+  `IsRateLimitError()`, and `RetryAfter()` for the server-provided retry delay.
 - **`SDKError`**: produced locally (before an API response, while unmarshaling
   one, or when the provider reports a failure inside an otherwise valid
   response). Carries a `SDKErrorKind` category (`validation`, `configuration`,

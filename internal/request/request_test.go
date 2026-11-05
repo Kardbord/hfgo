@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfgoversion"
@@ -726,8 +727,11 @@ func TestAPIErrorFromResponse(t *testing.T) {
 		resp := &http.Response{
 			StatusCode: http.StatusUnauthorized,
 			Body:       body,
-			Header:     http.Header{"X-Request-Id": []string{"req-123"}},
-			Request:    req,
+			Header: http.Header{
+				"X-Request-Id": []string{"req-123"},
+				"Retry-After":  []string{"45"},
+			},
+			Request: req,
 		}
 
 		apiErr := APIErrorFromResponse(resp, req.Method)
@@ -736,7 +740,18 @@ func TestAPIErrorFromResponse(t *testing.T) {
 		require.Equal(t, body, apiErr.Body)
 		require.Equal(t, http.MethodPost, apiErr.Method)
 		require.Equal(t, "https://example.com/v1/chat/completions", apiErr.URL)
-		require.Equal(t, "req-123", apiErr.RequestID)
+		require.Equal(t, "req-123", apiErr.Headers.Get("X-Request-Id"))
+
+		// The server-provided retry delay must be reachable through the
+		// typed accessor.
+		require.Equal(t, 45*time.Second, apiErr.RetryAfter())
+
+		// The headers must be deep-copied: mutating the response's map after
+		// the fact must not leak into the error.
+		resp.Header.Set("X-Request-Id", "mutated")
+		resp.Header.Set("Retry-After", "999")
+		require.Equal(t, "req-123", apiErr.Headers.Get("X-Request-Id"))
+		require.Equal(t, 45*time.Second, apiErr.RetryAfter())
 	})
 
 	t.Run("tolerates missing request", func(t *testing.T) {
@@ -751,6 +766,9 @@ func TestAPIErrorFromResponse(t *testing.T) {
 		apiErr := APIErrorFromResponse(resp, http.MethodGet)
 		require.Equal(t, http.StatusInternalServerError, apiErr.StatusCode)
 		require.Empty(t, apiErr.URL)
+		require.NotNil(t, apiErr.Headers)
+		require.Empty(t, apiErr.Headers.Get("Retry-After"))
+		require.Zero(t, apiErr.RetryAfter())
 	})
 }
 
