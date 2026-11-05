@@ -5,12 +5,17 @@
 # Default review model. Override per review with:
 #   /review --config.model=openrouter/<vendor>/<model>
 model = "openrouter/moonshotai/kimi-k2.6"
-repo_context_from_default_branch = false
-bot_user_indicators = ["codium", "bot_", "bot-", "_bot", "-bot", "renovate", "[bot]"]
+# Kimi K2.6 supports a 262k context window; the default 32000 caps the diff
+# regardless of model capability and was causing /review to skip files.
+max_model_tokens = 64000
 restricted_mode = true
+# Append a collapsible run-details section (model, tokens, time, AI calls)
+# to tool comments; remove once max_model_tokens/chunking tuning is settled.
+output_run_details = true
 
 # /review
-[pr_review]
+# NOTE: the review tool reads its settings from [pr_reviewer], NOT [pr_review].
+[pr_reviewer]
 require_tests_review = true
 require_estimate_effort_to_review = false
 require_security_review = true
@@ -18,11 +23,28 @@ require_ticket_analysis_review = false
 require_merge_recommendation = true
 inline_key_issues = true
 num_max_findings = 5
+# When the token budget leaves files out, split the diff into chunks and
+# merge the per-chunk reviews (up to max_number_of_calls calls) instead of
+# skipping files.
+enable_large_pr_chunking = true
+max_number_of_calls = 5
+# require_estimate_effort_to_review = false removes the effort section; keep
+# the separate effort PR label from being applied too.
+enable_review_labels_effort = false
 
 # /improve
 [pr_code_suggestions]
-focus_only_on_problems = true
+# Include style / best-practice / maintainability suggestions, not just
+# critical problems; problems-only mode returns an empty list on clean PRs.
+focus_only_on_problems = false
+# Render suggestions as one-click committable code comments (unverifiable
+# replacement ranges fall back to regular comments).
+committable_code_suggestions = true
+# Suggestions per /improve chunk; raised from default 3 now that
+# focus_only_on_problems is off.
+num_code_suggestions_per_chunk = 5
 
 [github]
-deployment_type = "user"
+# Bot-authored PRs (e.g. release-please) stay reviewable; the review workflow
+# already ignores / commands from bot accounts at the workflow level.
 ignore_bot_pr = false
