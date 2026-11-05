@@ -11,6 +11,7 @@ import (
 	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,13 +32,14 @@ func TestTranslation_LiveAPI(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.Translate(
-		hftypes.TranslationRequest{
-			Input: "Hello, how are you doing today?",
-		},
-	)
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.Translation, error) {
+		return client.Translate(
+			hftypes.TranslationRequest{
+				Input: "Hello, how are you doing today?",
+			},
+		)
+	})
 
-	require.NoError(t, err, "translation should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have content")
 	require.NotEmpty(t, resp[0].TranslationText, "translation text should not be empty")
@@ -62,17 +64,18 @@ func TestTranslation_WithParameters(t *testing.T) {
 
 	cleanUp := true
 	truncation := hftypes.TranslationTruncationOnlyFirst
-	resp, err := client.Translate(
-		hftypes.TranslationRequest{
-			Input: "The weather is lovely and sunny today.",
-			Parameters: &hftypes.TranslationParameters{
-				CleanUpTokenizationSpaces: &cleanUp,
-				Truncation:                &truncation,
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.Translation, error) {
+		return client.Translate(
+			hftypes.TranslationRequest{
+				Input: "The weather is lovely and sunny today.",
+				Parameters: &hftypes.TranslationParameters{
+					CleanUpTokenizationSpaces: &cleanUp,
+					Truncation:                &truncation,
+				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "translation with parameters should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have content")
 	require.NotEmpty(t, resp[0].TranslationText, "translation text should not be empty")

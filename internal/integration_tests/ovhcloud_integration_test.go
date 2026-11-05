@@ -14,6 +14,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,20 +42,22 @@ func TestChatCompletion_OVHcloudLiveAPI(t *testing.T) {
 	client := newOVHcloudClient(ctx)
 
 	const text = "Say hello in one sentence."
-	resp, err := client.Chat(
-		hftypes.ChatRequest{
-			Messages: []hftypes.ChatMessage{
-				{
-					Role: "user",
-					Content: hftypes.ChatMessageContent{
-						Text: new(text),
+	resp := testutils.RetryTransient(ctx, t, func() (hftypes.ChatResponse, error) {
+		return client.Chat(
+			hftypes.ChatRequest{
+				Messages: []hftypes.ChatMessage{
+					{
+						Role: "user",
+						Content: hftypes.ChatMessageContent{
+							Text: new(text),
+						},
 					},
 				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "ovhcloud chat completion should succeed")
+	require.NotEmpty(t, resp.ID, "response should have an ID")
 	require.NotEmpty(t, resp.ID, "response should have an ID")
 	require.NotEmpty(t, resp.Model, "response should have a model")
 	require.NotEmpty(t, resp.Choices, "response should have choices")
@@ -78,19 +81,20 @@ func TestChatCompletion_OVHcloudStreamingLiveAPI(t *testing.T) {
 	client := newOVHcloudClient(ctx)
 
 	text := "Say hello in one sentence."
-	stream, err := client.ChatStream(
-		hftypes.ChatRequest{
-			Messages: []hftypes.ChatMessage{
-				{
-					Role: "user",
-					Content: hftypes.ChatMessageContent{
-						Text: &text,
+	stream := testutils.RetryTransient(ctx, t, func() (*hftypes.ChatStream, error) {
+		return client.ChatStream(
+			hftypes.ChatRequest{
+				Messages: []hftypes.ChatMessage{
+					{
+						Role: "user",
+						Content: hftypes.ChatMessageContent{
+							Text: &text,
+						},
 					},
 				},
 			},
-		},
-	)
-	require.NoError(t, err, "streaming request should succeed")
+		)
+	})
 	defer stream.Close()
 
 	var chunkCount int
@@ -130,35 +134,37 @@ func TestChatCompletion_OVHcloudMultiMessageLiveAPI(t *testing.T) {
 
 	client := newOVHcloudClient(ctx)
 
-	text1 := "What is 2+2?"
-	text2 := "What is the answer multiplied by 3?"
+	const text1 = "What is 2+2?"
+	const text2 = "What is the answer multiplied by 3?"
 
-	resp, err := client.Chat(
-		hftypes.ChatRequest{
-			Messages: []hftypes.ChatMessage{
-				{
-					Role: "user",
-					Content: hftypes.ChatMessageContent{
-						Text: &text1,
+	resp := testutils.RetryTransient(ctx, t, func() (hftypes.ChatResponse, error) {
+		return client.Chat(
+			hftypes.ChatRequest{
+				Messages: []hftypes.ChatMessage{
+					{
+						Role: "user",
+						Content: hftypes.ChatMessageContent{
+							Text: new(text1),
+						},
 					},
-				},
-				{
-					Role: "assistant",
-					Content: hftypes.ChatMessageContent{
-						Text: new("2+2 equals 4"),
+					{
+						Role: "assistant",
+						Content: hftypes.ChatMessageContent{
+							Text: new("2+2 equals 4"),
+						},
 					},
-				},
-				{
-					Role: "user",
-					Content: hftypes.ChatMessageContent{
-						Text: &text2,
+					{
+						Role: "user",
+						Content: hftypes.ChatMessageContent{
+							Text: new(text2),
+						},
 					},
 				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "multi-message chat completion should succeed")
+	require.NotEmpty(t, resp.Choices, "response should have choices")
 	require.NotEmpty(t, resp.Choices, "response should have choices")
 	require.NotNil(t, resp.Choices[0].Message.Content, "message should have content")
 	require.NotEmpty(t, *resp.Choices[0].Message.Content, "message content should not be empty")

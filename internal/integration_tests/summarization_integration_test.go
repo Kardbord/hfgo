@@ -11,6 +11,7 @@ import (
 	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,13 +36,14 @@ func TestSummarization_LiveAPI(t *testing.T) {
 		"Its base is square, measuring 125 metres (410 ft) on each side. During its construction, the Eiffel " +
 		"Tower surpassed the Washington Monument to become the tallest man-made structure in the world."
 
-	resp, err := client.Summarize(
-		hftypes.SummarizationRequest{
-			Input: input,
-		},
-	)
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.Summarization, error) {
+		return client.Summarize(
+			hftypes.SummarizationRequest{
+				Input: input,
+			},
+		)
+	})
 
-	require.NoError(t, err, "summarization should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have content")
 	require.NotEmpty(t, resp[0].SummaryText, "summary text should not be empty")
@@ -68,17 +70,18 @@ func TestSummarization_WithParameters(t *testing.T) {
 	truncation := hftypes.SummarizationTruncationOnlyFirst
 	input := "The industrial revolution transformed agriculture, manufacturing, mining, and transport, " +
 		"leading to massive social and economic changes across the world."
-	resp, err := client.Summarize(
-		hftypes.SummarizationRequest{
-			Input: input,
-			Parameters: &hftypes.SummarizationParameters{
-				CleanUpTokenizationSpaces: &cleanUp,
-				Truncation:                &truncation,
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.Summarization, error) {
+		return client.Summarize(
+			hftypes.SummarizationRequest{
+				Input: input,
+				Parameters: &hftypes.SummarizationParameters{
+					CleanUpTokenizationSpaces: &cleanUp,
+					Truncation:                &truncation,
+				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "summarization with parameters should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have content")
 	require.NotEmpty(t, resp[0].SummaryText, "summary text should not be empty")

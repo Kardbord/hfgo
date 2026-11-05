@@ -60,11 +60,12 @@ func TestSegmentImage_LiveAPI(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.SegmentImage(hftypes.ImageSegmentationRequest{
-		Input: segmentImageInput(t),
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ImageSegmentation, error) {
+		return client.SegmentImage(hftypes.ImageSegmentationRequest{
+			Input: segmentImageInput(t),
+		})
 	})
 
-	require.NoError(t, err, "image segmentation should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have segments")
 
@@ -92,16 +93,17 @@ func TestSegmentImage_WithParameters(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.SegmentImage(hftypes.ImageSegmentationRequest{
-		Input: segmentImageInput(t),
-		Parameters: &hftypes.ImageSegmentationParameters{
-			MaskThreshold:            new(0.5),
-			OverlapMaskAreaThreshold: new(0.5),
-			Threshold:                new(0.5),
-		},
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ImageSegmentation, error) {
+		return client.SegmentImage(hftypes.ImageSegmentationRequest{
+			Input: segmentImageInput(t),
+			Parameters: &hftypes.ImageSegmentationParameters{
+				MaskThreshold:            new(0.5),
+				OverlapMaskAreaThreshold: new(0.5),
+				Threshold:                new(0.5),
+			},
+		})
 	})
 
-	require.NoError(t, err, "image segmentation with parameters should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have segments")
 }

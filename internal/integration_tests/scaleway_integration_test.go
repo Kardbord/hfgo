@@ -12,6 +12,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -49,20 +50,21 @@ func TestChatCompletion_ScalewayLiveAPI(t *testing.T) {
 	client := newScalewayClient(t, ctx, "openai/gpt-oss-120b")
 
 	const text = "Say hello in one sentence."
-	resp, err := client.Chat(
-		hftypes.ChatRequest{
-			Messages: []hftypes.ChatMessage{
-				{
-					Role: "user",
-					Content: hftypes.ChatMessageContent{
-						Text: new(text),
+	resp := testutils.RetryTransient(ctx, t, func() (hftypes.ChatResponse, error) {
+		return client.Chat(
+			hftypes.ChatRequest{
+				Messages: []hftypes.ChatMessage{
+					{
+						Role: "user",
+						Content: hftypes.ChatMessageContent{
+							Text: new(text),
+						},
 					},
 				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "scaleway chat completion should succeed")
 	require.NotEmpty(t, resp.ID, "response should have an ID")
 	require.NotEmpty(t, resp.Model, "response should have a model")
 	require.NotEmpty(t, resp.Choices, "response should have choices")
@@ -85,15 +87,20 @@ func TestFeatureExtractionPooled_ScalewayLiveAPI(t *testing.T) {
 
 	client := newScalewayClient(t, ctx, "Qwen/Qwen3-Embedding-8B")
 
-	resp, err := client.ExtractPooledFeatures(
-		hftypes.FeatureExtractionRequest{
-			Input: "What is the capital of France?",
+	resp := testutils.RetryTransient(
+		ctx,
+		t,
+		func() (hftypes.FeatureExtractionPooledEmbedding, error) {
+			return client.ExtractPooledFeatures(
+				hftypes.FeatureExtractionRequest{
+					Input: "What is the capital of France?",
+				},
+			)
 		},
 	)
 
-	require.NoError(t, err, "scaleway feature extraction should succeed")
 	require.NotEmpty(t, resp, "embedding should not be empty")
-	require.Greater(t, resp.Dimension(), 0, "embedding should have a positive dimension")
+	require.Positive(t, resp.Dimension(), "embedding should have a positive dimension")
 }
 
 // TestFeatureExtractionPooledBatch_ScalewayLiveAPI tests batch pooled
@@ -112,21 +119,25 @@ func TestFeatureExtractionPooledBatch_ScalewayLiveAPI(t *testing.T) {
 		"I love programming in Go.",
 	}
 
-	resp, err := client.ExtractPooledFeaturesBatch(
-		hftypes.FeatureExtractionBatchRequest{
-			Inputs: inputs,
+	resp := testutils.RetryTransient(
+		ctx,
+		t,
+		func() ([]hftypes.FeatureExtractionPooledEmbedding, error) {
+			return client.ExtractPooledFeaturesBatch(
+				hftypes.FeatureExtractionBatchRequest{
+					Inputs: inputs,
+				},
+			)
 		},
 	)
 
-	require.NoError(t, err, "scaleway batch feature extraction should succeed")
 	require.Len(t, resp, 2, "response should have 2 embeddings")
 
 	for i, embedding := range resp {
 		require.NotEmpty(t, embedding, "embedding %d should not be empty", i)
-		require.Greater(
+		require.Positive(
 			t,
 			embedding.Dimension(),
-			0,
 			"embedding %d should have a positive dimension", i,
 		)
 	}

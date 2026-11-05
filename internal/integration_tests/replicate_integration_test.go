@@ -13,6 +13,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -54,15 +55,16 @@ func TestGenerateImage_ReplicateLiveAPI(t *testing.T) {
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
 
-	response, err := client.GenerateImage(hftypes.TextToImageRequest{
-		Input: "A serene mountain landscape at sunset",
-		Parameters: &hftypes.TextToImageParameters{
-			Width:  new(512),
-			Height: new(512),
-		},
+	response := testutils.RetryTransient(ctx, t, func() (hftypes.TextToImageResponse, error) {
+		return client.GenerateImage(hftypes.TextToImageRequest{
+			Input: "A serene mountain landscape at sunset",
+			Parameters: &hftypes.TextToImageParameters{
+				Width:  new(512),
+				Height: new(512),
+			},
+		})
 	})
 
-	require.NoError(t, err, "text-to-image should succeed")
 	require.NotEmpty(t, response.Image, "generated image should not be empty")
 	require.True(
 		t,
@@ -92,14 +94,15 @@ func TestGenerateImageToImage_ReplicateLiveAPI(t *testing.T) {
 
 	const prompt = "Remove the glasses"
 
-	response, err := client.GenerateImageToImage(hftypes.ImageToImageRequest{
-		Input: replicateTestImageURL,
-		Parameters: &hftypes.ImageToImageParameters{
-			Prompt: new(prompt),
-		},
+	response := testutils.RetryTransient(ctx, t, func() (hftypes.ImageToImageResponse, error) {
+		return client.GenerateImageToImage(hftypes.ImageToImageRequest{
+			Input: replicateTestImageURL,
+			Parameters: &hftypes.ImageToImageParameters{
+				Prompt: new(prompt),
+			},
+		})
 	})
 
-	require.NoError(t, err, "image-to-image should succeed")
 	require.NotEmpty(t, response.Image, "generated image should not be empty")
 	require.True(
 		t,
@@ -128,11 +131,12 @@ func TestGenerateVideo_ReplicateLiveAPI(t *testing.T) {
 		hfopts.WithMaxResponseBodyBytes(64<<20),
 	)
 
-	response, err := client.GenerateVideo(hftypes.TextToVideoRequest{
-		Input: "A young man walking on the street",
+	response := testutils.RetryTransient(ctx, t, func() (hftypes.TextToVideoResponse, error) {
+		return client.GenerateVideo(hftypes.TextToVideoRequest{
+			Input: "A young man walking on the street",
+		})
 	})
 
-	require.NoError(t, err, "text-to-video should succeed")
 	require.NotEmpty(t, response.Video, "generated video should not be empty")
 	require.True(
 		t,
@@ -161,10 +165,11 @@ func TestRecognizeSpeech_ReplicateLiveAPI(t *testing.T) {
 
 	// Replicate passes HTTP(S) audio URLs through unchanged, so the sample
 	// needs no base64 round trip.
-	resp, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
-		Input: audioURL,
+	resp := testutils.RetryTransient(ctx, t, func() (hftypes.SpeechRecognitionResponse, error) {
+		return client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+			Input: audioURL,
+		})
 	})
 
-	require.NoError(t, err, "speech recognition should succeed")
 	require.NotEmpty(t, resp.Text, "recognized text should not be empty")
 }

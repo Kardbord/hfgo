@@ -15,6 +15,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -58,20 +59,21 @@ func TestChatCompletion_NscaleLiveAPI(t *testing.T) {
 	)
 
 	const text = "Say hello in one sentence."
-	resp, err := client.Chat(
-		hftypes.ChatRequest{
-			Messages: []hftypes.ChatMessage{
-				{
-					Role: "user",
-					Content: hftypes.ChatMessageContent{
-						Text: new(text),
+	resp := testutils.RetryTransient(ctx, t, func() (hftypes.ChatResponse, error) {
+		return client.Chat(
+			hftypes.ChatRequest{
+				Messages: []hftypes.ChatMessage{
+					{
+						Role: "user",
+						Content: hftypes.ChatMessageContent{
+							Text: new(text),
+						},
 					},
 				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "nscale chat completion should succeed")
 	require.NotEmpty(t, resp.ID, "response should have an ID")
 	require.NotEmpty(t, resp.Model, "response should have a model")
 	require.NotEmpty(t, resp.Choices, "response should have choices")
@@ -100,19 +102,20 @@ func TestChatCompletion_NscaleStreamingLiveAPI(t *testing.T) {
 	)
 
 	text := "Say hello in one sentence."
-	stream, err := client.ChatStream(
-		hftypes.ChatRequest{
-			Messages: []hftypes.ChatMessage{
-				{
-					Role: "user",
-					Content: hftypes.ChatMessageContent{
-						Text: &text,
+	stream := testutils.RetryTransient(ctx, t, func() (*hftypes.ChatStream, error) {
+		return client.ChatStream(
+			hftypes.ChatRequest{
+				Messages: []hftypes.ChatMessage{
+					{
+						Role: "user",
+						Content: hftypes.ChatMessageContent{
+							Text: &text,
+						},
 					},
 				},
 			},
-		},
-	)
-	require.NoError(t, err, "streaming request should succeed")
+		)
+	})
 	defer stream.Close()
 
 	var chunkCount int
@@ -160,15 +163,17 @@ func TestGenerateImage_NscaleLiveAPI(t *testing.T) {
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
 
-	response, err := client.GenerateImage(hftypes.TextToImageRequest{
-		Input: "A serene mountain landscape at sunset",
-		Parameters: &hftypes.TextToImageParameters{
-			Width:  new(512),
-			Height: new(512),
-		},
+	response := testutils.RetryTransient(ctx, t, func() (hftypes.TextToImageResponse, error) {
+		return client.GenerateImage(hftypes.TextToImageRequest{
+			Input: "A serene mountain landscape at sunset",
+			Parameters: &hftypes.TextToImageParameters{
+				Width:  new(512),
+				Height: new(512),
+			},
+		})
 	})
 
-	require.NoError(t, err, "text-to-image should succeed")
+	require.NotEmpty(t, response.Image, "generated image should not be empty")
 	require.NotEmpty(t, response.Image, "generated image should not be empty")
 	require.True(
 		t,

@@ -14,6 +14,7 @@ import (
 	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -60,11 +61,12 @@ func TestRecognizeSpeech_LiveAPI(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
-		Input: speechRecognitionInput(t),
-	}, hfopts.WithHeader("Content-Type", "audio/flac"))
+	resp := testutils.RetryTransient(ctx, t, func() (hftypes.SpeechRecognitionResponse, error) {
+		return client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+			Input: speechRecognitionInput(t),
+		}, hfopts.WithHeader("Content-Type", "audio/flac"))
+	})
 
-	require.NoError(t, err, "speech recognition should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp.Text, "recognized text should not be empty")
 }
@@ -87,14 +89,15 @@ func TestRecognizeSpeech_WithParameters(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
-		Input: speechRecognitionInput(t),
-		Parameters: &hftypes.SpeechRecognitionParameters{
-			ReturnTimestamps: new(true),
-		},
+	resp := testutils.RetryTransient(ctx, t, func() (hftypes.SpeechRecognitionResponse, error) {
+		return client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+			Input: speechRecognitionInput(t),
+			Parameters: &hftypes.SpeechRecognitionParameters{
+				ReturnTimestamps: new(true),
+			},
+		})
 	})
 
-	require.NoError(t, err, "speech recognition with parameters should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp.Text, "recognized text should not be empty")
 }

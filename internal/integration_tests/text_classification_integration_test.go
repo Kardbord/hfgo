@@ -11,6 +11,7 @@ import (
 	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,13 +33,14 @@ func TestTextClassification_LiveAPI(t *testing.T) {
 	)
 
 	const text = "This product is excellent and I love it!"
-	resp, err := client.ClassifyText(
-		hftypes.TextClassificationRequest{
-			Input: text,
-		},
-	)
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.TextClassification, error) {
+		return client.ClassifyText(
+			hftypes.TextClassificationRequest{
+				Input: text,
+			},
+		)
+	})
 
-	require.NoError(t, err, "text classification should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have classifications")
 
@@ -67,17 +69,18 @@ func TestTextClassification_WithParameters(t *testing.T) {
 
 	topK := 2
 	function := hftypes.TextClassificationFuncSoftmax
-	resp, err := client.ClassifyText(
-		hftypes.TextClassificationRequest{
-			Input: "Excellent product!",
-			Parameters: &hftypes.TextClassificationParameters{
-				TopK:            &topK,
-				FunctionToApply: &function,
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.TextClassification, error) {
+		return client.ClassifyText(
+			hftypes.TextClassificationRequest{
+				Input: "Excellent product!",
+				Parameters: &hftypes.TextClassificationParameters{
+					TopK:            &topK,
+					FunctionToApply: &function,
+				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "text classification with parameters should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have classifications")
 
