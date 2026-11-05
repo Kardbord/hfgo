@@ -37,14 +37,15 @@ func TestGenerateImageToImage_LiveAPI(t *testing.T) {
 		hfopts.WithMaxResponseBodyBytes(16<<20), // Images can be large.
 	)
 
-	response, err := client.GenerateImageToImage(hftypes.ImageToImageRequest{
-		Input: testutils.TinyPNGBase64,
-		Parameters: &hftypes.ImageToImageParameters{
-			Prompt: new("Make the image blue"),
-		},
+	response := testutils.RetryTransient(ctx, t, func() (hftypes.ImageToImageResponse, error) {
+		return client.GenerateImageToImage(hftypes.ImageToImageRequest{
+			Input: testutils.TinyPNGBase64,
+			Parameters: &hftypes.ImageToImageParameters{
+				Prompt: new("Make the image blue"),
+			},
+		})
 	})
 
-	require.NoError(t, err, "image-to-image should succeed")
 	require.NotEmpty(t, response.Image, "generated image should not be empty")
 	require.True(
 		t,

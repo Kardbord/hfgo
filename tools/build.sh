@@ -33,12 +33,12 @@ RUN_INTEGRATION_TESTS=
 RUN_FUZZ_TESTS=
 while getopts "if" opt; do
   case "${opt}" in
-    i) RUN_INTEGRATION_TESTS="true" ;;
-    f) RUN_FUZZ_TESTS="true" ;;
-    *)
-      echo "Usage: ${0} [-i] [-f]" >&2
-      exit 2
-      ;;
+  i) RUN_INTEGRATION_TESTS="true" ;;
+  f) RUN_FUZZ_TESTS="true" ;;
+  *)
+    echo "Usage: ${0} [-i] [-f]" >&2
+    exit 2
+    ;;
   esac
 done
 
@@ -52,6 +52,7 @@ echo
 
 echo "Vetting..."
 go vet ./...
+go vet -tags integration ./...
 echo
 
 echo "Linting..."

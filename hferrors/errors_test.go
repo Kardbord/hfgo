@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -22,14 +23,6 @@ func TestAPIError_Error(t *testing.T) {
 			err: &APIError{
 				StatusCode: http.StatusBadRequest,
 				Message:    "Bad Request",
-			},
-		},
-		{
-			name: "error with request ID",
-			err: &APIError{
-				StatusCode: http.StatusInternalServerError,
-				Message:    "Internal Server Error",
-				RequestID:  "test-req-12345",
 			},
 		},
 		{
@@ -52,14 +45,49 @@ func TestAPIError_Error(t *testing.T) {
 			if tt.err.Message != "" {
 				assert.Contains(t, got, tt.err.Message, "Error() should contain message")
 			}
-
-			// If there's a request ID, verify it's included
-			if tt.err.RequestID != "" {
-				assert.Contains(t, got, tt.err.RequestID, "Error() should contain request ID")
-			}
 		})
 	}
 }
+
+func TestAPIError_RetryAfter(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		header string
+		want   time.Duration
+	}{
+		{"absent header", "", 0},
+		{"valid seconds", "30", 30 * time.Second},
+		{"not an integer", "soon", 0},
+		{"non-positive", "0", 0},
+		{"capped at one minute", "999999", time.Minute},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := &APIError{StatusCode: http.StatusTooManyRequests}
+			if tt.header != "" {
+				err.Headers = http.Header{"Retry-After": []string{tt.header}}
+			}
+
+			assert.Equal(t, tt.want, err.RetryAfter(), "APIError.RetryAfter()")
+		})
+	}
+
+	t.Run("nil headers", func(t *testing.T) {
+		t.Parallel()
+
+		err := &APIError{StatusCode: http.StatusTooManyRequests}
+		assert.Equal(t, time.Duration(0), err.RetryAfter(), "nil Headers must not panic")
+	})
+}
+
+// Headers deep-copy and key canonicalization are enforced where APIError is
+// constructed (internal/request.APIErrorFromResponse) and tested there; the
+// struct itself stores whatever map it is given.
 
 func TestAPIError_IsClientError(t *testing.T) {
 	t.Parallel()

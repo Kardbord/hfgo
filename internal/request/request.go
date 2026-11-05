@@ -170,9 +170,9 @@ func APIErrorFromResponse(resp *http.Response, method string) *hferrors.APIError
 		StatusCode: resp.StatusCode,
 		Message:    http.StatusText(resp.StatusCode),
 		Body:       resp.Body,
+		Headers:    utils.CloneHeader(resp.Header),
 		Method:     method,
 		URL:        reqURL,
-		RequestID:  resp.Header.Get("X-Request-ID"),
 	}
 }
 

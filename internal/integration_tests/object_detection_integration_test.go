@@ -60,11 +60,12 @@ func TestDetectObjects_LiveAPI(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.DetectObjects(hftypes.ObjectDetectionRequest{
-		Input: detectObjectsInput(t),
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ObjectDetection, error) {
+		return client.DetectObjects(hftypes.ObjectDetectionRequest{
+			Input: detectObjectsInput(t),
+		})
 	})
 
-	require.NoError(t, err, "object detection should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have detections")
 
@@ -98,14 +99,15 @@ func TestDetectObjects_WithThreshold(t *testing.T) {
 	)
 
 	threshold := 0.8
-	resp, err := client.DetectObjects(hftypes.ObjectDetectionRequest{
-		Input: detectObjectsInput(t),
-		Parameters: &hftypes.ObjectDetectionParameters{
-			Threshold: &threshold,
-		},
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ObjectDetection, error) {
+		return client.DetectObjects(hftypes.ObjectDetectionRequest{
+			Input: detectObjectsInput(t),
+			Parameters: &hftypes.ObjectDetectionParameters{
+				Threshold: &threshold,
+			},
+		})
 	})
 
-	require.NoError(t, err, "object detection with threshold should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 
 	// Every returned detection should meet the requested threshold.

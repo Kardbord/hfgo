@@ -11,6 +11,7 @@ import (
 	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,19 +32,20 @@ func TestTableQuestionAnswering_LiveAPI(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.AnswerTableQuestion(
-		hftypes.TableQuestionAnsweringRequest{
-			Input: hftypes.TableQuestionAnsweringInput{
-				Question: "How old is Bob?",
-				Table: map[string][]string{
-					"Name": {"Alice", "Bob", "Carol"},
-					"Age":  {"25", "30", "35"},
+	resp := testutils.RetryTransient(ctx, t, func() (hftypes.TableQuestionAnswer, error) {
+		return client.AnswerTableQuestion(
+			hftypes.TableQuestionAnsweringRequest{
+				Input: hftypes.TableQuestionAnsweringInput{
+					Question: "How old is Bob?",
+					Table: map[string][]string{
+						"Name": {"Alice", "Bob", "Carol"},
+						"Age":  {"25", "30", "35"},
+					},
 				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "table question answering should succeed")
 	require.NotEmpty(t, resp.Answer, "answer should not be empty")
 	require.NotEmpty(t, resp.Cells, "cells should not be empty")
 	require.NotEmpty(t, resp.Coordinates, "coordinates should not be empty")
@@ -71,24 +73,25 @@ func TestTableQuestionAnswering_WithParameters(t *testing.T) {
 	padding := hftypes.TableQuestionAnsweringPaddingMaxLength
 	sequential := false
 	truncation := true
-	resp, err := client.AnswerTableQuestion(
-		hftypes.TableQuestionAnsweringRequest{
-			Input: hftypes.TableQuestionAnsweringInput{
-				Question: "What is the most expensive product?",
-				Table: map[string][]string{
-					"Product": {"Laptop", "Phone", "Tablet"},
-					"Price":   {"1200", "800", "500"},
+	resp := testutils.RetryTransient(ctx, t, func() (hftypes.TableQuestionAnswer, error) {
+		return client.AnswerTableQuestion(
+			hftypes.TableQuestionAnsweringRequest{
+				Input: hftypes.TableQuestionAnsweringInput{
+					Question: "What is the most expensive product?",
+					Table: map[string][]string{
+						"Product": {"Laptop", "Phone", "Tablet"},
+						"Price":   {"1200", "800", "500"},
+					},
+				},
+				Parameters: &hftypes.TableQuestionAnsweringParameters{
+					Padding:    &padding,
+					Sequential: &sequential,
+					Truncation: &truncation,
 				},
 			},
-			Parameters: &hftypes.TableQuestionAnsweringParameters{
-				Padding:    &padding,
-				Sequential: &sequential,
-				Truncation: &truncation,
-			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "table question answering with parameters should succeed")
 	require.NotEmpty(t, resp.Answer, "answer should not be empty")
 
 	t.Logf("Answer: %q (cells: %v)", resp.Answer, resp.Cells)

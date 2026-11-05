@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
+
+	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
 // APIError represents an error returned by the Hugging Face API.
-// It includes the HTTP status code, error message, response body,
-// and request ID if available. For client-side errors produced before
+// It includes the HTTP status code, error message, response body, response
+// headers, method, and URL. For client-side errors produced before
 // an API response, see [SDKError].
 type APIError struct {
 	// StatusCode is the HTTP status code returned by the API
@@ -22,8 +25,11 @@ type APIError struct {
 	// If Body is nil, no response body was available.
 	Body io.ReadCloser
 
-	// RequestID is the request identifier from the X-Request-ID header, if available
-	RequestID string
+	// Headers contains the response headers as returned by the API, with
+	// canonicalized keys, deep-copied so the error never aliases the live
+	// response. It is nil when no response headers were available. It never
+	// contains request headers, so credentials are never exposed here.
+	Headers http.Header
 
 	// Method is the HTTP method used for the request
 	Method string
@@ -32,18 +38,21 @@ type APIError struct {
 	URL string
 }
 
+// retryAfterCap caps the server-provided Retry-After delay reported by
+// [APIError.RetryAfter] so a pathological header cannot stall a caller's
+// retry loop for an unbounded time.
+const retryAfterCap = 60 * time.Second
+
 // Error implements the error interface for APIError.
 func (e *APIError) Error() string {
-	if e.RequestID != "" {
-		return fmt.Sprintf(
-			"hf api error (%d): %s [request_id: %s]",
-			e.StatusCode,
-			e.Message,
-			e.RequestID,
-		)
-	}
-
 	return fmt.Sprintf("hf api error (%d): %s", e.StatusCode, e.Message)
+}
+
+// RetryAfter returns the server-provided retry delay from the Retry-After
+// response header, capped at one minute. It returns 0 when the header is
+// absent, does not parse, or holds a non-positive value.
+func (e *APIError) RetryAfter() time.Duration {
+	return utils.ParseRetryAfter(e.Headers, retryAfterCap)
 }
 
 // IsClientError returns true if the error is a 4xx client error.

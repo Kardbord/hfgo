@@ -11,6 +11,7 @@ import (
 	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,13 +32,14 @@ func TestFillMask_LiveAPI(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.FillMask(
-		hftypes.FillMaskRequest{
-			Input: "The capital of France is [MASK].",
-		},
-	)
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.FillMaskPrediction, error) {
+		return client.FillMask(
+			hftypes.FillMaskRequest{
+				Input: "The capital of France is [MASK].",
+			},
+		)
+	})
 
-	require.NoError(t, err, "fill mask should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have predictions")
 
@@ -69,16 +71,17 @@ func TestFillMask_WithTopK(t *testing.T) {
 	)
 
 	topK := 3
-	resp, err := client.FillMask(
-		hftypes.FillMaskRequest{
-			Input: "The capital of France is [MASK].",
-			Parameters: &hftypes.FillMaskParameters{
-				TopK: &topK,
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.FillMaskPrediction, error) {
+		return client.FillMask(
+			hftypes.FillMaskRequest{
+				Input: "The capital of France is [MASK].",
+				Parameters: &hftypes.FillMaskParameters{
+					TopK: &topK,
+				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "fill mask with TopK should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have predictions")
 	require.LessOrEqual(t, len(resp), topK, "should have at most TopK predictions")
@@ -111,22 +114,28 @@ func TestFillMask_WithTargets(t *testing.T) {
 	)
 
 	targets := []string{"paris", "london"}
-	resp, err := client.FillMask(
-		hftypes.FillMaskRequest{
-			Input: "The capital of France is [MASK].",
-			Parameters: &hftypes.FillMaskParameters{
-				Targets: targets,
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.FillMaskPrediction, error) {
+		return client.FillMask(
+			hftypes.FillMaskRequest{
+				Input: "The capital of France is [MASK].",
+				Parameters: &hftypes.FillMaskParameters{
+					Targets: targets,
+				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "fill mask with targets should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have predictions")
 
 	for _, prediction := range resp {
 		require.NotNil(t, prediction.TokenStr, "prediction should have a token")
-		require.Contains(t, targets, *prediction.TokenStr, "prediction token should be one of the requested targets")
+		require.Contains(
+			t,
+			targets,
+			*prediction.TokenStr,
+			"prediction token should be one of the requested targets",
+		)
 	}
 }
 

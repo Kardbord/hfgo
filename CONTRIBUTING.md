@@ -107,6 +107,22 @@ On pull requests, integration tests require manual approval from a repository
 member before they run (enforced via GitHub environment protection rules to
 control API costs).
 
+### Transient Errors
+
+Upstream inference providers occasionally return transient errors — 503 while
+a model cold-starts, 500s under load, 429 rate limits. A single such blip
+should not fail an otherwise-correct test, so live API calls are wrapped in
+[`testutils.RetryTransient`](./internal/testutils/retry.go), which retries
+transient statuses (500, 502, 503, 504, 529, 429) up to four attempts with
+exponential backoff and honors the server's `Retry-After` header on 429s.
+
+When adding a new integration test, wrap each live call site with
+`testutils.RetryTransient` and keep the retry bounded — persistent failures
+still fail the run. Do not wrap context-cancellation tests or other tests
+that assert an error; retrying would change their semantics. Mid-stream
+`Recv` errors cannot be retried (streams are not resumable), so only the
+call that initiates a stream is wrapped.
+
 ### Manual Testing with Bruno
 
 The repo includes a [Bruno](https://www.usebruno.com/) collection in

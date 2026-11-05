@@ -3,10 +3,11 @@
 // Errors fall into two categories:
 //
 //   - [APIError] reports a 4xx/5xx response from the Hugging Face API. It carries
-//     the status code, message, response body, and request ID, and classifies the
+//     the status code, message, response body, and response headers, and classifies the
 //     failure with helpers such as [APIError.IsClientError],
 //     [APIError.IsServerError], [APIError.IsAuthenticationError], and
-//     [APIError.IsRateLimitError].
+//     [APIError.IsRateLimitError]. Typed accessors expose well-known headers,
+//     such as [APIError.RetryAfter] for the server-provided retry delay.
 //   - [SDKError] reports a failure the SDK detects locally — before a request
 //     is sent, while a response is decoded, or when the provider reports a
 //     failure (such as a failed remote task) inside an otherwise valid

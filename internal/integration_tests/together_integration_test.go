@@ -15,6 +15,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,20 +45,22 @@ func TestChatCompletion_TogetherLiveAPI(t *testing.T) {
 	client := newTogetherClient(t, ctx, "deepseek-ai/DeepSeek-V4.1-Flash")
 
 	const text = "Say hello in one sentence."
-	resp, err := client.Chat(
-		hftypes.ChatRequest{
-			Messages: []hftypes.ChatMessage{
-				{
-					Role: "user",
-					Content: hftypes.ChatMessageContent{
-						Text: new(text),
+	resp := testutils.RetryTransient(ctx, t, func() (hftypes.ChatResponse, error) {
+		return client.Chat(
+			hftypes.ChatRequest{
+				Messages: []hftypes.ChatMessage{
+					{
+						Role: "user",
+						Content: hftypes.ChatMessageContent{
+							Text: new(text),
+						},
 					},
 				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "together chat completion should succeed")
+	require.NotEmpty(t, resp.ID, "response should have an ID")
 	require.NotEmpty(t, resp.ID, "response should have an ID")
 	require.NotEmpty(t, resp.Model, "response should have a model")
 	require.NotEmpty(t, resp.Choices, "response should have choices")
@@ -81,19 +84,20 @@ func TestChatCompletion_TogetherStreamingLiveAPI(t *testing.T) {
 	client := newTogetherClient(t, ctx, "deepseek-ai/DeepSeek-V4.1-Flash")
 
 	text := "Say hello in one sentence."
-	stream, err := client.ChatStream(
-		hftypes.ChatRequest{
-			Messages: []hftypes.ChatMessage{
-				{
-					Role: "user",
-					Content: hftypes.ChatMessageContent{
-						Text: &text,
+	stream := testutils.RetryTransient(ctx, t, func() (*hftypes.ChatStream, error) {
+		return client.ChatStream(
+			hftypes.ChatRequest{
+				Messages: []hftypes.ChatMessage{
+					{
+						Role: "user",
+						Content: hftypes.ChatMessageContent{
+							Text: &text,
+						},
 					},
 				},
 			},
-		},
-	)
-	require.NoError(t, err, "streaming request should succeed")
+		)
+	})
 	defer stream.Close()
 
 	var chunkCount int
@@ -136,29 +140,31 @@ func TestChatCompletion_TogetherJSONSchemaLiveAPI(t *testing.T) {
 
 	client := newTogetherClient(t, ctx, "deepseek-ai/DeepSeek-V4.1-Flash")
 
-	resp, err := client.Chat(
-		hftypes.ChatRequest{
-			Messages: []hftypes.ChatMessage{
-				{
-					Role: "user",
-					Content: hftypes.ChatMessageContent{
-						Text: new("What is the capital of France? Answer as a JSON object."),
+	resp := testutils.RetryTransient(ctx, t, func() (hftypes.ChatResponse, error) {
+		return client.Chat(
+			hftypes.ChatRequest{
+				Messages: []hftypes.ChatMessage{
+					{
+						Role: "user",
+						Content: hftypes.ChatMessageContent{
+							Text: new("What is the capital of France? Answer as a JSON object."),
+						},
+					},
+				},
+				ResponseFormat: &hftypes.ChatResponseFormat{
+					Type: hftypes.ResponseFormatTypeJSONSchema,
+					JSONSchema: &hftypes.ChatJSONSchemaConfig{
+						Name:   "capital",
+						Strict: new(true),
+						Schema: json.RawMessage(
+							`{"type":"object","properties":{"capital":{"type":"string"}},"required":["capital"]}`,
+						),
 					},
 				},
 			},
-			ResponseFormat: &hftypes.ChatResponseFormat{
-				Type: hftypes.ResponseFormatTypeJSONSchema,
-				JSONSchema: &hftypes.ChatJSONSchemaConfig{
-					Name:   "capital",
-					Strict: new(true),
-					Schema: json.RawMessage(
-						`{"type":"object","properties":{"capital":{"type":"string"}},"required":["capital"]}`,
-					),
-				},
-			},
-		},
-	)
-	require.NoError(t, err, "together json_schema chat completion should succeed")
+		)
+	})
+	require.NotEmpty(t, resp.Choices, "response should have choices")
 	require.NotEmpty(t, resp.Choices, "response should have choices")
 
 	content := resp.Choices[0].Message.Content

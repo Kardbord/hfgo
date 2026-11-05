@@ -11,6 +11,7 @@ import (
 	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,16 +36,17 @@ func TestZeroShotTextClassification_LiveAPI(t *testing.T) {
 	const text = "This product is excellent and I love it!"
 	candidateLabels := []string{"positive", "negative", "neutral"}
 
-	resp, err := client.ZeroShotClassifyText(
-		hftypes.ZeroShotTextClassificationRequest{
-			Input: text,
-			Parameters: &hftypes.ZeroShotTextClassificationParameters{
-				CandidateLabels: candidateLabels,
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ZeroShotTextClassification, error) {
+		return client.ZeroShotClassifyText(
+			hftypes.ZeroShotTextClassificationRequest{
+				Input: text,
+				Parameters: &hftypes.ZeroShotTextClassificationParameters{
+					CandidateLabels: candidateLabels,
+				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "zero-shot text classification should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have classifications")
 }
@@ -70,17 +72,18 @@ func TestZeroShotTextClassification_WithHypothesisTemplate(t *testing.T) {
 	candidateLabels := []string{"positive", "negative"}
 	hypothesisTemplate := "This example is {}."
 
-	resp, err := client.ZeroShotClassifyText(
-		hftypes.ZeroShotTextClassificationRequest{
-			Input: "I love this product!",
-			Parameters: &hftypes.ZeroShotTextClassificationParameters{
-				CandidateLabels:    candidateLabels,
-				HypothesisTemplate: &hypothesisTemplate,
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ZeroShotTextClassification, error) {
+		return client.ZeroShotClassifyText(
+			hftypes.ZeroShotTextClassificationRequest{
+				Input: "I love this product!",
+				Parameters: &hftypes.ZeroShotTextClassificationParameters{
+					CandidateLabels:    candidateLabels,
+					HypothesisTemplate: &hypothesisTemplate,
+				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "zero-shot text classification with hypothesis template should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have classifications")
 }
@@ -106,17 +109,18 @@ func TestZeroShotTextClassification_WithMultiLabel(t *testing.T) {
 	candidateLabels := []string{"positive", "negative", "neutral"}
 	multiLabel := true
 
-	resp, err := client.ZeroShotClassifyText(
-		hftypes.ZeroShotTextClassificationRequest{
-			Input: "This product is great and I love it!",
-			Parameters: &hftypes.ZeroShotTextClassificationParameters{
-				CandidateLabels: candidateLabels,
-				MultiLabel:      &multiLabel,
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ZeroShotTextClassification, error) {
+		return client.ZeroShotClassifyText(
+			hftypes.ZeroShotTextClassificationRequest{
+				Input: "This product is great and I love it!",
+				Parameters: &hftypes.ZeroShotTextClassificationParameters{
+					CandidateLabels: candidateLabels,
+					MultiLabel:      &multiLabel,
+				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "zero-shot text classification with multi-label should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have classifications")
 }
@@ -147,16 +151,17 @@ func TestZeroShotTextClassification_MultipleCandidateLabels(t *testing.T) {
 		"confused",
 	}
 
-	resp, err := client.ZeroShotClassifyText(
-		hftypes.ZeroShotTextClassificationRequest{
-			Input: "I absolutely love this product! It exceeded all my expectations!",
-			Parameters: &hftypes.ZeroShotTextClassificationParameters{
-				CandidateLabels: candidateLabels,
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ZeroShotTextClassification, error) {
+		return client.ZeroShotClassifyText(
+			hftypes.ZeroShotTextClassificationRequest{
+				Input: "I absolutely love this product! It exceeded all my expectations!",
+				Parameters: &hftypes.ZeroShotTextClassificationParameters{
+					CandidateLabels: candidateLabels,
+				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "zero-shot text classification with multiple labels should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.Len(t, resp, len(candidateLabels), "response should have classifications")
 }

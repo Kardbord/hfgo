@@ -12,6 +12,7 @@ import (
 	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,13 +33,14 @@ func TestTokenClassification_LiveAPI(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.ClassifyTokens(
-		hftypes.TokenClassificationRequest{
-			Input: "My name is Sarah and I live in London.",
-		},
-	)
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.TokenClassification, error) {
+		return client.ClassifyTokens(
+			hftypes.TokenClassificationRequest{
+				Input: "My name is Sarah and I live in London.",
+			},
+		)
+	})
 
-	require.NoError(t, err, "token classification should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have entities")
 
@@ -87,17 +89,18 @@ func TestTokenClassification_WithAggregationStrategy(t *testing.T) {
 
 	for _, strategy := range strategies {
 		t.Run(strategy, func(t *testing.T) {
-			strat := strings.Clone(strategy)
-			resp, err := client.ClassifyTokens(
-				hftypes.TokenClassificationRequest{
-					Input: "My name is Sarah and I live in London.",
-					Parameters: &hftypes.TokenClassificationParameters{
-						AggregationStrategy: &strat,
+			start := strings.Clone(strategy)
+			resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.TokenClassification, error) {
+				return client.ClassifyTokens(
+					hftypes.TokenClassificationRequest{
+						Input: "My name is Sarah and I live in London.",
+						Parameters: &hftypes.TokenClassificationParameters{
+							AggregationStrategy: &start,
+						},
 					},
-				},
-			)
+				)
+			})
 
-			require.NoError(t, err, "token classification with strategy %q should succeed", strategy)
 			require.NotNil(t, resp, "response should not be nil")
 			require.NotEmpty(t, resp, "response should have entities")
 
@@ -107,9 +110,18 @@ func TestTokenClassification_WithAggregationStrategy(t *testing.T) {
 				require.LessOrEqual(t, entity.Score, 1.0, "score should be at most 1.0")
 
 				if strategy == hftypes.TokenClassificationAggregationNone {
-					require.NotNil(t, entity.Entity, "entity field should be set for strategy 'none'")
+					require.NotNil(
+						t,
+						entity.Entity,
+						"entity field should be set for strategy 'none'",
+					)
 				} else {
-					require.NotNil(t, entity.EntityGroup, "entity_group field should be set for strategy %q", strategy)
+					require.NotNil(
+						t,
+						entity.EntityGroup,
+						"entity_group field should be set for strategy %q",
+						strategy,
+					)
 				}
 			}
 
@@ -151,5 +163,6 @@ func entityLabel(e hftypes.TokenClassification) string {
 	if e.Entity != nil {
 		return *e.Entity
 	}
+
 	return ""
 }

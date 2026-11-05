@@ -14,6 +14,7 @@ import (
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -51,20 +52,21 @@ func TestChatCompletion_DeepInfraLiveAPI(t *testing.T) {
 	client := newDeepInfraClient(t, ctx, "openai/gpt-oss-120b")
 
 	const text = "Say hello in one sentence."
-	resp, err := client.Chat(
-		hftypes.ChatRequest{
-			Messages: []hftypes.ChatMessage{
-				{
-					Role: "user",
-					Content: hftypes.ChatMessageContent{
-						Text: new(text),
+	resp := testutils.RetryTransient(ctx, t, func() (hftypes.ChatResponse, error) {
+		return client.Chat(
+			hftypes.ChatRequest{
+				Messages: []hftypes.ChatMessage{
+					{
+						Role: "user",
+						Content: hftypes.ChatMessageContent{
+							Text: new(text),
+						},
 					},
 				},
 			},
-		},
-	)
+		)
+	})
 
-	require.NoError(t, err, "deepinfra chat completion should succeed")
 	require.NotEmpty(t, resp.ID, "response should have an ID")
 	require.NotEmpty(t, resp.Model, "response should have a model")
 	require.NotEmpty(t, resp.Choices, "response should have choices")
@@ -88,19 +90,20 @@ func TestChatCompletion_DeepInfraStreamingLiveAPI(t *testing.T) {
 	client := newDeepInfraClient(t, ctx, "openai/gpt-oss-120b")
 
 	text := "Say hello in one sentence."
-	stream, err := client.ChatStream(
-		hftypes.ChatRequest{
-			Messages: []hftypes.ChatMessage{
-				{
-					Role: "user",
-					Content: hftypes.ChatMessageContent{
-						Text: &text,
+	stream := testutils.RetryTransient(ctx, t, func() (*hftypes.ChatStream, error) {
+		return client.ChatStream(
+			hftypes.ChatRequest{
+				Messages: []hftypes.ChatMessage{
+					{
+						Role: "user",
+						Content: hftypes.ChatMessageContent{
+							Text: &text,
+						},
 					},
 				},
 			},
-		},
-	)
-	require.NoError(t, err, "streaming request should succeed")
+		)
+	})
 	defer stream.Close()
 
 	var chunkCount int
@@ -141,11 +144,12 @@ func TestRecognizeSpeech_DeepInfraLiveAPI(t *testing.T) {
 
 	client := newDeepInfraClient(t, ctx, "openai/whisper-large-v3")
 
-	resp, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
-		Input: speechRecognitionInput(t),
+	resp := testutils.RetryTransient(ctx, t, func() (hftypes.SpeechRecognitionResponse, error) {
+		return client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+			Input: speechRecognitionInput(t),
+		})
 	})
 
-	require.NoError(t, err, "deepinfra speech recognition should succeed")
 	require.NotEmpty(t, resp.Text, "recognized text should not be empty")
 }
 
@@ -161,13 +165,14 @@ func TestFeatureExtractionPooled_DeepInfraLiveAPI(t *testing.T) {
 
 	client := newDeepInfraClient(t, ctx, "BAAI/bge-base-en-v1.5")
 
-	resp, err := client.ExtractPooledFeatures(
-		hftypes.FeatureExtractionRequest{
-			Input: "What is the capital of France?",
-		},
-	)
+	resp := testutils.RetryTransient(ctx, t, func() (hftypes.FeatureExtractionPooledEmbedding, error) {
+		return client.ExtractPooledFeatures(
+			hftypes.FeatureExtractionRequest{
+				Input: "What is the capital of France?",
+			},
+		)
+	})
 
-	require.NoError(t, err, "deepinfra feature extraction should succeed")
 	require.NotEmpty(t, resp, "embedding should not be empty")
 	require.Greater(t, resp.Dimension(), 0, "embedding should have a positive dimension")
 }
@@ -188,13 +193,14 @@ func TestFeatureExtractionPooledBatch_DeepInfraLiveAPI(t *testing.T) {
 		"I love programming in Go.",
 	}
 
-	resp, err := client.ExtractPooledFeaturesBatch(
-		hftypes.FeatureExtractionBatchRequest{
-			Inputs: inputs,
-		},
-	)
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.FeatureExtractionPooledEmbedding, error) {
+		return client.ExtractPooledFeaturesBatch(
+			hftypes.FeatureExtractionBatchRequest{
+				Inputs: inputs,
+			},
+		)
+	})
 
-	require.NoError(t, err, "deepinfra batch feature extraction should succeed")
 	require.Len(t, resp, 2, "response should have 2 embeddings")
 
 	for i, embedding := range resp {

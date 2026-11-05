@@ -60,11 +60,12 @@ func TestClassifyImage_LiveAPI(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.ClassifyImage(hftypes.ImageClassificationRequest{
-		Input: classifyImageInput(t),
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ImageClassification, error) {
+		return client.ClassifyImage(hftypes.ImageClassificationRequest{
+			Input: classifyImageInput(t),
+		})
 	})
 
-	require.NoError(t, err, "image classification should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "response should have predictions")
 
@@ -93,15 +94,16 @@ func TestClassifyImage_WithParameters(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.ClassifyImage(hftypes.ImageClassificationRequest{
-		Input: classifyImageInput(t),
-		Parameters: &hftypes.ImageClassificationParameters{
-			FunctionToApply: new(hftypes.ImageClassificationFuncSoftmax),
-			TopK:            new(5),
-		},
+	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ImageClassification, error) {
+		return client.ClassifyImage(hftypes.ImageClassificationRequest{
+			Input: classifyImageInput(t),
+			Parameters: &hftypes.ImageClassificationParameters{
+				FunctionToApply: new(hftypes.ImageClassificationFuncSoftmax),
+				TopK:            new(5),
+			},
+		})
 	})
 
-	require.NoError(t, err, "image classification with parameters should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.LessOrEqual(t, len(resp), 5, "top_k should limit the number of predictions")
 }

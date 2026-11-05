@@ -10,6 +10,7 @@ import (
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,12 +30,13 @@ func TestHubModelResolver_LiveHub(t *testing.T) {
 
 	resolver := hfproviders.NewHubModelResolver(hfproviders.WithHubToken(apiToken))
 
-	mapping, err := resolver.ResolveModel(ctx, hfproviders.ResolveModelParams{
-		Provider: "fal-ai",
-		Task:     "text-to-image",
-		Model:    fluxModel,
+	mapping := testutils.RetryTransient(ctx, t, func() (hfproviders.ModelMapping, error) {
+		return resolver.ResolveModel(ctx, hfproviders.ResolveModelParams{
+			Provider: "fal-ai",
+			Task:     "text-to-image",
+			Model:    fluxModel,
+		})
 	})
-	require.NoError(t, err)
 	mapping.Status = "" // This could change, so pin it to an empty string
 	require.Equal(t, hfproviders.ModelMapping{
 		ProviderModelID:    "fal-ai/flux/dev",

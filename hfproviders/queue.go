@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/internal/request"
+	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
 // The async queue-based partner providers (WaveSpeed, fal.ai, Replicate)
@@ -68,17 +68,7 @@ func queueTransientStatus(statusCode int) bool {
 // not parse, or exceed the cap, are ignored (returning 0), keeping the
 // regular polling schedule.
 func queueRetryAfter(headers http.Header) time.Duration {
-	seconds, err := strconv.Atoi(strings.TrimSpace(headers.Get("Retry-After")))
-	if err != nil || seconds <= 0 {
-		return 0
-	}
-
-	delay := time.Duration(seconds) * time.Second
-	if delay > queueMaxRetryAfter {
-		return queueMaxRetryAfter
-	}
-
-	return delay
+	return utils.ParseRetryAfter(headers, queueMaxRetryAfter)
 }
 
 // queuePollWait waits d, or until ctx expires, whichever comes first. It

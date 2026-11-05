@@ -13,6 +13,7 @@ import (
 	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,15 +37,16 @@ func TestGenerateImage_WaveSpeedLiveAPI(t *testing.T) {
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
 
-	response, err := client.GenerateImage(hftypes.TextToImageRequest{
-		Input: "A serene mountain landscape at sunset",
-		Parameters: &hftypes.TextToImageParameters{
-			Width:  new(512),
-			Height: new(512),
-		},
+	response := testutils.RetryTransient(ctx, t, func() (hftypes.TextToImageResponse, error) {
+		return client.GenerateImage(hftypes.TextToImageRequest{
+			Input: "A serene mountain landscape at sunset",
+			Parameters: &hftypes.TextToImageParameters{
+				Width:  new(512),
+				Height: new(512),
+			},
+		})
 	})
 
-	require.NoError(t, err, "text-to-image should succeed")
 	require.NotEmpty(t, response.Image, "generated image should not be empty")
 	require.True(
 		t,

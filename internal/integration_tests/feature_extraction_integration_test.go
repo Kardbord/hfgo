@@ -11,6 +11,7 @@ import (
 	"github.com/Kardbord/hfgo/v4"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,13 +33,18 @@ func TestFeatureExtractionPooled_LiveAPI(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.ExtractPooledFeatures(
-		hftypes.FeatureExtractionRequest{
-			Input: "What is the capital of France?",
+	resp := testutils.RetryTransient(
+		ctx,
+		t,
+		func() (hftypes.FeatureExtractionPooledEmbedding, error) {
+			return client.ExtractPooledFeatures(
+				hftypes.FeatureExtractionRequest{
+					Input: "What is the capital of France?",
+				},
+			)
 		},
 	)
 
-	require.NoError(t, err, "feature extraction should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "embedding should not be empty")
 }
@@ -66,13 +72,18 @@ func TestFeatureExtractionPooledBatch_LiveAPI(t *testing.T) {
 		"I love programming in Go.",
 	}
 
-	resp, err := client.ExtractPooledFeaturesBatch(
-		hftypes.FeatureExtractionBatchRequest{
-			Inputs: inputs,
+	resp := testutils.RetryTransient(
+		ctx,
+		t,
+		func() ([]hftypes.FeatureExtractionPooledEmbedding, error) {
+			return client.ExtractPooledFeaturesBatch(
+				hftypes.FeatureExtractionBatchRequest{
+					Inputs: inputs,
+				},
+			)
 		},
 	)
 
-	require.NoError(t, err, "batch feature extraction should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.Len(t, resp, 2, "response should have 2 embeddings")
 
@@ -103,18 +114,23 @@ func TestFeatureExtractionPooled_WithParameters(t *testing.T) {
 	normalize := true
 	truncate := true
 	truncDir := hftypes.FeatureExtractionTruncationRight
-	resp, err := client.ExtractPooledFeatures(
-		hftypes.FeatureExtractionRequest{
-			Input: "The capital of France is Paris, a city on the Seine.",
-			Parameters: &hftypes.FeatureExtractionParameters{
-				Normalize:           &normalize,
-				Truncate:            &truncate,
-				TruncationDirection: &truncDir,
-			},
+	resp := testutils.RetryTransient(
+		ctx,
+		t,
+		func() (hftypes.FeatureExtractionPooledEmbedding, error) {
+			return client.ExtractPooledFeatures(
+				hftypes.FeatureExtractionRequest{
+					Input: "The capital of France is Paris, a city on the Seine.",
+					Parameters: &hftypes.FeatureExtractionParameters{
+						Normalize:           &normalize,
+						Truncate:            &truncate,
+						TruncationDirection: &truncDir,
+					},
+				},
+			)
 		},
 	)
 
-	require.NoError(t, err, "feature extraction with parameters should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.NotEmpty(t, resp, "embedding should not be empty")
 }
@@ -166,21 +182,26 @@ func TestFeatureExtractionPooledBatch_WithParameters(t *testing.T) {
 	normalize := true
 	truncate := true
 	truncDir := hftypes.FeatureExtractionTruncationRight
-	resp, err := client.ExtractPooledFeaturesBatch(
-		hftypes.FeatureExtractionBatchRequest{
-			Inputs: []string{
-				"The weather is nice today.",
-				"I love programming in Go.",
-			},
-			Parameters: &hftypes.FeatureExtractionParameters{
-				Normalize:           &normalize,
-				Truncate:            &truncate,
-				TruncationDirection: &truncDir,
-			},
+	resp := testutils.RetryTransient(
+		ctx,
+		t,
+		func() ([]hftypes.FeatureExtractionPooledEmbedding, error) {
+			return client.ExtractPooledFeaturesBatch(
+				hftypes.FeatureExtractionBatchRequest{
+					Inputs: []string{
+						"The weather is nice today.",
+						"I love programming in Go.",
+					},
+					Parameters: &hftypes.FeatureExtractionParameters{
+						Normalize:           &normalize,
+						Truncate:            &truncate,
+						TruncationDirection: &truncDir,
+					},
+				},
+			)
 		},
 	)
 
-	require.NoError(t, err, "batch feature extraction with parameters should succeed")
 	require.NotNil(t, resp, "response should not be nil")
 	require.Len(t, resp, 2, "response should have 2 embeddings")
 
@@ -234,12 +255,17 @@ func TestFeatureExtractionToken_LiveAPI(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.ExtractTokenFeatures(
-		hftypes.FeatureExtractionRequest{
-			Input: "Transformers is an awesome library!",
+	resp := testutils.RetryTransient(
+		ctx,
+		t,
+		func() (hftypes.FeatureExtractionTokenEmbeddings, error) {
+			return client.ExtractTokenFeatures(
+				hftypes.FeatureExtractionRequest{
+					Input: "Transformers is an awesome library!",
+				},
+			)
 		},
 	)
-	require.NoError(t, err, "token-level feature extraction should succeed")
 	require.NotEmpty(t, resp, "token embeddings should not be empty")
 	require.Greater(t, len(resp), 1, "input should produce multiple tokens")
 
@@ -268,15 +294,21 @@ func TestFeatureExtractionToken_BatchLiveAPI(t *testing.T) {
 		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.ExtractTokenFeaturesBatch(
-		hftypes.FeatureExtractionBatchRequest{
-			Inputs: []string{
-				"Transformers is an awesome library!",
-				"Token-level embeddings are returned for every token.",
-			},
+	resp := testutils.RetryTransient(
+		ctx,
+		t,
+		func() ([]hftypes.FeatureExtractionTokenEmbeddings, error) {
+			return client.ExtractTokenFeaturesBatch(
+				hftypes.FeatureExtractionBatchRequest{
+					Inputs: []string{
+						"Transformers is an awesome library!",
+						"Token-level embeddings are returned for every token.",
+					},
+				},
+			)
 		},
 	)
-	require.NoError(t, err, "batch token-level feature extraction should succeed")
+	require.NotNil(t, resp, "response should not be nil")
 	require.Len(t, resp, 2, "response should contain token embeddings for each input")
 
 	var hiddenSize int
