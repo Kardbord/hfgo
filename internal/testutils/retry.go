@@ -36,25 +36,66 @@ func transientStatus(statusCode int) bool {
 	}
 }
 
-// Retry schedule knobs. Package-level vars so tests can compress the
-// schedule; production (integration-test) values keep total bounded retry
-// time near 14s of waiting plus request time.
-var (
-	// transientMaxRetries is the number of retries after the first attempt.
-	transientMaxRetries = 3 //nolint:gochecknoglobals // mutable for test compression
+// transientSchedule holds the bounded-retry timing knobs for one
+// RetryTransient call. Carrying the schedule per call instead of in
+// package-level variables keeps the helper free of mutable shared state and
+// lets tests pass a compressed schedule explicitly.
+type transientSchedule struct {
+	// maxRetries is the number of retries after the first attempt.
+	maxRetries int
 
-	// transientBaseDelay is the wait before the first retry; each later
-	// retry waits twice as long.
-	transientBaseDelay = 2 * time.Second //nolint:gochecknoglobals // mutable for test compression
+	// baseDelay is the wait before the first retry; each later retry waits
+	// twice as long.
+	baseDelay time.Duration
 
-	// transient429FallbackDelay is the wait for a 429 whose APIError reports
-	// no server-provided Retry-After.
-	transient429FallbackDelay = 10 * time.Second //nolint:gochecknoglobals // mutable for test compression
+	// fallback429Delay is the wait for a 429 whose APIError reports no
+	// server-provided Retry-After.
+	fallback429Delay time.Duration
 
-	// transient429MaxDelay caps a server-provided Retry-After honored by
+	// max429Delay caps a server-provided Retry-After honored by
 	// [RetryTransient].
-	transient429MaxDelay = 30 * time.Second //nolint:gochecknoglobals // mutable for test compression
+	max429Delay time.Duration
+}
+
+// Default schedule values. Their total bounded retry time stays near 14s
+// of waiting plus request time.
+const (
+	// defaultMaxRetries is the number of retries after the first attempt.
+	defaultMaxRetries = 3
+
+	// defaultBaseDelay is the wait before the first retry; each later retry
+	// waits twice as long.
+	defaultBaseDelay = 2 * time.Second
+
+	// default429FallbackDelay is the wait for a 429 whose APIError reports
+	// no server-provided Retry-After.
+	default429FallbackDelay = 10 * time.Second
+
+	// default429MaxDelay caps a server-provided Retry-After honored by
+	// [RetryTransient].
+	default429MaxDelay = 30 * time.Second
 )
+
+// defaultTransientSchedule returns the schedule used when no option
+// overrides it.
+func defaultTransientSchedule() transientSchedule {
+	return transientSchedule{
+		maxRetries:       defaultMaxRetries,
+		baseDelay:        defaultBaseDelay,
+		fallback429Delay: default429FallbackDelay,
+		max429Delay:      default429MaxDelay,
+	}
+}
+
+// transientOption customizes the retry schedule of a RetryTransient call.
+type transientOption func(*transientSchedule)
+
+// withSchedule replaces the whole retry schedule with s.
+func withSchedule(s transientSchedule) transientOption {
+	return func(schedule *transientSchedule) {
+		*schedule = s
+	}
+}
 
 // jitterPct bounds the symmetric random jitter applied to each wait.
 const jitterPct = 0.25
@@ -77,7 +118,7 @@ func IsTransient(err error) bool {
 // RetryTransient runs op and returns its value, retrying bounded transient
 // upstream failures so a single 5xx/429 blip from the live API does not fail
 // an integration test. op is called on each attempt; requests that are not
-// idempotent may execute up to 1+transientMaxRetries times.
+// idempotent may execute up to 1+schedule.maxRetries times.
 //
 // Only initiation calls are retried: an operation must not be wrapped if a
 // failure occurs mid-stream, because a stream cannot be resumed and a
@@ -90,10 +131,23 @@ func IsTransient(err error) bool {
 // back to a fixed 10s otherwise. Each wait is aborted as soon as ctx is
 // done, and the attempt loop stops immediately; the last error is reported
 // via t and the test fails.
-func RetryTransient[T any](ctx context.Context, t *testing.T, op func() (T, error)) T {
+//
+// Options may override the retry schedule; without options the default
+// schedule is used.
+func RetryTransient[T any](
+	ctx context.Context,
+	t *testing.T,
+	op func() (T, error),
+	opts ...transientOption,
+) T {
 	t.Helper()
 
-	value, err := retryTransientErr(ctx, t, op)
+	schedule := defaultTransientSchedule()
+	for _, opt := range opts {
+		opt(&schedule)
+	}
+
+	value, err := retryTransientErr(ctx, t, schedule, op)
 	require.NoError(t, err, "operation did not succeed after retrying transient failures")
 
 	return value
@@ -102,7 +156,12 @@ func RetryTransient[T any](ctx context.Context, t *testing.T, op func() (T, erro
 // retryTransientErr is [RetryTransient] without the final assertion so the
 // bounded-retry behavior — attempts, backoff, 429 handling, context
 // abort — is unit-testable on failing operations.
-func retryTransientErr[T any](ctx context.Context, t *testing.T, op func() (T, error)) (T, error) {
+func retryTransientErr[T any](
+	ctx context.Context,
+	t *testing.T,
+	sched transientSchedule,
+	op func() (T, error),
+) (T, error) {
 	t.Helper()
 
 	value, err := op()
@@ -112,8 +171,8 @@ func retryTransientErr[T any](ctx context.Context, t *testing.T, op func() (T, e
 
 	var zero T
 
-	for attempt := 1; attempt <= transientMaxRetries; attempt++ {
-		wait, waitErr := transientWait(err, attempt)
+	for attempt := 1; attempt <= sched.maxRetries; attempt++ {
+		wait, waitErr := transientWait(err, attempt, sched)
 		if waitErr != nil {
 			break
 		}
@@ -122,7 +181,7 @@ func retryTransientErr[T any](ctx context.Context, t *testing.T, op func() (T, e
 		}
 
 		t.Logf("attempt %d/%d failed with %v; retrying in %s",
-			attempt, transientMaxRetries+1, err, wait)
+			attempt, sched.maxRetries+1, err, wait)
 
 		value, err = op()
 		if err == nil {
@@ -141,7 +200,7 @@ func retryTransientErr[T any](ctx context.Context, t *testing.T, op func() (T, e
 // delay; any other transient error follows the doubling backoff schedule.
 // It returns an error when the error is not transient, in which case no
 // further attempt is worthwhile.
-func transientWait(err error, attempt int) (time.Duration, error) {
+func transientWait(err error, attempt int, sched transientSchedule) (time.Duration, error) {
 	if !IsTransient(err) {
 		return 0, errors.New("error is not transient")
 	}
@@ -152,13 +211,13 @@ func transientWait(err error, attempt int) (time.Duration, error) {
 
 	if apiErr.StatusCode == http.StatusTooManyRequests {
 		if serverDelay := apiErr.RetryAfter(); serverDelay > 0 {
-			return cappedJitter(serverDelay, transient429MaxDelay), nil
+			return cappedJitter(serverDelay, sched.max429Delay), nil
 		}
 
-		return jitter(transient429FallbackDelay), nil
+		return jitter(sched.fallback429Delay), nil
 	}
 
-	return jitter(transientBaseDelay << (attempt - 1)), nil
+	return jitter(sched.baseDelay << (attempt - 1)), nil
 }
 
 // jitter applies symmetric random jitter of up to jitterPct around d.

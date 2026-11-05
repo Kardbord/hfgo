@@ -56,24 +56,17 @@ func TestIsTransient(t *testing.T) {
 	})
 }
 
-// compressSchedule shrinks the retry schedule so tests do not sleep for
-// seconds, and restores the production values when the test ends. Tests
-// using it must not run in parallel because they mutate the package knobs.
-func compressSchedule(t *testing.T) {
-	t.Helper()
-
-	oldRetries, oldBase, oldFallback, oldCap :=
-		transientMaxRetries, transientBaseDelay, transient429FallbackDelay, transient429MaxDelay
-
-	t.Cleanup(func() {
-		transientMaxRetries, transientBaseDelay, transient429FallbackDelay, transient429MaxDelay =
-			oldRetries, oldBase, oldFallback, oldCap
-	})
-
-	transientMaxRetries = 3
-	transientBaseDelay = time.Millisecond
-	transient429FallbackDelay = time.Millisecond
-	transient429MaxDelay = 2 * time.Millisecond
+// compressedSchedule returns a retry schedule with millisecond-scale waits
+// so tests do not sleep for seconds. It is passed explicitly to
+// RetryTransient and retryTransientErr instead of mutating package state,
+// so the tests using it can run in parallel.
+func compressedSchedule() transientSchedule {
+	return transientSchedule{
+		maxRetries:       3,
+		baseDelay:        time.Millisecond,
+		fallback429Delay: time.Millisecond,
+		max429Delay:      2 * time.Millisecond,
+	}
 }
 
 // opFor returns an op that performs a request against the given server and
@@ -113,7 +106,7 @@ func opFor(serverURL string) func() (string, error) {
 }
 
 func TestRetryTransient_SucceedsAfterTransient503s(t *testing.T) {
-	compressSchedule(t)
+	t.Parallel()
 
 	var hits int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -128,13 +121,18 @@ func TestRetryTransient_SucceedsAfterTransient503s(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	value := RetryTransient(context.Background(), t, opFor(server.URL))
+	value := RetryTransient(
+		context.Background(),
+		t,
+		opFor(server.URL),
+		withSchedule(compressedSchedule()),
+	)
 	require.Equal(t, "ok", value)
 	require.Equal(t, 3, hits, "expected two 503 retries before success")
 }
 
 func TestRetryTransient_Persistent503FailsAfterBoundedAttempts(t *testing.T) {
-	compressSchedule(t)
+	t.Parallel()
 
 	var hits int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -143,13 +141,13 @@ func TestRetryTransient_Persistent503FailsAfterBoundedAttempts(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	_, err := retryTransientErr(context.Background(), t, opFor(server.URL))
+	_, err := retryTransientErr(context.Background(), t, compressedSchedule(), opFor(server.URL))
 	require.Error(t, err, "persistent 503 must not succeed")
 	require.Equal(t, 4, hits, "expected 1 attempt + 3 retries")
 }
 
 func TestRetryTransient_410FailsImmediately(t *testing.T) {
-	compressSchedule(t)
+	t.Parallel()
 
 	var hits int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -158,7 +156,7 @@ func TestRetryTransient_410FailsImmediately(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	_, err := retryTransientErr(context.Background(), t, opFor(server.URL))
+	_, err := retryTransientErr(context.Background(), t, compressedSchedule(), opFor(server.URL))
 	require.Error(t, err, "410 must not succeed")
 
 	var apiErr *hferrors.APIError
@@ -169,7 +167,7 @@ func TestRetryTransient_410FailsImmediately(t *testing.T) {
 
 func TestRetryTransient_429Retries(t *testing.T) {
 	t.Run("without Retry-After falls back to fixed delay", func(t *testing.T) {
-		compressSchedule(t)
+		t.Parallel()
 
 		var hits int
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -184,7 +182,12 @@ func TestRetryTransient_429Retries(t *testing.T) {
 		}))
 		t.Cleanup(server.Close)
 
-		value := RetryTransient(context.Background(), t, opFor(server.URL))
+		value := RetryTransient(
+			context.Background(),
+			t,
+			opFor(server.URL),
+			withSchedule(compressedSchedule()),
+		)
 		require.Equal(t, "ok", value)
 		require.Equal(t, 2, hits)
 	})
@@ -195,7 +198,7 @@ func TestRetryTransient_429Retries(t *testing.T) {
 			Headers:    http.Header{"Retry-After": []string{"1"}},
 		}
 
-		wait, waitErr := transientWait(err, 1)
+		wait, waitErr := transientWait(err, 1, defaultTransientSchedule())
 		require.NoError(t, waitErr)
 
 		// The raw delay is 1s; symmetric jitter of up to 25% bounds the wait
@@ -206,40 +209,47 @@ func TestRetryTransient_429Retries(t *testing.T) {
 	})
 
 	t.Run("transientWait 429 without header uses fallback", func(t *testing.T) {
+		t.Parallel()
+
+		sched := compressedSchedule()
 		err := &hferrors.APIError{StatusCode: http.StatusTooManyRequests}
 
-		wait, waitErr := transientWait(err, 1)
+		wait, waitErr := transientWait(err, 1, sched)
 		require.NoError(t, waitErr)
 
-		lower := transient429FallbackDelay * 3 / 4
-		upper := transient429FallbackDelay * 5 / 4
+		lower := sched.fallback429Delay * 3 / 4
+		upper := sched.fallback429Delay * 5 / 4
 		require.GreaterOrEqual(t, wait, lower)
 		require.LessOrEqual(t, wait, upper)
 	})
 
 	t.Run("transientWait caps server delay", func(t *testing.T) {
+		t.Parallel()
+
+		sched := compressedSchedule()
 		err := &hferrors.APIError{
 			StatusCode: http.StatusTooManyRequests,
 			Headers:    http.Header{"Retry-After": []string{"3600"}},
 		}
 
-		wait, waitErr := transientWait(err, 1)
+		wait, waitErr := transientWait(err, 1, sched)
 		require.NoError(t, waitErr)
-		require.Equal(t, transient429MaxDelay, wait, "pathological Retry-After must be capped")
+		require.Equal(t, sched.max429Delay, wait, "pathological Retry-After must be capped")
 	})
 }
 
 func TestRetryTransient_TransientWaitBackoffSchedule(t *testing.T) {
 	t.Parallel()
 
+	sched := compressedSchedule()
 	err := &hferrors.APIError{StatusCode: http.StatusServiceUnavailable}
 
 	for attempt, base := range []time.Duration{
-		transientBaseDelay,
-		2 * transientBaseDelay,
-		4 * transientBaseDelay,
+		sched.baseDelay,
+		2 * sched.baseDelay,
+		4 * sched.baseDelay,
 	} {
-		wait, waitErr := transientWait(err, attempt+1)
+		wait, waitErr := transientWait(err, attempt+1, sched)
 		require.NoError(t, waitErr)
 
 		lower := base * 3 / 4
@@ -250,7 +260,7 @@ func TestRetryTransient_TransientWaitBackoffSchedule(t *testing.T) {
 }
 
 func TestRetryTransient_ContextCancelledStopsRetrying(t *testing.T) {
-	compressSchedule(t)
+	t.Parallel()
 
 	var hits int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -262,13 +272,13 @@ func TestRetryTransient_ContextCancelledStopsRetrying(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := retryTransientErr(ctx, t, opFor(server.URL))
+	_, err := retryTransientErr(ctx, t, compressedSchedule(), opFor(server.URL))
 	require.Error(t, err)
 	require.Equal(t, 1, hits, "cancelled context must prevent any retry")
 }
 
 func TestRetryTransient_TypePreserved(t *testing.T) {
-	compressSchedule(t)
+	t.Parallel()
 
 	type payload struct {
 		Value int
