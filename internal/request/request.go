@@ -247,16 +247,19 @@ func APIErrorFromResponse(
 // whenever the rendered portion was cut short.
 func messageBody(body []byte, truncated bool) string {
 	filtered := stripControlBytes(body)
+	wasTruncated := truncated
 	if int64(len(filtered)) > apiErrorMessageCapBytes {
 		filtered = filtered[:apiErrorMessageCapBytes]
-		truncated = true
+		wasTruncated = true
 	}
-	for len(filtered) > 0 && !utf8.RuneStart(filtered[len(filtered)-1]) {
-		filtered = filtered[:len(filtered)-1]
+	if wasTruncated {
+		for len(filtered) > 0 && !utf8.RuneStart(filtered[len(filtered)-1]) {
+			filtered = filtered[:len(filtered)-1]
+		}
 	}
 
 	message := string(filtered)
-	if truncated {
+	if wasTruncated {
 		message += "... (truncated)"
 	}
 
