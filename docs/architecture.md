@@ -288,6 +288,23 @@ When a codec or streaming decode hook returns an existing
 instead of relabeling it as a serialization failure. This keeps validation and
 configuration failures distinguishable from malformed JSON.
 
+`ProviderParams` merging is a codec concern, not a type concern. Canonical
+request types carry the map untouched (`json:"-"`); each provider's codec
+decides where the entries land and which structural keys stay protected. The
+flat-wire partners merge entries into their flat bodies through
+`mergeRequestParameters` with their own ordering: they assemble their payloads
+from scratch — often differently shaped and sometimes not JSON at all (binary
+and multipart media bodies) — and merge the entries mid-assembly, so their
+injected defaults stay overridable and their forced keys (mapped model,
+response format, inline masks) still win. The Hugging Face codecs — and every
+provider embedding any of its mixins — wrap a shared codec that merges the
+entries into the body's top level after the typed request is marshaled and
+re-applies the protected keys (`"model"` on chat bodies, `"inputs"` on
+pipeline bodies) so entries cannot override routing or the payload. Bodies
+without `ProviderParams` pass through byte-identically. The two mechanisms
+share one contract, not one implementation: top-level entries that override
+typed fields.
+
 Providers whose wire format needs follow-up HTTP requests after the initial
 response — such as the asynchronous task APIs of generation providers — opt in
 via `AsyncCodec`, an optional `Codec` extension. When the pipeline dispatches

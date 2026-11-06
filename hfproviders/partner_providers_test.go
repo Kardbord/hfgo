@@ -4,6 +4,7 @@ package hfproviders
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -50,7 +51,9 @@ func requireMissingTaskInterfaces(
 // requireOpenAIChatPartnerEndpoint pins the chat half shared by partner
 // providers that reuse the default provider's OpenAI-compatible chat endpoint
 // and codecs: the endpoint is model-independent, attaches no mapping, and the
-// codecs are the built-in JSON chat codecs.
+// codecs are the built-in JSON chat codecs wrapped with the ProviderParams
+// merge (entries land at the body's top level, the resolved "model" is
+// protected).
 func requireOpenAIChatPartnerEndpoint(t *testing.T, provider Provider, slug string) {
 	t.Helper()
 
@@ -74,18 +77,40 @@ func requireOpenAIChatPartnerEndpoint(t *testing.T, provider Provider, slug stri
 	require.NoError(t, err)
 	require.Equal(t, "v1/chat/completions", endpoint.Path)
 
-	// Codec wiring: the built-in JSON codecs, pinning that chat reuses the
-	// default OpenAI-compatible wire format.
+	// Codec wiring: the built-in JSON chat codecs wrapped with the
+	// ProviderParams merge, pinning that chat reuses the default
+	// OpenAI-compatible wire format.
 	require.IsType(
 		t,
-		JSONCodec[hftypes.ChatRequest, hftypes.ChatResponse]{},
+		hfParamsCodec[hftypes.ChatRequest, hftypes.ChatResponse]{},
 		chat.ChatCodec(),
 	)
 	require.IsType(
 		t,
-		JSONCodec[hftypes.ChatRequest, hftypes.ChatStreamResponse]{},
+		hfParamsCodec[hftypes.ChatRequest, hftypes.ChatStreamResponse]{},
 		stream.ChatStreamCodec(),
 	)
+
+	// ProviderParams entries merge into the body's top level and cannot
+	// override the resolved model.
+	model := "zai-org/GLM-5.3:" + slug
+	request := hftypes.ChatRequest{
+		Model: new(model),
+		Messages: []hftypes.ChatMessage{{
+			Role:    "user",
+			Content: hftypes.ChatMessageContent{Text: new("hello")},
+		}},
+		ProviderParams: map[string]any{
+			"temperature": 0.5,
+			"model":       "attacker-model",
+		},
+	}
+	body, _, err := chat.ChatCodec().Encode(EncodeParams[hftypes.ChatRequest]{Request: request})
+	require.NoError(t, err)
+	require.JSONEq(t, fmt.Sprintf(
+		`{"model":%q,"messages":[{"role":"user","content":"hello"}],"temperature":0.5}`,
+		model,
+	), string(body))
 }
 
 // requireOpenAIEmbeddingsEndpoints pins the embeddings half shared by partner

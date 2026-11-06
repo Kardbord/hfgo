@@ -334,6 +334,70 @@ func TestTogetherFlattenResponseFormat_Errors(t *testing.T) {
 	})
 }
 
+// TestTogetherChatCodec_EncodeProviderParams pins that Together's shadow chat
+// codecs merge the request's ProviderParams into the body's top level, with
+// the resolved "model" protected — including alongside the response_format
+// rewrite.
+func TestTogetherChatCodec_EncodeProviderParams(t *testing.T) {
+	t.Parallel()
+
+	newRequest := func() hftypes.ChatRequest {
+		req := togetherChatRequest()
+		req.ProviderParams = map[string]any{
+			"temperature": 0.5,
+			"model":       "attacker-model",
+		}
+
+		return req
+	}
+
+	t.Run("unary", func(t *testing.T) {
+		t.Parallel()
+
+		req := newRequest()
+		req.ResponseFormat = &hftypes.ChatResponseFormat{
+			Type: hftypes.ResponseFormatTypeJSONSchema,
+			JSONSchema: &hftypes.ChatJSONSchemaConfig{
+				Name:   "answer",
+				Schema: json.RawMessage(`{"type":"object"}`),
+			},
+		}
+
+		body, _, err := togetherChatCodec{}.Encode(EncodeParams[hftypes.ChatRequest]{
+			Context: context.Background(),
+			Request: req,
+		})
+		require.NoError(t, err)
+
+		var fields map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(body, &fields))
+		require.JSONEq(t, string(mustMarshal(req.Model)), string(fields["model"]))
+		require.JSONEq(t, "0.5", string(fields["temperature"]))
+		require.JSONEq(t,
+			`{"type":"json_schema","schema":{"type":"object"}}`,
+			string(fields["response_format"]),
+		)
+	})
+
+	t.Run("stream", func(t *testing.T) {
+		t.Parallel()
+
+		req := newRequest()
+		req.Stream = new(true)
+
+		body, _, err := togetherChatStreamCodec{}.Encode(EncodeParams[hftypes.ChatRequest]{
+			Context: context.Background(),
+			Request: req,
+		})
+		require.NoError(t, err)
+
+		var fields map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(body, &fields))
+		require.JSONEq(t, string(mustMarshal(req.Model)), string(fields["model"]))
+		require.JSONEq(t, "0.5", string(fields["temperature"]))
+	})
+}
+
 // TestTogetherChatCodec_UnaryDecode pins that responses decode exactly like
 // the default provider's JSON codec, including Together's occasional
 // omission of system_fingerprint.

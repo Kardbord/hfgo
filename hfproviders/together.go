@@ -146,9 +146,11 @@ var (
 	_ ChatStreamCodec = (*togetherChatStreamCodec)(nil)
 )
 
-// togetherChatCodec is a [Codec] for unary chat completion that encodes
-// requests with Together's flattened json_schema response_format and decodes
-// responses exactly like the default provider's JSON codec. Together omits
+// togetherChatCodec is a [Codec] for unary chat completion that merges the
+// request's ProviderParams into the body's top level (with the resolved
+// "model" key protected, like [HuggingFaceChatMixin]) and encodes requests
+// with Together's flattened json_schema response_format; responses decode
+// exactly like the default provider's JSON codec. Together omits
 // system_fingerprint from some responses; [hftypes.ChatResponse] treats it as
 // optional, so decoding needs no adaptation.
 type togetherChatCodec struct{}
@@ -156,7 +158,10 @@ type togetherChatCodec struct{}
 func (c togetherChatCodec) Encode(
 	params EncodeParams[hftypes.ChatRequest],
 ) (body []byte, headers http.Header, err error) {
-	inner := JSONCodec[hftypes.ChatRequest, hftypes.ChatResponse]{}
+	inner := hfChatParamsCodec(
+		JSONCodec[hftypes.ChatRequest, hftypes.ChatResponse]{},
+		chatRequestProviderParams,
+	)
 
 	body, headers, err = inner.Encode(params)
 	if err != nil {
@@ -178,14 +183,18 @@ func (c togetherChatCodec) Decode(params DecodeParams) (hftypes.ChatResponse, er
 }
 
 // togetherChatStreamCodec is the streaming sibling of [togetherChatCodec]:
-// it encodes requests identically and decodes SSE payloads exactly like the
-// default provider's JSON codec.
+// it encodes requests identically (ProviderParams merge, flattened
+// response_format) and decodes SSE payloads exactly like the default
+// provider's JSON codec.
 type togetherChatStreamCodec struct{}
 
 func (c togetherChatStreamCodec) Encode(
 	params EncodeParams[hftypes.ChatRequest],
 ) (body []byte, headers http.Header, err error) {
-	inner := JSONCodec[hftypes.ChatRequest, hftypes.ChatStreamResponse]{}
+	inner := hfChatParamsCodec(
+		JSONCodec[hftypes.ChatRequest, hftypes.ChatStreamResponse]{},
+		chatRequestProviderParams,
+	)
 
 	body, headers, err = inner.Encode(params)
 	if err != nil {
