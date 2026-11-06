@@ -5,7 +5,6 @@ package hfraw_test
 import (
 	"context"
 	"errors"
-	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -206,10 +205,8 @@ func TestClient_Stream_NonSSEError(t *testing.T) {
 	apiErr := testutils.AssertAPIErrorStatus(t, err, http.StatusNotFound)
 	require.Contains(t, apiErr.URL, "/stream")
 
-	got, readErr := io.ReadAll(apiErr.Body)
-	require.NoError(t, readErr)
-	require.JSONEq(t, body, string(got))
-	require.NoError(t, apiErr.Body.Close())
+	require.JSONEq(t, body, string(apiErr.Body))
+	require.Contains(t, apiErr.Message, body)
 }
 
 func TestClient_StreamReader_NonSSEError(t *testing.T) {
@@ -235,10 +232,8 @@ func TestClient_StreamReader_NonSSEError(t *testing.T) {
 
 	apiErr := testutils.AssertAPIErrorStatus(t, err, http.StatusInternalServerError)
 
-	got, readErr := io.ReadAll(apiErr.Body)
-	require.NoError(t, readErr)
-	require.JSONEq(t, body, string(got))
-	require.NoError(t, apiErr.Body.Close())
+	require.JSONEq(t, body, string(apiErr.Body))
+	require.Contains(t, apiErr.Message, body)
 }
 
 func TestClient_Stream_NonSSE2xx(t *testing.T) {

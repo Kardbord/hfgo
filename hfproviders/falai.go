@@ -556,11 +556,12 @@ func falaiQueueTargets(
 	}
 
 	pollParams = request.Params{
-		HTTPClient: params.HTTPClient,
-		BaseURL:    base,
-		UserAgent:  params.UserAgent,
-		Token:      params.Token,
-		Headers:    http.Header{headerAccept: {mimeTypeJSON}},
+		HTTPClient:           params.HTTPClient,
+		BaseURL:              base,
+		UserAgent:            params.UserAgent,
+		Token:                params.Token,
+		Headers:              http.Header{headerAccept: {mimeTypeJSON}},
+		MaxResponseBodyBytes: params.MaxResponseBodyBytes,
 	}
 
 	// Compose the follow-up query: the router's queue-subdomain directive

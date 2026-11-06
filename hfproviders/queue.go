@@ -320,11 +320,12 @@ func queuePollTarget(
 	}
 
 	return request.Params{
-		HTTPClient: params.HTTPClient,
-		BaseURL:    polled.base,
-		UserAgent:  params.UserAgent,
-		Token:      params.Token,
-		Headers:    http.Header{headerAccept: {mimeTypeJSON}},
+		HTTPClient:           params.HTTPClient,
+		BaseURL:              polled.base,
+		UserAgent:            params.UserAgent,
+		Token:                params.Token,
+		Headers:              http.Header{headerAccept: {mimeTypeJSON}},
+		MaxResponseBodyBytes: params.MaxResponseBodyBytes,
 	}, pollPath, nil
 }
 
@@ -354,8 +355,9 @@ func queuePollOnce[T any](
 	exchange queueExchange[T],
 ) (*T, time.Duration, error) {
 	//nolint:bodyclose // Drained and closed on transient and success branches;
-	// non-transient 4xx/5xx errors transfer the body to the returned APIError,
-	// which the caller must close per the APIError contract.
+	// non-transient 4xx/5xx errors have their bodies read and buffered into
+	// the returned APIError, whose original response body APIErrorFromResponse
+	// already closes.
 	resp, err := request.DoRaw(ctx, pollParams, http.MethodGet, path, nil)
 	if err != nil {
 		// Transport-level failures (dropped connections, timeouts) are
@@ -375,10 +377,17 @@ func queuePollOnce[T any](
 
 		return nil, override, nil
 	}
-	// Non-transient error: transfer the open body to the returned APIError
-	// so the caller can inspect it per the APIError contract.
+	// Non-transient error: read the body into the returned APIError so the
+	// caller can inspect it per the APIError contract.
 	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, 0, request.APIErrorFromResponse(resp, http.MethodGet)
+		apiErr, apiErrErr := request.APIErrorFromResponse(
+			resp, http.MethodGet, pollParams.MaxResponseBodyBytes,
+		)
+		if apiErrErr != nil {
+			return nil, 0, apiErrErr
+		}
+
+		return nil, 0, apiErr
 	}
 
 	body, readErr := request.ReadResponseBody(resp, params.MaxResponseBodyBytes)
@@ -452,8 +461,9 @@ func queueFetchOnce(
 	path string,
 ) (body []byte, transient bool, override time.Duration, err error) {
 	//nolint:bodyclose // Transient bodies are drained and closed below;
-	// non-transient 4xx/5xx errors transfer the body to the returned
-	// APIError, which the caller must close per the APIError contract.
+	// non-transient 4xx/5xx errors have their bodies read and buffered into
+	// the returned APIError, whose original response body APIErrorFromResponse
+	// already closes.
 	resp, err := request.DoRaw(ctx, pollParams, http.MethodGet, path, nil)
 	if err != nil {
 		if queueIsContextError(err) {
@@ -470,7 +480,14 @@ func queueFetchOnce(
 		return nil, true, override, nil
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, false, 0, request.APIErrorFromResponse(resp, http.MethodGet)
+		apiErr, apiErrErr := request.APIErrorFromResponse(
+			resp, http.MethodGet, pollParams.MaxResponseBodyBytes,
+		)
+		if apiErrErr != nil {
+			return nil, false, 0, apiErrErr
+		}
+
+		return nil, false, 0, apiErr
 	}
 
 	body, readErr := request.ReadResponseBody(resp, params.MaxResponseBodyBytes)
@@ -534,13 +551,13 @@ func queueDownloadOutput(
 	outputURL string,
 ) ([]byte, http.Header, error) {
 	//nolint:bodyclose // Drained and closed via defer below on success; error
-	// responses transfer the body to the returned APIError, which the caller
-	// must close per the APIError contract.
+	// responses have their bodies read and closed by APIErrorFromResponse.
 	resp, err := request.DoUnauthenticated(
 		ctx,
 		request.UnauthenticatedParams{
-			HTTPClient: params.HTTPClient,
-			UserAgent:  params.UserAgent,
+			HTTPClient:           params.HTTPClient,
+			UserAgent:            params.UserAgent,
+			MaxResponseBodyBytes: params.MaxResponseBodyBytes,
 		},
 		http.MethodGet,
 		outputURL,

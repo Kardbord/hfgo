@@ -245,13 +245,6 @@ func (c *Client) Mappings(ctx context.Context, model string) ([]Mapping, error) 
 		// Stale entries cover transient upstream failures only;
 		// deterministic problems and caller cancellation propagate.
 		if c.staleOnError && exists && isTransientFetchFailure(ctx, err) {
-			// A 5xx or 429 failure surfaces as an *hferrors.APIError that
-			// owns the open response body. Nothing will read that body once
-			// the error is discarded, so close it here.
-			if apiErr, ok := errors.AsType[*hferrors.APIError](err); ok {
-				request.DrainAndCloseBody(apiErr.Body, 0)
-			}
-
 			return c.serveStale(model, entry, expiry, cached), nil
 		}
 
@@ -380,8 +373,8 @@ func (c *Client) fetch(ctx context.Context, model string) ([]Mapping, error) {
 		return nil, err
 	}
 
-	body, err := request.ReadResponseBody(resp, 0)
-	request.DrainAndCloseBody(resp.Body, 0)
+	body, err := request.ReadResponseBody(resp, c.params.MaxResponseBodyBytes)
+	request.DrainAndCloseBody(resp.Body, c.params.MaxResponseBodyBytes)
 	if err != nil {
 		return nil, err
 	}

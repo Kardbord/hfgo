@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"unicode/utf8"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/internal/utils"
@@ -39,6 +40,11 @@ type Params struct {
 	// Headers are additional request headers applied over the built-in
 	// ones. Values for the same key set here replace the built-in values.
 	Headers http.Header
+
+	// MaxResponseBodyBytes caps how much of any response body is buffered,
+	// including the body captured in [hferrors.APIError] for 4xx/5xx
+	// responses. Values <= 0 fall back to [DefaultMaxResponseBodyBytes].
+	MaxResponseBodyBytes int64
 }
 
 // Validate performs the transport-level sanity checks that must hold before
@@ -117,6 +123,13 @@ type UnauthenticatedParams struct {
 
 	// UserAgent is sent as the User-Agent header when non-empty.
 	UserAgent string
+
+	// MaxResponseBodyBytes caps how much of any response body is buffered,
+	// including the body captured in [hferrors.APIError] for 4xx/5xx
+	// responses. This setting carries no credentials, so unlike the absent
+	// Token and Headers fields it is safe to expose here. Values <= 0 fall
+	// back to [DefaultMaxResponseBodyBytes].
+	MaxResponseBodyBytes int64
 }
 
 // Validate performs the transport-level sanity checks that must hold before
@@ -152,28 +165,129 @@ func Do(
 	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, APIErrorFromResponse(resp, method)
+		apiErr, apiErrErr := APIErrorFromResponse(resp, method, params.MaxResponseBodyBytes)
+		if apiErrErr != nil {
+			return nil, apiErrErr
+		}
+
+		return nil, apiErr
 	}
 
 	return resp, nil
 }
 
+// apiErrorMessageCapBytes caps how much of the response body is inlined into
+// [hferrors.APIError.Message] so error strings stay log-friendly. The full
+// (MaxResponseBodyBytes-capped) body remains available in
+// [hferrors.APIError.Body].
+const apiErrorMessageCapBytes = 4 * 1024 // 4 KiB
+
 // APIErrorFromResponse builds an *hferrors.APIError from a 4xx/5xx response.
-// Ownership of resp.Body transfers to the caller, who must close it.
-func APIErrorFromResponse(resp *http.Response, method string) *hferrors.APIError {
+// The response body is read eagerly into the error: [hferrors.APIError.Body]
+// holds the buffered bytes (capped at maxBytes; values <= 0 fall back to
+// [DefaultMaxResponseBodyBytes]), and [hferrors.APIError.Message] carries the
+// status text followed by a smaller, log-friendly truncation of the body.
+// resp.Body is always drained (within the drain budget) and closed by this
+// function, so the underlying connection can be reused when the error body is
+// small enough.
+//
+// If reading the body fails mid-way (for example a connection reset), Body is
+// nil and Message falls back to plain status text; the read error itself is
+// not surfaced, because the HTTP-level failure the APIError reports already
+// describes what the caller needs to handle. Caller cancellation and deadline
+// expiry during the read are the exception: they surface as the context
+// error (matching errors.Is), so callers can distinguish "gave up" from
+// "server failed". resp.Body is always closed.
+func APIErrorFromResponse(
+	resp *http.Response,
+	method string,
+	maxBytes int64,
+) (*hferrors.APIError, error) {
 	reqURL := ""
 	if resp.Request != nil && resp.Request.URL != nil {
 		reqURL = resp.Request.URL.String()
 	}
 
+	body, truncated, err := readResponseBodyTruncated(resp.Body, maxBytes)
+	DrainAndCloseBody(resp.Body, maxBytes)
+	if err != nil &&
+		(errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) {
+		// The read error carries caller cancellation or deadline expiry;
+		// returning a bare APIError would silently convert "caller gave up"
+		// into "server failed".
+		return nil, err
+	}
+	if len(body) == 0 {
+		body = nil
+	}
+	message := http.StatusText(resp.StatusCode)
+	if err == nil && len(body) > 0 {
+		if bodyText := messageBody(body, truncated); bodyText != "" {
+			message = message + ": " + bodyText
+		}
+	}
+
 	return &hferrors.APIError{
 		StatusCode: resp.StatusCode,
-		Message:    http.StatusText(resp.StatusCode),
-		Body:       resp.Body,
+		Message:    message,
+		Body:       body,
 		Headers:    utils.CloneHeader(resp.Header),
 		Method:     method,
 		URL:        reqURL,
+	}, nil
+}
+
+// messageBody renders the body portion of [hferrors.APIError.Message]. It
+// removes control bytes (including newlines) from a copy so server-controlled
+// bytes cannot forge log lines — the full body in [hferrors.APIError.Body] is
+// untouched — then truncates that copy to apiErrorMessageCapBytes
+// independently of the full-body cap so error strings stay small even when
+// the caller raised MaxResponseBodyBytes, backing off to a rune boundary so a
+// multi-byte character is never split mid-sequence. A marker is appended
+// whenever the rendered portion was cut short.
+func messageBody(body []byte, truncated bool) string {
+	filtered := stripControlBytes(body)
+	wasTruncated := truncated
+	if int64(len(filtered)) > apiErrorMessageCapBytes {
+		filtered = filtered[:apiErrorMessageCapBytes]
+		wasTruncated = true
 	}
+	if wasTruncated {
+		// Back off to a rune boundary: strip any trailing partial rune,
+		// including the orphan lead byte of a multi-byte character whose
+		// continuation bytes were cut — RuneStart alone would leave that
+		// lead byte behind, producing invalid UTF-8.
+		for len(filtered) > 0 {
+			r, size := utf8.DecodeLastRune(filtered)
+			if r != utf8.RuneError || size != 1 {
+				break
+			}
+			filtered = filtered[:len(filtered)-1]
+		}
+	}
+
+	message := string(filtered)
+	if wasTruncated {
+		message += "... (truncated)"
+	}
+
+	return message
+}
+
+// stripControlBytes returns a copy of b with control bytes (< 0x20 and 0x7F)
+// removed. It filters bytes rather than runes so that invalid UTF-8 in a
+// binary error body cannot expand the message into replacement runes.
+func stripControlBytes(b []byte) []byte {
+	filtered := make([]byte, 0, len(b))
+	for _, c := range b {
+		if c < 0x20 || c == 0x7f {
+			continue
+		}
+
+		filtered = append(filtered, c)
+	}
+
+	return filtered
 }
 
 // DoRaw performs an HTTP request with the provided context and params and
@@ -354,7 +468,12 @@ func DoUnauthenticated(
 	}
 
 	if resp.StatusCode >= http.StatusBadRequest {
-		return nil, APIErrorFromResponse(resp, method)
+		apiErr, apiErrErr := APIErrorFromResponse(resp, method, params.MaxResponseBodyBytes)
+		if apiErrErr != nil {
+			return nil, apiErrErr
+		}
+
+		return nil, apiErr
 	}
 
 	return resp, nil

@@ -181,7 +181,10 @@ Errors returned by client methods are one of two types in
 [`hferrors`](./hferrors):
 
 - **`APIError`** — a 4xx/5xx response from the API. Carries the status code,
-  message, response headers, method, and URL. Helpers: `IsClientError()`,
+  message, the buffered response body bytes, response headers, method, and URL.
+  `Message` contains the status text plus a truncated copy of the response body
+  (capped for log-friendly output), so error strings show *why* the request
+  failed; `Body` holds the full body. Helpers: `IsClientError()`,
   `IsServerError()`, `IsAuthenticationError()`, `IsRateLimitError()`, and
   `RetryAfter()` for the server-provided retry delay.
 - **`SDKError`** — produced locally before or while decoding a response, or

@@ -413,7 +413,7 @@ func (t *trackingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	return resp, nil
 }
 
-func TestMappings_StaleOnErrorClosesErrorBody(t *testing.T) {
+func TestMappings_StaleOnErrorClosesBodyDuringRefresh(t *testing.T) {
 	t.Parallel()
 
 	hs := newHubServer(t, mappingObjectShape)
@@ -439,8 +439,8 @@ func TestMappings_StaleOnErrorClosesErrorBody(t *testing.T) {
 	require.NoError(t, err)
 
 	// Expire the entry, then fail the refresh with a 5xx. The resulting
-	// APIError owns the open response body; serving the stale entry must
-	// close it rather than leaking the connection.
+	// APIError has its body read and closed eagerly by the error construction
+	// itself; serving the stale entry must not leak the connection.
 	time.Sleep(2 * time.Millisecond)
 	hs.status.Store(int32(http.StatusInternalServerError))
 
@@ -451,7 +451,7 @@ func TestMappings_StaleOnErrorClosesErrorBody(t *testing.T) {
 	body := transport.last.Load()
 	require.NotNil(t, body, "the failing refresh must have produced a response body")
 	require.True(t, body.closed.Load(),
-		"serving a stale entry must close the discarded error body")
+		"the failed refresh must close the error response body it consumed")
 }
 
 func TestMappings_NoStaleOnErrorPropagatesFailure(t *testing.T) {

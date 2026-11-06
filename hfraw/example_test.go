@@ -336,8 +336,9 @@ func ExampleClient_StreamReader() {
 
 // ExampleClient_Stream_apiError shows how Stream surfaces a 4xx/5xx response
 // that is not an event stream. Because a JSON response cannot be consumed as
-// SSE, Stream returns an *hferrors.APIError whose Body the caller owns, so the
-// error payload is not lost. Extract it with errors.As.
+// SSE, Stream returns an *hferrors.APIError whose Body holds the buffered
+// response body bytes, so the error payload is not lost. Extract it with
+// errors.As.
 func ExampleClient_Stream_apiError() {
 	// The 404 JSON response is hard-coded so the example can run without a real token.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -369,13 +370,7 @@ func ExampleClient_Stream_apiError() {
 	if !errors.As(err, &apiErr) {
 		panic(err)
 	}
-	defer apiErr.Body.Close()
 
-	body, readErr := io.ReadAll(apiErr.Body)
-	if readErr != nil {
-		panic(readErr)
-	}
-
-	fmt.Println(apiErr.StatusCode, string(body))
+	fmt.Println(apiErr.StatusCode, string(apiErr.Body))
 	// Output: 404 {"error":"model not found"}
 }
