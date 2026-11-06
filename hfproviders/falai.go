@@ -188,6 +188,7 @@ func (p FalAIProvider) ProviderSuffix() string {
 // fal's Hub identifier — the key the Hub's mapping data uses — which is a
 // provider fact, not something the SDK derives.
 func resolveFalAIEndpoint(
+	ctx context.Context,
 	resolver ModelResolver,
 	params EndpointParams,
 	task Task,
@@ -196,7 +197,7 @@ func resolveFalAIEndpoint(
 		return Endpoint{}, errNilResolver(falaiProviderName)
 	}
 
-	mapping, err := resolver.ResolveModel(params.Context, ResolveModelParams{
+	mapping, err := resolver.ResolveModel(ctx, ResolveModelParams{
 		Provider: falaiProviderName,
 		Task:     task,
 		Model:    params.Model,
@@ -227,9 +228,10 @@ type FalAITextToImageMixin struct {
 // TextToImageEndpoint resolves the configured Hugging Face model ID to
 // fal's identifier and returns the router-proxied queue path for it.
 func (m FalAITextToImageMixin) TextToImageEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
-	return resolveFalAIEndpoint(m.Resolver, params, TaskTextToImage)
+	return resolveFalAIEndpoint(ctx, m.Resolver, params, TaskTextToImage)
 }
 
 // TextToImageCodec returns the text-to-image codec, which encodes requests
@@ -261,9 +263,10 @@ type FalAIImageToImageMixin struct {
 // ImageToImageEndpoint resolves the configured Hugging Face model ID to
 // fal's identifier and returns the router-proxied queue path for it.
 func (m FalAIImageToImageMixin) ImageToImageEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
-	return resolveFalAIEndpoint(m.Resolver, params, TaskImageToImage)
+	return resolveFalAIEndpoint(ctx, m.Resolver, params, TaskImageToImage)
 }
 
 // ImageToImageCodec returns the image-to-image codec, which encodes requests
@@ -296,9 +299,10 @@ type FalAITextToVideoMixin struct {
 // TextToVideoEndpoint resolves the configured Hugging Face model ID to
 // fal's identifier and returns the router-proxied queue path for it.
 func (m FalAITextToVideoMixin) TextToVideoEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
-	return resolveFalAIEndpoint(m.Resolver, params, TaskTextToVideo)
+	return resolveFalAIEndpoint(ctx, m.Resolver, params, TaskTextToVideo)
 }
 
 // TextToVideoCodec returns the text-to-video codec, which encodes requests
@@ -330,9 +334,10 @@ type FalAIImageSegmentationMixin struct {
 // ImageSegmentationEndpoint resolves the configured Hugging Face model ID to
 // fal's identifier and returns the router-proxied queue path for it.
 func (m FalAIImageSegmentationMixin) ImageSegmentationEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
-	return resolveFalAIEndpoint(m.Resolver, params, TaskImageSegmentation)
+	return resolveFalAIEndpoint(ctx, m.Resolver, params, TaskImageSegmentation)
 }
 
 // ImageSegmentationCodec returns the image-segmentation codec, which encodes
@@ -362,9 +367,10 @@ type FalAISpeechRecognitionMixin struct {
 // SpeechRecognitionEndpoint resolves the configured Hugging Face model ID to
 // fal's identifier and returns the router-proxied queue path for it.
 func (m FalAISpeechRecognitionMixin) SpeechRecognitionEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
-	return resolveFalAIEndpoint(m.Resolver, params, TaskAutomaticSpeechRecognition)
+	return resolveFalAIEndpoint(ctx, m.Resolver, params, TaskAutomaticSpeechRecognition)
 }
 
 // SpeechRecognitionCodec returns the speech-recognition codec, which encodes
@@ -1012,6 +1018,7 @@ var (
 )
 
 func (c falaiTextToImageCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.TextToImageRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
@@ -1027,7 +1034,7 @@ func (c falaiTextToImageCodec) Encode(
 	falaiApplyImageSize(payload)
 	maps.Copy(payload, req.ProviderParams)
 	if err := falaiInjectAdapterLoras(
-		params.Context, params.Mapping, c.resolver, TaskTextToImage, params.Model, payload,
+		ctx, params.Mapping, c.resolver, TaskTextToImage, params.Model, payload,
 	); err != nil {
 		return nil, nil, err
 	}
@@ -1041,6 +1048,7 @@ func (c falaiTextToImageCodec) Encode(
 }
 
 func (c falaiTextToImageCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) (hftypes.TextToImageResponse, error) {
 	image, mediaType, err := c.decodeMediaBody(params)
@@ -1102,6 +1110,7 @@ var (
 )
 
 func (c falaiImageToImageCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.ImageToImageRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
@@ -1123,7 +1132,7 @@ func (c falaiImageToImageCodec) Encode(
 	falaiApplyTargetSize(payload)
 	maps.Copy(payload, req.ProviderParams)
 	if err := falaiInjectAdapterLoras(
-		params.Context, params.Mapping, c.resolver, TaskImageToImage, params.Model, payload,
+		ctx, params.Mapping, c.resolver, TaskImageToImage, params.Model, payload,
 	); err != nil {
 		return nil, nil, err
 	}
@@ -1137,6 +1146,7 @@ func (c falaiImageToImageCodec) Encode(
 }
 
 func (c falaiImageToImageCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) (hftypes.ImageToImageResponse, error) {
 	image, mediaType, err := c.decodeMediaBody(params)
@@ -1195,6 +1205,7 @@ var (
 )
 
 func (c falaiTextToVideoCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.TextToVideoRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
@@ -1206,7 +1217,7 @@ func (c falaiTextToVideoCodec) Encode(
 		return nil, nil, err
 	}
 	if err := falaiInjectAdapterLoras(
-		params.Context, params.Mapping, c.resolver, TaskTextToVideo, params.Model, payload,
+		ctx, params.Mapping, c.resolver, TaskTextToVideo, params.Model, payload,
 	); err != nil {
 		return nil, nil, err
 	}
@@ -1220,6 +1231,7 @@ func (c falaiTextToVideoCodec) Encode(
 }
 
 func (c falaiTextToVideoCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) (hftypes.TextToVideoResponse, error) {
 	video, mediaType, err := c.decodeMediaBody(params)
@@ -1281,6 +1293,7 @@ var (
 )
 
 func (c falaiImageSegmentationCodec) Encode(
+	_ context.Context,
 	params EncodeParams[hftypes.ImageSegmentationRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
@@ -1306,6 +1319,7 @@ func (c falaiImageSegmentationCodec) Encode(
 }
 
 func (c falaiImageSegmentationCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) ([]hftypes.ImageSegmentation, error) {
 	mask, _, err := c.decodeMediaBody(params)
@@ -1381,6 +1395,7 @@ var (
 )
 
 func (c falaiSpeechRecognitionCodec) Encode(
+	_ context.Context,
 	params EncodeParams[hftypes.SpeechRecognitionRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
@@ -1409,6 +1424,7 @@ func (c falaiSpeechRecognitionCodec) Encode(
 // a direct Decode of anything but a JSON-labeled body is rejected rather
 // than trusted, matching Replicate's speech-recognition codec.
 func (c falaiSpeechRecognitionCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) (hftypes.SpeechRecognitionResponse, error) {
 	contentType := params.Headers.Get("Content-Type")

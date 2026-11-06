@@ -1,18 +1,24 @@
 package task
 
 import (
+	"context"
+
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
 // GenerateVideo sends a text-to-video request and returns the generated video
 // along with the media type the API advertised for it.
 func GenerateVideo(
+	ctx context.Context,
 	opts hfopts.Options,
 	req hftypes.TextToVideoRequest,
 ) (hftypes.TextToVideoResponse, error) {
+	ctx = utils.NormalizeContext(ctx)
+
 	if err := validateDispatch(opts); err != nil {
 		return hftypes.TextToVideoResponse{}, err
 	}
@@ -22,9 +28,8 @@ func GenerateVideo(
 		return hftypes.TextToVideoResponse{}, err
 	}
 
-	endpoint, err := prov.TextToVideoEndpoint(hfproviders.EndpointParams{
-		Context: opts.Context(),
-		Model:   opts.Model,
+	endpoint, err := prov.TextToVideoEndpoint(ctx, hfproviders.EndpointParams{
+		Model: opts.Model,
 	})
 	if err != nil {
 		return hftypes.TextToVideoResponse{}, &hferrors.SDKError{
@@ -34,5 +39,5 @@ func GenerateVideo(
 		}
 	}
 
-	return doInference(opts, endpoint, prov.TextToVideoCodec(), req)
+	return doInference(ctx, opts, endpoint, prov.TextToVideoCodec(), req)
 }

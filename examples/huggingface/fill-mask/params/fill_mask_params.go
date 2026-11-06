@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -39,6 +40,7 @@ func main() {
 
 	// Make the fill mask request with parameters
 	predictions, err := client.FillMask(
+		context.Background(),
 		hftypes.FillMaskRequest{
 			Input: input,
 			Parameters: &hftypes.FillMaskParameters{

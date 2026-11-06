@@ -29,7 +29,6 @@ func newTogetherClient(t *testing.T, ctx context.Context, model string) hfgo.Cli
 		hfopts.WithToken(os.Getenv("HF_TOKEN")),
 		hfopts.WithModel(model),
 		hfopts.WithProvider(hfproviders.NewTogetherProvider()),
-		hfopts.WithContext(ctx),
 	)
 }
 
@@ -46,7 +45,7 @@ func TestChatCompletion_TogetherLiveAPI(t *testing.T) {
 
 	const text = "Say hello in one sentence."
 	resp := testutils.RetryTransient(ctx, t, func() (hftypes.ChatResponse, error) {
-		return client.Chat(
+		return client.Chat(ctx,
 			hftypes.ChatRequest{
 				Messages: []hftypes.ChatMessage{
 					{
@@ -85,7 +84,7 @@ func TestChatCompletion_TogetherStreamingLiveAPI(t *testing.T) {
 
 	text := "Say hello in one sentence."
 	stream := testutils.RetryTransient(ctx, t, func() (*hftypes.ChatStream, error) {
-		return client.ChatStream(
+		return client.ChatStream(ctx,
 			hftypes.ChatRequest{
 				Messages: []hftypes.ChatMessage{
 					{
@@ -141,7 +140,7 @@ func TestChatCompletion_TogetherJSONSchemaLiveAPI(t *testing.T) {
 	client := newTogetherClient(t, ctx, "deepseek-ai/DeepSeek-V4.1-Flash")
 
 	resp := testutils.RetryTransient(ctx, t, func() (hftypes.ChatResponse, error) {
-		return client.Chat(
+		return client.Chat(ctx,
 			hftypes.ChatRequest{
 				Messages: []hftypes.ChatMessage{
 					{

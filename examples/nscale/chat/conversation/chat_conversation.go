@@ -117,11 +117,11 @@ func (chatClient *ChatClient) prompt(input string) (*hftypes.ChatStream, error) 
 	})
 
 	return chatClient.hfClient.ChatStream(
+		context.Background(),
 		hftypes.ChatRequest{
 			Messages:  slices.Clone(chatClient.history),
 			MaxTokens: new(1024),
 		},
-		hfopts.WithContext(context.Background()),
 	)
 }
 

@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -73,7 +74,7 @@ func TestGenerateImageToImage_ResponseDecoding(t *testing.T) {
 				hfopts.WithProvider(wavespeedTestProvider()),
 			)
 
-			return client.GenerateImageToImage(hftypes.ImageToImageRequest{
+			return client.GenerateImageToImage(context.Background(), hftypes.ImageToImageRequest{
 				Input: testutils.TinyPNGBase64,
 			})
 		},
@@ -119,7 +120,7 @@ func TestGenerateImageToImage_WithParameters(t *testing.T) {
 		hfopts.WithProvider(wavespeedTestProvider()),
 	)
 
-	image, err := client.GenerateImageToImage(hftypes.ImageToImageRequest{
+	image, err := client.GenerateImageToImage(context.Background(), hftypes.ImageToImageRequest{
 		Input: inputImage,
 		Parameters: &hftypes.ImageToImageParameters{
 			Prompt:            new("Make the image blue"),
@@ -180,7 +181,7 @@ func TestGenerateImageToImage_ProviderParams(t *testing.T) {
 		hfopts.WithProvider(wavespeedTestProvider()),
 	)
 
-	_, err := client.GenerateImageToImage(hftypes.ImageToImageRequest{
+	_, err := client.GenerateImageToImage(context.Background(), hftypes.ImageToImageRequest{
 		Input: testutils.TinyPNGBase64,
 		ProviderParams: map[string]any{
 			"enable_base64_output": true,
@@ -222,7 +223,7 @@ func TestGenerateImageToImage_Errors(t *testing.T) {
 		},
 		func(opts ...hfopts.Option) (hftypes.ImageToImageResponse, error) {
 			return hfgo.NewClient(append(opts, hfopts.WithProvider(wavespeedTestProvider()))...).
-				GenerateImageToImage(hftypes.ImageToImageRequest{
+				GenerateImageToImage(context.Background(), hftypes.ImageToImageRequest{
 					Input: testutils.TinyPNGBase64,
 				})
 		},

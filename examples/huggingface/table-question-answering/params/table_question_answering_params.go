@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -37,6 +38,7 @@ func main() {
 	sequential := false
 	truncation := true
 	answer, err := client.AnswerTableQuestion(
+		context.Background(),
 		hftypes.TableQuestionAnsweringRequest{
 			Input: hftypes.TableQuestionAnsweringInput{
 				Question: question,

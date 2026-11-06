@@ -3,7 +3,6 @@
 package hfopts
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"testing"
@@ -186,7 +185,6 @@ func TestOptions_With(t *testing.T) {
 func TestOptions_WithHelpers(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
 	mt := testutils.NewMockTransport(http.StatusOK, `{}`, nil)
 
 	opts := NewOptions().With(
@@ -194,7 +192,6 @@ func TestOptions_WithHelpers(t *testing.T) {
 		WithToken("token"),
 		WithModel("model"),
 		WithProvider(hfproviders.HuggingFaceProvider{}),
-		WithContext(ctx),
 		WithDefaultHTTPClient(),
 		WithMaxResponseBodyBytes(42),
 		WithHTTPClientFactory(func() http.Client {
@@ -214,9 +211,6 @@ func TestOptions_WithHelpers(t *testing.T) {
 	defaultProvider := hfproviders.HuggingFaceProvider{}
 	if opts.Provider != defaultProvider {
 		t.Errorf("expected Provider %v, got %v", defaultProvider, opts.Provider)
-	}
-	if opts.Context() != ctx {
-		t.Error("expected context to be set")
 	}
 	if opts.MaxResponseBodyBytes != 42 {
 		t.Errorf("expected MaxResponseBodyBytes to be 42, got %d", opts.MaxResponseBodyBytes)
@@ -325,12 +319,6 @@ func TestOptions_DefensiveHeaderClone(t *testing.T) {
 			},
 		},
 		{
-			name: "WithContext",
-			apply: func(opts Options) Options {
-				return opts.With(WithContext(context.Background()))
-			},
-		},
-		{
 			name: "WithHTTPClientFactory",
 			apply: func(opts Options) Options {
 				return opts.With(WithHTTPClientFactory(func() http.Client {
@@ -419,15 +407,6 @@ func TestNewOptions(t *testing.T) {
 		name     string
 		validate func(t *testing.T, opts Options)
 	}{
-		{
-			name: "has default context",
-			validate: func(t *testing.T, opts Options) {
-				t.Helper()
-				if opts.Context() == nil {
-					t.Error("expected default context, got nil")
-				}
-			},
-		},
 		{
 			name: "has default BaseURL",
 			validate: func(t *testing.T, opts Options) {

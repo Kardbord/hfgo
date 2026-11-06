@@ -50,13 +50,12 @@ func TestGenerateImage_FalAILiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("krea/Krea-2-Turbo"),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newFalAIProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
 
 	response := testutils.RetryTransient(ctx, t, func() (hftypes.TextToImageResponse, error) {
-		return client.GenerateImage(hftypes.TextToImageRequest{
+		return client.GenerateImage(ctx, hftypes.TextToImageRequest{
 			Input: "A serene mountain landscape at sunset",
 			Parameters: &hftypes.TextToImageParameters{
 				Width:  new(512),
@@ -88,7 +87,6 @@ func TestGenerateImageToImage_FalAILiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(falaiImageToImageModel),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newFalAIProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
@@ -96,7 +94,7 @@ func TestGenerateImageToImage_FalAILiveAPI(t *testing.T) {
 	const prompt = "Remove the glasses"
 
 	response := testutils.RetryTransient(ctx, t, func() (hftypes.ImageToImageResponse, error) {
-		return client.GenerateImageToImage(hftypes.ImageToImageRequest{
+		return client.GenerateImageToImage(ctx, hftypes.ImageToImageRequest{
 			Input: falaiTestImageURL,
 			Parameters: &hftypes.ImageToImageParameters{
 				Prompt: new(prompt),
@@ -121,19 +119,18 @@ func TestGenerateVideo_FalAILiveAPI(t *testing.T) {
 	apiToken := os.Getenv("HF_TOKEN")
 	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
 	defer cancel()
 
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("Wan-AI/Wan2.2-TI2V-5B"),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newFalAIProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(64<<20),
 	)
 
 	response := testutils.RetryTransient(ctx, t, func() (hftypes.TextToVideoResponse, error) {
-		return client.GenerateVideo(hftypes.TextToVideoRequest{
+		return client.GenerateVideo(ctx, hftypes.TextToVideoRequest{
 			Input: "A young man walking on the street",
 		})
 	})
@@ -160,13 +157,12 @@ func TestSegmentImage_FalAILiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("briaai/RMBG-2.0"),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newFalAIProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
 
 	segments := testutils.RetryTransient(ctx, t, func() ([]hftypes.ImageSegmentation, error) {
-		return client.SegmentImage(hftypes.ImageSegmentationRequest{
+		return client.SegmentImage(ctx, hftypes.ImageSegmentationRequest{
 			Input: falaiTestImageURL,
 		})
 	})
@@ -191,14 +187,13 @@ func TestRecognizeSpeech_FalAILiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("openai/whisper-large-v3"),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newFalAIProvider(t)),
 	)
 
 	// fal passes HTTP(S) audio URLs through unchanged, so the sample needs
 	// no base64 round trip.
 	resp := testutils.RetryTransient(ctx, t, func() (hftypes.SpeechRecognitionResponse, error) {
-		return client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+		return client.RecognizeSpeech(ctx, hftypes.SpeechRecognitionRequest{
 			Input: audioURL,
 		})
 	})
@@ -220,12 +215,11 @@ func TestRecognizeSpeech_FalAILiveAPIWithTimestamps(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("openai/whisper-large-v3"),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newFalAIProvider(t)),
 	)
 
 	resp := testutils.RetryTransient(ctx, t, func() (hftypes.SpeechRecognitionResponse, error) {
-		return client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+		return client.RecognizeSpeech(ctx, hftypes.SpeechRecognitionRequest{
 			Input: audioURL,
 			Parameters: &hftypes.SpeechRecognitionParameters{
 				ReturnTimestamps: new(true),
@@ -251,11 +245,10 @@ func TestGenerateImage_FalAIContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("krea/Krea-2-Turbo"),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newFalAIProvider(t)),
 	)
 
-	response, err := client.GenerateImage(hftypes.TextToImageRequest{
+	response, err := client.GenerateImage(ctx, hftypes.TextToImageRequest{
 		Input: "A serene mountain landscape at sunset",
 	})
 

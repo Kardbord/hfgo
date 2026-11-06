@@ -65,8 +65,11 @@ func endpointMethod(endpoint hfproviders.Endpoint) string {
 }
 
 // doInference posts req to the inference model endpoint using the given codec,
-// returning the typed response.
+// returning the typed response. The context carries the caller's deadline and
+// cancellation signals for the whole exchange, including any async PostSubmit
+// follow-up requests.
 func doInference[Req, Resp any](
+	ctx context.Context,
 	opts hfopts.Options,
 	endpoint hfproviders.Endpoint,
 	codec hfproviders.Codec[Req, Resp],
@@ -74,8 +77,7 @@ func doInference[Req, Resp any](
 ) (Resp, error) {
 	var zero Resp
 
-	providerBody, providerHeaders, err := codec.Encode(hfproviders.EncodeParams[Req]{
-		Context: opts.Context(),
+	providerBody, providerHeaders, err := codec.Encode(ctx, hfproviders.EncodeParams[Req]{
 		Request: req,
 		Model:   opts.Model,
 		Mapping: endpoint.Mapping,
@@ -88,7 +90,7 @@ func doInference[Req, Resp any](
 
 	//nolint:bodyclose // DrainAndCloseBody closes the body.
 	httpResp, err := request.DoBytes(
-		opts.Context(),
+		ctx,
 		transport.Params(opts),
 		endpointMethod(endpoint),
 		endpoint.Path,
@@ -112,7 +114,7 @@ func doInference[Req, Resp any](
 	var resp Resp
 	if asyncCodec, ok := any(codec).(hfproviders.AsyncCodec[Req, Resp]); ok {
 		resp, err = asyncCodec.PostSubmit(
-			opts.Context(),
+			ctx,
 			hfproviders.PostSubmitParams{
 				HTTPClient:           opts.HTTPClient,
 				BaseURL:              opts.BaseURL,
@@ -124,8 +126,7 @@ func doInference[Req, Resp any](
 			httpResp.Header,
 		)
 	} else {
-		resp, err = codec.Decode(hfproviders.DecodeParams{
-			Context: opts.Context(),
+		resp, err = codec.Decode(ctx, hfproviders.DecodeParams{
 			Body:    respBody,
 			Event:   "", // unary responses have no SSE framing
 			Headers: httpResp.Header,
@@ -141,15 +142,17 @@ func doInference[Req, Resp any](
 // doStreamingInference sends a typed request and returns a stream of decoded
 // events using the given codec. Accept is forced to text/event-stream because
 // SSE framing is a transport concern, not a codec concern; codec-supplied
-// headers apply as defaults for everything else.
+// headers apply as defaults for everything else. The context carries the
+// caller's deadline and cancellation signals for the request and the returned
+// stream's decoder.
 func doStreamingInference[Req, T any](
+	ctx context.Context,
 	opts hfopts.Options,
 	endpoint hfproviders.Endpoint,
 	codec hfproviders.Codec[Req, T],
 	req Req,
 ) (*request.JSONStream[T], error) {
-	providerBody, providerHeaders, err := codec.Encode(hfproviders.EncodeParams[Req]{
-		Context: opts.Context(),
+	providerBody, providerHeaders, err := codec.Encode(ctx, hfproviders.EncodeParams[Req]{
 		Request: req,
 		Model:   opts.Model,
 		Mapping: endpoint.Mapping,
@@ -163,7 +166,7 @@ func doStreamingInference[Req, T any](
 
 	//nolint:bodyclose // Body ownership transferred to RawStream.
 	httpResp, err := request.DoBytes(
-		opts.Context(),
+		ctx,
 		transport.Params(opts),
 		endpointMethod(endpoint),
 		endpoint.Path,
@@ -180,7 +183,7 @@ func doStreamingInference[Req, T any](
 	}
 
 	raw, err := request.StreamRawWithLimit(
-		opts.Context(),
+		ctx,
 		httpResp.Body,
 		opts.MaxResponseBodyBytes,
 	)
@@ -192,9 +195,12 @@ func doStreamingInference[Req, T any](
 		return nil, err
 	}
 
-	return request.NewJSONStream[T](raw, func(ctx context.Context, ev request.RawEvent) (T, error) {
-		return codec.Decode(hfproviders.DecodeParams{
-			Context: ctx,
+	// The decode hook intentionally uses the dispatch context rather than the
+	// per-Recv context: Decode is pure CPU work, so no per-frame cancellation
+	// is needed, and this matches the pre-refactor behavior where DecodeParams
+	// received the dispatch-time context from Options.
+	return request.NewJSONStream[T](raw, func(_ context.Context, ev request.RawEvent) (T, error) {
+		return codec.Decode(ctx, hfproviders.DecodeParams{
 			Body:    ev.Data,
 			Event:   ev.Event,
 			Headers: http.Header{"Content-Type": {eventContentType}},

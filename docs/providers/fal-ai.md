@@ -82,8 +82,8 @@ does not serve these tasks with the Hugging Face pipeline wire format:
   output. A task that fails reports `COMPLETED` with an error payload; the
   SDK surfaces that as an `*hferrors.SDKError` of kind `provider`. The
   exchange is transparent to callers and is bounded by the request context,
-  so give long-running generations a generous deadline (e.g.
-  `hfopts.WithContext`).
+  so give long-running generations a generous deadline by passing a context
+  with a deadline as the method's first argument.
 
 > **Note:** Both official Hugging Face clients call fal's *synchronous*
 > endpoint for speech recognition; this SDK routes every fal task through
@@ -126,7 +126,7 @@ do not cover every knob fal models expose, so every request DTO carries an
 advanced escape hatch for this:
 
 ```go
-image, err := client.GenerateImage(hftypes.TextToImageRequest{
+image, err := client.GenerateImage(context.Background(), hftypes.TextToImageRequest{
 	Input: "A serene mountain landscape at sunset",
 	ProviderParams: map[string]any{
 		"enable_safety_checker": true,
@@ -167,7 +167,7 @@ client := hfgo.NewClient(
 	hfopts.WithMaxResponseBodyBytes(16<<20),
 )
 
-image, err := client.GenerateImage(hftypes.TextToImageRequest{
+image, err := client.GenerateImage(context.Background(), hftypes.TextToImageRequest{
 	Input: "A serene mountain landscape at sunset",
 })
 ```

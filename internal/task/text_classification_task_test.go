@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -31,7 +32,7 @@ func TestClassifyText_SingleInput(t *testing.T) {
 		Input: "test text",
 	}
 
-	result, err := client.ClassifyText(req)
+	result, err := client.ClassifyText(context.Background(), req)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Len(t, result, 1)
@@ -60,7 +61,7 @@ func TestClassifyText_WithParameters(t *testing.T) {
 		},
 	}
 
-	result, err := client.ClassifyText(req)
+	result, err := client.ClassifyText(context.Background(), req)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -94,9 +95,10 @@ func TestClassifyText_Errors(t *testing.T) {
 			},
 		},
 		func(opts ...hfopts.Option) ([]hftypes.TextClassification, error) {
-			return hfgo.NewClient(opts...).ClassifyText(hftypes.TextClassificationRequest{
-				Input: "test text",
-			})
+			return hfgo.NewClient(opts...).
+				ClassifyText(context.Background(), hftypes.TextClassificationRequest{
+					Input: "test text",
+				})
 		},
 	)
 }

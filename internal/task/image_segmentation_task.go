@@ -1,17 +1,23 @@
 package task
 
 import (
+	"context"
+
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
 // SegmentImage sends an image segmentation request.
 func SegmentImage(
+	ctx context.Context,
 	opts hfopts.Options,
 	req hftypes.ImageSegmentationRequest,
 ) ([]hftypes.ImageSegmentation, error) {
+	ctx = utils.NormalizeContext(ctx)
+
 	if err := validateDispatch(opts); err != nil {
 		return nil, err
 	}
@@ -21,9 +27,8 @@ func SegmentImage(
 		return nil, err
 	}
 
-	endpoint, err := prov.ImageSegmentationEndpoint(hfproviders.EndpointParams{
-		Context: opts.Context(),
-		Model:   opts.Model,
+	endpoint, err := prov.ImageSegmentationEndpoint(ctx, hfproviders.EndpointParams{
+		Model: opts.Model,
 	})
 	if err != nil {
 		return nil, &hferrors.SDKError{
@@ -33,5 +38,5 @@ func SegmentImage(
 		}
 	}
 
-	return doInference(opts, endpoint, prov.ImageSegmentationCodec(), req)
+	return doInference(ctx, opts, endpoint, prov.ImageSegmentationCodec(), req)
 }

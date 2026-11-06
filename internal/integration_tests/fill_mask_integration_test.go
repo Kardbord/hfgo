@@ -29,11 +29,10 @@ func TestFillMask_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.FillMaskPrediction, error) {
-		return client.FillMask(
+		return client.FillMask(ctx,
 			hftypes.FillMaskRequest{
 				Input: "The capital of France is [MASK].",
 			},
@@ -67,12 +66,11 @@ func TestFillMask_WithTopK(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	topK := 3
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.FillMaskPrediction, error) {
-		return client.FillMask(
+		return client.FillMask(ctx,
 			hftypes.FillMaskRequest{
 				Input: "The capital of France is [MASK].",
 				Parameters: &hftypes.FillMaskParameters{
@@ -110,12 +108,11 @@ func TestFillMask_WithTargets(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	targets := []string{"paris", "london"}
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.FillMaskPrediction, error) {
-		return client.FillMask(
+		return client.FillMask(ctx,
 			hftypes.FillMaskRequest{
 				Input: "The capital of France is [MASK].",
 				Parameters: &hftypes.FillMaskParameters{
@@ -152,10 +149,9 @@ func TestFillMask_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("google-bert/bert-base-uncased"),
-		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.FillMask(
+	resp, err := client.FillMask(ctx,
 		hftypes.FillMaskRequest{
 			Input: "The capital of France is [MASK].",
 		},

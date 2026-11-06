@@ -42,6 +42,7 @@ go get github.com/Kardbord/hfgo/v4@latest
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -57,7 +58,7 @@ func main() {
 		hfopts.WithModel("deepseek-ai/DeepSeek-R1"),
 	)
 
-	response, err := client.Chat(hftypes.ChatRequest{
+	response, err := client.Chat(context.Background(), hftypes.ChatRequest{
 		Messages: []hftypes.ChatMessage{
 			{
 				Role:    "user",
@@ -97,12 +98,14 @@ client := hfgo.NewClient(hfopts.WithToken(os.Getenv("HF_TOKEN")))
 
 // Automatic speech recognition — model supplied per call.
 transcript, err := client.RecognizeSpeech(
+	context.Background(),
 	hftypes.SpeechRecognitionRequest{Input: audioBase64},
 	hfopts.WithModel("openai/whisper-large-v3"),
 )
 
 // Text classification — same client, different model.
 labels, err := client.ClassifyText(
+	context.Background(),
 	hftypes.TextClassificationRequest{Input: "A delightful surprise."},
 	hfopts.WithModel("ProsusAI/finbert"),
 )

@@ -67,16 +67,9 @@ func hasFLACPrefix(raw []byte) bool {
 // against it.
 const huggingfaceRouterHost = "router.huggingface.co"
 
-// EncodeParams carries the inputs to [Codec.Encode].
+// EncodeParams carries the inputs to [Codec.Encode]. The per-call context is
+// passed to Encode separately.
 type EncodeParams[Req any] struct {
-	// Context carries the caller's request context, including its deadline
-	// and cancellation signals. It is never nil (it falls back to
-	// context.Background()). Implementations must not retain it beyond the
-	// duration of the call.
-	//
-	//nolint:containedctx // EncodeParams is a per-call carrier, not stored state.
-	Context context.Context
-
 	// Request is the canonical Hugging Face request payload to encode.
 	Request Req
 
@@ -96,16 +89,9 @@ type EncodeParams[Req any] struct {
 	Mapping *ModelMapping
 }
 
-// DecodeParams carries the inputs to [Codec.Decode].
+// DecodeParams carries the inputs to [Codec.Decode]. The per-call context is
+// passed to Decode separately.
 type DecodeParams struct {
-	// Context carries the caller's request context, including its deadline
-	// and cancellation signals. It is never nil (it falls back to
-	// context.Background()). Implementations must not retain it beyond the
-	// duration of the call.
-	//
-	//nolint:containedctx // DecodeParams is a per-call carrier, not stored state.
-	Context context.Context
-
 	// Body is the response body. It is never empty: the pipeline surfaces
 	// an empty 2xx body as an error before Decode runs.
 	Body []byte
@@ -165,7 +151,10 @@ type Codec[Req, Resp any] interface {
 	// Returned headers are applied as defaults: headers set by the caller
 	// via hfopts options win. Implementations must not return an
 	// Authorization header.
-	Encode(params EncodeParams[Req]) (body []byte, headers http.Header, err error)
+	Encode(
+		ctx context.Context,
+		params EncodeParams[Req],
+	) (body []byte, headers http.Header, err error)
 
 	// Decode transforms a provider wire type response into its canonical
 	// Hugging Face response type.
@@ -179,7 +168,7 @@ type Codec[Req, Resp any] interface {
 	// discarded — anything a consumer receives precedes the terminal frame.
 	// The control signals have no meaning for unary responses, where any
 	// error is returned as-is.
-	Decode(params DecodeParams) (Resp, error)
+	Decode(ctx context.Context, params DecodeParams) (Resp, error)
 }
 
 // AsyncCodec is an optional [Codec] extension for providers whose wire format
@@ -313,6 +302,7 @@ type JSONCodec[Req, Resp any] struct{}
 // custom MarshalJSON method, it is returned unchanged. Other marshal failures
 // become an *hferrors.SDKError of kind SDKErrorKindSerialization.
 func (JSONCodec[Req, Resp]) Encode(
+	_ context.Context,
 	params EncodeParams[Req],
 ) (body []byte, headers http.Header, err error) {
 	body, err = json.Marshal(params.Request)
@@ -341,7 +331,7 @@ func (JSONCodec[Req, Resp]) Encode(
 // existing *hferrors.SDKError, such as a validation error from a custom
 // UnmarshalJSON method, it is returned unchanged. Other unmarshal failures
 // become an *hferrors.SDKError of kind SDKErrorKindSerialization.
-func (JSONCodec[Req, Resp]) Decode(params DecodeParams) (resp Resp, err error) {
+func (JSONCodec[Req, Resp]) Decode(_ context.Context, params DecodeParams) (resp Resp, err error) {
 	contentType := params.Headers.Get("Content-Type")
 	if !isJSONContentType(contentType) {
 		return resp, errUnexpectedContentType(contentType)

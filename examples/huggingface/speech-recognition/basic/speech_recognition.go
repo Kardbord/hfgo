@@ -39,7 +39,7 @@ func main() {
 	// The codec auto-detects Content-Type from decoded bytes. The example audio
 	// (jfk.flac) is sniffed as application/octet-stream, so we set the correct
 	// type explicitly. Caller-supplied headers always take precedence.
-	resp, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+	resp, err := client.RecognizeSpeech(context.Background(), hftypes.SpeechRecognitionRequest{
 		Input: audioInput,
 	}, hfopts.WithHeader("Content-Type", "audio/flac"))
 	if err != nil {

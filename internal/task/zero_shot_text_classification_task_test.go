@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -36,7 +37,7 @@ func TestZeroShotClassifyText_SingleInput(t *testing.T) {
 		},
 	}
 
-	result, err := client.ZeroShotClassifyText(req)
+	result, err := client.ZeroShotClassifyText(context.Background(), req)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Len(t, result, 1)
@@ -88,7 +89,7 @@ func TestZeroShotClassifyText_CandidateLabelValidation(t *testing.T) {
 				hfopts.WithModel("nonexistent-model"),
 			)
 
-			result, err := client.ZeroShotClassifyText(tc.req)
+			result, err := client.ZeroShotClassifyText(context.Background(), tc.req)
 			testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 			require.Nil(t, result, tc.description)
 			require.Nil(
@@ -124,7 +125,7 @@ func TestZeroShotClassifyText_Errors(t *testing.T) {
 		},
 		func(opts ...hfopts.Option) ([]hftypes.ZeroShotTextClassification, error) {
 			return hfgo.NewClient(opts...).
-				ZeroShotClassifyText(hftypes.ZeroShotTextClassificationRequest{
+				ZeroShotClassifyText(context.Background(), hftypes.ZeroShotTextClassificationRequest{
 					Input: "test text",
 					Parameters: &hftypes.ZeroShotTextClassificationParameters{
 						CandidateLabels: []string{"positive", "negative"},

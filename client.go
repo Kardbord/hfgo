@@ -1,6 +1,8 @@
 package hfgo
 
 import (
+	"context"
+
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hftypes"
 	"github.com/Kardbord/hfgo/v4/internal/task"
@@ -36,7 +38,7 @@ func NewClient(opts ...hfopts.Option) Client {
 //   - A single Client is safe for concurrent use.
 //   - Reusing one request across sequential, fully-awaited calls is safe.
 //   - To invoke the same template request from multiple goroutines, pass a
-//     defensive copy per call, e.g. go client.Chat(req.Clone(), ...), or build a
+//     defensive copy per call, e.g. go client.Chat(ctx, req.Clone(), ...), or build a
 //     fresh request per call.
 //
 // Model Precedence:
@@ -70,8 +72,12 @@ func NewClient(opts ...hfopts.Option) Client {
 //   - Returns a configuration error if *req.Stream is true; use [Client.ChatStream] for streaming.
 //
 //nolint:gocritic // hugeParam: Chat takes the request by value so the SDK never mutates the caller's payload
-func (c Client) Chat(req hftypes.ChatRequest, opts ...hfopts.Option) (hftypes.ChatResponse, error) {
-	return task.Chat(c.opts.With(opts...), req)
+func (c Client) Chat(
+	ctx context.Context,
+	req hftypes.ChatRequest,
+	opts ...hfopts.Option,
+) (hftypes.ChatResponse, error) {
+	return task.Chat(ctx, c.opts.With(opts...), req)
 }
 
 // ChatStream sends a chat completion request and returns a streaming [hftypes.ChatStream].
@@ -122,38 +128,42 @@ func (c Client) Chat(req hftypes.ChatRequest, opts ...hfopts.Option) (hftypes.Ch
 //
 //nolint:gocritic // hugeParam: ChatStream takes the request by value so the SDK never mutates the caller's payload
 func (c Client) ChatStream(
+	ctx context.Context,
 	req hftypes.ChatRequest,
 	opts ...hfopts.Option,
 ) (*hftypes.ChatStream, error) {
-	return task.ChatStream(c.opts.With(opts...), req)
+	return task.ChatStream(ctx, c.opts.With(opts...), req)
 }
 
 // ClassifyText sends a text classification request and returns the text
 // classification response for a single input.
 func (c Client) ClassifyText(
+	ctx context.Context,
 	req hftypes.TextClassificationRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.TextClassification, error) {
-	return task.ClassifyText(c.opts.With(opts...), req)
+	return task.ClassifyText(ctx, c.opts.With(opts...), req)
 }
 
 // ClassifyTokens sends a token classification request and returns the token
 // classification response for a single input.
 func (c Client) ClassifyTokens(
+	ctx context.Context,
 	req hftypes.TokenClassificationRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.TokenClassification, error) {
-	return task.ClassifyTokens(c.opts.With(opts...), req)
+	return task.ClassifyTokens(ctx, c.opts.With(opts...), req)
 }
 
 // ClassifyImage sends an image classification request and returns a list of
 // image classification predictions for the single input, ordered by score
 // (descending).
 func (c Client) ClassifyImage(
+	ctx context.Context,
 	req hftypes.ImageClassificationRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.ImageClassification, error) {
-	return task.ClassifyImage(c.opts.With(opts...), req)
+	return task.ClassifyImage(ctx, c.opts.With(opts...), req)
 }
 
 // AnswerQuestion sends a question answering request and returns the answers.
@@ -161,28 +171,31 @@ func (c Client) ClassifyImage(
 // The request must include both a question and a context. The model will
 // identify the answer to the question within the provided context.
 func (c Client) AnswerQuestion(
+	ctx context.Context,
 	req hftypes.QuestionAnsweringRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.QuestionAnswer, error) {
-	return task.AnswerQuestion(c.opts.With(opts...), req)
+	return task.AnswerQuestion(ctx, c.opts.With(opts...), req)
 }
 
 // ZeroShotClassifyText sends a zero-shot text classification request and
 // returns the zero-shot text classification response for a single input.
 func (c Client) ZeroShotClassifyText(
+	ctx context.Context,
 	req hftypes.ZeroShotTextClassificationRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.ZeroShotTextClassification, error) {
-	return task.ZeroShotClassifyText(c.opts.With(opts...), req)
+	return task.ZeroShotClassifyText(ctx, c.opts.With(opts...), req)
 }
 
 // FillMask sends a fill mask request and returns the mask filling predictions
 // for a single input.
 func (c Client) FillMask(
+	ctx context.Context,
 	req hftypes.FillMaskRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.FillMaskPrediction, error) {
-	return task.FillMask(c.opts.With(opts...), req)
+	return task.FillMask(ctx, c.opts.With(opts...), req)
 }
 
 // Summarize sends a summarization request and returns the summarization output
@@ -191,10 +204,11 @@ func (c Client) FillMask(
 // The API always returns a list for summarization; a single input yields a
 // one-element list rather than a bare summary object.
 func (c Client) Summarize(
+	ctx context.Context,
 	req hftypes.SummarizationRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.Summarization, error) {
-	return task.Summarize(c.opts.With(opts...), req)
+	return task.Summarize(ctx, c.opts.With(opts...), req)
 }
 
 // AnswerTableQuestion sends a table question answering request and returns the answer.
@@ -207,10 +221,11 @@ func (c Client) Summarize(
 // response. This method returns a single TableQuestionAnswer to match the
 // actual API behavior.
 func (c Client) AnswerTableQuestion(
+	ctx context.Context,
 	req hftypes.TableQuestionAnsweringRequest,
 	opts ...hfopts.Option,
 ) (hftypes.TableQuestionAnswer, error) {
-	return task.AnswerTableQuestion(c.opts.With(opts...), req)
+	return task.AnswerTableQuestion(ctx, c.opts.With(opts...), req)
 }
 
 // Translate sends a translation request and returns the translation output
@@ -219,10 +234,11 @@ func (c Client) AnswerTableQuestion(
 // The API always returns a list for translation; a single input yields a
 // one-element list rather than a bare translation object.
 func (c Client) Translate(
+	ctx context.Context,
 	req hftypes.TranslationRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.Translation, error) {
-	return task.Translate(c.opts.With(opts...), req)
+	return task.Translate(ctx, c.opts.With(opts...), req)
 }
 
 // ExtractPooledFeatures sends a feature extraction request and returns the
@@ -233,10 +249,11 @@ func (c Client) Translate(
 // one vector per token, use [Client.ExtractTokenFeatures]. For multiple inputs,
 // use [Client.ExtractPooledFeaturesBatch].
 func (c Client) ExtractPooledFeatures(
+	ctx context.Context,
 	req hftypes.FeatureExtractionRequest,
 	opts ...hfopts.Option,
 ) (hftypes.FeatureExtractionPooledEmbedding, error) {
-	return task.ExtractPooledFeatures(c.opts.With(opts...), req)
+	return task.ExtractPooledFeatures(ctx, c.opts.With(opts...), req)
 }
 
 // ExtractPooledFeaturesBatch sends a feature extraction request for a batch of
@@ -247,10 +264,11 @@ func (c Client) ExtractPooledFeatures(
 // use [Client.ExtractTokenFeaturesBatch]. Batch input is part of the upstream
 // inference schema: the API accepts either a string or a list of strings.
 func (c Client) ExtractPooledFeaturesBatch(
+	ctx context.Context,
 	req hftypes.FeatureExtractionBatchRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.FeatureExtractionPooledEmbedding, error) {
-	return task.ExtractPooledFeaturesBatch(c.opts.With(opts...), req)
+	return task.ExtractPooledFeaturesBatch(ctx, c.opts.With(opts...), req)
 }
 
 // ExtractTokenFeatures sends a feature extraction request and returns one
@@ -261,10 +279,11 @@ func (c Client) ExtractPooledFeaturesBatch(
 // hidden-state vector for that token. For pooled sentence embeddings, use
 // [Client.ExtractPooledFeatures].
 func (c Client) ExtractTokenFeatures(
+	ctx context.Context,
 	req hftypes.FeatureExtractionRequest,
 	opts ...hfopts.Option,
 ) (hftypes.FeatureExtractionTokenEmbeddings, error) {
-	return task.ExtractTokenFeatures(c.opts.With(opts...), req)
+	return task.ExtractTokenFeatures(ctx, c.opts.With(opts...), req)
 }
 
 // ExtractTokenFeaturesBatch sends a feature extraction request for a batch of
@@ -275,19 +294,21 @@ func (c Client) ExtractTokenFeatures(
 // input, and the inner slice to the hidden-state vector for a token. For pooled
 // batch embeddings, use [Client.ExtractPooledFeaturesBatch].
 func (c Client) ExtractTokenFeaturesBatch(
+	ctx context.Context,
 	req hftypes.FeatureExtractionBatchRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.FeatureExtractionTokenEmbeddings, error) {
-	return task.ExtractTokenFeaturesBatch(c.opts.With(opts...), req)
+	return task.ExtractTokenFeaturesBatch(ctx, c.opts.With(opts...), req)
 }
 
 // DetectObjects sends an object detection request and returns a list
 // of object detections.
 func (c Client) DetectObjects(
+	ctx context.Context,
 	req hftypes.ObjectDetectionRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.ObjectDetection, error) {
-	return task.DetectObjects(c.opts.With(opts...), req)
+	return task.DetectObjects(ctx, c.opts.With(opts...), req)
 }
 
 // GenerateImage sends a text-to-image request and returns the generated image
@@ -302,10 +323,11 @@ func (c Client) DetectObjects(
 // which case the request fails with a configuration error. Use
 // hfopts.WithMaxResponseBodyBytes to raise the cap for larger outputs.
 func (c Client) GenerateImage(
+	ctx context.Context,
 	req hftypes.TextToImageRequest,
 	opts ...hfopts.Option,
 ) (hftypes.TextToImageResponse, error) {
-	return task.GenerateImage(c.opts.With(opts...), req)
+	return task.GenerateImage(ctx, c.opts.With(opts...), req)
 }
 
 // GenerateImageToImage sends an image-to-image request and returns the
@@ -320,10 +342,11 @@ func (c Client) GenerateImage(
 // which case the request fails with a configuration error. Use
 // hfopts.WithMaxResponseBodyBytes to raise the cap for larger outputs.
 func (c Client) GenerateImageToImage(
+	ctx context.Context,
 	req hftypes.ImageToImageRequest,
 	opts ...hfopts.Option,
 ) (hftypes.ImageToImageResponse, error) {
-	return task.GenerateImageToImage(c.opts.With(opts...), req)
+	return task.GenerateImageToImage(ctx, c.opts.With(opts...), req)
 }
 
 // GenerateVideo sends a text-to-video request and returns the generated video
@@ -336,19 +359,21 @@ func (c Client) GenerateImageToImage(
 // which case the request fails with a configuration error. Use
 // hfopts.WithMaxResponseBodyBytes to raise the cap for larger outputs.
 func (c Client) GenerateVideo(
+	ctx context.Context,
 	req hftypes.TextToVideoRequest,
 	opts ...hfopts.Option,
 ) (hftypes.TextToVideoResponse, error) {
-	return task.GenerateVideo(c.opts.With(opts...), req)
+	return task.GenerateVideo(ctx, c.opts.With(opts...), req)
 }
 
 // SegmentImage sends an image segmentation request and returns a list of
 // predicted masks / segments.
 func (c Client) SegmentImage(
+	ctx context.Context,
 	req hftypes.ImageSegmentationRequest,
 	opts ...hfopts.Option,
 ) ([]hftypes.ImageSegmentation, error) {
-	return task.SegmentImage(c.opts.With(opts...), req)
+	return task.SegmentImage(ctx, c.opts.With(opts...), req)
 }
 
 // RecognizeSpeech sends a speech recognition (automatic speech recognition)
@@ -365,8 +390,9 @@ func (c Client) SegmentImage(
 // hfopts.WithHeader, e.g. hfopts.WithHeader("Content-Type", "audio/wav").
 // Caller-supplied headers always take precedence over codec defaults.
 func (c Client) RecognizeSpeech(
+	ctx context.Context,
 	req hftypes.SpeechRecognitionRequest,
 	opts ...hfopts.Option,
 ) (hftypes.SpeechRecognitionResponse, error) {
-	return task.RecognizeSpeech(c.opts.With(opts...), req)
+	return task.RecognizeSpeech(ctx, c.opts.With(opts...), req)
 }

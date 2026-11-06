@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -23,19 +24,20 @@ func main() {
 	)
 
 	question := "What is the capital of France?"
-	context := "France is a country in Europe. Its capital is Paris. It is known for the Eiffel Tower."
+	sourceText := "France is a country in Europe. Its capital is Paris. It is known for the Eiffel Tower."
 
 	fmt.Printf("Question: %s\n", question)
-	fmt.Printf("Context:  %s\n", context)
+	fmt.Printf("Context:  %s\n", sourceText)
 	fmt.Println("...")
 
 	topK := 3
 	maxAnswerLen := 10
 	answers, err := client.AnswerQuestion(
+		context.Background(),
 		hftypes.QuestionAnsweringRequest{
 			Input: hftypes.QuestionAnsweringInput{
 				Question: question,
-				Context:  context,
+				Context:  sourceText,
 			},
 			Parameters: &hftypes.QuestionAnsweringParameters{
 				TopK:         &topK,

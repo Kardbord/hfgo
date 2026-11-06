@@ -37,7 +37,7 @@ func main() {
 		log.Fatal("Failed to retrieve image URL: " + err.Error())
 	}
 
-	objects, err := client.DetectObjects(hftypes.ObjectDetectionRequest{
+	objects, err := client.DetectObjects(context.Background(), hftypes.ObjectDetectionRequest{
 		Input: imgData,
 		Parameters: &hftypes.ObjectDetectionParameters{
 			Threshold: new(0.8),

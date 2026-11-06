@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -33,6 +34,7 @@ func main() {
 
 	// Make the summarization request
 	summaries, err := client.Summarize(
+		context.Background(),
 		hftypes.SummarizationRequest{
 			Input: input,
 		},

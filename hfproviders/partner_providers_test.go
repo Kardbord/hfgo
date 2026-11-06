@@ -64,16 +64,15 @@ func requireOpenAIChatPartnerEndpoint(t *testing.T, provider Provider, slug stri
 
 	// Chat routes through the fixed OpenAI-compatible path, model-in-body:
 	// an empty Model is legal and no mapping is attached.
-	endpoint, err := chat.ChatEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "zai-org/GLM-5.3:" + slug,
+	endpoint, err := chat.ChatEndpoint(context.Background(), EndpointParams{
+		Model: "zai-org/GLM-5.3:" + slug,
 	})
 	require.NoError(t, err)
 	require.Equal(t, http.MethodPost, endpoint.Method)
 	require.Equal(t, "v1/chat/completions", endpoint.Path)
 	require.Nil(t, endpoint.Mapping)
 
-	endpoint, err = chat.ChatEndpoint(EndpointParams{Context: context.Background()})
+	endpoint, err = chat.ChatEndpoint(context.Background(), EndpointParams{})
 	require.NoError(t, err)
 	require.Equal(t, "v1/chat/completions", endpoint.Path)
 
@@ -105,7 +104,8 @@ func requireOpenAIChatPartnerEndpoint(t *testing.T, provider Provider, slug stri
 			"model":       "attacker-model",
 		},
 	}
-	body, _, err := chat.ChatCodec().Encode(EncodeParams[hftypes.ChatRequest]{Request: request})
+	body, _, err := chat.ChatCodec().
+		Encode(context.Background(), EncodeParams[hftypes.ChatRequest]{Request: request})
 	require.NoError(t, err)
 	require.JSONEq(t, fmt.Sprintf(
 		`{"model":%q,"messages":[{"role":"user","content":"hello"}],"temperature":0.5}`,
@@ -129,18 +129,16 @@ func requireOpenAIEmbeddingsEndpoints(
 	batch, err := AsProvider[FeatureExtractionPooledBatchProvider](provider)
 	require.NoError(t, err)
 
-	endpoint, err := pooled.FeatureExtractionEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   model,
+	endpoint, err := pooled.FeatureExtractionEndpoint(context.Background(), EndpointParams{
+		Model: model,
 	})
 	require.NoError(t, err)
 	require.Equal(t, http.MethodPost, endpoint.Method)
 	require.Equal(t, path, endpoint.Path)
 	require.Equal(t, providerModelID, endpoint.Mapping.ProviderModelID)
 
-	endpoint, err = batch.FeatureExtractionBatchEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   model,
+	endpoint, err = batch.FeatureExtractionBatchEndpoint(context.Background(), EndpointParams{
+		Model: model,
 	})
 	require.NoError(t, err)
 	require.Equal(t, http.MethodPost, endpoint.Method)
@@ -183,8 +181,7 @@ func TestOpenAIEmbeddingsCodecs_Decode(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 
-				embedding, err := tc.codec.Decode(DecodeParams{
-					Context: context.Background(),
+				embedding, err := tc.codec.Decode(context.Background(), DecodeParams{
 					Body: []byte(
 						`{"object":"list","data":[{"object":"embedding","index":0,"embedding":[1,2,3]},{"object":"embedding","index":1,"embedding":[4,5,6]}],"model":"m"}`,
 					),
@@ -203,8 +200,7 @@ func TestOpenAIEmbeddingsCodecs_Decode(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 
-				embeddings, err := tc.codec.Decode(DecodeParams{
-					Context: context.Background(),
+				embeddings, err := tc.codec.Decode(context.Background(), DecodeParams{
 					Body:    []byte(`{"data":[{"embedding":[1,2]},{"embedding":[3,4]}]}`),
 					Headers: jsonHeaders(ctJSON),
 				})
@@ -225,8 +221,7 @@ func TestOpenAIEmbeddingsCodecs_Decode(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 
-				_, err := tc.codec.Decode(DecodeParams{
-					Context: context.Background(),
+				_, err := tc.codec.Decode(context.Background(), DecodeParams{
 					Body:    []byte(`{"data":[]}`),
 					Headers: jsonHeaders(ctJSON),
 				})
@@ -242,8 +237,7 @@ func TestOpenAIEmbeddingsCodecs_Decode(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 
-				_, err := tc.codec.Decode(DecodeParams{
-					Context: context.Background(),
+				_, err := tc.codec.Decode(context.Background(), DecodeParams{
 					Body:    []byte(`{"data":[{"embedding":[1]},{"index":1}]}`),
 					Headers: jsonHeaders(ctJSON),
 				})
@@ -262,8 +256,7 @@ func TestOpenAIEmbeddingsCodecs_Decode(t *testing.T) {
 				headers := http.Header{}
 				headers.Set("Content-Type", "text/plain")
 
-				_, err := tc.codec.Decode(DecodeParams{
-					Context: context.Background(),
+				_, err := tc.codec.Decode(context.Background(), DecodeParams{
 					Body:    []byte(`{"data":[{"embedding":[1]}]}`),
 					Headers: headers,
 				})
@@ -279,8 +272,7 @@ func TestOpenAIEmbeddingsCodecs_Decode(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 
-				_, err := tc.codec.Decode(DecodeParams{
-					Context: context.Background(),
+				_, err := tc.codec.Decode(context.Background(), DecodeParams{
 					Body:    []byte("{not json"),
 					Headers: jsonHeaders(ctJSON),
 				})
@@ -315,13 +307,15 @@ func assertOpenAIEmbeddingsCodecEncode(
 	t.Run("openai-style payload", func(t *testing.T) {
 		t.Parallel()
 
-		body, headers, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Request: hftypes.FeatureExtractionRequest{
-				Input: "What is the capital of France?",
+		body, headers, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.FeatureExtractionRequest]{
+				Request: hftypes.FeatureExtractionRequest{
+					Input: "What is the capital of France?",
+				},
+				Model: model,
 			},
-			Model: model,
-		})
+		)
 		require.NoError(t, err)
 		require.Equal(t, "application/json", headers.Get("Content-Type"))
 		require.Equal(t, "application/json", headers.Get("Accept"))
@@ -335,18 +329,20 @@ func assertOpenAIEmbeddingsCodecEncode(
 	t.Run("provider parameters merge and cannot override the model", func(t *testing.T) {
 		t.Parallel()
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Request: hftypes.FeatureExtractionRequest{
-				Input: "hello",
-				ProviderParams: map[string]any{
-					"dimensions":      256,
-					"encoding_format": "float",
-					"model":           "attacker-model",
+		body, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.FeatureExtractionRequest]{
+				Request: hftypes.FeatureExtractionRequest{
+					Input: "hello",
+					ProviderParams: map[string]any{
+						"dimensions":      256,
+						"encoding_format": "float",
+						"model":           "attacker-model",
+					},
 				},
+				Model: model,
 			},
-			Model: model,
-		})
+		)
 		require.NoError(t, err)
 		require.JSONEq(
 			t,
@@ -359,14 +355,16 @@ func assertOpenAIEmbeddingsCodecEncode(
 		t.Parallel()
 
 		normalize := true
-		body, _, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Request: hftypes.FeatureExtractionRequest{
-				Input:      "hello",
-				Parameters: &hftypes.FeatureExtractionParameters{Normalize: &normalize},
+		body, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.FeatureExtractionRequest]{
+				Request: hftypes.FeatureExtractionRequest{
+					Input:      "hello",
+					Parameters: &hftypes.FeatureExtractionParameters{Normalize: &normalize},
+				},
+				Model: model,
 			},
-			Model: model,
-		})
+		)
 		require.NoError(t, err)
 		require.JSONEq(
 			t,
@@ -381,12 +379,14 @@ func assertOpenAIEmbeddingsCodecEncode(
 		resolver := &recordingResolver{}
 		mixinCodec := resolverCodec(resolver)
 
-		body, _, err := mixinCodec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Request: hftypes.FeatureExtractionRequest{Input: "hello"},
-			Model:   model,
-			Mapping: &ModelMapping{ProviderModelID: "mapped-at-endpoint-construction"},
-		})
+		body, _, err := mixinCodec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.FeatureExtractionRequest]{
+				Request: hftypes.FeatureExtractionRequest{Input: "hello"},
+				Model:   model,
+				Mapping: &ModelMapping{ProviderModelID: "mapped-at-endpoint-construction"},
+			},
+		)
 		require.NoError(t, err)
 		require.Zero(t, resolver.calls.Load())
 		require.JSONEq(
@@ -399,28 +399,32 @@ func assertOpenAIEmbeddingsCodecEncode(
 	t.Run("unmarshalable provider parameter fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, _, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Request: hftypes.FeatureExtractionRequest{
-				Input:          "hello",
-				ProviderParams: map[string]any{"bad": make(chan int)},
+		_, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.FeatureExtractionRequest]{
+				Request: hftypes.FeatureExtractionRequest{
+					Input:          "hello",
+					ProviderParams: map[string]any{"bad": make(chan int)},
+				},
+				Model: model,
 			},
-			Model: model,
-		})
+		)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 
 	t.Run("nil provider parameters are skipped", func(t *testing.T) {
 		t.Parallel()
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Request: hftypes.FeatureExtractionRequest{
-				Input:          "hello",
-				ProviderParams: map[string]any{"ignored": nil},
+		body, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.FeatureExtractionRequest]{
+				Request: hftypes.FeatureExtractionRequest{
+					Input:          "hello",
+					ProviderParams: map[string]any{"ignored": nil},
+				},
+				Model: model,
 			},
-			Model: model,
-		})
+		)
 		require.NoError(t, err)
 		require.JSONEq(
 			t,
@@ -434,11 +438,13 @@ func assertOpenAIEmbeddingsCodecEncode(
 
 		zeroCodec := resolverCodec(nil)
 
-		_, _, err := zeroCodec.Encode(EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Request: hftypes.FeatureExtractionRequest{Input: "hello"},
-			Model:   model,
-		})
+		_, _, err := zeroCodec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.FeatureExtractionRequest]{
+				Request: hftypes.FeatureExtractionRequest{Input: "hello"},
+				Model:   model,
+			},
+		)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	})
 }

@@ -32,13 +32,12 @@ func TestGenerateImageToImage_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(imageToImageModel),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newWaveSpeedProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(16<<20), // Images can be large.
 	)
 
 	response := testutils.RetryTransient(ctx, t, func() (hftypes.ImageToImageResponse, error) {
-		return client.GenerateImageToImage(hftypes.ImageToImageRequest{
+		return client.GenerateImageToImage(ctx, hftypes.ImageToImageRequest{
 			Input: testutils.TinyPNGBase64,
 			Parameters: &hftypes.ImageToImageParameters{
 				Prompt: new("Make the image blue"),
@@ -77,11 +76,10 @@ func TestGenerateImageToImage_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(imageToImageModel),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newWaveSpeedProvider(t)),
 	)
 
-	response, err := client.GenerateImageToImage(hftypes.ImageToImageRequest{
+	response, err := client.GenerateImageToImage(ctx, hftypes.ImageToImageRequest{
 		Input: testutils.TinyPNGBase64,
 		Parameters: &hftypes.ImageToImageParameters{
 			Prompt: new("Make the image blue"),

@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"reflect"
@@ -39,36 +40,42 @@ type endpointFailProvider struct {
 }
 
 func (p endpointFailProvider) ChatEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
 func (p endpointFailProvider) ObjectDetectionEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
 func (p endpointFailProvider) ImageClassificationEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
 func (p endpointFailProvider) ImageSegmentationEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
 func (p endpointFailProvider) TextToImageEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
 func (p endpointFailProvider) ImageToImageEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
@@ -82,6 +89,7 @@ func (p endpointFailProvider) ImageToImageCodec() hfproviders.ImageToImageCodec 
 }
 
 func (p endpointFailProvider) TextToVideoEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
@@ -95,66 +103,77 @@ func (p endpointFailProvider) TextToVideoCodec() hfproviders.TextToVideoCodec {
 }
 
 func (p endpointFailProvider) FeatureExtractionEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
 func (p endpointFailProvider) FeatureExtractionBatchEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
 func (p endpointFailProvider) TextClassificationEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
 func (p endpointFailProvider) ZeroShotTextClassificationEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
 func (p endpointFailProvider) TokenClassificationEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
 func (p endpointFailProvider) QuestionAnsweringEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
 func (p endpointFailProvider) TableQuestionAnsweringEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
 func (p endpointFailProvider) FillMaskEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
 func (p endpointFailProvider) SummarizationEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
 func (p endpointFailProvider) TranslationEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
 }
 
 func (p endpointFailProvider) SpeechRecognitionEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{}, errEndpointUnavailable
@@ -199,14 +218,15 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"Chat",
 			"error computing chat endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
-				return hfgo.NewClient(opts...).Chat(chatDispatchRequest())
+				return hfgo.NewClient(opts...).Chat(context.Background(), chatDispatchRequest())
 			},
 		},
 		{
 			"ChatStream",
 			"error computing chat streaming endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
-				return hfgo.NewClient(opts...).ChatStream(chatDispatchRequest())
+				return hfgo.NewClient(opts...).
+					ChatStream(context.Background(), chatDispatchRequest())
 			},
 		},
 		{
@@ -214,7 +234,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).
-					ExtractPooledFeatures(hftypes.FeatureExtractionRequest{Input: "test input"})
+					ExtractPooledFeatures(context.Background(), hftypes.FeatureExtractionRequest{Input: "test input"})
 			},
 		},
 		{
@@ -222,7 +242,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).
-					ExtractPooledFeaturesBatch(hftypes.FeatureExtractionBatchRequest{Inputs: []string{"hi"}})
+					ExtractPooledFeaturesBatch(context.Background(), hftypes.FeatureExtractionBatchRequest{Inputs: []string{"hi"}})
 			},
 		},
 		{
@@ -230,7 +250,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).
-					ExtractTokenFeatures(hftypes.FeatureExtractionRequest{Input: "test input"})
+					ExtractTokenFeatures(context.Background(), hftypes.FeatureExtractionRequest{Input: "test input"})
 			},
 		},
 		{
@@ -239,6 +259,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).
 					ExtractTokenFeaturesBatch(
+						context.Background(),
 						hftypes.FeatureExtractionBatchRequest{Inputs: []string{"hi"}},
 					)
 			},
@@ -248,7 +269,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).
-					FillMask(hftypes.FillMaskRequest{Input: "The cat is [MASK]."})
+					FillMask(context.Background(), hftypes.FillMaskRequest{Input: "The cat is [MASK]."})
 			},
 		},
 		{
@@ -256,7 +277,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).
-					Summarize(hftypes.SummarizationRequest{Input: "Some long text."})
+					Summarize(context.Background(), hftypes.SummarizationRequest{Input: "Some long text."})
 			},
 		},
 		{
@@ -264,7 +285,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).
-					ClassifyText(hftypes.TextClassificationRequest{Input: "test text"})
+					ClassifyText(context.Background(), hftypes.TextClassificationRequest{Input: "test text"})
 			},
 		},
 		{
@@ -272,7 +293,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).
-					ClassifyTokens(hftypes.TokenClassificationRequest{Input: "My name is Sarah."})
+					ClassifyTokens(context.Background(), hftypes.TokenClassificationRequest{Input: "My name is Sarah."})
 			},
 		},
 		{
@@ -280,7 +301,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).
-					Translate(hftypes.TranslationRequest{Input: "Hello."})
+					Translate(context.Background(), hftypes.TranslationRequest{Input: "Hello."})
 			},
 		},
 		{
@@ -288,6 +309,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).AnswerQuestion(
+					context.Background(),
 					hftypes.QuestionAnsweringRequest{
 						Input: hftypes.QuestionAnsweringInput{
 							Question: "What is the capital of France?",
@@ -302,6 +324,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).AnswerTableQuestion(
+					context.Background(),
 					tableQuestionAnsweringDispatchRequest(),
 				)
 			},
@@ -317,7 +340,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 					},
 				}
 
-				return hfgo.NewClient(opts...).ZeroShotClassifyText(req)
+				return hfgo.NewClient(opts...).ZeroShotClassifyText(context.Background(), req)
 			},
 		},
 		{
@@ -325,6 +348,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).DetectObjects(
+					context.Background(),
 					hftypes.ObjectDetectionRequest{Input: testutils.TinyPNGBase64},
 				)
 			},
@@ -334,6 +358,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).ClassifyImage(
+					context.Background(),
 					hftypes.ImageClassificationRequest{Input: testutils.TinyPNGBase64},
 				)
 			},
@@ -343,6 +368,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).SegmentImage(
+					context.Background(),
 					hftypes.ImageSegmentationRequest{Input: testutils.TinyPNGBase64},
 				)
 			},
@@ -352,6 +378,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).GenerateImage(
+					context.Background(),
 					hftypes.TextToImageRequest{Input: "a cat"},
 				)
 			},
@@ -361,6 +388,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).GenerateImageToImage(
+					context.Background(),
 					hftypes.ImageToImageRequest{Input: testutils.TinyPNGBase64},
 				)
 			},
@@ -370,6 +398,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).GenerateVideo(
+					context.Background(),
 					hftypes.TextToVideoRequest{Input: "a cat"},
 				)
 			},
@@ -379,6 +408,7 @@ func dispatchErrorCases() []dispatchErrorCase {
 			"error computing endpoint:",
 			func(opts ...hfopts.Option) (any, error) {
 				return hfgo.NewClient(opts...).RecognizeSpeech(
+					context.Background(),
 					hftypes.SpeechRecognitionRequest{Input: "AAAA"},
 				)
 			},

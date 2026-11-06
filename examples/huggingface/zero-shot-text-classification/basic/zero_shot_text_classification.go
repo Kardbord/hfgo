@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -38,6 +39,7 @@ func main() {
 
 	// Make the classification request
 	classifications, err := client.ZeroShotClassifyText(
+		context.Background(),
 		hftypes.ZeroShotTextClassificationRequest{
 			Input: input,
 			Parameters: &hftypes.ZeroShotTextClassificationParameters{

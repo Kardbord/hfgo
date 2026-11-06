@@ -30,11 +30,10 @@ func TestTokenClassification_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.TokenClassification, error) {
-		return client.ClassifyTokens(
+		return client.ClassifyTokens(ctx,
 			hftypes.TokenClassificationRequest{
 				Input: "My name is Sarah and I live in London.",
 			},
@@ -76,7 +75,6 @@ func TestTokenClassification_WithAggregationStrategy(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	strategies := []string{
@@ -91,7 +89,7 @@ func TestTokenClassification_WithAggregationStrategy(t *testing.T) {
 		t.Run(strategy, func(t *testing.T) {
 			start := strings.Clone(strategy)
 			resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.TokenClassification, error) {
-				return client.ClassifyTokens(
+				return client.ClassifyTokens(ctx,
 					hftypes.TokenClassificationRequest{
 						Input: "My name is Sarah and I live in London.",
 						Parameters: &hftypes.TokenClassificationParameters{
@@ -142,10 +140,9 @@ func TestTokenClassification_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("dslim/bert-base-NER"),
-		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.ClassifyTokens(
+	resp, err := client.ClassifyTokens(ctx,
 		hftypes.TokenClassificationRequest{
 			Input: "My name is Sarah and I live in London.",
 		},

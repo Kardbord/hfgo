@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -63,9 +64,12 @@ func TestDetectObjects_ResponseDecoding(t *testing.T) {
 				hfopts.WithModel("test-model"),
 			)
 
-			objects, err := client.DetectObjects(hftypes.ObjectDetectionRequest{
-				Input: testutils.TinyPNGBase64,
-			})
+			objects, err := client.DetectObjects(
+				context.Background(),
+				hftypes.ObjectDetectionRequest{
+					Input: testutils.TinyPNGBase64,
+				},
+			)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, objects)
 			require.Len(t, objects, tc.expectedLen, tc.description)
@@ -97,7 +101,7 @@ func TestDetectObjects_WithParameters(t *testing.T) {
 	)
 
 	threshold := 0.7
-	objects, err := client.DetectObjects(hftypes.ObjectDetectionRequest{
+	objects, err := client.DetectObjects(context.Background(), hftypes.ObjectDetectionRequest{
 		Input: testutils.TinyPNGBase64,
 		Parameters: &hftypes.ObjectDetectionParameters{
 			Threshold: &threshold,
@@ -146,9 +150,10 @@ func TestDetectObjects_Errors(t *testing.T) {
 			},
 		},
 		func(opts ...hfopts.Option) ([]hftypes.ObjectDetection, error) {
-			return hfgo.NewClient(opts...).DetectObjects(hftypes.ObjectDetectionRequest{
-				Input: testutils.TinyPNGBase64,
-			})
+			return hfgo.NewClient(opts...).
+				DetectObjects(context.Background(), hftypes.ObjectDetectionRequest{
+					Input: testutils.TinyPNGBase64,
+				})
 		},
 	)
 }

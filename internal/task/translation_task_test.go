@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -43,7 +44,7 @@ func TestTranslate_ResponseVariations(t *testing.T) {
 		},
 		func() hftypes.TranslationRequest { return hftypes.TranslationRequest{Input: "Hello world."} },
 		func(c hfgo.Client, req hftypes.TranslationRequest) ([]hftypes.Translation, error) {
-			return c.Translate(req)
+			return c.Translate(context.Background(), req)
 		},
 		func(tr hftypes.Translation) string { return tr.TranslationText },
 	)
@@ -119,7 +120,7 @@ func TestTranslate_ParameterSerialization(t *testing.T) {
 				req.Parameters = tc.params
 			}
 
-			result, err := client.Translate(req)
+			result, err := client.Translate(context.Background(), req)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, result, tc.description)
 
@@ -169,9 +170,10 @@ func TestTranslate_Errors(t *testing.T) {
 			},
 		},
 		func(opts ...hfopts.Option) ([]hftypes.Translation, error) {
-			return hfgo.NewClient(opts...).Translate(hftypes.TranslationRequest{
-				Input: "Hello world.",
-			})
+			return hfgo.NewClient(opts...).
+				Translate(context.Background(), hftypes.TranslationRequest{
+					Input: "Hello world.",
+				})
 		},
 	)
 }

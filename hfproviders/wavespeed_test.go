@@ -42,21 +42,18 @@ func TestWaveSpeedProvider_ZeroValueIsSafe(t *testing.T) {
 
 	var p WaveSpeedProvider
 
-	_, err := p.TextToVideoEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err := p.TextToVideoEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
-	_, err = p.TextToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err = p.TextToImageEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
-	_, err = p.ImageToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err = p.ImageToImageEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
@@ -68,7 +65,7 @@ type wavespeedEndpointCase struct {
 	task            Task
 	model           string
 	providerModelID string
-	endpoint        func(WaveSpeedProvider, EndpointParams) (Endpoint, error)
+	endpoint        func(WaveSpeedProvider, context.Context, EndpointParams) (Endpoint, error)
 }
 
 func TestWaveSpeedProvider_Endpoints(t *testing.T) {
@@ -112,9 +109,8 @@ func TestWaveSpeedProvider_Endpoints(t *testing.T) {
 			p, err := NewWaveSpeedProvider(mapper)
 			require.NoError(t, err)
 
-			endpoint, err := tc.endpoint(p, EndpointParams{
-				Context: context.Background(),
-				Model:   tc.model,
+			endpoint, err := tc.endpoint(p, context.Background(), EndpointParams{
+				Model: tc.model,
 			})
 			require.NoError(t, err)
 			require.Equal(t, http.MethodPost, endpoint.Method)
@@ -132,9 +128,8 @@ func TestWaveSpeedProvider_Endpoint_ResolutionError(t *testing.T) {
 	p, err := NewWaveSpeedProvider(mapper)
 	require.NoError(t, err)
 
-	_, err = p.TextToVideoEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "unknown-model",
+	_, err = p.TextToVideoEndpoint(context.Background(), EndpointParams{
+		Model: "unknown-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
@@ -143,14 +138,13 @@ func TestWaveSpeedProvider_Endpoint_ResolutionError(t *testing.T) {
 // body with JSON content headers.
 func requireFlatEncode[Req any](
 	t *testing.T,
-	encode func(EncodeParams[Req]) ([]byte, http.Header, error),
+	encode func(context.Context, EncodeParams[Req]) ([]byte, http.Header, error),
 	req Req,
 	wantJSON string,
 ) {
 	t.Helper()
 
-	body, headers, err := encode(EncodeParams[Req]{
-		Context: context.Background(),
+	body, headers, err := encode(context.Background(), EncodeParams[Req]{
 		Request: req,
 	})
 	require.NoError(t, err)
@@ -393,8 +387,7 @@ func TestWaveSpeedProvider_AdapterLorasInjection(t *testing.T) {
 		})
 
 		video := WaveSpeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
-		body, _, err := video.Encode(EncodeParams[hftypes.TextToVideoRequest]{
-			Context: context.Background(),
+		body, _, err := video.Encode(context.Background(), EncodeParams[hftypes.TextToVideoRequest]{
 			Request: hftypes.TextToVideoRequest{Input: "a cat"},
 			Model:   "ZhengmingYu/DMAD",
 		})
@@ -406,8 +399,7 @@ func TestWaveSpeedProvider_AdapterLorasInjection(t *testing.T) {
 		)
 
 		image := WaveSpeedTextToImageMixin{Resolver: resolver}.TextToImageCodec()
-		body, _, err = image.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		body, _, err = image.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{Input: "a cat"},
 			Model:   "some-lora/flux-lora",
 		})
@@ -419,8 +411,7 @@ func TestWaveSpeedProvider_AdapterLorasInjection(t *testing.T) {
 		)
 
 		i2i := WaveSpeedImageToImageMixin{Resolver: resolver}.ImageToImageCodec()
-		body, _, err = i2i.Encode(EncodeParams[hftypes.ImageToImageRequest]{
-			Context: context.Background(),
+		body, _, err = i2i.Encode(context.Background(), EncodeParams[hftypes.ImageToImageRequest]{
 			Request: hftypes.ImageToImageRequest{Input: "abc123"},
 			Model:   "some-lora/flux-lora",
 		})
@@ -448,8 +439,7 @@ func TestWaveSpeedProvider_AdapterLorasInjection(t *testing.T) {
 		})
 		codec := WaveSpeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToVideoRequest]{
 			Request: hftypes.TextToVideoRequest{
 				Input: "a cat",
 				ProviderParams: map[string]any{
@@ -478,8 +468,7 @@ func TestWaveSpeedProvider_AdapterLorasInjection(t *testing.T) {
 		})
 		codec := WaveSpeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToVideoRequest]{
 			Request: hftypes.TextToVideoRequest{Input: "a cat"},
 			Model:   "black-forest-labs/FLUX.1-dev",
 		})
@@ -492,8 +481,7 @@ func TestWaveSpeedProvider_AdapterLorasInjection(t *testing.T) {
 
 		codec := wavespeedTextToVideoCodec{}
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToVideoRequest]{
 			Request: hftypes.TextToVideoRequest{Input: "a cat"},
 			Model:   "ZhengmingYu/DMAD",
 		})
@@ -506,8 +494,7 @@ func TestWaveSpeedProvider_AdapterLorasInjection(t *testing.T) {
 
 		codec := WaveSpeedTextToVideoMixin{Resolver: NewStaticModelResolver(nil)}.TextToVideoCodec()
 
-		_, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToVideoRequest]{
 			Request: hftypes.TextToVideoRequest{Input: "a cat"},
 			Model:   "unknown-model",
 		})
@@ -534,8 +521,7 @@ func TestWaveSpeedProvider_EncodePrefersEndpointMapping(t *testing.T) {
 		}
 		codec := WaveSpeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToVideoRequest]{
 			Request: hftypes.TextToVideoRequest{Input: "a cat"},
 			Model:   "ZhengmingYu/DMAD",
 			Mapping: &ModelMapping{
@@ -560,8 +546,7 @@ func TestWaveSpeedProvider_EncodePrefersEndpointMapping(t *testing.T) {
 		}
 		codec := WaveSpeedTextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToVideoRequest]{
 			Request: hftypes.TextToVideoRequest{Input: "a cat"},
 			Model:   "ZhengmingYu/DMAD",
 		})
@@ -589,8 +574,7 @@ func TestWaveSpeedProvider_TextToVideoCodec_Decode(t *testing.T) {
 		headers.Set("Content-Type", "video/mp4; charset=utf-8")
 		body := []byte{0x00, 0x00, 0x00, 0x20, 'f', 't', 'y', 'p'}
 
-		resp, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		resp, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    body,
 			Headers: headers,
 		})
@@ -605,8 +589,7 @@ func TestWaveSpeedProvider_TextToVideoCodec_Decode(t *testing.T) {
 		headers := http.Header{}
 		headers.Set("Content-Type", "application/json")
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"foo":"bar"}`),
 			Headers: headers,
 		})
@@ -674,9 +657,8 @@ func TestWaveSpeedMixin_SubsetProvider(t *testing.T) {
 	prov, err := AsProvider[TextToImageProvider](p)
 	require.NoError(t, err)
 
-	endpoint, err := prov.TextToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "black-forest-labs/FLUX.1-dev",
+	endpoint, err := prov.TextToImageEndpoint(context.Background(), EndpointParams{
+		Model: "black-forest-labs/FLUX.1-dev",
 	})
 	require.NoError(t, err)
 	require.Equal(t, "wavespeed/api/v3/wavespeed-ai/flux-dev", endpoint.Path)
@@ -707,21 +689,18 @@ func TestWaveSpeedMixins_ZeroValueResolvers(t *testing.T) {
 		image2Mixin WaveSpeedImageToImageMixin
 	)
 
-	_, err := videoMixin.TextToVideoEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err := videoMixin.TextToVideoEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
-	_, err = imageMixin.TextToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err = imageMixin.TextToImageEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
-	_, err = image2Mixin.ImageToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err = image2Mixin.ImageToImageEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
@@ -1881,8 +1860,7 @@ func TestWaveSpeedCodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 		t.Parallel()
 
 		codec := wavespeedTextToVideoCodec{}
-		_, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToVideoRequest]{
 			Request: hftypes.TextToVideoRequest{
 				Input:          "a cat",
 				ProviderParams: map[string]any{"bad": func() {}},
@@ -1897,8 +1875,7 @@ func TestWaveSpeedCodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 		t.Parallel()
 
 		codec := wavespeedTextToImageCodec{}
-		_, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{
 				Input:          "a cat",
 				ProviderParams: map[string]any{"bad": func() {}},
@@ -1913,8 +1890,7 @@ func TestWaveSpeedCodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 		t.Parallel()
 
 		codec := wavespeedImageToImageCodec{}
-		_, _, err := codec.Encode(EncodeParams[hftypes.ImageToImageRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.ImageToImageRequest]{
 			Request: hftypes.ImageToImageRequest{
 				Input:          "data:image/png;base64,abc123",
 				ProviderParams: map[string]any{"bad": func() {}},

@@ -118,7 +118,6 @@ func TestQueueDecodeMediaBody(t *testing.T) {
 		t.Parallel()
 
 		params := DecodeParams{
-			Context: context.Background(),
 			Body:    pngBody,
 			Headers: http.Header{"Content-Type": {"image/png"}},
 		}
@@ -133,7 +132,6 @@ func TestQueueDecodeMediaBody(t *testing.T) {
 		t.Parallel()
 
 		params := DecodeParams{
-			Context: context.Background(),
 			Body:    pngBody,
 			Headers: http.Header{"Content-Type": {"application/octet-stream"}},
 		}
@@ -147,7 +145,6 @@ func TestQueueDecodeMediaBody(t *testing.T) {
 		t.Parallel()
 
 		params := DecodeParams{
-			Context: context.Background(),
 			Body:    pngBody,
 			Headers: http.Header{"Content-Type": {"text/plain"}},
 		}
@@ -161,7 +158,6 @@ func TestQueueDecodeMediaBody(t *testing.T) {
 		t.Parallel()
 
 		params := DecodeParams{
-			Context: context.Background(),
 			Body:    pngBody,
 			Headers: http.Header{"Content-Type": {"%%%"}},
 		}
@@ -175,7 +171,6 @@ func TestQueueDecodeMediaBody(t *testing.T) {
 		t.Parallel()
 
 		params := DecodeParams{
-			Context: context.Background(),
 			Body:    []byte(`{"foo":"bar"}`),
 			Headers: http.Header{"Content-Type": {"application/octet-stream"}},
 		}
@@ -190,7 +185,6 @@ func TestQueueDecodeMediaBody(t *testing.T) {
 		t.Parallel()
 
 		params := DecodeParams{
-			Context: context.Background(),
 			Body:    []byte("not an image"),
 			Headers: http.Header{"Content-Type": {"text/plain"}},
 		}

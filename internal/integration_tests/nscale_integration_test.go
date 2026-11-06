@@ -54,13 +54,12 @@ func TestChatCompletion_NscaleLiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(os.Getenv("HF_TOKEN")),
 		hfopts.WithModel(nscaleChatModel),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newNscaleProvider(t)),
 	)
 
 	const text = "Say hello in one sentence."
 	resp := testutils.RetryTransient(ctx, t, func() (hftypes.ChatResponse, error) {
-		return client.Chat(
+		return client.Chat(ctx,
 			hftypes.ChatRequest{
 				Messages: []hftypes.ChatMessage{
 					{
@@ -97,13 +96,12 @@ func TestChatCompletion_NscaleStreamingLiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(os.Getenv("HF_TOKEN")),
 		hfopts.WithModel(nscaleChatModel),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newNscaleProvider(t)),
 	)
 
 	text := "Say hello in one sentence."
 	stream := testutils.RetryTransient(ctx, t, func() (*hftypes.ChatStream, error) {
-		return client.ChatStream(
+		return client.ChatStream(ctx,
 			hftypes.ChatRequest{
 				Messages: []hftypes.ChatMessage{
 					{
@@ -158,13 +156,12 @@ func TestGenerateImage_NscaleLiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(nscaleTextToImageModel),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newNscaleProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
 
 	response := testutils.RetryTransient(ctx, t, func() (hftypes.TextToImageResponse, error) {
-		return client.GenerateImage(hftypes.TextToImageRequest{
+		return client.GenerateImage(ctx, hftypes.TextToImageRequest{
 			Input: "A serene mountain landscape at sunset",
 			Parameters: &hftypes.TextToImageParameters{
 				Width:  new(512),

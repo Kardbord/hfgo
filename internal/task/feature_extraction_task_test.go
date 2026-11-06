@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -63,9 +64,12 @@ func TestExtractPooledFeatures_ResponseDecoding(t *testing.T) {
 				hfopts.WithModel("test-model"),
 			)
 
-			result, err := client.ExtractPooledFeatures(hftypes.FeatureExtractionRequest{
-				Input: "What is the capital of France?",
-			})
+			result, err := client.ExtractPooledFeatures(
+				context.Background(),
+				hftypes.FeatureExtractionRequest{
+					Input: "What is the capital of France?",
+				},
+			)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, result, tc.description)
 			require.Len(t, result, tc.wantLen, tc.description)
@@ -175,7 +179,7 @@ func TestExtractPooledFeatures_ParameterSerialization(t *testing.T) {
 				req.Parameters = tc.params
 			}
 
-			result, err := client.ExtractPooledFeatures(req)
+			result, err := client.ExtractPooledFeatures(context.Background(), req)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, result, tc.description)
 
@@ -223,9 +227,10 @@ func TestExtractPooledFeatures_Errors(t *testing.T) {
 			},
 		},
 		func(opts ...hfopts.Option) (hftypes.FeatureExtractionPooledEmbedding, error) {
-			return hfgo.NewClient(opts...).ExtractPooledFeatures(hftypes.FeatureExtractionRequest{
-				Input: "What is the capital of France?",
-			})
+			return hfgo.NewClient(opts...).
+				ExtractPooledFeatures(context.Background(), hftypes.FeatureExtractionRequest{
+					Input: "What is the capital of France?",
+				})
 		},
 	)
 }
@@ -261,9 +266,10 @@ func TestExtractTokenFeatures_Errors(t *testing.T) {
 			},
 		},
 		func(opts ...hfopts.Option) (hftypes.FeatureExtractionTokenEmbeddings, error) {
-			return hfgo.NewClient(opts...).ExtractTokenFeatures(hftypes.FeatureExtractionRequest{
-				Input: "What is the capital of France?",
-			})
+			return hfgo.NewClient(opts...).
+				ExtractTokenFeatures(context.Background(), hftypes.FeatureExtractionRequest{
+					Input: "What is the capital of France?",
+				})
 		},
 	)
 }
@@ -300,6 +306,7 @@ func TestExtractTokenFeaturesBatch_Errors(t *testing.T) {
 		},
 		func(opts ...hfopts.Option) ([]hftypes.FeatureExtractionTokenEmbeddings, error) {
 			return hfgo.NewClient(opts...).ExtractTokenFeaturesBatch(
+				context.Background(),
 				hftypes.FeatureExtractionBatchRequest{
 					Inputs: []string{"What is the capital of France?"},
 				},
@@ -376,9 +383,12 @@ func TestExtractPooledFeaturesBatch_ResponseDecoding(t *testing.T) {
 				hfopts.WithModel("test-model"),
 			)
 
-			result, err := client.ExtractPooledFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
-				Inputs: tc.inputs,
-			})
+			result, err := client.ExtractPooledFeaturesBatch(
+				context.Background(),
+				hftypes.FeatureExtractionBatchRequest{
+					Inputs: tc.inputs,
+				},
+			)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, result, tc.description)
 			require.Len(t, result, tc.wantOuterLen, tc.description)
@@ -425,7 +435,7 @@ func TestExtractPooledFeaturesBatch_Errors(t *testing.T) {
 		},
 		func(opts ...hfopts.Option) ([]hftypes.FeatureExtractionPooledEmbedding, error) {
 			return hfgo.NewClient(opts...).
-				ExtractPooledFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
+				ExtractPooledFeaturesBatch(context.Background(), hftypes.FeatureExtractionBatchRequest{
 					Inputs: []string{"hello", "world"},
 				})
 		},
@@ -457,7 +467,7 @@ func TestExtractPooledFeaturesBatch_ParameterSerialization(t *testing.T) {
 				req.Parameters = tc.params
 			}
 
-			result, err := client.ExtractPooledFeaturesBatch(req)
+			result, err := client.ExtractPooledFeaturesBatch(context.Background(), req)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, result, tc.description)
 
@@ -486,9 +496,12 @@ func TestExtractPooledFeaturesBatch_NoModel(t *testing.T) {
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	result, err := client.ExtractPooledFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
-		Inputs: []string{"hello"},
-	})
+	result, err := client.ExtractPooledFeaturesBatch(
+		context.Background(),
+		hftypes.FeatureExtractionBatchRequest{
+			Inputs: []string{"hello"},
+		},
+	)
 	require.Error(t, err)
 	require.Nil(t, result)
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
@@ -509,9 +522,13 @@ func TestExtractPooledFeaturesBatch_ModelFromOptions(t *testing.T) {
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	result, err := client.ExtractPooledFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
-		Inputs: []string{"hello"},
-	}, hfopts.WithModel("override-model"))
+	result, err := client.ExtractPooledFeaturesBatch(
+		context.Background(),
+		hftypes.FeatureExtractionBatchRequest{
+			Inputs: []string{"hello"},
+		},
+		hfopts.WithModel("override-model"),
+	)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -538,9 +555,12 @@ func TestExtractTokenFeatures_ResponseDecoding(t *testing.T) {
 		hfopts.WithModel("test-model"),
 	)
 
-	result, err := client.ExtractTokenFeatures(hftypes.FeatureExtractionRequest{
-		Input: "hello world",
-	})
+	result, err := client.ExtractTokenFeatures(
+		context.Background(),
+		hftypes.FeatureExtractionRequest{
+			Input: "hello world",
+		},
+	)
 	require.NoError(t, err)
 	require.Len(t, result, 3)
 	require.Equal(t, []float64{0.1, 0.2}, result[0])
@@ -560,9 +580,12 @@ func TestExtractTokenFeaturesBatch_ResponseDecoding(t *testing.T) {
 		hfopts.WithModel("test-model"),
 	)
 
-	result, err := client.ExtractTokenFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
-		Inputs: []string{"hello", "hello world"},
-	})
+	result, err := client.ExtractTokenFeaturesBatch(
+		context.Background(),
+		hftypes.FeatureExtractionBatchRequest{
+			Inputs: []string{"hello", "hello world"},
+		},
+	)
 	require.NoError(t, err)
 	require.Len(t, result, 2)
 	require.Len(t, result[0], 2)

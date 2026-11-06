@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -115,7 +116,7 @@ func TestAnswerQuestion_ResponseDecoding(t *testing.T) {
 				}
 			}
 
-			result, err := client.AnswerQuestion(req)
+			result, err := client.AnswerQuestion(context.Background(), req)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, result)
 			require.Len(t, result, tc.expectedLen, tc.description)
@@ -158,7 +159,7 @@ func TestAnswerQuestion_WithParameters(t *testing.T) {
 		},
 	}
 
-	result, err := client.AnswerQuestion(req)
+	result, err := client.AnswerQuestion(context.Background(), req)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -201,12 +202,13 @@ func TestAnswerQuestion_Errors(t *testing.T) {
 			},
 		},
 		func(opts ...hfopts.Option) ([]hftypes.QuestionAnswer, error) {
-			return hfgo.NewClient(opts...).AnswerQuestion(hftypes.QuestionAnsweringRequest{
-				Input: hftypes.QuestionAnsweringInput{
-					Question: "What is the capital of France?",
-					Context:  "France is a country in Europe.",
-				},
-			})
+			return hfgo.NewClient(opts...).
+				AnswerQuestion(context.Background(), hftypes.QuestionAnsweringRequest{
+					Input: hftypes.QuestionAnsweringInput{
+						Question: "What is the capital of France?",
+						Context:  "France is a country in Europe.",
+					},
+				})
 		},
 	)
 }
@@ -230,7 +232,11 @@ func TestAnswerQuestion_ModelFromOptions(t *testing.T) {
 		},
 	}
 
-	result, err := client.AnswerQuestion(req, hfopts.WithModel("override-model"))
+	result, err := client.AnswerQuestion(
+		context.Background(),
+		req,
+		hfopts.WithModel("override-model"),
+	)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 

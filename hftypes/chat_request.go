@@ -137,7 +137,8 @@ func (r ChatRequest) MarshalJSON() ([]byte, error) {
 // Clone returns a deep defensive copy of the request. All reference fields —
 // slices, maps, pointers, and JSON blobs — are copied so the returned value
 // shares no backing storage with the receiver. This makes it safe to reuse a
-// template request across concurrent calls, e.g. go client.Chat(req.Clone(), ...).
+// template request across concurrent calls, e.g.
+// go client.Chat(ctx, req.Clone(), ...).
 // The ProviderParams map is copied as a new map, but its values are shared
 // because their types are not known statically.
 func (r *ChatRequest) Clone() ChatRequest {

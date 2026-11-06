@@ -35,37 +35,41 @@ func NewClient(opts ...hfopts.Option) Client {
 // Do performs a raw HTTP request with a byte slice body and applies SDK error interpretation on 4xx/5xx responses.
 // The caller must close resp.Body on success.
 func (c Client) Do(
+	ctx context.Context,
 	requestBody []byte,
 	method string,
 	path string,
 	opts ...hfopts.Option,
 ) (*http.Response, error) {
-	return c.DoReader(bytes.NewReader(requestBody), method, path, opts...)
+	return c.DoReader(ctx, bytes.NewReader(requestBody), method, path, opts...)
 }
 
 // DoRaw performs a raw HTTP request with a byte slice body without translating 4xx/5xx responses into SDK errors.
 // The caller must close resp.Body on success.
 func (c Client) DoRaw(
+	ctx context.Context,
 	requestBody []byte,
 	method string,
 	path string,
 	opts ...hfopts.Option,
 ) (*http.Response, error) {
-	return c.DoRawReader(bytes.NewReader(requestBody), method, path, opts...)
+	return c.DoRawReader(ctx, bytes.NewReader(requestBody), method, path, opts...)
 }
 
 // DoReader performs a raw HTTP request with a streaming body and applies SDK error interpretation on 4xx/5xx responses.
 // The caller must close resp.Body on success.
 func (c Client) DoReader(
+	ctx context.Context,
 	requestBody io.Reader,
 	method string,
 	path string,
 	opts ...hfopts.Option,
 ) (*http.Response, error) {
+	ctx = utils.NormalizeContext(ctx)
 	resolvedOpts := c.opts.With(opts...)
 
 	return request.Do(
-		resolvedOpts.Context(),
+		ctx,
 		transport.Params(resolvedOpts),
 		method,
 		path,
@@ -76,15 +80,17 @@ func (c Client) DoReader(
 // DoRawReader performs a raw HTTP request with a streaming body without translating 4xx/5xx responses into SDK errors.
 // The caller must close resp.Body on success.
 func (c Client) DoRawReader(
+	ctx context.Context,
 	requestBody io.Reader,
 	method string,
 	path string,
 	opts ...hfopts.Option,
 ) (*http.Response, error) {
+	ctx = utils.NormalizeContext(ctx)
 	resolvedOpts := c.opts.With(opts...)
 
 	return request.DoRaw(
-		resolvedOpts.Context(),
+		ctx,
 		transport.Params(resolvedOpts),
 		method,
 		path,
@@ -98,12 +104,13 @@ func (c Client) DoRawReader(
 // The status code and headers of the response that opened the stream are available via [Stream.StatusCode] and [Stream.Header].
 // Callers should close the returned Stream when finished to promptly release the HTTP connection and decoder goroutine.
 func (c Client) Stream(
+	ctx context.Context,
 	requestBody []byte,
 	method string,
 	path string,
 	opts ...hfopts.Option,
 ) (*Stream, error) {
-	return c.StreamReader(bytes.NewReader(requestBody), method, path, opts...)
+	return c.StreamReader(ctx, bytes.NewReader(requestBody), method, path, opts...)
 }
 
 // StreamReader performs a raw HTTP request with a streaming body and returns an SSE stream with SDK error interpretation.
@@ -112,14 +119,16 @@ func (c Client) Stream(
 // The status code and headers of the response that opened the stream are available via [Stream.StatusCode] and [Stream.Header].
 // Callers should close the returned Stream when finished to promptly release the HTTP connection and decoder goroutine.
 func (c Client) StreamReader(
+	ctx context.Context,
 	requestBody io.Reader,
 	method string,
 	path string,
 	opts ...hfopts.Option,
 ) (*Stream, error) {
+	ctx = utils.NormalizeContext(ctx)
 	resolvedOpts := c.opts.With(opts...)
 	resp, err := request.Do(
-		resolvedOpts.Context(),
+		ctx,
 		transport.Params(resolvedOpts),
 		method,
 		path,
@@ -141,10 +150,8 @@ func (c Client) StreamReader(
 		return nil, err
 	}
 
-	ctx := utils.NormalizeContext(resp.Request.Context())
-
 	rawStream, err := request.StreamRawWithLimit(
-		ctx,
+		utils.NormalizeContext(ctx),
 		resp.Body,
 		resolvedOpts.MaxResponseBodyBytes,
 	)

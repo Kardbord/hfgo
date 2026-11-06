@@ -1,6 +1,7 @@
 package task
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -59,7 +60,13 @@ func applyProvider(model *string, provider hfproviders.Provider) *string {
 // Chat sends a chat completion request and returns a chat completion response.
 //
 //nolint:gocritic // hugeParam: Chat takes the request by value so the SDK never mutates the caller's payload
-func Chat(opts hfopts.Options, req hftypes.ChatRequest) (hftypes.ChatResponse, error) {
+func Chat(
+	ctx context.Context,
+	opts hfopts.Options,
+	req hftypes.ChatRequest,
+) (hftypes.ChatResponse, error) {
+	ctx = utils.NormalizeContext(ctx)
+
 	model, err := resolveModel(&req, opts)
 	if err != nil {
 		return hftypes.ChatResponse{}, err
@@ -75,9 +82,8 @@ func Chat(opts hfopts.Options, req hftypes.ChatRequest) (hftypes.ChatResponse, e
 		return hftypes.ChatResponse{}, err
 	}
 
-	endpoint, err := prov.ChatEndpoint(hfproviders.EndpointParams{
-		Context: opts.Context(),
-		Model:   model,
+	endpoint, err := prov.ChatEndpoint(ctx, hfproviders.EndpointParams{
+		Model: model,
 	})
 	if err != nil {
 		return hftypes.ChatResponse{}, &hferrors.SDKError{
@@ -96,6 +102,7 @@ func Chat(opts hfopts.Options, req hftypes.ChatRequest) (hftypes.ChatResponse, e
 	}
 
 	return doInference(
+		ctx,
 		opts,
 		endpoint,
 		prov.ChatCodec(),
@@ -106,7 +113,13 @@ func Chat(opts hfopts.Options, req hftypes.ChatRequest) (hftypes.ChatResponse, e
 // ChatStream sends a chat completion request and returns a streaming response.
 //
 //nolint:gocritic // hugeParam: ChatStream takes the request by value so the SDK never mutates the caller's payload
-func ChatStream(opts hfopts.Options, req hftypes.ChatRequest) (*hftypes.ChatStream, error) {
+func ChatStream(
+	ctx context.Context,
+	opts hfopts.Options,
+	req hftypes.ChatRequest,
+) (*hftypes.ChatStream, error) {
+	ctx = utils.NormalizeContext(ctx)
+
 	model, err := resolveModel(&req, opts)
 	if err != nil {
 		return nil, err
@@ -122,9 +135,8 @@ func ChatStream(opts hfopts.Options, req hftypes.ChatRequest) (*hftypes.ChatStre
 		return nil, err
 	}
 
-	endpoint, err := prov.ChatEndpoint(hfproviders.EndpointParams{
-		Context: opts.Context(),
-		Model:   model,
+	endpoint, err := prov.ChatEndpoint(ctx, hfproviders.EndpointParams{
+		Model: model,
 	})
 	if err != nil {
 		return nil, &hferrors.SDKError{
@@ -138,6 +150,7 @@ func ChatStream(opts hfopts.Options, req hftypes.ChatRequest) (*hftypes.ChatStre
 	req.Stream = &stream
 
 	streamResp, err := doStreamingInference(
+		ctx,
 		opts,
 		endpoint,
 		prov.ChatStreamCodec(),

@@ -3,6 +3,7 @@
 package hfproviders
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -27,7 +28,7 @@ func TestHuggingFaceProvider_NameAndSuffix(t *testing.T) {
 // HuggingFaceProvider endpoint can be exercised through one table.
 type endpointCase struct {
 	name string
-	call func(EndpointParams) (Endpoint, error)
+	call func(context.Context, EndpointParams) (Endpoint, error)
 	// wantPath computes the expected path from the model.
 	wantPath func(model string) string
 	// modelRequired reports whether the endpoint rejects an empty model
@@ -45,7 +46,7 @@ func endpointCases() []endpointCase {
 	// bare model prefix.
 	ep := func(
 		name string,
-		call func(EndpointParams) (Endpoint, error),
+		call func(context.Context, EndpointParams) (Endpoint, error),
 	) endpointCase {
 		return endpointCase{name: name, call: call, wantPath: modelPath, modelRequired: true}
 	}
@@ -91,7 +92,7 @@ func TestHuggingFaceProvider_ValidModel(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ep, err := tc.call(EndpointParams{Model: "org/test-model"})
+			ep, err := tc.call(context.Background(), EndpointParams{Model: "org/test-model"})
 			require.NoError(t, err)
 			require.Equal(t, http.MethodPost, ep.Method)
 			require.Equal(t, tc.wantPath("org/test-model"), ep.Path)
@@ -106,7 +107,7 @@ func TestHuggingFaceProvider_EmptyModel(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ep, err := tc.call(EndpointParams{Model: ""})
+			ep, err := tc.call(context.Background(), EndpointParams{Model: ""})
 			if !tc.modelRequired {
 				require.NoError(t, err)
 				require.Equal(t, tc.wantPath(""), ep.Path)
@@ -297,9 +298,12 @@ func TestSpeechRecognitionCodec_Encode(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			body, headers, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
-				Request: tc.request,
-			})
+			body, headers, err := codec.Encode(
+				context.Background(),
+				EncodeParams[hftypes.SpeechRecognitionRequest]{
+					Request: tc.request,
+				},
+			)
 			tc.validate(t, body, headers, err)
 		})
 	}
@@ -309,7 +313,7 @@ func TestSpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Parallel()
 
 	codec := hfSpeechRecognitionCodec{}
-	resp, err := codec.Decode(DecodeParams{
+	resp, err := codec.Decode(context.Background(), DecodeParams{
 		Body:    []byte(`{"text":"hello world"}`),
 		Headers: http.Header{"Content-Type": {"application/json"}},
 	})
@@ -410,7 +414,7 @@ func TestHuggingFaceChatCodecs_EncodeProviderParams(t *testing.T) {
 		}
 
 		body, headers, err := p.ChatCodec().
-			Encode(EncodeParams[hftypes.ChatRequest]{Request: request})
+			Encode(context.Background(), EncodeParams[hftypes.ChatRequest]{Request: request})
 		require.NoError(t, err)
 		require.Equal(t, http.Header{
 			headerAccept:   {mimeTypeJSON},
@@ -429,7 +433,7 @@ func TestHuggingFaceChatCodecs_EncodeProviderParams(t *testing.T) {
 		request.ProviderParams = map[string]any{"model": "attacker-model"}
 
 		body, _, err := p.ChatStreamCodec().
-			Encode(EncodeParams[hftypes.ChatRequest]{Request: request})
+			Encode(context.Background(), EncodeParams[hftypes.ChatRequest]{Request: request})
 		require.NoError(t, err)
 		require.JSONEq(t, fmt.Sprintf(
 			`{"model":%q,"messages":[{"role":"user","content":"hello"}]}`,
@@ -442,7 +446,7 @@ func TestHuggingFaceChatCodecs_EncodeProviderParams(t *testing.T) {
 
 		chatRequest := newChatEncodeTestRequest()
 		body, _, err := p.ChatCodec().
-			Encode(EncodeParams[hftypes.ChatRequest]{Request: chatRequest})
+			Encode(context.Background(), EncodeParams[hftypes.ChatRequest]{Request: chatRequest})
 		require.NoError(t, err)
 		direct, err := json.Marshal(chatRequest)
 		require.NoError(t, err)
@@ -450,7 +454,7 @@ func TestHuggingFaceChatCodecs_EncodeProviderParams(t *testing.T) {
 
 		summarizationRequest := hftypes.SummarizationRequest{Input: "text"}
 		body, _, err = p.SummarizationCodec().
-			Encode(EncodeParams[hftypes.SummarizationRequest]{Request: summarizationRequest})
+			Encode(context.Background(), EncodeParams[hftypes.SummarizationRequest]{Request: summarizationRequest})
 		require.NoError(t, err)
 		direct, err = json.Marshal(summarizationRequest)
 		require.NoError(t, err)
@@ -464,7 +468,8 @@ func TestHuggingFaceChatCodecs_EncodeProviderParams(t *testing.T) {
 		request.Seed = new(int64(9007199254740993))
 		request.ProviderParams = map[string]any{"temperature": 1}
 
-		body, _, err := p.ChatCodec().Encode(EncodeParams[hftypes.ChatRequest]{Request: request})
+		body, _, err := p.ChatCodec().
+			Encode(context.Background(), EncodeParams[hftypes.ChatRequest]{Request: request})
 		require.NoError(t, err)
 		require.Contains(t, string(body), "9007199254740993")
 		require.Contains(t, string(body), `"temperature":1`)
@@ -476,7 +481,8 @@ func TestHuggingFaceChatCodecs_EncodeProviderParams(t *testing.T) {
 		request := newChatEncodeTestRequest()
 		request.ProviderParams = map[string]any{"bad": func() {}}
 
-		_, _, err := p.ChatCodec().Encode(EncodeParams[hftypes.ChatRequest]{Request: request})
+		_, _, err := p.ChatCodec().
+			Encode(context.Background(), EncodeParams[hftypes.ChatRequest]{Request: request})
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 }
@@ -501,7 +507,10 @@ func TestHuggingFaceSummarizationCodec_EncodeProviderParams(t *testing.T) {
 			ProviderParams: map[string]any{"max_new_tokens": 128},
 		}
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.SummarizationRequest]{Request: request})
+		body, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SummarizationRequest]{Request: request},
+		)
 		require.NoError(t, err)
 		require.JSONEq(t, `{"inputs":"text","max_new_tokens":128}`, string(body))
 	})
@@ -523,7 +532,10 @@ func TestHuggingFaceSummarizationCodec_EncodeProviderParams(t *testing.T) {
 			},
 		}
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.SummarizationRequest]{Request: request})
+		body, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SummarizationRequest]{Request: request},
+		)
 		require.NoError(t, err)
 		require.JSONEq(
 			t,
@@ -540,7 +552,10 @@ func TestHuggingFaceSummarizationCodec_EncodeProviderParams(t *testing.T) {
 			ProviderParams: map[string]any{"inputs": "evil"},
 		}
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.SummarizationRequest]{Request: request})
+		body, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SummarizationRequest]{Request: request},
+		)
 		require.NoError(t, err)
 		require.JSONEq(t, `{"inputs":"text"}`, string(body))
 	})
@@ -558,7 +573,10 @@ func TestHuggingFaceSummarizationCodec_EncodeProviderParams(t *testing.T) {
 			},
 		}
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.SummarizationRequest]{Request: request})
+		body, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SummarizationRequest]{Request: request},
+		)
 		require.NoError(t, err)
 		require.JSONEq(t, `{"inputs":"text","parameters":{"custom":true}}`, string(body))
 	})
@@ -571,7 +589,10 @@ func TestHuggingFaceSummarizationCodec_EncodeProviderParams(t *testing.T) {
 			ProviderParams: map[string]any{"bad": func() {}},
 		}
 
-		_, _, err := codec.Encode(EncodeParams[hftypes.SummarizationRequest]{Request: request})
+		_, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SummarizationRequest]{Request: request},
+		)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 
@@ -584,7 +605,10 @@ func TestHuggingFaceSummarizationCodec_EncodeProviderParams(t *testing.T) {
 		}
 		before := maps.Clone(request.ProviderParams)
 
-		_, _, err := codec.Encode(EncodeParams[hftypes.SummarizationRequest]{Request: request})
+		_, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SummarizationRequest]{Request: request},
+		)
 		require.NoError(t, err)
 		require.True(t, maps.Equal(before, request.ProviderParams))
 	})
@@ -596,12 +620,13 @@ func TestHuggingFaceSummarizationCodec_EncodeProviderParams(t *testing.T) {
 type garbageBodyCodec[Req, Resp any] struct{}
 
 func (garbageBodyCodec[Req, Resp]) Encode(
+	_ context.Context,
 	_ EncodeParams[Req],
 ) (body []byte, headers http.Header, err error) {
 	return []byte("not json"), jsonRequestHeaders(mimeTypeJSON), nil
 }
 
-func (garbageBodyCodec[Req, Resp]) Decode(_ DecodeParams) (Resp, error) {
+func (garbageBodyCodec[Req, Resp]) Decode(_ context.Context, _ DecodeParams) (Resp, error) {
 	var zero Resp
 
 	return zero, nil
@@ -624,7 +649,7 @@ func TestHfParamsCodec_UndecodableInnerBody(t *testing.T) {
 	t.Run("no-op keeps an undecodable body untouched", func(t *testing.T) {
 		t.Parallel()
 
-		body, _, err := newCodec().Encode(EncodeParams[hftypes.SummarizationRequest]{
+		body, _, err := newCodec().Encode(context.Background(), EncodeParams[hftypes.SummarizationRequest]{
 			Request: hftypes.SummarizationRequest{Input: "text"},
 		})
 		require.NoError(t, err)
@@ -634,7 +659,7 @@ func TestHfParamsCodec_UndecodableInnerBody(t *testing.T) {
 	t.Run("merge surfaces the decode failure", func(t *testing.T) {
 		t.Parallel()
 
-		_, _, err := newCodec().Encode(EncodeParams[hftypes.SummarizationRequest]{
+		_, _, err := newCodec().Encode(context.Background(), EncodeParams[hftypes.SummarizationRequest]{
 			Request: hftypes.SummarizationRequest{
 				Input:          "text",
 				ProviderParams: map[string]any{"max_new_tokens": 128},
@@ -771,6 +796,7 @@ func TestHuggingFacePipelineCodecs_EncodeProviderParams(t *testing.T) {
 		}
 
 		body, _, err := codec.Encode(
+			context.Background(),
 			EncodeParams[hftypes.FeatureExtractionRequest]{Request: request},
 		)
 		require.NoError(t, err)
@@ -790,6 +816,7 @@ func TestHuggingFacePipelineCodecs_EncodeProviderParams(t *testing.T) {
 		}
 
 		body, _, err := codec.Encode(
+			context.Background(),
 			EncodeParams[hftypes.QuestionAnsweringRequest]{Request: request},
 		)
 		require.NoError(t, err)
@@ -810,6 +837,7 @@ func TestHuggingFacePipelineCodecs_EncodeProviderParams(t *testing.T) {
 		}
 
 		body, _, err := codec.Encode(
+			context.Background(),
 			EncodeParams[hftypes.TextClassificationRequest]{Request: request},
 		)
 		require.NoError(t, err)
@@ -826,6 +854,7 @@ func TestHuggingFacePipelineCodecs_EncodeProviderParams(t *testing.T) {
 		}
 
 		body, headers, err := codec.Encode(
+			context.Background(),
 			EncodeParams[hftypes.TextToImageRequest]{Request: request},
 		)
 		require.NoError(t, err)

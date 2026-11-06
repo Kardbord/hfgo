@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -29,6 +30,7 @@ func main() {
 	fmt.Println("...")
 
 	entities, err := client.ClassifyTokens(
+		context.Background(),
 		hftypes.TokenClassificationRequest{
 			Input: input,
 			Parameters: &hftypes.TokenClassificationParameters{

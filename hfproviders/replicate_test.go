@@ -52,27 +52,23 @@ func TestReplicateProvider_ZeroValueIsSafe(t *testing.T) {
 
 	var p ReplicateProvider
 
-	_, err := p.TextToVideoEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err := p.TextToVideoEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
-	_, err = p.TextToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err = p.TextToImageEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
-	_, err = p.ImageToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err = p.ImageToImageEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
-	_, err = p.SpeechRecognitionEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err = p.SpeechRecognitionEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
@@ -86,7 +82,7 @@ type replicateEndpointCase struct {
 	model           string
 	providerModelID string
 	wantPath        string
-	endpoint        func(ReplicateProvider, EndpointParams) (Endpoint, error)
+	endpoint        func(ReplicateProvider, context.Context, EndpointParams) (Endpoint, error)
 }
 
 func TestReplicateProvider_Endpoints(t *testing.T) {
@@ -149,9 +145,8 @@ func TestReplicateProvider_Endpoints(t *testing.T) {
 			p, err := NewReplicateProvider(mapper)
 			require.NoError(t, err)
 
-			endpoint, err := tc.endpoint(p, EndpointParams{
-				Context: context.Background(),
-				Model:   tc.model,
+			endpoint, err := tc.endpoint(p, context.Background(), EndpointParams{
+				Model: tc.model,
 			})
 			require.NoError(t, err)
 			require.Equal(t, http.MethodPost, endpoint.Method)
@@ -169,9 +164,8 @@ func TestReplicateProvider_Endpoint_ResolutionError(t *testing.T) {
 	p, err := NewReplicateProvider(mapper)
 	require.NoError(t, err)
 
-	_, err = p.TextToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "unknown-model",
+	_, err = p.TextToImageEndpoint(context.Background(), EndpointParams{
+		Model: "unknown-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
@@ -180,7 +174,7 @@ func TestReplicateProvider_Endpoint_ResolutionError(t *testing.T) {
 // prediction payload with the headers Replicate submissions carry.
 func requireReplicateEncode[Req any](
 	t *testing.T,
-	encode func(EncodeParams[Req]) ([]byte, http.Header, error),
+	encode func(context.Context, EncodeParams[Req]) ([]byte, http.Header, error),
 	req Req,
 	model string,
 	mapping *ModelMapping,
@@ -188,8 +182,7 @@ func requireReplicateEncode[Req any](
 ) {
 	t.Helper()
 
-	body, headers, err := encode(EncodeParams[Req]{
-		Context: context.Background(),
+	body, headers, err := encode(context.Background(), EncodeParams[Req]{
 		Request: req,
 		Model:   model,
 		Mapping: mapping,
@@ -332,8 +325,7 @@ func TestReplicateProvider_TextToVideoCodec_Encode(t *testing.T) {
 		t.Parallel()
 
 		codec := ReplicateTextToVideoMixin{Resolver: sdkFailingResolver{}}.TextToVideoCodec()
-		_, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToVideoRequest]{
 			Request: hftypes.TextToVideoRequest{Input: "a cat"},
 			Model:   "Wan-AI/Wan2.2-T2V-A14B-Diffusers",
 		})
@@ -429,8 +421,7 @@ func TestReplicateProvider_ImageToImageCodec_Encode(t *testing.T) {
 	t.Run("invalid base64 input is a serialization error", func(t *testing.T) {
 		t.Parallel()
 
-		_, _, err := codec.Encode(EncodeParams[hftypes.ImageToImageRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.ImageToImageRequest]{
 			Request: hftypes.ImageToImageRequest{Input: "not-base64!!!"},
 			Model:   "black-forest-labs/FLUX.2-klein-base-4B",
 		})
@@ -442,8 +433,7 @@ func TestReplicateProvider_ImageToImageCodec_Encode(t *testing.T) {
 		t.Parallel()
 
 		codec := ReplicateImageToImageMixin{Resolver: sdkFailingResolver{}}.ImageToImageCodec()
-		_, _, err := codec.Encode(EncodeParams[hftypes.ImageToImageRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.ImageToImageRequest]{
 			Request: hftypes.ImageToImageRequest{Input: "data:image/png;base64,abc123"},
 			Model:   "black-forest-labs/FLUX.2-klein-base-4B",
 		})
@@ -537,16 +527,18 @@ func TestReplicateProvider_SpeechRecognitionCodec_Encode(t *testing.T) {
 	t.Run("invalid base64 errors", func(t *testing.T) {
 		t.Parallel()
 
-		_, _, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
-			Request: hftypes.SpeechRecognitionRequest{
-				Input: "not base64!!",
+		_, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SpeechRecognitionRequest]{
+				Request: hftypes.SpeechRecognitionRequest{
+					Input: "not base64!!",
+				},
+				Model: "openai/whisper-large-v3",
+				Mapping: &ModelMapping{
+					ProviderModelID: "openai/whisper-large-v3",
+				},
 			},
-			Model: "openai/whisper-large-v3",
-			Mapping: &ModelMapping{
-				ProviderModelID: "openai/whisper-large-v3",
-			},
-		})
+		)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "failed to decode base64 input")
 	})
@@ -557,13 +549,15 @@ func TestReplicateProvider_SpeechRecognitionCodec_Encode(t *testing.T) {
 		codec := ReplicateSpeechRecognitionMixin{
 			Resolver: sdkFailingResolver{},
 		}.SpeechRecognitionCodec()
-		_, _, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
-			Request: hftypes.SpeechRecognitionRequest{
-				Input: "data:audio/mp3;base64,abc123",
+		_, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SpeechRecognitionRequest]{
+				Request: hftypes.SpeechRecognitionRequest{
+					Input: "data:audio/mp3;base64,abc123",
+				},
+				Model: "openai/whisper-large-v3",
 			},
-			Model: "openai/whisper-large-v3",
-		})
+		)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	})
 }
@@ -727,8 +721,7 @@ func TestReplicateProvider_LoraNotInjected(t *testing.T) {
 		t.Parallel()
 
 		codec := replicateTextToImageCodec{}
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{Input: "a cat"},
 			Model:   "some-lora/flux-lora",
 			Mapping: &ModelMapping{
@@ -744,8 +737,7 @@ func TestReplicateProvider_LoraNotInjected(t *testing.T) {
 		t.Parallel()
 
 		codec := replicateTextToImageCodec{}
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{
 				Input: "a cat",
 				ProviderParams: map[string]any{
@@ -773,8 +765,7 @@ func TestReplicateProvider_LoraNotInjected(t *testing.T) {
 		codec := replicateTextToImageCodec{
 			replicateAsyncCodec{queueTaskCodec{resolver: &sdkFailingResolver{}}},
 		}
-		_, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{Input: "a cat"},
 			Model:   "unknown-model",
 		})
@@ -813,8 +804,7 @@ func TestReplicateProvider_TextToVideoCodec_Decode(t *testing.T) {
 		headers.Set("Content-Type", "video/mp4; charset=utf-8")
 		body := []byte{0x00, 0x00, 0x00, 0x20, 'f', 't', 'y', 'p'}
 
-		resp, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		resp, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    body,
 			Headers: headers,
 		})
@@ -829,8 +819,7 @@ func TestReplicateProvider_TextToVideoCodec_Decode(t *testing.T) {
 		headers := http.Header{}
 		headers.Set("Content-Type", "application/json")
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"foo":"bar"}`),
 			Headers: headers,
 		})
@@ -850,8 +839,7 @@ func TestReplicateProvider_SpeechRecognitionCodec_Decode(t *testing.T) {
 		headers := http.Header{}
 		headers.Set("Content-Type", "application/json")
 
-		resp, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		resp, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"text":"hello world"}`),
 			Headers: headers,
 		})
@@ -865,8 +853,7 @@ func TestReplicateProvider_SpeechRecognitionCodec_Decode(t *testing.T) {
 		headers := http.Header{}
 		headers.Set("Content-Type", "image/png")
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"text":"hello"}`),
 			Headers: headers,
 		})
@@ -879,8 +866,7 @@ func TestReplicateProvider_SpeechRecognitionCodec_Decode(t *testing.T) {
 		headers := http.Header{}
 		headers.Set("Content-Type", "application/json")
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte("not json"),
 			Headers: headers,
 		})
@@ -2823,8 +2809,7 @@ func TestReplicateCodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 		t.Parallel()
 
 		codec := replicateTextToVideoCodec{}
-		_, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToVideoRequest]{
 			Request: hftypes.TextToVideoRequest{
 				Input:          "a cat",
 				ProviderParams: map[string]any{"bad": func() {}},
@@ -2839,8 +2824,7 @@ func TestReplicateCodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 		t.Parallel()
 
 		codec := replicateTextToImageCodec{}
-		_, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{
 				Input:          "a cat",
 				ProviderParams: map[string]any{"bad": func() {}},
@@ -2855,8 +2839,7 @@ func TestReplicateCodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 		t.Parallel()
 
 		codec := replicateImageToImageCodec{}
-		_, _, err := codec.Encode(EncodeParams[hftypes.ImageToImageRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.ImageToImageRequest]{
 			Request: hftypes.ImageToImageRequest{
 				Input:          "data:image/png;base64,abc123",
 				ProviderParams: map[string]any{"bad": func() {}},
@@ -2871,14 +2854,16 @@ func TestReplicateCodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 		t.Parallel()
 
 		codec := replicateSpeechRecognitionCodec{}
-		_, _, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
-			Request: hftypes.SpeechRecognitionRequest{
-				Input:          "data:audio/wav;base64,abc123",
-				ProviderParams: map[string]any{"bad": func() {}},
+		_, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SpeechRecognitionRequest]{
+				Request: hftypes.SpeechRecognitionRequest{
+					Input:          "data:audio/wav;base64,abc123",
+					ProviderParams: map[string]any{"bad": func() {}},
+				},
+				Model: "openai/whisper-large-v3",
 			},
-			Model: "openai/whisper-large-v3",
-		})
+		)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, errFailedToMarshalRequestBody)
 	})

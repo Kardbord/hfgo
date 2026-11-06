@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -35,6 +36,7 @@ func main() {
 
 	// Make the summarization request with custom parameters
 	summaries, err := client.Summarize(
+		context.Background(),
 		hftypes.SummarizationRequest{
 			Input: input,
 			Parameters: &hftypes.SummarizationParameters{

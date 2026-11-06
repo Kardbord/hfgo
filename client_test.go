@@ -92,9 +92,9 @@ func TestClientChat_ModelSelection(t *testing.T) {
 
 			var err error
 			if tc.optModel != "" {
-				_, err = client.Chat(req, hfopts.WithModel(tc.optModel))
+				_, err = client.Chat(context.Background(), req, hfopts.WithModel(tc.optModel))
 			} else {
-				_, err = client.Chat(req)
+				_, err = client.Chat(context.Background(), req)
 			}
 			require.NoError(t, err)
 
@@ -153,7 +153,7 @@ func TestClientChat_ChatOnlyProviderSuffixes(t *testing.T) {
 					hfopts.WithProvider(newProvider()),
 				)
 
-				_, err := client.Chat(request)
+				_, err := client.Chat(context.Background(), request)
 				require.NoError(t, err)
 
 				require.NotNil(t, mt.LastRequest)
@@ -177,7 +177,7 @@ func TestClientChat_ChatOnlyProviderSuffixes(t *testing.T) {
 
 				req := request
 				req.Model = new(model + ":fastest")
-				_, err := client.Chat(req)
+				_, err := client.Chat(context.Background(), req)
 				require.NoError(t, err)
 
 				got := testutils.ReadRequestBody(t, mt)
@@ -216,7 +216,7 @@ func assertClientChatProviderSuffixPin(t *testing.T, provider hfproviders.Provid
 			hfopts.WithProvider(provider),
 		)
 
-		_, err := client.Chat(request)
+		_, err := client.Chat(context.Background(), request)
 		require.NoError(t, err)
 
 		require.NotNil(t, mt.LastRequest)
@@ -240,7 +240,7 @@ func assertClientChatProviderSuffixPin(t *testing.T, provider hfproviders.Provid
 
 		req := request
 		req.Model = new(model + ":fastest")
-		_, err := client.Chat(req)
+		_, err := client.Chat(context.Background(), req)
 		require.NoError(t, err)
 
 		got := testutils.ReadRequestBody(t, mt)
@@ -304,7 +304,7 @@ func TestClientChat_TogetherProvider(t *testing.T) {
 		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
 		client := newClient(mt)
 
-		_, err := client.Chat(request)
+		_, err := client.Chat(context.Background(), request)
 		require.NoError(t, err)
 
 		require.NotNil(t, mt.LastRequest)
@@ -322,7 +322,7 @@ func TestClientChat_TogetherProvider(t *testing.T) {
 
 		req := request
 		req.Model = new(model + ":fastest")
-		_, err := client.Chat(req)
+		_, err := client.Chat(context.Background(), req)
 		require.NoError(t, err)
 
 		got := testutils.ReadRequestBody(t, mt)
@@ -345,7 +345,7 @@ func TestClientChat_TogetherProvider(t *testing.T) {
 			},
 		}
 
-		_, err := client.Chat(req)
+		_, err := client.Chat(context.Background(), req)
 		require.NoError(t, err)
 
 		got := testutils.ReadRequestBody(t, mt)
@@ -382,7 +382,7 @@ func TestClientChat_MissingModel(t *testing.T) {
 		},
 	}
 
-	_, err := client.Chat(req)
+	_, err := client.Chat(context.Background(), req)
 	require.Error(t, err)
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	require.Nil(t, mt.LastRequest)
@@ -406,7 +406,7 @@ func TestClientChat_StreamNotAllowed(t *testing.T) {
 		},
 	}
 
-	_, err := client.Chat(req)
+	_, err := client.Chat(context.Background(), req)
 	require.Error(t, err)
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	require.Nil(t, mt.LastRequest)
@@ -432,7 +432,7 @@ func TestClientChatStream_Success(t *testing.T) {
 		},
 	}
 
-	stream, err := client.ChatStream(req)
+	stream, err := client.ChatStream(context.Background(), req)
 	require.NoError(t, err)
 	defer func() { _ = stream.Close() }()
 
@@ -463,7 +463,7 @@ func TestClientChatStream_MissingModel(t *testing.T) {
 		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
 	)
 
-	_, err := client.ChatStream(hftypes.ChatRequest{})
+	_, err := client.ChatStream(context.Background(), hftypes.ChatRequest{})
 	require.Error(t, err)
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	require.Nil(t, mt.LastRequest)
@@ -497,7 +497,7 @@ func TestClientChatStream_ToolCallMerging(t *testing.T) {
 		},
 	}
 
-	stream, err := client.ChatStream(req)
+	stream, err := client.ChatStream(context.Background(), req)
 	require.NoError(t, err)
 	defer func() { _ = stream.Close() }()
 
@@ -531,7 +531,7 @@ func TestClientChat_ProviderSuffix(t *testing.T) {
 		},
 	}
 
-	_, err := client.Chat(req)
+	_, err := client.Chat(context.Background(), req)
 	require.NoError(t, err)
 
 	payload := testutils.ReadRequestBody(t, mt)
@@ -570,7 +570,10 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			name:     "ClassifyText",
 			response: `[[{"label":"positive","score":0.95}]]`,
 			call: func(client Client) error {
-				_, err := client.ClassifyText(hftypes.TextClassificationRequest{Input: "test text"})
+				_, err := client.ClassifyText(
+					context.Background(),
+					hftypes.TextClassificationRequest{Input: "test text"},
+				)
 
 				return err
 			},
@@ -580,6 +583,7 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			response: `[{"entity":"PER","score":0.998,"word":"Sarah","start":11,"end":16}]`,
 			call: func(client Client) error {
 				_, err := client.ClassifyTokens(
+					context.Background(),
 					hftypes.TokenClassificationRequest{Input: "My name is Sarah."},
 				)
 
@@ -590,7 +594,10 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			name:     "AnswerQuestion",
 			response: `{"answer":"Paris","score":0.95,"start":48,"end":53}`,
 			call: func(client Client) error {
-				_, err := client.AnswerQuestion(hftypes.QuestionAnsweringRequest{Input: question})
+				_, err := client.AnswerQuestion(
+					context.Background(),
+					hftypes.QuestionAnsweringRequest{Input: question},
+				)
 
 				return err
 			},
@@ -599,12 +606,15 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			name:     "ZeroShotClassifyText",
 			response: `[{"label":"positive","score":0.95}]`,
 			call: func(client Client) error {
-				_, err := client.ZeroShotClassifyText(hftypes.ZeroShotTextClassificationRequest{
-					Input: "test text",
-					Parameters: &hftypes.ZeroShotTextClassificationParameters{
-						CandidateLabels: []string{"positive", "negative"},
+				_, err := client.ZeroShotClassifyText(
+					context.Background(),
+					hftypes.ZeroShotTextClassificationRequest{
+						Input: "test text",
+						Parameters: &hftypes.ZeroShotTextClassificationParameters{
+							CandidateLabels: []string{"positive", "negative"},
+						},
 					},
-				})
+				)
 
 				return err
 			},
@@ -614,6 +624,7 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			response: `[{"sequence":"The capital of France is Paris.","score":0.95,"token":1,"token_str":"Paris"}]`,
 			call: func(client Client) error {
 				_, err := client.FillMask(
+					context.Background(),
 					hftypes.FillMaskRequest{Input: "The capital of France is [MASK]."},
 				)
 
@@ -624,7 +635,10 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			name:     "Summarize",
 			response: `[{"summary_text":"A concise summary."}]`,
 			call: func(client Client) error {
-				_, err := client.Summarize(hftypes.SummarizationRequest{Input: "Some long text."})
+				_, err := client.Summarize(
+					context.Background(),
+					hftypes.SummarizationRequest{Input: "Some long text."},
+				)
 
 				return err
 			},
@@ -634,6 +648,7 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			response: `{"answer":"30","cells":["30"],"coordinates":[[1,1]]}`,
 			call: func(client Client) error {
 				_, err := client.AnswerTableQuestion(
+					context.Background(),
 					hftypes.TableQuestionAnsweringRequest{Input: table},
 				)
 
@@ -644,7 +659,10 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			name:     "Translate",
 			response: `[{"translation_text":"Bonjour le monde."}]`,
 			call: func(client Client) error {
-				_, err := client.Translate(hftypes.TranslationRequest{Input: "Hello world."})
+				_, err := client.Translate(
+					context.Background(),
+					hftypes.TranslationRequest{Input: "Hello world."},
+				)
 
 				return err
 			},
@@ -655,6 +673,7 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			wantPath: pipelinePath,
 			call: func(client Client) error {
 				_, err := client.ExtractPooledFeatures(
+					context.Background(),
 					hftypes.FeatureExtractionRequest{Input: "hello"},
 				)
 
@@ -667,6 +686,7 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			wantPath: pipelinePath,
 			call: func(client Client) error {
 				_, err := client.ExtractPooledFeaturesBatch(
+					context.Background(),
 					hftypes.FeatureExtractionBatchRequest{Inputs: []string{"hello"}},
 				)
 
@@ -684,6 +704,7 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			},
 			call: func(client Client) error {
 				_, err := client.DetectObjects(
+					context.Background(),
 					hftypes.ObjectDetectionRequest{Input: testutils.TinyPNGBase64},
 				)
 
@@ -701,6 +722,7 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			},
 			call: func(client Client) error {
 				_, err := client.SegmentImage(
+					context.Background(),
 					hftypes.ImageSegmentationRequest{Input: testutils.TinyPNGBase64},
 				)
 
@@ -718,6 +740,7 @@ func TestClient_EndpointDelegates(t *testing.T) {
 			},
 			call: func(client Client) error {
 				_, err := client.ClassifyImage(
+					context.Background(),
 					hftypes.ImageClassificationRequest{Input: testutils.TinyPNGBase64},
 				)
 
@@ -736,7 +759,10 @@ func TestClient_EndpointDelegates(t *testing.T) {
 				require.Equal(t, "*/*", mt.LastRequest.Header.Get("Accept"))
 			},
 			call: func(client Client) error {
-				_, err := client.GenerateImage(hftypes.TextToImageRequest{Input: "a cat"})
+				_, err := client.GenerateImage(
+					context.Background(),
+					hftypes.TextToImageRequest{Input: "a cat"},
+				)
 
 				return err
 			},
@@ -754,9 +780,12 @@ func TestClient_EndpointDelegates(t *testing.T) {
 				)
 			},
 			call: func(client Client) error {
-				_, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
-					Input: "AAAA",
-				})
+				_, err := client.RecognizeSpeech(
+					context.Background(),
+					hftypes.SpeechRecognitionRequest{
+						Input: "AAAA",
+					},
+				)
 
 				return err
 			},
@@ -776,12 +805,15 @@ func TestClient_EndpointDelegates(t *testing.T) {
 				require.True(t, rt)
 			},
 			call: func(client Client) error {
-				_, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
-					Input: "AAAA",
-					Parameters: &hftypes.SpeechRecognitionParameters{
-						ReturnTimestamps: new(true),
+				_, err := client.RecognizeSpeech(
+					context.Background(),
+					hftypes.SpeechRecognitionRequest{
+						Input: "AAAA",
+						Parameters: &hftypes.SpeechRecognitionParameters{
+							ReturnTimestamps: new(true),
+						},
 					},
-				})
+				)
 
 				return err
 			},
@@ -867,7 +899,7 @@ func TestClient_GenerateImageToImageAndVideo(t *testing.T) {
 			hfopts.WithProvider(provider),
 		)
 
-		image, err := client.GenerateImageToImage(hftypes.ImageToImageRequest{
+		image, err := client.GenerateImageToImage(context.Background(), hftypes.ImageToImageRequest{
 			Input: testutils.TinyPNGBase64,
 		})
 		require.NoError(t, err)
@@ -910,7 +942,10 @@ func TestClient_GenerateImageToImageAndVideo(t *testing.T) {
 			hfopts.WithProvider(provider),
 		)
 
-		video, err := client.GenerateVideo(hftypes.TextToVideoRequest{Input: "a cat"})
+		video, err := client.GenerateVideo(
+			context.Background(),
+			hftypes.TextToVideoRequest{Input: "a cat"},
+		)
 		require.NoError(t, err)
 		require.Equal(t, []byte{0x1A, 0x45, 0xDF, 0xA3}, video.Video)
 		require.Equal(t, "video/webm", video.MediaType)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -59,7 +60,7 @@ func main() {
 	// and aspect_ratio, and rejects unknown fields with a 400 — so the
 	// canonical NumFrames/GuidanceScale/etc. parameters must not be sent.
 	// Anything the typed request types do not cover rides on ProviderParams.
-	video, err := client.GenerateVideo(hftypes.TextToVideoRequest{
+	video, err := client.GenerateVideo(context.Background(), hftypes.TextToVideoRequest{
 		Input: prompt,
 		ProviderParams: map[string]any{
 			"duration": 5,

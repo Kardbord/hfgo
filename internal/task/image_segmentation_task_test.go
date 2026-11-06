@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -71,9 +72,12 @@ func TestSegmentImage_ResponseDecoding(t *testing.T) {
 				hfopts.WithModel("test-model"),
 			)
 
-			segments, err := client.SegmentImage(hftypes.ImageSegmentationRequest{
-				Input: testutils.TinyPNGBase64,
-			})
+			segments, err := client.SegmentImage(
+				context.Background(),
+				hftypes.ImageSegmentationRequest{
+					Input: testutils.TinyPNGBase64,
+				},
+			)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, segments)
 			require.Len(t, segments, tc.expectedLen, tc.description)
@@ -111,7 +115,7 @@ func TestSegmentImage_WithParameters(t *testing.T) {
 		hfopts.WithModel("test-model"),
 	)
 
-	segments, err := client.SegmentImage(hftypes.ImageSegmentationRequest{
+	segments, err := client.SegmentImage(context.Background(), hftypes.ImageSegmentationRequest{
 		Input: testutils.TinyPNGBase64,
 		Parameters: &hftypes.ImageSegmentationParameters{
 			MaskThreshold:            new(0.5),
@@ -174,9 +178,10 @@ func TestSegmentImage_Errors(t *testing.T) {
 			},
 		},
 		func(opts ...hfopts.Option) ([]hftypes.ImageSegmentation, error) {
-			return hfgo.NewClient(opts...).SegmentImage(hftypes.ImageSegmentationRequest{
-				Input: testutils.TinyPNGBase64,
-			})
+			return hfgo.NewClient(opts...).
+				SegmentImage(context.Background(), hftypes.ImageSegmentationRequest{
+					Input: testutils.TinyPNGBase64,
+				})
 		},
 	)
 }

@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -111,7 +112,7 @@ func TestGenerateVideo_ResponseDecoding(t *testing.T) {
 				hfopts.WithProvider(wavespeedTestProvider()),
 			)
 
-			return client.GenerateVideo(hftypes.TextToVideoRequest{
+			return client.GenerateVideo(context.Background(), hftypes.TextToVideoRequest{
 				Input: "a serene mountain landscape at sunset",
 			})
 		},
@@ -153,7 +154,7 @@ func TestGenerateVideo_WithParameters(t *testing.T) {
 		hfopts.WithProvider(wavespeedTestProvider()),
 	)
 
-	video, err := client.GenerateVideo(hftypes.TextToVideoRequest{
+	video, err := client.GenerateVideo(context.Background(), hftypes.TextToVideoRequest{
 		Input: "a majestic lion in the savanna",
 		Parameters: &hftypes.TextToVideoParameters{
 			GuidanceScale:     new(7.5),
@@ -210,7 +211,7 @@ func TestGenerateVideo_ProviderParams(t *testing.T) {
 		hfopts.WithProvider(wavespeedTestProvider()),
 	)
 
-	_, err := client.GenerateVideo(hftypes.TextToVideoRequest{
+	_, err := client.GenerateVideo(context.Background(), hftypes.TextToVideoRequest{
 		Input: "a majestic lion in the savanna",
 		ProviderParams: map[string]any{
 			"duration":              5,
@@ -254,7 +255,7 @@ func TestGenerateVideo_Errors(t *testing.T) {
 		},
 		func(opts ...hfopts.Option) (hftypes.TextToVideoResponse, error) {
 			return hfgo.NewClient(append(opts, hfopts.WithProvider(wavespeedTestProvider()))...).
-				GenerateVideo(hftypes.TextToVideoRequest{
+				GenerateVideo(context.Background(), hftypes.TextToVideoRequest{
 					Input: "a cat",
 				})
 		},

@@ -32,13 +32,12 @@ func TestGenerateImage_WaveSpeedLiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(textToImageWaveSpeedModel),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newWaveSpeedProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
 
 	response := testutils.RetryTransient(ctx, t, func() (hftypes.TextToImageResponse, error) {
-		return client.GenerateImage(hftypes.TextToImageRequest{
+		return client.GenerateImage(ctx, hftypes.TextToImageRequest{
 			Input: "A serene mountain landscape at sunset",
 			Parameters: &hftypes.TextToImageParameters{
 				Width:  new(512),
@@ -78,11 +77,10 @@ func TestGenerateImage_WaveSpeedContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(textToImageWaveSpeedModel),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newWaveSpeedProvider(t)),
 	)
 
-	response, err := client.GenerateImage(hftypes.TextToImageRequest{
+	response, err := client.GenerateImage(ctx, hftypes.TextToImageRequest{
 		Input: "A serene mountain landscape at sunset",
 	})
 

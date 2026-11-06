@@ -64,17 +64,16 @@ func TestNscaleProvider_ZeroValueIsSafe(t *testing.T) {
 
 	var provider NscaleProvider
 
-	_, err := provider.TextToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err := provider.TextToImageEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
-	_, _, err = provider.TextToImageCodec().Encode(EncodeParams[hftypes.TextToImageRequest]{
-		Context: context.Background(),
-		Request: hftypes.TextToImageRequest{Input: "a cat"},
-		Model:   "any-model",
-	})
+	_, _, err = provider.TextToImageCodec().
+		Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
+			Request: hftypes.TextToImageRequest{Input: "a cat"},
+			Model:   "any-model",
+		})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
 
@@ -178,9 +177,8 @@ func TestNscaleProvider_TextToImageEndpoint(t *testing.T) {
 	textToImage, err := AsProvider[TextToImageProvider](provider)
 	require.NoError(t, err)
 
-	endpoint, err := textToImage.TextToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   nscaleTestModel,
+	endpoint, err := textToImage.TextToImageEndpoint(context.Background(), EndpointParams{
+		Model: nscaleTestModel,
 	})
 	require.NoError(t, err)
 	require.Equal(t, http.MethodPost, endpoint.Method)
@@ -205,9 +203,8 @@ func TestNscaleProvider_TextToImageEndpoint_ResolutionError(t *testing.T) {
 	textToImage, err := AsProvider[TextToImageProvider](provider)
 	require.NoError(t, err)
 
-	_, err = textToImage.TextToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "unknown-model",
+	_, err = textToImage.TextToImageEndpoint(context.Background(), EndpointParams{
+		Model: "unknown-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
@@ -216,14 +213,13 @@ func TestNscaleProvider_TextToImageEndpoint_ResolutionError(t *testing.T) {
 // Nscale body with JSON content headers.
 func nscaleRequireFlatEncode(
 	t *testing.T,
-	encode func(EncodeParams[hftypes.TextToImageRequest]) ([]byte, http.Header, error),
+	encode func(context.Context, EncodeParams[hftypes.TextToImageRequest]) ([]byte, http.Header, error),
 	request hftypes.TextToImageRequest,
 	wantJSON string,
 ) {
 	t.Helper()
 
-	body, headers, err := encode(EncodeParams[hftypes.TextToImageRequest]{
-		Context: context.Background(),
+	body, headers, err := encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 		Request: request,
 		Mapping: nscaleTestMapping(),
 	})
@@ -333,8 +329,7 @@ func TestNscaleTextToImageCodec_Encode(t *testing.T) {
 	t.Run("unmarshalable provider parameter fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{
 				Input:          "a cat",
 				ProviderParams: map[string]any{"bad": make(chan int)},
@@ -351,8 +346,7 @@ func TestNscaleTextToImageCodec_Encode(t *testing.T) {
 		resolver := &recordingResolver{}
 		codec := NscaleTextToImageMixin{Resolver: resolver}.TextToImageCodec()
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{Input: "a cat"},
 			Model:   nscaleTestModel,
 			Mapping: &ModelMapping{ProviderModelID: "mapped-at-endpoint-construction"},
@@ -369,8 +363,7 @@ func TestNscaleTextToImageCodec_Encode(t *testing.T) {
 	t.Run("missing mapping and resolver fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{Input: "a cat"},
 			Model:   nscaleTestModel,
 		})
@@ -382,8 +375,7 @@ func TestNscaleTextToImageCodec_Encode(t *testing.T) {
 
 		codec := NscaleTextToImageMixin{Resolver: failingResolver{}}.TextToImageCodec()
 
-		_, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{Input: "a cat"},
 			Model:   nscaleTestModel,
 		})
@@ -402,8 +394,7 @@ func TestNscaleTextToImageCodec_Decode(t *testing.T) {
 	t.Run("first image decodes with sniffed media type", func(t *testing.T) {
 		t.Parallel()
 
-		resp, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		resp, err := codec.Decode(context.Background(), DecodeParams{
 			Body: []byte(`{"created":123,"data":[` +
 				`{"b64_json":"` + testutils.TinyPNGBase64 + `"},` +
 				`{"b64_json":"bm90LXVzZWQ="}]}`),
@@ -419,8 +410,7 @@ func TestNscaleTextToImageCodec_Decode(t *testing.T) {
 	t.Run("response without created yields nil metadata", func(t *testing.T) {
 		t.Parallel()
 
-		resp, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		resp, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"data":[{"b64_json":"` + testutils.TinyPNGBase64 + `"}]}`),
 			Headers: jsonHeaders(ctJSON),
 		})
@@ -432,8 +422,7 @@ func TestNscaleTextToImageCodec_Decode(t *testing.T) {
 	t.Run("empty data fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"created":123,"data":[]}`),
 			Headers: jsonHeaders(ctJSON),
 		})
@@ -445,8 +434,7 @@ func TestNscaleTextToImageCodec_Decode(t *testing.T) {
 	t.Run("empty b64_json fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"data":[{"b64_json":""}]}`),
 			Headers: jsonHeaders(ctJSON),
 		})
@@ -456,8 +444,7 @@ func TestNscaleTextToImageCodec_Decode(t *testing.T) {
 	t.Run("malformed base64 fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"data":[{"b64_json":"not base64!!"}]}`),
 			Headers: jsonHeaders(ctJSON),
 		})
@@ -467,8 +454,7 @@ func TestNscaleTextToImageCodec_Decode(t *testing.T) {
 	t.Run("non-image payload fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"data":[{"b64_json":"bm90IGFuIGltYWdl"}]}`),
 			Headers: jsonHeaders(ctJSON),
 		})
@@ -482,8 +468,7 @@ func TestNscaleTextToImageCodec_Decode(t *testing.T) {
 		headers := http.Header{}
 		headers.Set("Content-Type", "text/plain")
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"data":[{"b64_json":"` + testutils.TinyPNGBase64 + `"}]}`),
 			Headers: headers,
 		})
@@ -493,8 +478,7 @@ func TestNscaleTextToImageCodec_Decode(t *testing.T) {
 	t.Run("malformed body fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte("{not json"),
 			Headers: jsonHeaders(ctJSON),
 		})
@@ -530,9 +514,8 @@ func TestNscaleMixin_SubsetProvider(t *testing.T) {
 	textToImage, err := AsProvider[TextToImageProvider](provider)
 	require.NoError(t, err)
 
-	endpoint, err := textToImage.TextToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   nscaleTestModel,
+	endpoint, err := textToImage.TextToImageEndpoint(context.Background(), EndpointParams{
+		Model: nscaleTestModel,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "nscale/v1/images/generations", endpoint.Path)

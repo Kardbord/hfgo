@@ -3,6 +3,7 @@
 package hfproviders
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"testing"
@@ -56,10 +57,10 @@ func FuzzHuggingFaceProviderEndpoint(f *testing.F) {
 	f.Fuzz(func(t *testing.T, model string) {
 		params := EndpointParams{Model: model}
 
-		check := func(name string, call func(EndpointParams) (Endpoint, error), want func(string) string, allowEmpty bool) {
+		check := func(name string, call func(context.Context, EndpointParams) (Endpoint, error), want func(string) string, allowEmpty bool) {
 			t.Helper()
 
-			ep, err := call(params)
+			ep, err := call(context.Background(), params)
 			if model == "" && !allowEmpty {
 				if err == nil {
 					t.Errorf("%s(%q): expected error for empty model, got %+v", name, model, ep)
@@ -106,7 +107,7 @@ func FuzzHuggingFaceProviderEndpoint(f *testing.F) {
 		modelPath := func(m string) string { return hfModelPrefix + m }
 		for _, tc := range []struct {
 			name string
-			call func(EndpointParams) (Endpoint, error)
+			call func(context.Context, EndpointParams) (Endpoint, error)
 		}{
 			{"ObjectDetectionEndpoint", p.ObjectDetectionEndpoint},
 			{"ImageClassificationEndpoint", p.ImageClassificationEndpoint},

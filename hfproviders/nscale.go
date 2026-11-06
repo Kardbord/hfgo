@@ -1,6 +1,7 @@
 package hfproviders
 
 import (
+	"context"
 	"encoding/base64"
 	"net/http"
 	"strings"
@@ -123,10 +124,11 @@ type NscaleTextToImageMixin struct {
 // Nscale's identifier and returns the router-proxied path for the
 // image-generation endpoint.
 func (m NscaleTextToImageMixin) TextToImageEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	mapping, err := resolveMapping(
-		params.Context,
+		ctx,
 		nscaleProviderName,
 		m.Resolver,
 		nil,
@@ -191,12 +193,13 @@ type nscaleTextToImageCodec struct {
 var _ TextToImageCodec = (*nscaleTextToImageCodec)(nil)
 
 func (c nscaleTextToImageCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.TextToImageRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
 
 	mapping, err := resolveMapping(
-		params.Context,
+		ctx,
 		nscaleProviderName,
 		c.resolver,
 		params.Mapping,
@@ -226,9 +229,13 @@ func (c nscaleTextToImageCodec) Encode(
 }
 
 func (c nscaleTextToImageCodec) Decode(
+	ctx context.Context,
 	params DecodeParams,
 ) (hftypes.TextToImageResponse, error) {
-	envelope, err := JSONCodec[hftypes.TextToImageRequest, nscaleImageGeneration]{}.Decode(params)
+	envelope, err := JSONCodec[hftypes.TextToImageRequest, nscaleImageGeneration]{}.Decode(
+		ctx,
+		params,
+	)
 	if err != nil {
 		return hftypes.TextToImageResponse{}, err
 	}

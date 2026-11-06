@@ -59,7 +59,7 @@ func main() {
 	fmt.Println("Transcribing audio: " + audioURL)
 	fmt.Println("...")
 
-	resp, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+	resp, err := client.RecognizeSpeech(context.Background(), hftypes.SpeechRecognitionRequest{
 		Input: base64.StdEncoding.EncodeToString(audio),
 		Parameters: &hftypes.SpeechRecognitionParameters{
 			ReturnTimestamps: new(true),

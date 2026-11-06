@@ -1,18 +1,24 @@
 package task
 
 import (
+	"context"
+
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
 // GenerateImage sends a text-to-image request and returns the generated image
 // along with the media type the API advertised for it.
 func GenerateImage(
+	ctx context.Context,
 	opts hfopts.Options,
 	req hftypes.TextToImageRequest,
 ) (hftypes.TextToImageResponse, error) {
+	ctx = utils.NormalizeContext(ctx)
+
 	if err := validateDispatch(opts); err != nil {
 		return hftypes.TextToImageResponse{}, err
 	}
@@ -22,9 +28,8 @@ func GenerateImage(
 		return hftypes.TextToImageResponse{}, err
 	}
 
-	endpoint, err := prov.TextToImageEndpoint(hfproviders.EndpointParams{
-		Context: opts.Context(),
-		Model:   opts.Model,
+	endpoint, err := prov.TextToImageEndpoint(ctx, hfproviders.EndpointParams{
+		Model: opts.Model,
 	})
 	if err != nil {
 		return hftypes.TextToImageResponse{}, &hferrors.SDKError{
@@ -34,5 +39,5 @@ func GenerateImage(
 		}
 	}
 
-	return doInference(opts, endpoint, prov.TextToImageCodec(), req)
+	return doInference(ctx, opts, endpoint, prov.TextToImageCodec(), req)
 }

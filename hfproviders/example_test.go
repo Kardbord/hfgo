@@ -3,6 +3,7 @@
 package hfproviders_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -37,6 +38,7 @@ func (EchoProvider) Name() string { return "echo-provider" }
 
 // TextClassificationEndpoint returns the endpoint for text classification.
 func (EchoProvider) TextClassificationEndpoint(
+	_ context.Context,
 	params hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{
@@ -52,6 +54,7 @@ func (EchoProvider) TextClassificationCodec() hfproviders.TextClassificationCode
 
 // SummarizationEndpoint returns the endpoint for summarization.
 func (EchoProvider) SummarizationEndpoint(
+	_ context.Context,
 	params hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{
@@ -92,9 +95,11 @@ func Example_customProvider() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	result, err := client.ClassifyText(hftypes.TextClassificationRequest{
-		Input: "I love this product!",
-	})
+	result, err := client.ClassifyText(
+		context.Background(),
+		hftypes.TextClassificationRequest{
+			Input: "I love this product!",
+		})
 	if err != nil {
 		panic(err)
 	}

@@ -36,7 +36,6 @@ func newDeepInfraClient(t *testing.T, ctx context.Context, model string) hfgo.Cl
 		hfopts.WithToken(os.Getenv("HF_TOKEN")),
 		hfopts.WithModel(model),
 		hfopts.WithProvider(provider),
-		hfopts.WithContext(ctx),
 	)
 }
 
@@ -53,7 +52,7 @@ func TestChatCompletion_DeepInfraLiveAPI(t *testing.T) {
 
 	const text = "Say hello in one sentence."
 	resp := testutils.RetryTransient(ctx, t, func() (hftypes.ChatResponse, error) {
-		return client.Chat(
+		return client.Chat(ctx,
 			hftypes.ChatRequest{
 				Messages: []hftypes.ChatMessage{
 					{
@@ -91,7 +90,7 @@ func TestChatCompletion_DeepInfraStreamingLiveAPI(t *testing.T) {
 
 	text := "Say hello in one sentence."
 	stream := testutils.RetryTransient(ctx, t, func() (*hftypes.ChatStream, error) {
-		return client.ChatStream(
+		return client.ChatStream(ctx,
 			hftypes.ChatRequest{
 				Messages: []hftypes.ChatMessage{
 					{
@@ -145,7 +144,7 @@ func TestRecognizeSpeech_DeepInfraLiveAPI(t *testing.T) {
 	client := newDeepInfraClient(t, ctx, "openai/whisper-large-v3")
 
 	resp := testutils.RetryTransient(ctx, t, func() (hftypes.SpeechRecognitionResponse, error) {
-		return client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+		return client.RecognizeSpeech(ctx, hftypes.SpeechRecognitionRequest{
 			Input: speechRecognitionInput(t),
 		})
 	})
@@ -165,13 +164,17 @@ func TestFeatureExtractionPooled_DeepInfraLiveAPI(t *testing.T) {
 
 	client := newDeepInfraClient(t, ctx, "BAAI/bge-base-en-v1.5")
 
-	resp := testutils.RetryTransient(ctx, t, func() (hftypes.FeatureExtractionPooledEmbedding, error) {
-		return client.ExtractPooledFeatures(
-			hftypes.FeatureExtractionRequest{
-				Input: "What is the capital of France?",
-			},
-		)
-	})
+	resp := testutils.RetryTransient(
+		ctx,
+		t,
+		func() (hftypes.FeatureExtractionPooledEmbedding, error) {
+			return client.ExtractPooledFeatures(ctx,
+				hftypes.FeatureExtractionRequest{
+					Input: "What is the capital of France?",
+				},
+			)
+		},
+	)
 
 	require.NotEmpty(t, resp, "embedding should not be empty")
 	require.Greater(t, resp.Dimension(), 0, "embedding should have a positive dimension")
@@ -193,13 +196,17 @@ func TestFeatureExtractionPooledBatch_DeepInfraLiveAPI(t *testing.T) {
 		"I love programming in Go.",
 	}
 
-	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.FeatureExtractionPooledEmbedding, error) {
-		return client.ExtractPooledFeaturesBatch(
-			hftypes.FeatureExtractionBatchRequest{
-				Inputs: inputs,
-			},
-		)
-	})
+	resp := testutils.RetryTransient(
+		ctx,
+		t,
+		func() ([]hftypes.FeatureExtractionPooledEmbedding, error) {
+			return client.ExtractPooledFeaturesBatch(ctx,
+				hftypes.FeatureExtractionBatchRequest{
+					Inputs: inputs,
+				},
+			)
+		},
+	)
 
 	require.Len(t, resp, 2, "response should have 2 embeddings")
 

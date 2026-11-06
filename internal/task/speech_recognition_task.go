@@ -1,17 +1,23 @@
 package task
 
 import (
+	"context"
+
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
 // RecognizeSpeech sends a speech recognition request.
 func RecognizeSpeech(
+	ctx context.Context,
 	opts hfopts.Options,
 	req hftypes.SpeechRecognitionRequest,
 ) (hftypes.SpeechRecognitionResponse, error) {
+	ctx = utils.NormalizeContext(ctx)
+
 	if err := validateDispatch(opts); err != nil {
 		return hftypes.SpeechRecognitionResponse{}, err
 	}
@@ -21,9 +27,8 @@ func RecognizeSpeech(
 		return hftypes.SpeechRecognitionResponse{}, err
 	}
 
-	endpoint, err := prov.SpeechRecognitionEndpoint(hfproviders.EndpointParams{
-		Context: opts.Context(),
-		Model:   opts.Model,
+	endpoint, err := prov.SpeechRecognitionEndpoint(ctx, hfproviders.EndpointParams{
+		Model: opts.Model,
 	})
 	if err != nil {
 		return hftypes.SpeechRecognitionResponse{}, &hferrors.SDKError{
@@ -33,5 +38,5 @@ func RecognizeSpeech(
 		}
 	}
 
-	return doInference(opts, endpoint, prov.SpeechRecognitionCodec(), req)
+	return doInference(ctx, opts, endpoint, prov.SpeechRecognitionCodec(), req)
 }

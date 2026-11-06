@@ -49,9 +49,10 @@ func (FooProvider) ProviderSuffix() string { return "" }
 // wire-format codec comes from the mixin; a partner whose payload shape
 // differs from the Hugging Face format would supply its own codec the same way.
 func (p FooProvider) TextToImageEndpoint(
+	ctx context.Context,
 	params hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
-	mapping, err := p.mapper.ResolveModel(params.Context, hfproviders.ResolveModelParams{
+	mapping, err := p.mapper.ResolveModel(ctx, hfproviders.ResolveModelParams{
 		Provider: fooProviderName,
 		Task:     hfproviders.TaskTextToImage,
 		Model:    params.Model,
@@ -82,9 +83,8 @@ func main() {
 
 	provider := NewFooProvider(mapper)
 
-	endpoint, err := provider.TextToImageEndpoint(hfproviders.EndpointParams{
-		Context: context.Background(),
-		Model:   "black-forest-labs/FLUX.1-dev",
+	endpoint, err := provider.TextToImageEndpoint(context.Background(), hfproviders.EndpointParams{
+		Model: "black-forest-labs/FLUX.1-dev",
 	})
 	if err != nil {
 		log.Fatalf("error resolving endpoint: %v", err)

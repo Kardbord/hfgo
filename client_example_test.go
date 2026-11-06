@@ -89,7 +89,7 @@ func Example() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	response, err := client.Chat(hftypes.ChatRequest{
+	response, err := client.Chat(context.Background(), hftypes.ChatRequest{
 		Messages: []hftypes.ChatMessage{
 			{
 				Role: "user",
@@ -131,6 +131,7 @@ func ExampleClient_Chat_requestFields() {
 	temperature := 0.7
 	maxTokens := 256
 	response, err := client.Chat(
+		context.Background(),
 		hftypes.ChatRequest{
 			Messages: []hftypes.ChatMessage{
 				{
@@ -177,7 +178,7 @@ func ExampleClient_ChatStream() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	stream, err := client.ChatStream(hftypes.ChatRequest{
+	stream, err := client.ChatStream(context.Background(), hftypes.ChatRequest{
 		Messages: []hftypes.ChatMessage{
 			{
 				Role: "user",
@@ -233,7 +234,7 @@ func ExampleClient_Chat_apiError() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	_, err := client.Chat(hftypes.ChatRequest{
+	_, err := client.Chat(context.Background(), hftypes.ChatRequest{
 		Messages: []hftypes.ChatMessage{
 			{
 				Role: "user",
@@ -270,7 +271,7 @@ func ExampleClient_ClassifyText() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	result, err := client.ClassifyText(hftypes.TextClassificationRequest{
+	result, err := client.ClassifyText(context.Background(), hftypes.TextClassificationRequest{
 		Input: "I love this product!",
 	})
 	if err != nil {
@@ -296,7 +297,7 @@ func ExampleClient_ClassifyTokens() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	result, err := client.ClassifyTokens(hftypes.TokenClassificationRequest{
+	result, err := client.ClassifyTokens(context.Background(), hftypes.TokenClassificationRequest{
 		Input: "My name is Sarah.",
 	})
 	if err != nil {
@@ -320,12 +321,15 @@ func ExampleClient_ZeroShotClassifyText() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	result, err := client.ZeroShotClassifyText(hftypes.ZeroShotTextClassificationRequest{
-		Input: "This is a great product!",
-		Parameters: &hftypes.ZeroShotTextClassificationParameters{
-			CandidateLabels: []string{"positive", "negative", "neutral"},
+	result, err := client.ZeroShotClassifyText(
+		context.Background(),
+		hftypes.ZeroShotTextClassificationRequest{
+			Input: "This is a great product!",
+			Parameters: &hftypes.ZeroShotTextClassificationParameters{
+				CandidateLabels: []string{"positive", "negative", "neutral"},
+			},
 		},
-	})
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -350,7 +354,7 @@ func ExampleClient_FillMask() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	result, err := client.FillMask(hftypes.FillMaskRequest{
+	result, err := client.FillMask(context.Background(), hftypes.FillMaskRequest{
 		Input: "The capital of France is [MASK].",
 	})
 	if err != nil {
@@ -374,7 +378,7 @@ func ExampleClient_Summarize() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	result, err := client.Summarize(hftypes.SummarizationRequest{
+	result, err := client.Summarize(context.Background(), hftypes.SummarizationRequest{
 		Input: "Some long text that should be summarized.",
 	})
 	if err != nil {
@@ -398,7 +402,7 @@ func ExampleClient_Translate() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	result, err := client.Translate(hftypes.TranslationRequest{
+	result, err := client.Translate(context.Background(), hftypes.TranslationRequest{
 		Input: "Hello world.",
 	})
 	if err != nil {
@@ -426,6 +430,7 @@ func ExampleClient_Translate_withParameters() {
 	srcLang := "en"
 	tgtLang := "fr"
 	result, err := client.Translate(
+		context.Background(),
 		hftypes.TranslationRequest{
 			Input: "Hello world.",
 			Parameters: &hftypes.TranslationParameters{
@@ -457,7 +462,7 @@ func ExampleClient_AnswerQuestion() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	result, err := client.AnswerQuestion(hftypes.QuestionAnsweringRequest{
+	result, err := client.AnswerQuestion(context.Background(), hftypes.QuestionAnsweringRequest{
 		Input: hftypes.QuestionAnsweringInput{
 			Question: "What is the capital of France?",
 			Context:  "France is a country in Europe. Its capital is Paris.",
@@ -486,15 +491,18 @@ func ExampleClient_AnswerTableQuestion() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	result, err := client.AnswerTableQuestion(hftypes.TableQuestionAnsweringRequest{
-		Input: hftypes.TableQuestionAnsweringInput{
-			Question: "How old is Bob?",
-			Table: map[string][]string{
-				"Name": {"Alice", "Bob", "Carol"},
-				"Age":  {"25", "30", "35"},
+	result, err := client.AnswerTableQuestion(
+		context.Background(),
+		hftypes.TableQuestionAnsweringRequest{
+			Input: hftypes.TableQuestionAnsweringInput{
+				Question: "How old is Bob?",
+				Table: map[string][]string{
+					"Name": {"Alice", "Bob", "Carol"},
+					"Age":  {"25", "30", "35"},
+				},
 			},
 		},
-	})
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -516,9 +524,12 @@ func ExampleClient_ExtractPooledFeatures() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	embedding, err := client.ExtractPooledFeatures(hftypes.FeatureExtractionRequest{
-		Input: "Hello world",
-	})
+	embedding, err := client.ExtractPooledFeatures(
+		context.Background(),
+		hftypes.FeatureExtractionRequest{
+			Input: "Hello world",
+		},
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -540,9 +551,12 @@ func ExampleClient_ExtractPooledFeaturesBatch() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	embeddings, err := client.ExtractPooledFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
-		Inputs: []string{"hello", "world"},
-	})
+	embeddings, err := client.ExtractPooledFeaturesBatch(
+		context.Background(),
+		hftypes.FeatureExtractionBatchRequest{
+			Inputs: []string{"hello", "world"},
+		},
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -564,9 +578,12 @@ func ExampleClient_ExtractTokenFeatures() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	tokens, err := client.ExtractTokenFeatures(hftypes.FeatureExtractionRequest{
-		Input: "Hello world",
-	})
+	tokens, err := client.ExtractTokenFeatures(
+		context.Background(),
+		hftypes.FeatureExtractionRequest{
+			Input: "Hello world",
+		},
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -589,9 +606,12 @@ func ExampleClient_ExtractTokenFeaturesBatch() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	tokens, err := client.ExtractTokenFeaturesBatch(hftypes.FeatureExtractionBatchRequest{
-		Inputs: []string{"hello", "world"},
-	})
+	tokens, err := client.ExtractTokenFeaturesBatch(
+		context.Background(),
+		hftypes.FeatureExtractionBatchRequest{
+			Inputs: []string{"hello", "world"},
+		},
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -613,7 +633,7 @@ func ExampleClient_ClassifyImage() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	result, err := client.ClassifyImage(hftypes.ImageClassificationRequest{
+	result, err := client.ClassifyImage(context.Background(), hftypes.ImageClassificationRequest{
 		Input: tinyPNGBase64,
 	})
 	if err != nil {
@@ -639,7 +659,7 @@ func ExampleClient_DetectObjects() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	result, err := client.DetectObjects(hftypes.ObjectDetectionRequest{
+	result, err := client.DetectObjects(context.Background(), hftypes.ObjectDetectionRequest{
 		Input: tinyPNGBase64,
 	})
 	if err != nil {
@@ -667,7 +687,7 @@ func ExampleClient_GenerateImage() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	image, err := client.GenerateImage(hftypes.TextToImageRequest{
+	image, err := client.GenerateImage(context.Background(), hftypes.TextToImageRequest{
 		Input: "a serene mountain landscape at sunset",
 	})
 	if err != nil {
@@ -693,7 +713,7 @@ func ExampleClient_SegmentImage() {
 		hfopts.WithHTTPClientFactory(testClient()),
 	)
 
-	result, err := client.SegmentImage(hftypes.ImageSegmentationRequest{
+	result, err := client.SegmentImage(context.Background(), hftypes.ImageSegmentationRequest{
 		Input: tinyPNGBase64,
 	})
 	if err != nil {
@@ -720,7 +740,7 @@ func ExampleClient_RecognizeSpeech() {
 	// In a real use case this would be base64-encoded audio bytes.
 	const audioBase64 = "AAAA"
 
-	result, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+	result, err := client.RecognizeSpeech(context.Background(), hftypes.SpeechRecognitionRequest{
 		Input: audioBase64,
 	})
 	if err != nil {

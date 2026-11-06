@@ -1,6 +1,7 @@
 package hfproviders
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -128,9 +129,10 @@ type hfParamsCodec[Req, Resp any] struct {
 }
 
 func (c hfParamsCodec[Req, Resp]) Encode(
+	ctx context.Context,
 	params EncodeParams[Req],
 ) (body []byte, headers http.Header, err error) {
-	body, headers, err = c.inner.Encode(params)
+	body, headers, err = c.inner.Encode(ctx, params)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -162,8 +164,8 @@ func (c hfParamsCodec[Req, Resp]) Encode(
 	return body, headers, nil
 }
 
-func (c hfParamsCodec[Req, Resp]) Decode(params DecodeParams) (Resp, error) {
-	return c.inner.Decode(params)
+func (c hfParamsCodec[Req, Resp]) Decode(ctx context.Context, params DecodeParams) (Resp, error) {
+	return c.inner.Decode(ctx, params)
 }
 
 // requestProviderParams accessors are typed accessors handing each
@@ -301,7 +303,7 @@ type HuggingFaceChatMixin struct{}
 // ChatEndpoint returns the endpoint for chat completion. Chat completions are
 // served from a fixed OpenAI-compatible path, so this endpoint is
 // model-independent: an empty params.Model is legal.
-func (HuggingFaceChatMixin) ChatEndpoint(_ EndpointParams) (Endpoint, error) {
+func (HuggingFaceChatMixin) ChatEndpoint(_ context.Context, _ EndpointParams) (Endpoint, error) {
 	return Endpoint{Method: http.MethodPost, Path: "v1/chat/completions"}, nil
 }
 
@@ -336,13 +338,15 @@ type HuggingFaceFeatureExtractionMixin struct{}
 
 // FeatureExtractionBatchEndpoint returns the endpoint for batch feature extraction.
 func (m HuggingFaceFeatureExtractionMixin) FeatureExtractionBatchEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
-	return m.FeatureExtractionEndpoint(params)
+	return m.FeatureExtractionEndpoint(ctx, params)
 }
 
 // FeatureExtractionEndpoint returns the endpoint for feature extraction.
 func (HuggingFaceFeatureExtractionMixin) FeatureExtractionEndpoint(
+	_ context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return hfModelEndpoint(params, "/pipeline/feature-extraction")
@@ -409,7 +413,10 @@ func (HuggingFaceFeatureExtractionMixin) FeatureExtractionTokenBatchCodec() Feat
 type HuggingFaceFillMaskMixin struct{}
 
 // FillMaskEndpoint returns the endpoint for fill mask.
-func (HuggingFaceFillMaskMixin) FillMaskEndpoint(params EndpointParams) (Endpoint, error) {
+func (HuggingFaceFillMaskMixin) FillMaskEndpoint(
+	_ context.Context,
+	params EndpointParams,
+) (Endpoint, error) {
 	return hfModelEndpoint(params, "")
 }
 
@@ -431,6 +438,7 @@ type HuggingFaceImageClassificationMixin struct{}
 
 // ImageClassificationEndpoint returns the endpoint for image classification.
 func (HuggingFaceImageClassificationMixin) ImageClassificationEndpoint(
+	_ context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return hfModelEndpoint(params, "")
@@ -454,6 +462,7 @@ type HuggingFaceImageSegmentationMixin struct{}
 
 // ImageSegmentationEndpoint returns the endpoint for image segmentation.
 func (HuggingFaceImageSegmentationMixin) ImageSegmentationEndpoint(
+	_ context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return hfModelEndpoint(params, "")
@@ -476,6 +485,7 @@ type HuggingFaceObjectDetectionMixin struct{}
 
 // ObjectDetectionEndpoint returns the endpoint for object detection.
 func (HuggingFaceObjectDetectionMixin) ObjectDetectionEndpoint(
+	_ context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return hfModelEndpoint(params, "")
@@ -499,6 +509,7 @@ type HuggingFaceQuestionAnsweringMixin struct{}
 
 // QuestionAnsweringEndpoint returns the endpoint for question answering.
 func (HuggingFaceQuestionAnsweringMixin) QuestionAnsweringEndpoint(
+	_ context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return hfModelEndpoint(params, "")
@@ -519,6 +530,7 @@ type HuggingFaceSpeechRecognitionMixin struct{}
 
 // SpeechRecognitionEndpoint returns the endpoint for speech recognition.
 func (HuggingFaceSpeechRecognitionMixin) SpeechRecognitionEndpoint(
+	_ context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return hfModelEndpoint(params, "")
@@ -539,6 +551,7 @@ type HuggingFaceSummarizationMixin struct{}
 
 // SummarizationEndpoint returns the endpoint for summarization.
 func (HuggingFaceSummarizationMixin) SummarizationEndpoint(
+	_ context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return hfModelEndpoint(params, "")
@@ -562,6 +575,7 @@ type HuggingFaceTableQuestionAnsweringMixin struct{}
 
 // TableQuestionAnsweringEndpoint returns the endpoint for table question answering.
 func (HuggingFaceTableQuestionAnsweringMixin) TableQuestionAnsweringEndpoint(
+	_ context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return hfModelEndpoint(params, "")
@@ -585,6 +599,7 @@ type HuggingFaceTextClassificationMixin struct{}
 
 // TextClassificationEndpoint returns the endpoint for text classification.
 func (HuggingFaceTextClassificationMixin) TextClassificationEndpoint(
+	_ context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return hfModelEndpoint(params, "")
@@ -606,6 +621,7 @@ type HuggingFaceTextToImageMixin struct{}
 
 // TextToImageEndpoint returns the endpoint for text-to-image generation.
 func (HuggingFaceTextToImageMixin) TextToImageEndpoint(
+	_ context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return hfModelEndpoint(params, "")
@@ -625,6 +641,7 @@ type HuggingFaceTokenClassificationMixin struct{}
 
 // TokenClassificationEndpoint returns the endpoint for token classification.
 func (HuggingFaceTokenClassificationMixin) TokenClassificationEndpoint(
+	_ context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return hfModelEndpoint(params, "")
@@ -647,6 +664,7 @@ type HuggingFaceTranslationMixin struct{}
 
 // TranslationEndpoint returns the endpoint for translation.
 func (HuggingFaceTranslationMixin) TranslationEndpoint(
+	_ context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return hfModelEndpoint(params, "")
@@ -670,6 +688,7 @@ type HuggingFaceZeroShotTextClassificationMixin struct{}
 
 // ZeroShotTextClassificationEndpoint returns the endpoint for zero-shot text classification.
 func (HuggingFaceZeroShotTextClassificationMixin) ZeroShotTextClassificationEndpoint(
+	_ context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return hfModelEndpoint(params, "")
@@ -692,6 +711,7 @@ func (HuggingFaceZeroShotTextClassificationMixin) ZeroShotTextClassificationCode
 type hfQuestionAnsweringCodec struct{}
 
 func (hfQuestionAnsweringCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.QuestionAnsweringRequest],
 ) (body []byte, headers http.Header, err error) {
 	return hfPipelineParamsCodec(
@@ -700,10 +720,13 @@ func (hfQuestionAnsweringCodec) Encode(
 			[]hftypes.QuestionAnswer,
 		]{},
 		questionAnsweringRequestProviderParams,
-	).Encode(params)
+	).Encode(ctx, params)
 }
 
-func (hfQuestionAnsweringCodec) Decode(params DecodeParams) ([]hftypes.QuestionAnswer, error) {
+func (hfQuestionAnsweringCodec) Decode(
+	_ context.Context,
+	params DecodeParams,
+) ([]hftypes.QuestionAnswer, error) {
 	contentType := params.Headers.Get("Content-Type")
 	if !isJSONContentType(contentType) {
 		return nil, errUnexpectedContentType(contentType)
@@ -829,6 +852,7 @@ func hfModelEndpoint(params EndpointParams, suffix string) (Endpoint, error) {
 type hfTextClassificationCodec struct{}
 
 func (hfTextClassificationCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.TextClassificationRequest],
 ) (body []byte, headers http.Header, err error) {
 	return hfPipelineParamsCodec(
@@ -837,10 +861,13 @@ func (hfTextClassificationCodec) Encode(
 			[]hftypes.TextClassification,
 		]{},
 		textClassificationRequestProviderParams,
-	).Encode(params)
+	).Encode(ctx, params)
 }
 
-func (hfTextClassificationCodec) Decode(params DecodeParams) ([]hftypes.TextClassification, error) {
+func (hfTextClassificationCodec) Decode(
+	_ context.Context,
+	params DecodeParams,
+) ([]hftypes.TextClassification, error) {
 	contentType := params.Headers.Get("Content-Type")
 	if !isJSONContentType(contentType) {
 		return nil, errUnexpectedContentType(contentType)
@@ -894,6 +921,7 @@ func (hfTextClassificationCodec) Decode(params DecodeParams) ([]hftypes.TextClas
 type hfTextToImageCodec struct{}
 
 func (hfTextToImageCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.TextToImageRequest],
 ) (body []byte, headers http.Header, err error) {
 	body, headers, err = hfPipelineParamsCodec(
@@ -902,7 +930,7 @@ func (hfTextToImageCodec) Encode(
 			hftypes.TextToImageResponse,
 		]{},
 		textToImageRequestProviderParams,
-	).Encode(params)
+	).Encode(ctx, params)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -912,6 +940,7 @@ func (hfTextToImageCodec) Encode(
 }
 
 func (hfTextToImageCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) (hftypes.TextToImageResponse, error) {
 	contentType := params.Headers.Get("Content-Type")
@@ -936,6 +965,7 @@ func (hfTextToImageCodec) Decode(
 type hfSpeechRecognitionCodec struct{}
 
 func (hfSpeechRecognitionCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.SpeechRecognitionRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
@@ -962,14 +992,15 @@ func (hfSpeechRecognitionCodec) Encode(
 			hftypes.SpeechRecognitionResponse,
 		]{},
 		speechRecognitionRequestProviderParams,
-	).Encode(params)
+	).Encode(ctx, params)
 }
 
 func (hfSpeechRecognitionCodec) Decode(
+	ctx context.Context,
 	params DecodeParams,
 ) (hftypes.SpeechRecognitionResponse, error) {
 	return JSONCodec[
 		hftypes.SpeechRecognitionRequest,
 		hftypes.SpeechRecognitionResponse,
-	]{}.Decode(params)
+	]{}.Decode(ctx, params)
 }

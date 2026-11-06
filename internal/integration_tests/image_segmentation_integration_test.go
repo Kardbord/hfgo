@@ -57,11 +57,10 @@ func TestSegmentImage_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ImageSegmentation, error) {
-		return client.SegmentImage(hftypes.ImageSegmentationRequest{
+		return client.SegmentImage(ctx, hftypes.ImageSegmentationRequest{
 			Input: segmentImageInput(t),
 		})
 	})
@@ -90,11 +89,10 @@ func TestSegmentImage_WithParameters(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ImageSegmentation, error) {
-		return client.SegmentImage(hftypes.ImageSegmentationRequest{
+		return client.SegmentImage(ctx, hftypes.ImageSegmentationRequest{
 			Input: segmentImageInput(t),
 			Parameters: &hftypes.ImageSegmentationParameters{
 				MaskThreshold:            new(0.5),
@@ -121,12 +119,11 @@ func TestSegmentImage_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("facebook/mask2former-swin-large-coco-panoptic"),
-		hfopts.WithContext(ctx),
 	)
 
 	// Use a minimal inline base64 image (1x1 transparent PNG) so the cancelled
 	// context is exercised immediately, without a preliminary HTTP fetch.
-	resp, err := client.SegmentImage(hftypes.ImageSegmentationRequest{
+	resp, err := client.SegmentImage(ctx, hftypes.ImageSegmentationRequest{
 		Input: testutils.TinyPNGBase64,
 	})
 

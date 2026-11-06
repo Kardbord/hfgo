@@ -29,7 +29,6 @@ func TestSummarization_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	const input = "The tower is 324 metres (1,063 ft) tall, about the same height as an 81-storey building. " +
@@ -37,7 +36,7 @@ func TestSummarization_LiveAPI(t *testing.T) {
 		"Tower surpassed the Washington Monument to become the tallest man-made structure in the world."
 
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.Summarization, error) {
-		return client.Summarize(
+		return client.Summarize(ctx,
 			hftypes.SummarizationRequest{
 				Input: input,
 			},
@@ -63,7 +62,6 @@ func TestSummarization_WithParameters(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	cleanUp := true
@@ -71,7 +69,7 @@ func TestSummarization_WithParameters(t *testing.T) {
 	input := "The industrial revolution transformed agriculture, manufacturing, mining, and transport, " +
 		"leading to massive social and economic changes across the world."
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.Summarization, error) {
-		return client.Summarize(
+		return client.Summarize(ctx,
 			hftypes.SummarizationRequest{
 				Input: input,
 				Parameters: &hftypes.SummarizationParameters{
@@ -100,10 +98,9 @@ func TestSummarization_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("facebook/bart-large-cnn"),
-		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.Summarize(
+	resp, err := client.Summarize(ctx,
 		hftypes.SummarizationRequest{
 			Input: "Some text that should be summarized.",
 		},

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -32,6 +33,7 @@ func main() {
 
 	// Make the token-level feature extraction request
 	tokens, err := client.ExtractTokenFeatures(
+		context.Background(),
 		hftypes.FeatureExtractionRequest{
 			Input: input,
 		},

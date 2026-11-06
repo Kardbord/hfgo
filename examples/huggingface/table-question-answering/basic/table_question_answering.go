@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -35,6 +36,7 @@ func main() {
 	fmt.Println("...")
 
 	answer, err := client.AnswerTableQuestion(
+		context.Background(),
 		hftypes.TableQuestionAnsweringRequest{
 			Input: hftypes.TableQuestionAnsweringInput{
 				Question: question,

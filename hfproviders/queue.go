@@ -573,14 +573,13 @@ func queueDownloadOutput(
 // what decode returns, so attach must tolerate a zero or empty T.
 func queueFinalizeResponse[T any](
 	ctx context.Context,
-	decode func(DecodeParams) (T, error),
+	decode func(context.Context, DecodeParams) (T, error),
 	media []byte,
 	headers http.Header,
 	metadata map[string]any,
 	attach func(*T, map[string]any),
 ) (T, error) {
-	resp, err := decode(DecodeParams{
-		Context: ctx,
+	resp, err := decode(ctx, DecodeParams{
 		Body:    media,
 		Event:   "", // unary responses have no SSE framing
 		Headers: headers,

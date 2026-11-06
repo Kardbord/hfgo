@@ -56,7 +56,7 @@ Semantics on the Hugging Face wire formats:
 
 ```go
 // Extra OpenAI-compatible body keys ride the escape hatch on chat bodies.
-response, err := client.Chat(hftypes.ChatRequest{
+response, err := client.Chat(context.Background(), hftypes.ChatRequest{
 	Messages: []hftypes.ChatMessage{{
 		Role: "user",
 		Content: hftypes.ChatMessageContent{

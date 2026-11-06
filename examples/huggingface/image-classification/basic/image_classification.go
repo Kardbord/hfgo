@@ -36,9 +36,12 @@ func main() {
 		log.Fatal("Failed to retrieve image URL: " + err.Error())
 	}
 
-	predictions, err := client.ClassifyImage(hftypes.ImageClassificationRequest{
-		Input: imgData,
-	})
+	predictions, err := client.ClassifyImage(
+		context.Background(),
+		hftypes.ImageClassificationRequest{
+			Input: imgData,
+		},
+	)
 	if err != nil {
 		log.Fatalf("error running image classification: %v\n", err)
 	}

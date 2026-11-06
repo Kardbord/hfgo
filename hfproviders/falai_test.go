@@ -134,7 +134,7 @@ func TestFalAIProvider_ZeroValueIsSafe(t *testing.T) {
 
 	var p FalAIProvider
 
-	endpoints := []func(EndpointParams) (Endpoint, error){
+	endpoints := []func(context.Context, EndpointParams) (Endpoint, error){
 		p.TextToImageEndpoint,
 		p.ImageToImageEndpoint,
 		p.TextToVideoEndpoint,
@@ -142,9 +142,8 @@ func TestFalAIProvider_ZeroValueIsSafe(t *testing.T) {
 		p.SpeechRecognitionEndpoint,
 	}
 	for _, endpoint := range endpoints {
-		_, err := endpoint(EndpointParams{
-			Context: context.Background(),
-			Model:   "any-model",
+		_, err := endpoint(context.Background(), EndpointParams{
+			Model: "any-model",
 		})
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	}
@@ -157,7 +156,7 @@ type falaiEndpointCase struct {
 	task            Task
 	model           string
 	providerModelID string
-	endpoint        func(FalAIProvider, EndpointParams) (Endpoint, error)
+	endpoint        func(FalAIProvider, context.Context, EndpointParams) (Endpoint, error)
 }
 
 func TestFalAIProvider_Endpoints(t *testing.T) {
@@ -215,9 +214,8 @@ func TestFalAIProvider_Endpoints(t *testing.T) {
 			p, err := NewFalAIProvider(mapper)
 			require.NoError(t, err)
 
-			endpoint, err := tc.endpoint(p, EndpointParams{
-				Context: context.Background(),
-				Model:   tc.model,
+			endpoint, err := tc.endpoint(p, context.Background(), EndpointParams{
+				Model: tc.model,
 			})
 			require.NoError(t, err)
 			require.Equal(t, http.MethodPost, endpoint.Method)
@@ -240,9 +238,8 @@ func TestFalAIProvider_Endpoint_ResolutionError(t *testing.T) {
 	p, err := NewFalAIProvider(mapper)
 	require.NoError(t, err)
 
-	_, err = p.TextToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "unknown-model",
+	_, err = p.TextToImageEndpoint(context.Background(), EndpointParams{
+		Model: "unknown-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
@@ -251,14 +248,13 @@ func TestFalAIProvider_Endpoint_ResolutionError(t *testing.T) {
 // body with JSON content headers.
 func falaiRequireFlatEncode[Req any](
 	t *testing.T,
-	encode func(EncodeParams[Req]) ([]byte, http.Header, error),
+	encode func(context.Context, EncodeParams[Req]) ([]byte, http.Header, error),
 	request Req,
 	wantJSON string,
 ) {
 	t.Helper()
 
-	body, headers, err := encode(EncodeParams[Req]{
-		Context: context.Background(),
+	body, headers, err := encode(context.Background(), EncodeParams[Req]{
 		Request: request,
 	})
 	require.NoError(t, err)
@@ -671,8 +667,7 @@ func TestFalAIProvider_AdapterLorasInjection(t *testing.T) {
 		})
 
 		video := FalAITextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
-		body, _, err := video.Encode(EncodeParams[hftypes.TextToVideoRequest]{
-			Context: context.Background(),
+		body, _, err := video.Encode(context.Background(), EncodeParams[hftypes.TextToVideoRequest]{
 			Request: hftypes.TextToVideoRequest{Input: "a cat"},
 			Model:   "ZhengmingYu/DMAD",
 		})
@@ -686,8 +681,7 @@ func TestFalAIProvider_AdapterLorasInjection(t *testing.T) {
 		}`, string(body))
 
 		image := FalAITextToImageMixin{Resolver: resolver}.TextToImageCodec()
-		body, _, err = image.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		body, _, err = image.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{Input: "a cat"},
 			Model:   "some-lora/flux-lora",
 		})
@@ -701,8 +695,7 @@ func TestFalAIProvider_AdapterLorasInjection(t *testing.T) {
 		}`, string(body))
 
 		i2i := FalAIImageToImageMixin{Resolver: resolver}.ImageToImageCodec()
-		body, _, err = i2i.Encode(EncodeParams[hftypes.ImageToImageRequest]{
-			Context: context.Background(),
+		body, _, err = i2i.Encode(context.Background(), EncodeParams[hftypes.ImageToImageRequest]{
 			Request: hftypes.ImageToImageRequest{Input: "abc123"},
 			Model:   "some-lora/flux-lora",
 		})
@@ -742,8 +735,7 @@ func TestFalAIProvider_AdapterLorasInjection(t *testing.T) {
 		})
 
 		image := FalAITextToImageMixin{Resolver: resolver}.TextToImageCodec()
-		body, _, err := image.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		body, _, err := image.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{Input: "a cat"},
 			Model:   "user/sdxl-lora",
 		})
@@ -760,8 +752,7 @@ func TestFalAIProvider_AdapterLorasInjection(t *testing.T) {
 		// The same mapping on another task must not gain the base model:
 		// fal only requires it for the SD-class LoRA endpoint.
 		video := FalAITextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
-		body, _, err = video.Encode(EncodeParams[hftypes.TextToVideoRequest]{
-			Context: context.Background(),
+		body, _, err = video.Encode(context.Background(), EncodeParams[hftypes.TextToVideoRequest]{
 			Request: hftypes.TextToVideoRequest{Input: "a cat"},
 			Model:   "user/sdxl-lora",
 		})
@@ -785,8 +776,7 @@ func TestFalAIProvider_AdapterLorasInjection(t *testing.T) {
 		})
 		codec := FalAITextToImageMixin{Resolver: resolver}.TextToImageCodec()
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{
 				Input: "a cat",
 				ProviderParams: map[string]any{
@@ -822,8 +812,7 @@ func TestFalAIProvider_AdapterLorasInjection(t *testing.T) {
 		})
 		codec := FalAITextToVideoMixin{Resolver: resolver}.TextToVideoCodec()
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToVideoRequest]{
 			Request: hftypes.TextToVideoRequest{
 				Input: "a cat",
 				ProviderParams: map[string]any{
@@ -859,8 +848,7 @@ func TestFalAIProvider_AdapterLorasInjection(t *testing.T) {
 		})
 		codec := FalAITextToImageMixin{Resolver: resolver}.TextToImageCodec()
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{
 				Input: "a cat",
 				ProviderParams: map[string]any{
@@ -889,8 +877,7 @@ func TestFalAIProvider_AdapterLorasInjection(t *testing.T) {
 		})
 		codec := FalAITextToImageMixin{Resolver: resolver}.TextToImageCodec()
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{Input: "a cat"},
 			Model:   "krea/Krea-2-Turbo",
 		})
@@ -910,8 +897,7 @@ func TestFalAIProvider_AdapterLorasInjection(t *testing.T) {
 		})
 		codec := FalAITextToImageMixin{Resolver: resolver}.TextToImageCodec()
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{Input: "a cat"},
 			Model:   "some-lora/flux-lora",
 		})
@@ -924,8 +910,7 @@ func TestFalAIProvider_AdapterLorasInjection(t *testing.T) {
 
 		codec := falaiTextToImageCodec{}
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{Input: "a cat"},
 			Model:   "some-lora/flux-lora",
 		})
@@ -938,8 +923,7 @@ func TestFalAIProvider_AdapterLorasInjection(t *testing.T) {
 
 		codec := FalAITextToImageMixin{Resolver: NewStaticModelResolver(nil)}.TextToImageCodec()
 
-		_, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{Input: "a cat"},
 			Model:   "unknown-model",
 		})
@@ -966,8 +950,7 @@ func TestFalAIProvider_EncodePrefersEndpointMapping(t *testing.T) {
 		}
 		codec := FalAITextToImageMixin{Resolver: resolver}.TextToImageCodec()
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{Input: "a cat"},
 			Model:   "ZhengmingYu/DMAD",
 			Mapping: &ModelMapping{
@@ -999,8 +982,7 @@ func TestFalAIProvider_EncodePrefersEndpointMapping(t *testing.T) {
 		}
 		codec := FalAITextToImageMixin{Resolver: resolver}.TextToImageCodec()
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{Input: "a cat"},
 			Model:   "some-lora/flux-lora",
 		})
@@ -1059,8 +1041,7 @@ func TestFalAIProvider_MediaCodecs_Decode(t *testing.T) {
 			headers.Set("Content-Type", "video/mp4; charset=utf-8")
 			body := []byte{0x00, 0x00, 0x00, 0x20, 'f', 't', 'y', 'p'}
 
-			resp, err := codec.Decode(DecodeParams{
-				Context: context.Background(),
+			resp, err := codec.Decode(context.Background(), DecodeParams{
 				Body:    body,
 				Headers: headers,
 			})
@@ -1075,8 +1056,7 @@ func TestFalAIProvider_MediaCodecs_Decode(t *testing.T) {
 			headers := http.Header{}
 			headers.Set("Content-Type", "application/json")
 
-			_, err := codec.Decode(DecodeParams{
-				Context: context.Background(),
+			_, err := codec.Decode(context.Background(), DecodeParams{
 				Body:    []byte(`{"foo":"bar"}`),
 				Headers: headers,
 			})
@@ -1099,8 +1079,7 @@ func TestFalAIProvider_ImageSegmentationCodec_Decode(t *testing.T) {
 		headers.Set("Content-Type", "image/png")
 		body := []byte{0x89, 'P', 'N', 'G'}
 
-		segments, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		segments, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    body,
 			Headers: headers,
 		})
@@ -1117,8 +1096,7 @@ func TestFalAIProvider_ImageSegmentationCodec_Decode(t *testing.T) {
 		headers := http.Header{}
 		headers.Set("Content-Type", "video/mp4")
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte{0x00, 0x00, 0x00, 0x20, 'f', 't', 'y', 'p'},
 			Headers: headers,
 		})
@@ -1134,8 +1112,7 @@ func TestFalAIProvider_SpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Run("whisper text with chunks", func(t *testing.T) {
 		t.Parallel()
 
-		resp, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		resp, err := codec.Decode(context.Background(), DecodeParams{
 			Body: []byte(
 				`{"text":"hello world","chunks":[{"text":"hello","timestamp":[0.0,1.0]},` +
 					`{"text":"world","timestamp":[1.0,2.0]}]}`,
@@ -1153,8 +1130,7 @@ func TestFalAIProvider_SpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Run("nemotron output with segments", func(t *testing.T) {
 		t.Parallel()
 
-		resp, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		resp, err := codec.Decode(context.Background(), DecodeParams{
 			Body: []byte(
 				`{"output":"hello","segments":[{"text":"hello","start":0.5,"end":1.5},` +
 					`{"text":"open"}]}`,
@@ -1172,8 +1148,7 @@ func TestFalAIProvider_SpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Run("empty transcript string is kept", func(t *testing.T) {
 		t.Parallel()
 
-		resp, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		resp, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"text":""}`),
 			Headers: http.Header{"Content-Type": {"application/json"}},
 		})
@@ -1185,8 +1160,7 @@ func TestFalAIProvider_SpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Run("missing transcript", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"chunks":[]}`),
 			Headers: http.Header{"Content-Type": {"application/json"}},
 		})
@@ -1197,8 +1171,7 @@ func TestFalAIProvider_SpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Run("non-JSON body", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte("not json"),
 			Headers: http.Header{"Content-Type": {"application/json"}},
 		})
@@ -1211,8 +1184,7 @@ func TestFalAIProvider_SpeechRecognitionCodec_Decode(t *testing.T) {
 		headers := http.Header{}
 		headers.Set("Content-Type", "text/plain")
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"text":"hello"}`),
 			Headers: headers,
 		})
@@ -1250,9 +1222,8 @@ func TestFalAIMixin_SubsetProvider(t *testing.T) {
 	prov, err := AsProvider[TextToImageProvider](p)
 	require.NoError(t, err)
 
-	endpoint, err := prov.TextToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "krea/Krea-2-Turbo",
+	endpoint, err := prov.TextToImageEndpoint(context.Background(), EndpointParams{
+		Model: "krea/Krea-2-Turbo",
 	})
 	require.NoError(t, err)
 	require.Equal(t, "fal-ai/fal-ai/krea-2/turbo?_subdomain=queue", endpoint.Path)
@@ -1285,33 +1256,28 @@ func TestFalAIMixins_ZeroValueResolvers(t *testing.T) {
 		speechMixin FalAISpeechRecognitionMixin
 	)
 
-	_, err := imageMixin.TextToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err := imageMixin.TextToImageEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
-	_, err = i2iMixin.ImageToImageEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err = i2iMixin.ImageToImageEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
-	_, err = videoMixin.TextToVideoEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err = videoMixin.TextToVideoEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
-	_, err = segMixin.ImageSegmentationEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err = segMixin.ImageSegmentationEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
-	_, err = speechMixin.SpeechRecognitionEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err = speechMixin.SpeechRecognitionEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
@@ -2922,8 +2888,7 @@ func TestFalAICodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 		t.Parallel()
 
 		codec := falaiTextToImageCodec{}
-		_, _, err := codec.Encode(EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToImageRequest]{
 			Request: hftypes.TextToImageRequest{
 				Input:          "a cat",
 				ProviderParams: map[string]any{"bad": func() {}},
@@ -2938,8 +2903,7 @@ func TestFalAICodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 		t.Parallel()
 
 		codec := falaiTextToVideoCodec{}
-		_, _, err := codec.Encode(EncodeParams[hftypes.TextToVideoRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.TextToVideoRequest]{
 			Request: hftypes.TextToVideoRequest{
 				Input:          "a cat",
 				ProviderParams: map[string]any{"bad": func() {}},
@@ -2954,8 +2918,7 @@ func TestFalAICodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 		t.Parallel()
 
 		codec := falaiImageToImageCodec{}
-		_, _, err := codec.Encode(EncodeParams[hftypes.ImageToImageRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.ImageToImageRequest]{
 			Request: hftypes.ImageToImageRequest{
 				Input:          "data:image/png;base64,abc123",
 				ProviderParams: map[string]any{"bad": func() {}},
@@ -2970,14 +2933,16 @@ func TestFalAICodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 		t.Parallel()
 
 		codec := falaiImageSegmentationCodec{}
-		_, _, err := codec.Encode(EncodeParams[hftypes.ImageSegmentationRequest]{
-			Context: context.Background(),
-			Request: hftypes.ImageSegmentationRequest{
-				Input:          "abc123",
-				ProviderParams: map[string]any{"bad": func() {}},
+		_, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.ImageSegmentationRequest]{
+				Request: hftypes.ImageSegmentationRequest{
+					Input:          "abc123",
+					ProviderParams: map[string]any{"bad": func() {}},
+				},
+				Model: "fal-ai/bria/background/remove",
 			},
-			Model: "fal-ai/bria/background/remove",
-		})
+		)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "failed to marshal request body")
 	})
@@ -2986,14 +2951,16 @@ func TestFalAICodec_EncodeUnmarshalableProviderParams(t *testing.T) {
 		t.Parallel()
 
 		codec := falaiSpeechRecognitionCodec{}
-		_, _, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
-			Request: hftypes.SpeechRecognitionRequest{
-				Input:          "abc123",
-				ProviderParams: map[string]any{"bad": func() {}},
+		_, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SpeechRecognitionRequest]{
+				Request: hftypes.SpeechRecognitionRequest{
+					Input:          "abc123",
+					ProviderParams: map[string]any{"bad": func() {}},
+				},
+				Model: "fal-ai/whisper",
 			},
-			Model: "fal-ai/whisper",
-		})
+		)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 		require.ErrorContains(t, err, "failed to marshal request body")
 	})

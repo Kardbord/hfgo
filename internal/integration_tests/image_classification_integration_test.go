@@ -57,11 +57,10 @@ func TestClassifyImage_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ImageClassification, error) {
-		return client.ClassifyImage(hftypes.ImageClassificationRequest{
+		return client.ClassifyImage(ctx, hftypes.ImageClassificationRequest{
 			Input: classifyImageInput(t),
 		})
 	})
@@ -91,11 +90,10 @@ func TestClassifyImage_WithParameters(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ImageClassification, error) {
-		return client.ClassifyImage(hftypes.ImageClassificationRequest{
+		return client.ClassifyImage(ctx, hftypes.ImageClassificationRequest{
 			Input: classifyImageInput(t),
 			Parameters: &hftypes.ImageClassificationParameters{
 				FunctionToApply: new(hftypes.ImageClassificationFuncSoftmax),
@@ -121,12 +119,11 @@ func TestClassifyImage_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("google/vit-base-patch16-224"),
-		hfopts.WithContext(ctx),
 	)
 
 	// Use a minimal inline base64 image (1x1 transparent PNG) so the cancelled
 	// context is exercised immediately, without a preliminary HTTP fetch.
-	resp, err := client.ClassifyImage(hftypes.ImageClassificationRequest{
+	resp, err := client.ClassifyImage(ctx, hftypes.ImageClassificationRequest{
 		Input: testutils.TinyPNGBase64,
 	})
 

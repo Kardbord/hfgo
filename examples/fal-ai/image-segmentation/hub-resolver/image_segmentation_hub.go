@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -49,7 +50,7 @@ func main() {
 	fmt.Println("Segmenting image: " + imageURL)
 	fmt.Println("...")
 
-	segments, err := client.SegmentImage(hftypes.ImageSegmentationRequest{
+	segments, err := client.SegmentImage(context.Background(), hftypes.ImageSegmentationRequest{
 		Input: imageURL,
 	})
 	if err != nil {

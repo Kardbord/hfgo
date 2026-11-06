@@ -29,11 +29,10 @@ func TestTranslation_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.Translation, error) {
-		return client.Translate(
+		return client.Translate(ctx,
 			hftypes.TranslationRequest{
 				Input: "Hello, how are you doing today?",
 			},
@@ -59,13 +58,12 @@ func TestTranslation_WithParameters(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	cleanUp := true
 	truncation := hftypes.TranslationTruncationOnlyFirst
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.Translation, error) {
-		return client.Translate(
+		return client.Translate(ctx,
 			hftypes.TranslationRequest{
 				Input: "The weather is lovely and sunny today.",
 				Parameters: &hftypes.TranslationParameters{
@@ -94,10 +92,9 @@ func TestTranslation_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("google-t5/t5-small"),
-		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.Translate(
+	resp, err := client.Translate(ctx,
 		hftypes.TranslationRequest{
 			Input: "Hello, how are you?",
 		},

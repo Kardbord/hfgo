@@ -1,17 +1,23 @@
 package task
 
 import (
+	"context"
+
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
 // ClassifyImage sends an image classification request.
 func ClassifyImage(
+	ctx context.Context,
 	opts hfopts.Options,
 	req hftypes.ImageClassificationRequest,
 ) ([]hftypes.ImageClassification, error) {
+	ctx = utils.NormalizeContext(ctx)
+
 	if err := validateDispatch(opts); err != nil {
 		return nil, err
 	}
@@ -21,9 +27,8 @@ func ClassifyImage(
 		return nil, err
 	}
 
-	endpoint, err := prov.ImageClassificationEndpoint(hfproviders.EndpointParams{
-		Context: opts.Context(),
-		Model:   opts.Model,
+	endpoint, err := prov.ImageClassificationEndpoint(ctx, hfproviders.EndpointParams{
+		Model: opts.Model,
 	})
 	if err != nil {
 		return nil, &hferrors.SDKError{
@@ -33,5 +38,5 @@ func ClassifyImage(
 		}
 	}
 
-	return doInference(opts, endpoint, prov.ImageClassificationCodec(), req)
+	return doInference(ctx, opts, endpoint, prov.ImageClassificationCodec(), req)
 }

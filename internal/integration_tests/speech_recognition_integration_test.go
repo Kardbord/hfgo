@@ -58,11 +58,10 @@ func TestRecognizeSpeech_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	resp := testutils.RetryTransient(ctx, t, func() (hftypes.SpeechRecognitionResponse, error) {
-		return client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+		return client.RecognizeSpeech(ctx, hftypes.SpeechRecognitionRequest{
 			Input: speechRecognitionInput(t),
 		}, hfopts.WithHeader("Content-Type", "audio/flac"))
 	})
@@ -86,11 +85,10 @@ func TestRecognizeSpeech_WithParameters(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	resp := testutils.RetryTransient(ctx, t, func() (hftypes.SpeechRecognitionResponse, error) {
-		return client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+		return client.RecognizeSpeech(ctx, hftypes.SpeechRecognitionRequest{
 			Input: speechRecognitionInput(t),
 			Parameters: &hftypes.SpeechRecognitionParameters{
 				ReturnTimestamps: new(true),
@@ -116,10 +114,9 @@ func TestRecognizeSpeech_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("openai/whisper-large-v3"),
-		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+	resp, err := client.RecognizeSpeech(ctx, hftypes.SpeechRecognitionRequest{
 		Input: "AAAA",
 	})
 
