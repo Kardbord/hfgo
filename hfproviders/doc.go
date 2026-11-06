@@ -78,7 +78,11 @@
 // resolver-bearing mixin for text-to-image, wired by [NewNscaleProvider].
 // [ScalewayProvider] mixes the same two shapes: [HuggingFaceChatMixin] for
 // suffix-pinned chat completions and a resolver-bearing mixin for pooled
-// feature extraction, wired by [NewScalewayProvider]. Providers that need
+// feature extraction, wired by [NewScalewayProvider]. Every provider embedding
+// any Hugging Face mixin inherits its ProviderParams support: the mixin's
+// codecs merge the request's ProviderParams entries into the body's top level,
+// with the resolved "model" key protected on chat and the "inputs" key
+// protected on pipeline tasks. Providers that need
 // no resolver state reuse the zero-byte [HuggingFaceChatMixin]
 // directly: [BasetenProvider] and its chat-only siblings ([CerebrasProvider],
 // [CohereProvider], [FeatherlessAIProvider], [FireworksAIProvider],

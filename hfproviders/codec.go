@@ -31,9 +31,15 @@ const (
 	// marshaled inference-parameters struct cannot be flattened back into a
 	// JSON object map.
 	errFailedToFlattenInferenceParameters = "failed to flatten inference parameters"
-	mimeTypeJSON                          = "application/json"
-	mimeTypeAny                           = "*/*"
-	mimeTypeFLAC                          = "audio/flac"
+	// errFailedToDecodeRequestBody is the message surfaced when an already
+	// marshaled request body cannot be decoded back into a JSON object map
+	// (e.g. by codecs that post-process the body, such as the
+	// [hfParamsCodec] ProviderParams merge or Together's response-format
+	// flattening).
+	errFailedToDecodeRequestBody = "failed to decode request body"
+	mimeTypeJSON                 = "application/json"
+	mimeTypeAny                  = "*/*"
+	mimeTypeFLAC                 = "audio/flac"
 	// headerAccept is the Accept request header name, used by every encoder
 	// that describes its wire format through [jsonRequestHeaders] and by the
 	// queue providers' follow-up requests.
@@ -458,6 +464,35 @@ func mergeRequestParameters(
 	maps.Copy(payload, providerParams)
 
 	return nil
+}
+
+// decodeBodyToPayloadMap decodes an already marshaled JSON request body into
+// a payload map. Numbers are decoded as [json.Number] so a re-marshal of the
+// map preserves the original numeric literals exactly (no float64
+// round-tripping). Decode failures become an *hferrors.SDKError of kind
+// SDKErrorKindSerialization.
+func decodeBodyToPayloadMap(body []byte) (map[string]any, error) {
+	payload := map[string]any{}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payload); err != nil {
+		return nil, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindSerialization,
+			Message: errFailedToDecodeRequestBody,
+			Err:     err,
+		}
+	}
+
+	return payload, nil
+}
+
+// mergeProviderParamsTopLevel shallow-copies a request's ProviderParams
+// entries into the payload's top level. Existing payload entries with the
+// same key are overridden, which is the documented ProviderParams contract:
+// entries override typed fields. The providerParams map itself is treated as
+// read-only and never mutated. Nil providerParams leave payload untouched.
+func mergeProviderParamsTopLevel(payload, providerParams map[string]any) {
+	maps.Copy(payload, providerParams)
 }
 
 // marshalRequestBody marshals a request payload map into its JSON request

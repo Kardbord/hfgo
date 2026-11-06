@@ -17,6 +17,61 @@ Pipeline tasks (fill-mask, text-to-image, and the rest) use the router's task
 endpoints and the canonical JSON wire format, with the model in the endpoint
 path.
 
+## ProviderParams
+
+Every canonical request type carries a `ProviderParams` map — an advanced
+escape hatch for provider-specific request parameters the typed fields do not
+cover. The Hugging Face provider supports it on every task it serves, and
+every provider that embeds any of its mixins inherits the merge through the
+mixin's codecs — the chat mixins protect the resolved `"model"`, the pipeline
+mixins protect `"inputs"` (see the [provider guides](../README.md)). The chat
+mixin is called out in the partner guides because every built-in chat-pinned
+provider embeds it.
+
+Semantics on the Hugging Face wire formats:
+
+- **Top-level merge.** After the typed request is marshaled, `ProviderParams`
+  entries are copied into the JSON body's top level. Entries override typed
+  fields at the same level — on chat bodies, typed fields such as
+  `temperature`; on pipeline bodies, the envelope keys themselves. When
+  entries are merged, the body is re-marshaled from a map, so key order
+  becomes alphabetical — semantically irrelevant for JSON.
+- **Protected keys.** The resolved `"model"` (chat) and `"inputs"` (pipeline
+  tasks) are re-applied after the merge, so entries cannot override model
+  routing or the request payload. On chat, protection applies when the body
+  carries a resolved model: a `"model"` entry only passes through if the
+  request carries no model at all.
+- **Nested typed parameters.** Pipeline tasks carry their typed inference
+  parameters nested under `"parameters"`, and a top-level entry cannot reach
+  into that object. Overriding a nested typed value requires a wholesale
+  replacement: a `ProviderParams["parameters"]` entry replaces the typed
+  parameters object entirely, and any nested additions ride inside it.
+- **Speech recognition** switches from the raw-audio encoding to the JSON
+  encoding when `ProviderParams` entries are present, because raw bytes could
+  not carry them.
+- **No validation.** Entry names pass through as-is; keys the upstream API
+  does not recognize surface as upstream 4xx responses, like any other
+  provider's escape hatch. Bodies without `ProviderParams` are encoded
+  byte-identically to before.
+
+```go
+// Extra OpenAI-compatible body keys ride the escape hatch on chat bodies.
+response, err := client.Chat(hftypes.ChatRequest{
+	Messages: []hftypes.ChatMessage{{
+		Role: "user",
+		Content: hftypes.ChatMessageContent{
+			Text: new("Summarize the plot of Hamlet."),
+		},
+	}},
+	ProviderParams: map[string]any{
+		"logit_bias": map[string]int{"1120": -100},
+	},
+})
+```
+
+See the runnable `examples/huggingface/chat/provider-params` program for the
+full flow.
+
 ## Chat routing
 
 Chat completions are routed through the Hugging Face router's
@@ -56,7 +111,11 @@ the billing note in each partner-provider guide.
 (`HuggingFaceTextClassificationMixin`, `HuggingFaceTextToImageMixin`, and so
 on) that pairs the built-in endpoint and codec for that task. Embed the mixins
 for the tasks your custom provider serves and supply your own
-`Provider.Name` and `Provider.ProviderSuffix`. See
+`Provider.Name` and `Provider.ProviderSuffix`. Each mixin's codecs merge the
+request's `ProviderParams` into the wire body's top level — the resolved
+`"model"` is protected on chat, `"inputs"` on pipeline tasks — so custom
+providers inherit the [ProviderParams](#providerparams) escape hatch
+automatically. See
 [Per-task provider mixins](../architecture.md#per-task-provider-mixins) for the
 pattern and its trade-offs.
 

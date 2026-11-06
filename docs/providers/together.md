@@ -123,7 +123,9 @@ the routed-versus-custom-key comparison.
 the default provider and the chat-only partners use — for the
 model-independent chat endpoint, and shadows the mixin's `ChatCodec` and
 `ChatStreamCodec` accessors with the Together-specific codecs described
-above. A custom provider embedding only `HuggingFaceChatMixin` gets the
+above. Together's codecs wrap the mixin's codec internally, so they keep its
+`ProviderParams` merge: entries ride the body's top level with the resolved
+`"model"` protected. A custom provider embedding only `HuggingFaceChatMixin` gets the
 default envelope shape — the shape the official clients rewrite away, which
 is why Together-bound structured output needs the special codec. The Together
 codecs themselves are unexported: external providers needing the flattened

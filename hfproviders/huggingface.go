@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"strings"
 
@@ -98,9 +99,200 @@ func (p HuggingFaceProvider) Name() string {
 	return "huggingface"
 }
 
+// Protected structural request keys for the wire formats the Hugging Face
+// codecs emit. ProviderParams entries merge into the body's top level after
+// the typed request is marshaled, and these keys are re-applied afterwards so
+// ProviderParams entries cannot override them: the resolved model is a
+// routing decision, and inputs carries the request payload itself.
+const (
+	protectedChatModelKey     = "model"
+	protectedPipelineInputKey = "inputs"
+)
+
+// hfParamsCodec is a [Codec] that wraps an inner codec and merges a request's
+// ProviderParams into the wire body's top level. Entries override typed
+// fields, matching the documented ProviderParams contract on every canonical
+// request type. The ProviderParams map itself is treated as read-only.
+//
+// When the request carries no ProviderParams, the inner codec's output is
+// returned byte-identical: the merge never changes bodies that need no
+// merging. Otherwise the inner body is decoded into a JSON object map (with
+// numeric fidelity preserved), the values of protectedKeys are captured,
+// ProviderParams entries are merged in, the protected keys are re-applied, and
+// the payload is re-marshaled. The inner codec's headers are passed through
+// unchanged; Decode delegates to the inner codec.
+type hfParamsCodec[Req, Resp any] struct {
+	inner          Codec[Req, Resp]
+	protectedKeys  []string
+	providerParams func(Req) map[string]any
+}
+
+func (c hfParamsCodec[Req, Resp]) Encode(
+	params EncodeParams[Req],
+) (body []byte, headers http.Header, err error) {
+	body, headers, err = c.inner.Encode(params)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	providerParams := c.providerParams(params.Request)
+	if len(providerParams) == 0 {
+		return body, headers, nil
+	}
+
+	payload, err := decodeBodyToPayloadMap(body)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	protected := make(map[string]any, len(c.protectedKeys))
+	for _, key := range c.protectedKeys {
+		if value, ok := payload[key]; ok {
+			protected[key] = value
+		}
+	}
+	mergeProviderParamsTopLevel(payload, providerParams)
+	maps.Copy(payload, protected)
+
+	body, err = marshalRequestBody(payload)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return body, headers, nil
+}
+
+func (c hfParamsCodec[Req, Resp]) Decode(params DecodeParams) (Resp, error) {
+	return c.inner.Decode(params)
+}
+
+// requestProviderParams accessors are typed accessors handing each
+// [hfParamsCodec] instantiation its request type's ProviderParams map. Go type
+// parameters cannot access common struct fields, so each codec accessor passes
+// the accessor for its concrete request type; a request type without the
+// field fails to compile at its codec accessor instead of silently dropping
+// the merge at runtime.
+func chatRequestProviderParams(
+	request hftypes.ChatRequest, //nolint:gocritic // hugeParam: taken by value so the accessor never mutates the caller's payload
+) map[string]any {
+	return request.ProviderParams
+}
+
+func featureExtractionRequestProviderParams(
+	request hftypes.FeatureExtractionRequest,
+) map[string]any {
+	return request.ProviderParams
+}
+
+func featureExtractionBatchRequestProviderParams(
+	request hftypes.FeatureExtractionBatchRequest,
+) map[string]any {
+	return request.ProviderParams
+}
+
+func fillMaskRequestProviderParams(request hftypes.FillMaskRequest) map[string]any {
+	return request.ProviderParams
+}
+
+func imageClassificationRequestProviderParams(
+	request hftypes.ImageClassificationRequest,
+) map[string]any {
+	return request.ProviderParams
+}
+
+func imageSegmentationRequestProviderParams(
+	request hftypes.ImageSegmentationRequest,
+) map[string]any {
+	return request.ProviderParams
+}
+
+func objectDetectionRequestProviderParams(request hftypes.ObjectDetectionRequest) map[string]any {
+	return request.ProviderParams
+}
+
+func questionAnsweringRequestProviderParams(
+	request hftypes.QuestionAnsweringRequest,
+) map[string]any {
+	return request.ProviderParams
+}
+
+func speechRecognitionRequestProviderParams(
+	request hftypes.SpeechRecognitionRequest,
+) map[string]any {
+	return request.ProviderParams
+}
+
+func summarizationRequestProviderParams(request hftypes.SummarizationRequest) map[string]any {
+	return request.ProviderParams
+}
+
+func tableQuestionAnsweringRequestProviderParams(
+	request hftypes.TableQuestionAnsweringRequest,
+) map[string]any {
+	return request.ProviderParams
+}
+
+func textClassificationRequestProviderParams(
+	request hftypes.TextClassificationRequest,
+) map[string]any {
+	return request.ProviderParams
+}
+
+func textToImageRequestProviderParams(request hftypes.TextToImageRequest) map[string]any {
+	return request.ProviderParams
+}
+
+func tokenClassificationRequestProviderParams(
+	request hftypes.TokenClassificationRequest,
+) map[string]any {
+	return request.ProviderParams
+}
+
+func translationRequestProviderParams(request hftypes.TranslationRequest) map[string]any {
+	return request.ProviderParams
+}
+
+func zeroShotTextClassificationRequestProviderParams(
+	request hftypes.ZeroShotTextClassificationRequest,
+) map[string]any {
+	return request.ProviderParams
+}
+
+// hfChatParamsCodec wraps inner with the chat merge semantics: ProviderParams
+// entries merge into the body's top level, with the resolved "model" key
+// protected so entries cannot override model routing.
+func hfChatParamsCodec[Req, Resp any](
+	inner Codec[Req, Resp],
+	providerParams func(Req) map[string]any,
+) hfParamsCodec[Req, Resp] {
+	return hfParamsCodec[Req, Resp]{
+		inner:          inner,
+		protectedKeys:  []string{protectedChatModelKey},
+		providerParams: providerParams,
+	}
+}
+
+// hfPipelineParamsCodec wraps inner with the pipeline merge semantics:
+// ProviderParams entries merge into the body's top level, with the "inputs"
+// key protected so entries cannot override the request payload itself.
+func hfPipelineParamsCodec[Req, Resp any](
+	inner Codec[Req, Resp],
+	providerParams func(Req) map[string]any,
+) hfParamsCodec[Req, Resp] {
+	return hfParamsCodec[Req, Resp]{
+		inner:          inner,
+		protectedKeys:  []string{protectedPipelineInputKey},
+		providerParams: providerParams,
+	}
+}
+
 // HuggingFaceChatMixin provides the Hugging Face endpoint and codecs for chat
 // completion, including streaming. It is a mixin: embed it in a type that also
 // implements Provider.Name and Provider.ProviderSuffix to serve only chat.
+//
+// Its codecs merge a request's ProviderParams into the body's top level (the
+// resolved "model" key is protected), so every provider embedding this mixin
+// supports the documented ProviderParams escape hatch.
 //
 // Unary and streaming chat share the same endpoint, so embedding this mixin
 // satisfies both ChatProvider and ChatStreamProvider.
@@ -114,15 +306,24 @@ func (HuggingFaceChatMixin) ChatEndpoint(_ EndpointParams) (Endpoint, error) {
 	return Endpoint{Method: http.MethodPost, Path: "v1/chat/completions"}, nil
 }
 
-// ChatCodec returns the JSON codec for chat completion requests and responses.
+// ChatCodec returns the JSON codec for chat completion requests and
+// responses, wrapped so the request's ProviderParams entries merge into the
+// body's top level (with the resolved "model" key protected).
 func (HuggingFaceChatMixin) ChatCodec() ChatCodec {
-	return JSONCodec[hftypes.ChatRequest, hftypes.ChatResponse]{}
+	return hfChatParamsCodec(
+		JSONCodec[hftypes.ChatRequest, hftypes.ChatResponse]{},
+		chatRequestProviderParams,
+	)
 }
 
 // ChatStreamCodec returns the JSON codec for streaming chat completion
-// requests and responses.
+// requests and responses, wrapped so the request's ProviderParams entries
+// merge into the body's top level (with the resolved "model" key protected).
 func (HuggingFaceChatMixin) ChatStreamCodec() ChatStreamCodec {
-	return JSONCodec[hftypes.ChatRequest, hftypes.ChatStreamResponse]{}
+	return hfChatParamsCodec(
+		JSONCodec[hftypes.ChatRequest, hftypes.ChatStreamResponse]{},
+		chatRequestProviderParams,
+	)
 }
 
 // HuggingFaceFeatureExtractionMixin provides the Hugging Face endpoints and
@@ -148,40 +349,59 @@ func (HuggingFaceFeatureExtractionMixin) FeatureExtractionEndpoint(
 	return hfModelEndpoint(params, "/pipeline/feature-extraction")
 }
 
-// FeatureExtractionPooledBatchCodec returns the JSON codec for batch pooled
-// feature-extraction requests and responses.
+// FeatureExtractionPooledBatchCodec returns the codec for batch pooled
+// feature-extraction requests and responses, wrapped so the request's
+// ProviderParams entries merge into the body's top level (the "inputs" key is
+// protected).
 func (HuggingFaceFeatureExtractionMixin) FeatureExtractionPooledBatchCodec() FeatureExtractionPooledBatchCodec {
-	return JSONCodec[
-		hftypes.FeatureExtractionBatchRequest,
-		[]hftypes.FeatureExtractionPooledEmbedding,
-	]{}
+	return hfPipelineParamsCodec(
+		JSONCodec[
+			hftypes.FeatureExtractionBatchRequest,
+			[]hftypes.FeatureExtractionPooledEmbedding,
+		]{},
+		featureExtractionBatchRequestProviderParams,
+	)
 }
 
-// FeatureExtractionPooledCodec returns the JSON codec for pooled
-// feature-extraction requests and responses.
+// FeatureExtractionPooledCodec returns the codec for pooled feature-extraction
+// requests and responses, wrapped so the request's ProviderParams entries
+// merge into the body's top level (the "inputs" key is protected).
 func (HuggingFaceFeatureExtractionMixin) FeatureExtractionPooledCodec() FeatureExtractionPooledCodec {
-	return JSONCodec[
-		hftypes.FeatureExtractionRequest,
-		hftypes.FeatureExtractionPooledEmbedding,
-	]{}
+	return hfPipelineParamsCodec(
+		JSONCodec[
+			hftypes.FeatureExtractionRequest,
+			hftypes.FeatureExtractionPooledEmbedding,
+		]{},
+		featureExtractionRequestProviderParams,
+	)
 }
 
-// FeatureExtractionTokenCodec returns the JSON codec for token-level
-// feature-extraction requests and responses.
+// FeatureExtractionTokenCodec returns the codec for token-level
+// feature-extraction requests and responses, wrapped so the request's
+// ProviderParams entries merge into the body's top level (the "inputs" key is
+// protected).
 func (HuggingFaceFeatureExtractionMixin) FeatureExtractionTokenCodec() FeatureExtractionTokenCodec {
-	return JSONCodec[
-		hftypes.FeatureExtractionRequest,
-		hftypes.FeatureExtractionTokenEmbeddings,
-	]{}
+	return hfPipelineParamsCodec(
+		JSONCodec[
+			hftypes.FeatureExtractionRequest,
+			hftypes.FeatureExtractionTokenEmbeddings,
+		]{},
+		featureExtractionRequestProviderParams,
+	)
 }
 
-// FeatureExtractionTokenBatchCodec returns the JSON codec for batch
-// token-level feature-extraction requests and responses.
+// FeatureExtractionTokenBatchCodec returns the codec for batch token-level
+// feature-extraction requests and responses, wrapped so the request's
+// ProviderParams entries merge into the body's top level (the "inputs" key is
+// protected).
 func (HuggingFaceFeatureExtractionMixin) FeatureExtractionTokenBatchCodec() FeatureExtractionTokenBatchCodec {
-	return JSONCodec[
-		hftypes.FeatureExtractionBatchRequest,
-		[]hftypes.FeatureExtractionTokenEmbeddings,
-	]{}
+	return hfPipelineParamsCodec(
+		JSONCodec[
+			hftypes.FeatureExtractionBatchRequest,
+			[]hftypes.FeatureExtractionTokenEmbeddings,
+		]{},
+		featureExtractionBatchRequestProviderParams,
+	)
 }
 
 // HuggingFaceFillMaskMixin provides the Hugging Face endpoint and codec for
@@ -194,9 +414,14 @@ func (HuggingFaceFillMaskMixin) FillMaskEndpoint(params EndpointParams) (Endpoin
 	return hfModelEndpoint(params, "")
 }
 
-// FillMaskCodec returns the JSON codec for fill-mask requests and responses.
+// FillMaskCodec returns the JSON codec for fill-mask requests and responses,
+// wrapped so the request's ProviderParams entries merge into the body's top
+// level (the "inputs" key is protected).
 func (HuggingFaceFillMaskMixin) FillMaskCodec() FillMaskCodec {
-	return JSONCodec[hftypes.FillMaskRequest, []hftypes.FillMaskPrediction]{}
+	return hfPipelineParamsCodec(
+		JSONCodec[hftypes.FillMaskRequest, []hftypes.FillMaskPrediction]{},
+		fillMaskRequestProviderParams,
+	)
 }
 
 // HuggingFaceImageClassificationMixin provides the Hugging Face endpoint and
@@ -212,10 +437,14 @@ func (HuggingFaceImageClassificationMixin) ImageClassificationEndpoint(
 	return hfModelEndpoint(params, "")
 }
 
-// ImageClassificationCodec returns the JSON codec for image-classification
-// requests and responses.
+// ImageClassificationCodec returns the codec for image-classification requests
+// and responses, wrapped so the request's ProviderParams entries merge into
+// the body's top level (the "inputs" key is protected).
 func (HuggingFaceImageClassificationMixin) ImageClassificationCodec() ImageClassificationCodec {
-	return JSONCodec[hftypes.ImageClassificationRequest, []hftypes.ImageClassification]{}
+	return hfPipelineParamsCodec(
+		JSONCodec[hftypes.ImageClassificationRequest, []hftypes.ImageClassification]{},
+		imageClassificationRequestProviderParams,
+	)
 }
 
 // HuggingFaceImageSegmentationMixin provides the Hugging Face endpoint and
@@ -231,10 +460,14 @@ func (HuggingFaceImageSegmentationMixin) ImageSegmentationEndpoint(
 	return hfModelEndpoint(params, "")
 }
 
-// ImageSegmentationCodec returns the JSON codec for image-segmentation
-// requests and responses.
+// ImageSegmentationCodec returns the codec for image-segmentation requests and
+// responses, wrapped so the request's ProviderParams entries merge into the
+// body's top level (the "inputs" key is protected).
 func (HuggingFaceImageSegmentationMixin) ImageSegmentationCodec() ImageSegmentationCodec {
-	return JSONCodec[hftypes.ImageSegmentationRequest, []hftypes.ImageSegmentation]{}
+	return hfPipelineParamsCodec(
+		JSONCodec[hftypes.ImageSegmentationRequest, []hftypes.ImageSegmentation]{},
+		imageSegmentationRequestProviderParams,
+	)
 }
 
 // HuggingFaceObjectDetectionMixin provides the Hugging Face endpoint and codec
@@ -249,9 +482,14 @@ func (HuggingFaceObjectDetectionMixin) ObjectDetectionEndpoint(
 	return hfModelEndpoint(params, "")
 }
 
-// ObjectDetectionCodec returns the JSON codec for object-detection requests and responses.
+// ObjectDetectionCodec returns the codec for object-detection requests and
+// responses, wrapped so the request's ProviderParams entries merge into the
+// body's top level (the "inputs" key is protected).
 func (HuggingFaceObjectDetectionMixin) ObjectDetectionCodec() ObjectDetectionCodec {
-	return JSONCodec[hftypes.ObjectDetectionRequest, []hftypes.ObjectDetection]{}
+	return hfPipelineParamsCodec(
+		JSONCodec[hftypes.ObjectDetectionRequest, []hftypes.ObjectDetection]{},
+		objectDetectionRequestProviderParams,
+	)
 }
 
 // HuggingFaceQuestionAnsweringMixin provides the Hugging Face endpoint and
@@ -268,7 +506,8 @@ func (HuggingFaceQuestionAnsweringMixin) QuestionAnsweringEndpoint(
 }
 
 // QuestionAnsweringCodec returns the flexible question-answering codec, which
-// accepts both single-object and array response shapes.
+// accepts both single-object and array response shapes. Requests' ProviderParams
+// entries merge into the body's top level (the "inputs" key is protected).
 func (HuggingFaceQuestionAnsweringMixin) QuestionAnsweringCodec() QuestionAnsweringCodec {
 	return hfQuestionAnsweringCodec{}
 }
@@ -287,8 +526,9 @@ func (HuggingFaceSpeechRecognitionMixin) SpeechRecognitionEndpoint(
 }
 
 // SpeechRecognitionCodec returns the speech recognition codec, which encodes
-// requests as raw bytes when no parameters are present and as JSON when
-// parameters are provided, always decoding the JSON response.
+// requests as raw bytes when neither parameters nor ProviderParams are present
+// and as JSON (with base64-encoded input and top-level ProviderParams merging)
+// otherwise, always decoding the JSON response.
 func (HuggingFaceSpeechRecognitionMixin) SpeechRecognitionCodec() SpeechRecognitionCodec {
 	return hfSpeechRecognitionCodec{}
 }
@@ -305,10 +545,14 @@ func (HuggingFaceSummarizationMixin) SummarizationEndpoint(
 	return hfModelEndpoint(params, "")
 }
 
-// SummarizationCodec returns the JSON codec for summarization requests and
-// responses.
+// SummarizationCodec returns the codec for summarization requests and
+// responses, wrapped so the request's ProviderParams entries merge into the
+// body's top level (the "inputs" key is protected).
 func (HuggingFaceSummarizationMixin) SummarizationCodec() SummarizationCodec {
-	return JSONCodec[hftypes.SummarizationRequest, []hftypes.Summarization]{}
+	return hfPipelineParamsCodec(
+		JSONCodec[hftypes.SummarizationRequest, []hftypes.Summarization]{},
+		summarizationRequestProviderParams,
+	)
 }
 
 // HuggingFaceTableQuestionAnsweringMixin provides the Hugging Face endpoint and
@@ -324,10 +568,14 @@ func (HuggingFaceTableQuestionAnsweringMixin) TableQuestionAnsweringEndpoint(
 	return hfModelEndpoint(params, "")
 }
 
-// TableQuestionAnsweringCodec returns the JSON codec for table
-// question-answering requests and responses.
+// TableQuestionAnsweringCodec returns the codec for table question-answering
+// requests and responses, wrapped so the request's ProviderParams entries
+// merge into the body's top level (the "inputs" key is protected).
 func (HuggingFaceTableQuestionAnsweringMixin) TableQuestionAnsweringCodec() TableQuestionAnsweringCodec {
-	return JSONCodec[hftypes.TableQuestionAnsweringRequest, hftypes.TableQuestionAnswer]{}
+	return hfPipelineParamsCodec(
+		JSONCodec[hftypes.TableQuestionAnsweringRequest, hftypes.TableQuestionAnswer]{},
+		tableQuestionAnsweringRequestProviderParams,
+	)
 }
 
 // HuggingFaceTextClassificationMixin provides the Hugging Face endpoint and
@@ -345,6 +593,8 @@ func (HuggingFaceTextClassificationMixin) TextClassificationEndpoint(
 
 // TextClassificationCodec returns the flexible text-classification codec,
 // which accepts both flat and single-element nested array response shapes.
+// Requests' ProviderParams entries merge into the body's top level (the
+// "inputs" key is protected).
 func (HuggingFaceTextClassificationMixin) TextClassificationCodec() TextClassificationCodec {
 	return hfTextClassificationCodec{}
 }
@@ -381,10 +631,14 @@ func (HuggingFaceTokenClassificationMixin) TokenClassificationEndpoint(
 	return hfModelEndpoint(params, "")
 }
 
-// TokenClassificationCodec returns the JSON codec for token-classification
-// requests and responses.
+// TokenClassificationCodec returns the codec for token-classification requests
+// and responses, wrapped so the request's ProviderParams entries merge into
+// the body's top level (the "inputs" key is protected).
 func (HuggingFaceTokenClassificationMixin) TokenClassificationCodec() TokenClassificationCodec {
-	return JSONCodec[hftypes.TokenClassificationRequest, []hftypes.TokenClassification]{}
+	return hfPipelineParamsCodec(
+		JSONCodec[hftypes.TokenClassificationRequest, []hftypes.TokenClassification]{},
+		tokenClassificationRequestProviderParams,
+	)
 }
 
 // HuggingFaceTranslationMixin provides the Hugging Face endpoint and codec for
@@ -399,10 +653,14 @@ func (HuggingFaceTranslationMixin) TranslationEndpoint(
 	return hfModelEndpoint(params, "")
 }
 
-// TranslationCodec returns the JSON codec for translation requests and
-// responses.
+// TranslationCodec returns the codec for translation requests and responses,
+// wrapped so the request's ProviderParams entries merge into the body's top
+// level (the "inputs" key is protected).
 func (HuggingFaceTranslationMixin) TranslationCodec() TranslationCodec {
-	return JSONCodec[hftypes.TranslationRequest, []hftypes.Translation]{}
+	return hfPipelineParamsCodec(
+		JSONCodec[hftypes.TranslationRequest, []hftypes.Translation]{},
+		translationRequestProviderParams,
+	)
 }
 
 // HuggingFaceZeroShotTextClassificationMixin provides the Hugging Face
@@ -418,10 +676,15 @@ func (HuggingFaceZeroShotTextClassificationMixin) ZeroShotTextClassificationEndp
 	return hfModelEndpoint(params, "")
 }
 
-// ZeroShotTextClassificationCodec returns the JSON codec for zero-shot
-// text-classification requests and responses.
+// ZeroShotTextClassificationCodec returns the codec for zero-shot
+// text-classification requests and responses, wrapped so the request's
+// ProviderParams entries merge into the body's top level (the "inputs" key is
+// protected).
 func (HuggingFaceZeroShotTextClassificationMixin) ZeroShotTextClassificationCodec() ZeroShotTextClassificationCodec {
-	return JSONCodec[hftypes.ZeroShotTextClassificationRequest, []hftypes.ZeroShotTextClassification]{}
+	return hfPipelineParamsCodec(
+		JSONCodec[hftypes.ZeroShotTextClassificationRequest, []hftypes.ZeroShotTextClassification]{},
+		zeroShotTextClassificationRequestProviderParams,
+	)
 }
 
 // hfQuestionAnsweringCodec is a flexible Codec for question answering that handles both single object and array responses.
@@ -432,10 +695,13 @@ type hfQuestionAnsweringCodec struct{}
 func (hfQuestionAnsweringCodec) Encode(
 	params EncodeParams[hftypes.QuestionAnsweringRequest],
 ) (body []byte, headers http.Header, err error) {
-	return JSONCodec[
-		hftypes.QuestionAnsweringRequest,
-		[]hftypes.QuestionAnswer,
-	]{}.Encode(params)
+	return hfPipelineParamsCodec(
+		JSONCodec[
+			hftypes.QuestionAnsweringRequest,
+			[]hftypes.QuestionAnswer,
+		]{},
+		questionAnsweringRequestProviderParams,
+	).Encode(params)
 }
 
 func (hfQuestionAnsweringCodec) Decode(params DecodeParams) ([]hftypes.QuestionAnswer, error) {
@@ -567,10 +833,13 @@ type hfTextClassificationCodec struct{}
 func (hfTextClassificationCodec) Encode(
 	params EncodeParams[hftypes.TextClassificationRequest],
 ) (body []byte, headers http.Header, err error) {
-	return JSONCodec[
-		hftypes.TextClassificationRequest,
-		[]hftypes.TextClassification,
-	]{}.Encode(params)
+	return hfPipelineParamsCodec(
+		JSONCodec[
+			hftypes.TextClassificationRequest,
+			[]hftypes.TextClassification,
+		]{},
+		textClassificationRequestProviderParams,
+	).Encode(params)
 }
 
 func (hfTextClassificationCodec) Decode(params DecodeParams) ([]hftypes.TextClassification, error) {
@@ -629,10 +898,13 @@ type hfTextToImageCodec struct{}
 func (hfTextToImageCodec) Encode(
 	params EncodeParams[hftypes.TextToImageRequest],
 ) (body []byte, headers http.Header, err error) {
-	body, headers, err = JSONCodec[
-		hftypes.TextToImageRequest,
-		hftypes.TextToImageResponse,
-	]{}.Encode(params)
+	body, headers, err = hfPipelineParamsCodec(
+		JSONCodec[
+			hftypes.TextToImageRequest,
+			hftypes.TextToImageResponse,
+		]{},
+		textToImageRequestProviderParams,
+	).Encode(params)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -659,16 +931,17 @@ func (hfTextToImageCodec) Decode(
 }
 
 // hfSpeechRecognitionCodec is a Codec for speech recognition that encodes
-// requests as raw audio bytes when no parameters are provided (matching the
-// API requirement), and as JSON with base64-encoded input when parameters
-// are present. Responses are always JSON.
+// requests as raw audio bytes when neither parameters nor ProviderParams are
+// provided (matching the API requirement), and as JSON with base64-encoded
+// input and top-level ProviderParams merging otherwise. Responses are always
+// JSON.
 type hfSpeechRecognitionCodec struct{}
 
 func (hfSpeechRecognitionCodec) Encode(
 	params EncodeParams[hftypes.SpeechRecognitionRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
-	if req.Parameters == nil {
+	if req.Parameters == nil && len(req.ProviderParams) == 0 {
 		decoded, err := base64.StdEncoding.DecodeString(req.Input)
 		if err != nil {
 			return nil, nil, &hferrors.SDKError{
@@ -685,10 +958,13 @@ func (hfSpeechRecognitionCodec) Encode(
 		return decoded, headers, nil
 	}
 
-	return JSONCodec[
-		hftypes.SpeechRecognitionRequest,
-		hftypes.SpeechRecognitionResponse,
-	]{}.Encode(params)
+	return hfPipelineParamsCodec(
+		JSONCodec[
+			hftypes.SpeechRecognitionRequest,
+			hftypes.SpeechRecognitionResponse,
+		]{},
+		speechRecognitionRequestProviderParams,
+	).Encode(params)
 }
 
 func (hfSpeechRecognitionCodec) Decode(

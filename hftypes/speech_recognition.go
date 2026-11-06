@@ -13,6 +13,9 @@ type SpeechRecognitionRequest struct {
 	// sniffing. To use a specific Content-Type instead, set it via
 	// hfopts.WithHeader, e.g. hfopts.WithHeader("Content-Type", "audio/wav").
 	// Caller-supplied headers always take precedence over auto-detected values.
+	// Providers supporting ProviderParams (e.g. the Hugging Face provider)
+	// switch to a JSON-encoded request when ProviderParams entries are set,
+	// even if Parameters stays nil: raw bytes could not carry them.
 	Input string `json:"inputs"`
 
 	// Additional inference parameters for speech recognition.
