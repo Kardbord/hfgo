@@ -48,7 +48,7 @@ func main() {
 		},
 	)
 	if err != nil {
-		log.Fatalf("error running chat: %v\n", err)
+		log.Fatalf("error running chat: %v", err)
 	}
 
 	fmt.Println("Results:")
