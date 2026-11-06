@@ -919,6 +919,22 @@ func TestAPIErrorFromResponse(t *testing.T) {
 		require.ErrorIs(t, apiErrErr, context.Canceled)
 		require.True(t, body.closed, "the error body must still be closed")
 	})
+
+	t.Run("preserves untruncated UTF-8 in message", func(t *testing.T) {
+		t.Parallel()
+
+		body := "模型未找到"
+		resp := &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     http.Header{},
+		}
+
+		apiErr, apiErrErr := APIErrorFromResponse(resp, http.MethodGet, 0)
+		require.NoError(t, apiErrErr)
+		require.Equal(t, "Not Found: "+body, apiErr.Message)
+		require.Equal(t, body, string(apiErr.Body))
+	})
 }
 
 func TestDo_APIErrorBodyHonorsMaxResponseBodyBytes(t *testing.T) {
