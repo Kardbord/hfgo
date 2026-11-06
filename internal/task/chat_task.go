@@ -66,7 +66,7 @@ func Chat(opts hfopts.Options, req hftypes.ChatRequest) (hftypes.ChatResponse, e
 	}
 	opts = opts.With(hfopts.WithModel(model))
 
-	if err = validateDispatch(opts); err != nil {
+	if err := validateDispatch(opts); err != nil {
 		return hftypes.ChatResponse{}, err
 	}
 
@@ -113,7 +113,7 @@ func ChatStream(opts hfopts.Options, req hftypes.ChatRequest) (*hftypes.ChatStre
 	}
 	opts = opts.With(hfopts.WithModel(model))
 
-	if err = validateDispatch(opts); err != nil {
+	if err := validateDispatch(opts); err != nil {
 		return nil, err
 	}
 

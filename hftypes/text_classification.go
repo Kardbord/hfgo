@@ -24,11 +24,13 @@ type TextClassificationParameters struct {
 	TopK            *int    `json:"top_k,omitempty"`
 }
 
-//nolint:revive // value constants, not configuration keys
 const (
+	// TextClassificationFuncSigmoid applies the sigmoid function to model outputs.
 	TextClassificationFuncSigmoid = "sigmoid"
+	// TextClassificationFuncSoftmax applies the softmax function to model outputs.
 	TextClassificationFuncSoftmax = "softmax"
-	TextClassificationFuncNone    = "none"
+	// TextClassificationFuncNone applies no function to model outputs.
+	TextClassificationFuncNone = "none"
 )
 
 // TextClassification represents a text classification output.

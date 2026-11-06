@@ -180,7 +180,6 @@ func (m WaveSpeedTextToVideoMixin) TextToVideoEndpoint(
 // endpoint-construction time, falling back to the mixin's resolver when used
 // standalone (see [wavespeedInjectAdapterLoras]).
 func (m WaveSpeedTextToVideoMixin) TextToVideoCodec() TextToVideoCodec {
-	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return wavespeedTextToVideoCodec{wavespeedAsyncCodec{queueTaskCodec{
 		defaults:    wavespeedDefaultPollTiming(),
 		mediaPrefix: "video/",
@@ -215,7 +214,6 @@ func (m WaveSpeedTextToImageMixin) TextToImageEndpoint(
 // endpoint-construction time, falling back to the mixin's resolver when used
 // standalone (see [wavespeedInjectAdapterLoras]).
 func (m WaveSpeedTextToImageMixin) TextToImageCodec() TextToImageCodec {
-	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return wavespeedTextToImageCodec{wavespeedAsyncCodec{queueTaskCodec{
 		defaults:    wavespeedDefaultPollTiming(),
 		mediaPrefix: "image/",
@@ -250,7 +248,6 @@ func (m WaveSpeedImageToImageMixin) ImageToImageEndpoint(
 // endpoint-construction time, falling back to the mixin's resolver when used
 // standalone (see [wavespeedInjectAdapterLoras]).
 func (m WaveSpeedImageToImageMixin) ImageToImageCodec() ImageToImageCodec {
-	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return wavespeedImageToImageCodec{wavespeedAsyncCodec{queueTaskCodec{
 		defaults:    wavespeedDefaultPollTiming(),
 		mediaPrefix: "image/",
