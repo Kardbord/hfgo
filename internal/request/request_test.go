@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfgoversion"
@@ -825,6 +826,29 @@ func TestAPIErrorFromResponse(t *testing.T) {
 		wantMessage := http.StatusText(http.StatusNotFound) + ": " +
 			fullBody[:apiErrorMessageCapBytes] + "... (truncated)"
 		require.Equal(t, wantMessage, apiErr.Message)
+		require.Equal(t, fullBody, string(apiErr.Body))
+	})
+
+	t.Run("message truncation backs off to a rune boundary", func(t *testing.T) {
+		t.Parallel()
+
+		// A multi-byte character must never be split mid-sequence in the
+		// message copy: the cap lands inside a 3-byte rune here, so the
+		// trailing continuation bytes are stripped and the message stays
+		// valid UTF-8. Body keeps the full verbatim bytes.
+		fullBody := strings.Repeat("a", apiErrorMessageCapBytes-1) + "€"
+		resp := &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(strings.NewReader(fullBody)),
+			Header:     http.Header{},
+		}
+
+		apiErr, apiErrErr := APIErrorFromResponse(resp, http.MethodGet, 0)
+		require.NoError(t, apiErrErr)
+		wantMessage := http.StatusText(http.StatusNotFound) + ": " +
+			strings.Repeat("a", apiErrorMessageCapBytes-1) + "... (truncated)"
+		require.Equal(t, wantMessage, apiErr.Message)
+		require.True(t, utf8.ValidString(apiErr.Message), "message must be valid UTF-8")
 		require.Equal(t, fullBody, string(apiErr.Body))
 	})
 

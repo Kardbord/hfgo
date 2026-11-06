@@ -253,7 +253,15 @@ func messageBody(body []byte, truncated bool) string {
 		wasTruncated = true
 	}
 	if wasTruncated {
-		for len(filtered) > 0 && !utf8.RuneStart(filtered[len(filtered)-1]) {
+		// Back off to a rune boundary: strip any trailing partial rune,
+		// including the orphan lead byte of a multi-byte character whose
+		// continuation bytes were cut — RuneStart alone would leave that
+		// lead byte behind, producing invalid UTF-8.
+		for len(filtered) > 0 {
+			r, size := utf8.DecodeLastRune(filtered)
+			if r != utf8.RuneError || size != 1 {
+				break
+			}
 			filtered = filtered[:len(filtered)-1]
 		}
 	}
