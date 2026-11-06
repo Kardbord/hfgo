@@ -124,7 +124,7 @@ jobs:
             --packages "./..." \
             -- \
             -tags=integration \
-            -timeout=600s \
+            -timeout=1800s \
             -coverprofile=coverage.out \
             -covermode=atomic
       - name: Upload coverage to Codecov
