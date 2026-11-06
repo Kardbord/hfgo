@@ -97,16 +97,15 @@ func TestTogetherProvider_ChatEndpoint(t *testing.T) {
 
 	// Chat routes through the fixed OpenAI-compatible path, model-in-body:
 	// an empty Model is legal and no mapping is attached.
-	endpoint, err := chat.ChatEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "deepseek-ai/DeepSeek-V4.1-Flash:together",
+	endpoint, err := chat.ChatEndpoint(context.Background(), EndpointParams{
+		Model: "deepseek-ai/DeepSeek-V4.1-Flash:together",
 	})
 	require.NoError(t, err)
 	require.Equal(t, http.MethodPost, endpoint.Method)
 	require.Equal(t, "v1/chat/completions", endpoint.Path)
 	require.Nil(t, endpoint.Mapping)
 
-	endpoint, err = chat.ChatEndpoint(EndpointParams{Context: context.Background()})
+	endpoint, err = chat.ChatEndpoint(context.Background(), EndpointParams{})
 	require.NoError(t, err)
 	require.Equal(t, "v1/chat/completions", endpoint.Path)
 
@@ -131,8 +130,7 @@ func TestTogetherChatCodec_ResponseFormatRewrite(t *testing.T) {
 	encode := func(t *testing.T, req hftypes.ChatRequest) map[string]json.RawMessage {
 		t.Helper()
 
-		body, _, err := codec.Encode(EncodeParams[hftypes.ChatRequest]{
-			Context: context.Background(),
+		body, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.ChatRequest]{
 			Request: req,
 		})
 		require.NoError(t, err)
@@ -284,8 +282,7 @@ func TestTogetherChatCodec_ResponseFormatRewrite(t *testing.T) {
 			Type: hftypes.ResponseFormatTypeJSONSchema,
 		}
 
-		_, _, err := codec.Encode(EncodeParams[hftypes.ChatRequest]{
-			Context: context.Background(),
+		_, _, err := codec.Encode(context.Background(), EncodeParams[hftypes.ChatRequest]{
 			Request: req,
 		})
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
@@ -363,10 +360,12 @@ func TestTogetherChatCodec_EncodeProviderParams(t *testing.T) {
 			},
 		}
 
-		body, _, err := togetherChatCodec{}.Encode(EncodeParams[hftypes.ChatRequest]{
-			Context: context.Background(),
-			Request: req,
-		})
+		body, _, err := togetherChatCodec{}.Encode(
+			context.Background(),
+			EncodeParams[hftypes.ChatRequest]{
+				Request: req,
+			},
+		)
 		require.NoError(t, err)
 
 		var fields map[string]json.RawMessage
@@ -385,10 +384,12 @@ func TestTogetherChatCodec_EncodeProviderParams(t *testing.T) {
 		req := newRequest()
 		req.Stream = new(true)
 
-		body, _, err := togetherChatStreamCodec{}.Encode(EncodeParams[hftypes.ChatRequest]{
-			Context: context.Background(),
-			Request: req,
-		})
+		body, _, err := togetherChatStreamCodec{}.Encode(
+			context.Background(),
+			EncodeParams[hftypes.ChatRequest]{
+				Request: req,
+			},
+		)
 		require.NoError(t, err)
 
 		var fields map[string]json.RawMessage
@@ -415,8 +416,7 @@ func TestTogetherChatCodec_UnaryDecode(t *testing.T) {
 	)
 
 	codec := togetherChatCodec{}
-	resp, err := codec.Decode(DecodeParams{
-		Context: context.Background(),
+	resp, err := codec.Decode(context.Background(), DecodeParams{
 		Body:    body,
 		Headers: headers,
 	})
@@ -428,7 +428,8 @@ func TestTogetherChatCodec_UnaryDecode(t *testing.T) {
 	// The rewritten request must still round-trip through the shared types:
 	// decode parity with JSONCodec for the same body.
 	reference, err := (JSONCodec[hftypes.ChatRequest, hftypes.ChatResponse]{}).Decode(
-		DecodeParams{Context: context.Background(), Body: body, Headers: headers},
+		context.Background(),
+		DecodeParams{Body: body, Headers: headers},
 	)
 	require.NoError(t, err)
 	require.Equal(t, reference, resp)
@@ -451,8 +452,7 @@ func TestTogetherChatStreamCodec(t *testing.T) {
 		},
 	}
 
-	body, headers, err := codec.Encode(EncodeParams[hftypes.ChatRequest]{
-		Context: context.Background(),
+	body, headers, err := codec.Encode(context.Background(), EncodeParams[hftypes.ChatRequest]{
 		Request: req,
 	})
 	require.NoError(t, err)
@@ -469,8 +469,7 @@ func TestTogetherChatStreamCodec(t *testing.T) {
 	headers = http.Header{}
 	headers.Set("Content-Type", "application/json")
 
-	chunk, err := codec.Decode(DecodeParams{
-		Context: context.Background(),
+	chunk, err := codec.Decode(context.Background(), DecodeParams{
 		Body: []byte(
 			`{"id":"gen-2","object":"chat.completion.chunk","created":5,` +
 				`"model":"m","choices":[{"index":0,"delta":{"content":"hi"},"finish_reason":null}]}`,

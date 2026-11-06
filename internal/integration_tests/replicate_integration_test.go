@@ -50,13 +50,12 @@ func TestGenerateImage_ReplicateLiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("black-forest-labs/FLUX.1-dev"),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newReplicateProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
 
 	response := testutils.RetryTransient(ctx, t, func() (hftypes.TextToImageResponse, error) {
-		return client.GenerateImage(hftypes.TextToImageRequest{
+		return client.GenerateImage(ctx, hftypes.TextToImageRequest{
 			Input: "A serene mountain landscape at sunset",
 			Parameters: &hftypes.TextToImageParameters{
 				Width:  new(512),
@@ -87,7 +86,6 @@ func TestGenerateImageToImage_ReplicateLiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(replicateImageToImageModel),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newReplicateProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
@@ -95,7 +93,7 @@ func TestGenerateImageToImage_ReplicateLiveAPI(t *testing.T) {
 	const prompt = "Remove the glasses"
 
 	response := testutils.RetryTransient(ctx, t, func() (hftypes.ImageToImageResponse, error) {
-		return client.GenerateImageToImage(hftypes.ImageToImageRequest{
+		return client.GenerateImageToImage(ctx, hftypes.ImageToImageRequest{
 			Input: replicateTestImageURL,
 			Parameters: &hftypes.ImageToImageParameters{
 				Prompt: new(prompt),
@@ -126,13 +124,12 @@ func TestGenerateVideo_ReplicateLiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("Wan-AI/Wan2.2-T2V-A14B-Diffusers"),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newReplicateProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(64<<20),
 	)
 
 	response := testutils.RetryTransient(ctx, t, func() (hftypes.TextToVideoResponse, error) {
-		return client.GenerateVideo(hftypes.TextToVideoRequest{
+		return client.GenerateVideo(ctx, hftypes.TextToVideoRequest{
 			Input: "A young man walking on the street",
 		})
 	})
@@ -159,14 +156,13 @@ func TestRecognizeSpeech_ReplicateLiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("openai/whisper-large-v3"),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newReplicateProvider(t)),
 	)
 
 	// Replicate passes HTTP(S) audio URLs through unchanged, so the sample
 	// needs no base64 round trip.
 	resp := testutils.RetryTransient(ctx, t, func() (hftypes.SpeechRecognitionResponse, error) {
-		return client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+		return client.RecognizeSpeech(ctx, hftypes.SpeechRecognitionRequest{
 			Input: audioURL,
 		})
 	})

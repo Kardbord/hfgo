@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -54,7 +55,7 @@ func main() {
 
 	// The SDK runs Replicate's prediction exchange (wait, poll, download)
 	// before returning the generated image.
-	image, err := client.GenerateImageToImage(hftypes.ImageToImageRequest{
+	image, err := client.GenerateImageToImage(context.Background(), hftypes.ImageToImageRequest{
 		Input: inputImage,
 		Parameters: &hftypes.ImageToImageParameters{
 			Prompt: new(prompt),

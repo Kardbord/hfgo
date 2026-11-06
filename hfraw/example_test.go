@@ -67,6 +67,7 @@ func Example() {
 	)
 
 	resp, err := client.Do(
+		context.Background(),
 		[]byte(`{"input":"hello"}`),
 		http.MethodPost,
 		"custom/endpoint",
@@ -105,6 +106,7 @@ func ExampleClient_DoRaw() {
 	)
 
 	resp, err := client.DoRaw(
+		context.Background(),
 		[]byte(`{"input":"hello"}`),
 		http.MethodPost,
 		"custom/endpoint",
@@ -138,6 +140,7 @@ func ExampleClient_DoReader() {
 	)
 
 	resp, err := client.DoReader(
+		context.Background(),
 		strings.NewReader(`{"input":"hello"}`),
 		http.MethodPost,
 		"custom/endpoint",
@@ -175,6 +178,7 @@ func ExampleClient_DoRawReader() {
 	)
 
 	resp, err := client.DoRawReader(
+		context.Background(),
 		strings.NewReader(`{"input":"hello"}`),
 		http.MethodPost,
 		"custom/endpoint",
@@ -216,6 +220,7 @@ func ExampleClient_Do_customHeader() {
 	)
 
 	resp, err := client.Do(
+		context.Background(),
 		[]byte(`{"input":"hello"}`),
 		http.MethodPost,
 		"custom/endpoint",
@@ -253,6 +258,7 @@ func ExampleClient_Stream() {
 	)
 
 	stream, err := client.Stream(
+		context.Background(),
 		[]byte(`{"stream":true}`),
 		http.MethodPost,
 		"custom/stream",
@@ -299,6 +305,7 @@ func ExampleClient_StreamReader() {
 	)
 
 	stream, err := client.StreamReader(
+		context.Background(),
 		strings.NewReader(`{"stream":true}`),
 		http.MethodPost,
 		"custom/stream",
@@ -349,6 +356,7 @@ func ExampleClient_Stream_apiError() {
 	// A JSON (non-event-stream) response cannot be consumed as SSE, so the API
 	// error is returned instead of a stream.
 	_, err := client.Stream(
+		context.Background(),
 		[]byte(`{"stream":true}`),
 		http.MethodPost,
 		"custom/stream",

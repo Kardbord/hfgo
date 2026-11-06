@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -31,6 +32,7 @@ func main() {
 
 	// Make the translation request with source and target languages
 	translations, err := client.Translate(
+		context.Background(),
 		hftypes.TranslationRequest{
 			Input: input,
 		},

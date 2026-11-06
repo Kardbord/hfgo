@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -54,7 +55,7 @@ func main() {
 	// result URL until completion, and downloads the generated image.
 	// Provider-specific request parameters that the canonical request types
 	// do not cover ride on ProviderParams.
-	image, err := client.GenerateImage(hftypes.TextToImageRequest{
+	image, err := client.GenerateImage(context.Background(), hftypes.TextToImageRequest{
 		Input: prompt,
 		ProviderParams: map[string]any{
 			"enable_safety_checker": true,

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -37,6 +38,7 @@ func main() {
 	fmt.Println("...")
 
 	response, err := client.Chat(
+		context.Background(),
 		hftypes.ChatRequest{
 			Messages: []hftypes.ChatMessage{{
 				Role: "user",

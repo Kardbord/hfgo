@@ -1,6 +1,7 @@
 package hfproviders
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/Kardbord/hfgo/v4/hftypes"
@@ -121,9 +122,11 @@ type ScalewayFeatureExtractionMixin struct {
 // Scaleway's identifier and returns the router-proxied path for the
 // embeddings endpoint.
 func (m ScalewayFeatureExtractionMixin) FeatureExtractionEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return resolveScalewayEndpoint(
+		ctx,
 		m.Resolver,
 		params,
 		TaskFeatureExtraction,
@@ -135,9 +138,11 @@ func (m ScalewayFeatureExtractionMixin) FeatureExtractionEndpoint(
 // ID to Scaleway's identifier and returns the router-proxied path for the
 // embeddings endpoint. Single and batch requests share the same path.
 func (m ScalewayFeatureExtractionMixin) FeatureExtractionBatchEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return resolveScalewayEndpoint(
+		ctx,
 		m.Resolver,
 		params,
 		TaskFeatureExtraction,
@@ -166,13 +171,14 @@ func (m ScalewayFeatureExtractionMixin) FeatureExtractionPooledBatchCodec() Feat
 // is Scaleway's Hub identifier — the key the Hub's mapping data uses — which
 // is a provider fact, not something the SDK derives.
 func resolveScalewayEndpoint(
+	ctx context.Context,
 	resolver ModelResolver,
 	params EndpointParams,
 	task Task,
 	path string,
 ) (Endpoint, error) {
 	mapping, err := resolveMapping(
-		params.Context,
+		ctx,
 		scalewayProviderName,
 		resolver,
 		nil,
@@ -209,10 +215,11 @@ type scalewayFeatureExtractionCodec struct {
 }
 
 func (c scalewayFeatureExtractionCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.FeatureExtractionRequest],
 ) (body []byte, headers http.Header, err error) {
 	mapping, err := resolveMapping(
-		params.Context,
+		ctx,
 		scalewayProviderName,
 		c.resolver,
 		params.Mapping,
@@ -227,6 +234,7 @@ func (c scalewayFeatureExtractionCodec) Encode(
 }
 
 func (c scalewayFeatureExtractionCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) (hftypes.FeatureExtractionPooledEmbedding, error) {
 	embeddings, err := decodeOpenAIEmbeddings(params)
@@ -249,10 +257,11 @@ type scalewayFeatureExtractionBatchCodec struct {
 }
 
 func (c scalewayFeatureExtractionBatchCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.FeatureExtractionBatchRequest],
 ) (body []byte, headers http.Header, err error) {
 	mapping, err := resolveMapping(
-		params.Context,
+		ctx,
 		scalewayProviderName,
 		c.resolver,
 		params.Mapping,
@@ -267,6 +276,7 @@ func (c scalewayFeatureExtractionBatchCodec) Encode(
 }
 
 func (c scalewayFeatureExtractionBatchCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) ([]hftypes.FeatureExtractionPooledEmbedding, error) {
 	return decodeOpenAIEmbeddings(params)

@@ -175,7 +175,7 @@ func TestMediaSniffingFallback(t *testing.T) {
 // advertised media type from the response.
 func assertImageMediaDecode[Res any](
 	t *testing.T,
-	decode func(DecodeParams) (Res, error),
+	decode func(context.Context, DecodeParams) (Res, error),
 	getPayload func(Res) ([]byte, string),
 ) {
 	t.Helper()
@@ -187,8 +187,7 @@ func assertImageMediaDecode[Res any](
 		headers.Set("Content-Type", "image/png; charset=utf-8")
 		body := []byte{0x89, 'P', 'N', 'G'}
 
-		resp, err := decode(DecodeParams{
-			Context: context.Background(),
+		resp, err := decode(context.Background(), DecodeParams{
 			Body:    body,
 			Headers: headers,
 		})
@@ -205,8 +204,7 @@ func assertImageMediaDecode[Res any](
 		headers := http.Header{}
 		headers.Set("Content-Type", "application/json")
 
-		_, err := decode(DecodeParams{
-			Context: context.Background(),
+		_, err := decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"foo":"bar"}`),
 			Headers: headers,
 		})

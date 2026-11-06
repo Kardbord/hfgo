@@ -72,8 +72,8 @@ the Hugging Face pipeline wire format:
   1 s per poll up to 5 s; transient poll failures are retried, a failed task
   surfaces the provider's error), and downloads the first output. The
   exchange is transparent to callers and is bounded by the request context,
-  so give long-running generations a generous deadline (e.g.
-  `hfopts.WithContext`).
+  so give long-running generations a generous deadline by passing a context
+  with a deadline as the method's first argument.
 
 ### Adapter (LoRA) models
 
@@ -105,7 +105,7 @@ cover every knob WaveSpeed models expose, so every request DTO carries an
 advanced escape hatch for this:
 
 ```go
-image, err := client.GenerateImage(hftypes.TextToImageRequest{
+image, err := client.GenerateImage(context.Background(), hftypes.TextToImageRequest{
 	Input: "A serene mountain landscape at sunset",
 	ProviderParams: map[string]any{
 		"enable_safety_checker": false,
@@ -145,7 +145,7 @@ client := hfgo.NewClient(
 	hfopts.WithMaxResponseBodyBytes(16<<20),
 )
 
-image, err := client.GenerateImage(hftypes.TextToImageRequest{
+image, err := client.GenerateImage(context.Background(), hftypes.TextToImageRequest{
 	Input: "A serene mountain landscape at sunset",
 })
 ```

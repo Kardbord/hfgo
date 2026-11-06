@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -74,7 +75,7 @@ func TestAnswerTableQuestion_ResponseDecoding(t *testing.T) {
 				},
 			}
 
-			result, err := client.AnswerTableQuestion(req)
+			result, err := client.AnswerTableQuestion(context.Background(), req)
 			require.NoError(t, err, tc.description)
 			require.Equal(t, tc.wantAnswer, result.Answer)
 			require.Equal(t, tc.wantCells, result.Cells)
@@ -120,7 +121,7 @@ func TestAnswerTableQuestion_WithParameters(t *testing.T) {
 		},
 	}
 
-	result, err := client.AnswerTableQuestion(req)
+	result, err := client.AnswerTableQuestion(context.Background(), req)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -164,7 +165,7 @@ func TestAnswerTableQuestion_Errors(t *testing.T) {
 		},
 		func(opts ...hfopts.Option) (hftypes.TableQuestionAnswer, error) {
 			return hfgo.NewClient(opts...).
-				AnswerTableQuestion(hftypes.TableQuestionAnsweringRequest{
+				AnswerTableQuestion(context.Background(), hftypes.TableQuestionAnsweringRequest{
 					Input: hftypes.TableQuestionAnsweringInput{
 						Question: "How old is Bob?",
 						Table: map[string][]string{
@@ -199,7 +200,11 @@ func TestAnswerTableQuestion_ModelFromOptions(t *testing.T) {
 		},
 	}
 
-	result, err := client.AnswerTableQuestion(req, hfopts.WithModel("override-model"))
+	result, err := client.AnswerTableQuestion(
+		context.Background(),
+		req,
+		hfopts.WithModel("override-model"),
+	)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 

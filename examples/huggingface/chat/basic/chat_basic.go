@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -38,7 +39,7 @@ func main() {
 	}
 
 	// Send the request and get the response
-	response, err := client.Chat(request)
+	response, err := client.Chat(context.Background(), request)
 	if err != nil {
 		log.Fatalf("Failed to complete chat request: %v", err)
 	}

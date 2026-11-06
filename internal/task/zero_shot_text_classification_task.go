@@ -1,17 +1,23 @@
 package task
 
 import (
+	"context"
+
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
 // ZeroShotClassifyText sends a zero-shot classification request for a single input.
 func ZeroShotClassifyText(
+	ctx context.Context,
 	opts hfopts.Options,
 	req hftypes.ZeroShotTextClassificationRequest,
 ) ([]hftypes.ZeroShotTextClassification, error) {
+	ctx = utils.NormalizeContext(ctx)
+
 	if err := validateDispatch(opts); err != nil {
 		return nil, err
 	}
@@ -31,9 +37,8 @@ func ZeroShotClassifyText(
 		return nil, err
 	}
 
-	endpoint, err := prov.ZeroShotTextClassificationEndpoint(hfproviders.EndpointParams{
-		Context: opts.Context(),
-		Model:   opts.Model,
+	endpoint, err := prov.ZeroShotTextClassificationEndpoint(ctx, hfproviders.EndpointParams{
+		Model: opts.Model,
 	})
 	if err != nil {
 		return nil, &hferrors.SDKError{
@@ -43,5 +48,5 @@ func ZeroShotClassifyText(
 		}
 	}
 
-	return doInference(opts, endpoint, prov.ZeroShotTextClassificationCodec(), req)
+	return doInference(ctx, opts, endpoint, prov.ZeroShotTextClassificationCodec(), req)
 }

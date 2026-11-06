@@ -1,7 +1,6 @@
 package hfopts
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
@@ -47,9 +46,6 @@ type Options struct {
 	// line and the accumulated event payload. Values <= 0 fall back to
 	// DefaultMaxResponseBodyBytes.
 	MaxResponseBodyBytes int64
-
-	//nolint:containedctx // The context is stored here so that it can be used in request options.
-	ctx context.Context
 }
 
 // NewOptions returns an Options value initialized with sensible defaults.
@@ -65,22 +61,12 @@ func NewOptions() Options {
 		Headers:              nil,
 		HTTPClient:           &defaultClient,
 		MaxResponseBodyBytes: DefaultMaxResponseBodyBytes,
-		ctx:                  context.Background(),
 	}
 }
 
 // DefaultHTTPClient returns a fresh default HTTP client value.
 func DefaultHTTPClient() http.Client {
 	return http.Client{}
-}
-
-// Context returns the request-scoped context, defaulting to context.Background().
-func (o Options) Context() context.Context {
-	if o.ctx != nil {
-		return o.ctx
-	}
-
-	return context.Background()
 }
 
 // With returns a new Options value with the provided options applied.
@@ -210,13 +196,6 @@ func WithMaxResponseBodyBytes(maxBytes int64) Option {
 			return
 		}
 		cfg.MaxResponseBodyBytes = maxBytes
-	}
-}
-
-// WithContext sets the request-scoped context. Nil falls back to context.Background().
-func WithContext(ctx context.Context) Option {
-	return func(cfg *Options) {
-		cfg.ctx = utils.NormalizeContext(ctx)
 	}
 }
 

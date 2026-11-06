@@ -1,6 +1,7 @@
 package hfproviders
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -156,6 +157,7 @@ var (
 type togetherChatCodec struct{}
 
 func (c togetherChatCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.ChatRequest],
 ) (body []byte, headers http.Header, err error) {
 	inner := hfChatParamsCodec(
@@ -163,7 +165,7 @@ func (c togetherChatCodec) Encode(
 		chatRequestProviderParams,
 	)
 
-	body, headers, err = inner.Encode(params)
+	body, headers, err = inner.Encode(ctx, params)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -176,10 +178,13 @@ func (c togetherChatCodec) Encode(
 	return body, headers, nil
 }
 
-func (c togetherChatCodec) Decode(params DecodeParams) (hftypes.ChatResponse, error) {
+func (c togetherChatCodec) Decode(
+	ctx context.Context,
+	params DecodeParams,
+) (hftypes.ChatResponse, error) {
 	inner := JSONCodec[hftypes.ChatRequest, hftypes.ChatResponse]{}
 
-	return inner.Decode(params)
+	return inner.Decode(ctx, params)
 }
 
 // togetherChatStreamCodec is the streaming sibling of [togetherChatCodec]:
@@ -189,6 +194,7 @@ func (c togetherChatCodec) Decode(params DecodeParams) (hftypes.ChatResponse, er
 type togetherChatStreamCodec struct{}
 
 func (c togetherChatStreamCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.ChatRequest],
 ) (body []byte, headers http.Header, err error) {
 	inner := hfChatParamsCodec(
@@ -196,7 +202,7 @@ func (c togetherChatStreamCodec) Encode(
 		chatRequestProviderParams,
 	)
 
-	body, headers, err = inner.Encode(params)
+	body, headers, err = inner.Encode(ctx, params)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -209,8 +215,11 @@ func (c togetherChatStreamCodec) Encode(
 	return body, headers, nil
 }
 
-func (c togetherChatStreamCodec) Decode(params DecodeParams) (hftypes.ChatStreamResponse, error) {
+func (c togetherChatStreamCodec) Decode(
+	ctx context.Context,
+	params DecodeParams,
+) (hftypes.ChatStreamResponse, error) {
 	inner := JSONCodec[hftypes.ChatRequest, hftypes.ChatStreamResponse]{}
 
-	return inner.Decode(params)
+	return inner.Decode(ctx, params)
 }

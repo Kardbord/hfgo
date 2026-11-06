@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -31,7 +32,7 @@ func main() {
 	fmt.Println("Generating image for prompt: " + prompt)
 	fmt.Println("...")
 
-	image, err := client.GenerateImage(hftypes.TextToImageRequest{
+	image, err := client.GenerateImage(context.Background(), hftypes.TextToImageRequest{
 		Input: prompt,
 	})
 	if err != nil {

@@ -31,7 +31,7 @@ func TestClient_Stream_Success(t *testing.T) {
 		),
 	)
 
-	stream, err := client.Stream(nil, http.MethodGet, "/stream")
+	stream, err := client.Stream(context.Background(), nil, http.MethodGet, "/stream")
 	require.NoError(t, err)
 	defer func() { _ = stream.Close() }()
 
@@ -54,7 +54,7 @@ func TestClient_Stream_DoError(t *testing.T) {
 		),
 	)
 
-	_, err := client.Stream(nil, http.MethodGet, "/stream")
+	_, err := client.Stream(context.Background(), nil, http.MethodGet, "/stream")
 	require.Error(t, err)
 }
 
@@ -71,7 +71,7 @@ func TestClient_Do(t *testing.T) {
 			),
 		)
 
-		resp, err := client.Do([]byte(`{"in":1}`), http.MethodPost, "/raw")
+		resp, err := client.Do(context.Background(), []byte(`{"in":1}`), http.MethodPost, "/raw")
 		require.NoError(t, err)
 		defer func() { _ = resp.Body.Close() }()
 
@@ -90,7 +90,7 @@ func TestClient_Do(t *testing.T) {
 			),
 		)
 
-		resp, err := client.Do(nil, http.MethodGet, "/raw")
+		resp, err := client.Do(context.Background(), nil, http.MethodGet, "/raw")
 		require.Error(t, err)
 		require.Nil(t, resp)
 
@@ -110,7 +110,7 @@ func TestClient_DoRaw(t *testing.T) {
 		),
 	)
 
-	resp, err := client.DoRaw(nil, http.MethodGet, "/raw")
+	resp, err := client.DoRaw(context.Background(), nil, http.MethodGet, "/raw")
 	require.NoError(t, err)
 	defer func() { _ = resp.Body.Close() }()
 
@@ -130,7 +130,12 @@ func TestClient_StreamReader(t *testing.T) {
 		),
 	)
 
-	stream, err := client.StreamReader(strings.NewReader("payload"), http.MethodPost, "/stream")
+	stream, err := client.StreamReader(
+		context.Background(),
+		strings.NewReader("payload"),
+		http.MethodPost,
+		"/stream",
+	)
 	require.NoError(t, err)
 	defer func() { _ = stream.Close() }()
 
@@ -153,6 +158,7 @@ func TestClient_Stream_SSELimitUsesPerCallOption(t *testing.T) {
 	)
 
 	stream, err := client.Stream(
+		context.Background(),
 		nil,
 		http.MethodGet,
 		"/stream",
@@ -193,7 +199,7 @@ func TestClient_Stream_NonSSEError(t *testing.T) {
 		),
 	)
 
-	stream, err := client.Stream(nil, http.MethodPost, "/stream")
+	stream, err := client.Stream(context.Background(), nil, http.MethodPost, "/stream")
 	require.Error(t, err)
 	require.Nil(t, stream)
 
@@ -219,6 +225,7 @@ func TestClient_StreamReader_NonSSEError(t *testing.T) {
 	)
 
 	stream, err := client.StreamReader(
+		context.Background(),
 		strings.NewReader("payload"),
 		http.MethodPost,
 		"/stream",
@@ -245,7 +252,7 @@ func TestClient_Stream_NonSSE2xx(t *testing.T) {
 		),
 	)
 
-	stream, err := client.Stream(nil, http.MethodGet, "/stream")
+	stream, err := client.Stream(context.Background(), nil, http.MethodGet, "/stream")
 	require.Error(t, err)
 	require.Nil(t, stream)
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
@@ -269,7 +276,7 @@ func TestClient_StreamReader_NonSSE2xx(t *testing.T) {
 		),
 	)
 
-	stream, err := client.StreamReader(nil, http.MethodGet, "/stream")
+	stream, err := client.StreamReader(context.Background(), nil, http.MethodGet, "/stream")
 	require.Error(t, err)
 	require.Nil(t, stream)
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
@@ -298,6 +305,7 @@ func TestClient_StreamReader_NonSSE2xx_UsesPerCallBodyLimit(t *testing.T) {
 	)
 
 	stream, err := client.StreamReader(
+		context.Background(),
 		nil,
 		http.MethodGet,
 		"/stream",
@@ -326,7 +334,7 @@ func TestStream_StatusCodeAndHeader(t *testing.T) {
 		),
 	)
 
-	stream, err := client.Stream(nil, http.MethodGet, "/stream")
+	stream, err := client.Stream(context.Background(), nil, http.MethodGet, "/stream")
 	require.NoError(t, err)
 	defer func() { _ = stream.Close() }()
 

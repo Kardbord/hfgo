@@ -30,14 +30,13 @@ func TestFeatureExtractionPooled_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	resp := testutils.RetryTransient(
 		ctx,
 		t,
 		func() (hftypes.FeatureExtractionPooledEmbedding, error) {
-			return client.ExtractPooledFeatures(
+			return client.ExtractPooledFeatures(ctx,
 				hftypes.FeatureExtractionRequest{
 					Input: "What is the capital of France?",
 				},
@@ -64,7 +63,6 @@ func TestFeatureExtractionPooledBatch_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	inputs := []string{
@@ -76,7 +74,7 @@ func TestFeatureExtractionPooledBatch_LiveAPI(t *testing.T) {
 		ctx,
 		t,
 		func() ([]hftypes.FeatureExtractionPooledEmbedding, error) {
-			return client.ExtractPooledFeaturesBatch(
+			return client.ExtractPooledFeaturesBatch(ctx,
 				hftypes.FeatureExtractionBatchRequest{
 					Inputs: inputs,
 				},
@@ -108,7 +106,6 @@ func TestFeatureExtractionPooled_WithParameters(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	normalize := true
@@ -118,7 +115,7 @@ func TestFeatureExtractionPooled_WithParameters(t *testing.T) {
 		ctx,
 		t,
 		func() (hftypes.FeatureExtractionPooledEmbedding, error) {
-			return client.ExtractPooledFeatures(
+			return client.ExtractPooledFeatures(ctx,
 				hftypes.FeatureExtractionRequest{
 					Input: "The capital of France is Paris, a city on the Seine.",
 					Parameters: &hftypes.FeatureExtractionParameters{
@@ -148,10 +145,9 @@ func TestFeatureExtractionPooled_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("BAAI/bge-small-en-v1.5"),
-		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.ExtractPooledFeatures(
+	resp, err := client.ExtractPooledFeatures(ctx,
 		hftypes.FeatureExtractionRequest{
 			Input: "What is the capital of France?",
 		},
@@ -176,7 +172,6 @@ func TestFeatureExtractionPooledBatch_WithParameters(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	normalize := true
@@ -186,7 +181,7 @@ func TestFeatureExtractionPooledBatch_WithParameters(t *testing.T) {
 		ctx,
 		t,
 		func() ([]hftypes.FeatureExtractionPooledEmbedding, error) {
-			return client.ExtractPooledFeaturesBatch(
+			return client.ExtractPooledFeaturesBatch(ctx,
 				hftypes.FeatureExtractionBatchRequest{
 					Inputs: []string{
 						"The weather is nice today.",
@@ -224,10 +219,9 @@ func TestFeatureExtractionPooledBatch_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("BAAI/bge-small-en-v1.5"),
-		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.ExtractPooledFeaturesBatch(
+	resp, err := client.ExtractPooledFeaturesBatch(ctx,
 		hftypes.FeatureExtractionBatchRequest{
 			Inputs: []string{"The weather is nice today.", "I love programming in Go."},
 		},
@@ -252,14 +246,13 @@ func TestFeatureExtractionToken_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	resp := testutils.RetryTransient(
 		ctx,
 		t,
 		func() (hftypes.FeatureExtractionTokenEmbeddings, error) {
-			return client.ExtractTokenFeatures(
+			return client.ExtractTokenFeatures(ctx,
 				hftypes.FeatureExtractionRequest{
 					Input: "Transformers is an awesome library!",
 				},
@@ -291,14 +284,13 @@ func TestFeatureExtractionToken_BatchLiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	resp := testutils.RetryTransient(
 		ctx,
 		t,
 		func() ([]hftypes.FeatureExtractionTokenEmbeddings, error) {
-			return client.ExtractTokenFeaturesBatch(
+			return client.ExtractTokenFeaturesBatch(ctx,
 				hftypes.FeatureExtractionBatchRequest{
 					Inputs: []string{
 						"Transformers is an awesome library!",

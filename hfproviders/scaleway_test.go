@@ -55,31 +55,29 @@ func TestScalewayProvider_ZeroValueIsSafe(t *testing.T) {
 
 	var provider ScalewayProvider
 
-	_, err := provider.FeatureExtractionEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err := provider.FeatureExtractionEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
-	_, err = provider.FeatureExtractionBatchEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err = provider.FeatureExtractionBatchEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
 	var featureMixin ScalewayFeatureExtractionMixin
 
 	_, _, err = featureMixin.FeatureExtractionPooledCodec().Encode(
+		context.Background(),
 		EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Model:   "any-model",
+			Model: "any-model",
 		})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
 	_, _, err = featureMixin.FeatureExtractionPooledBatchCodec().Encode(
+		context.Background(),
 		EncodeParams[hftypes.FeatureExtractionBatchRequest]{
-			Context: context.Background(),
-			Model:   "any-model",
+			Model: "any-model",
 		})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
@@ -217,13 +215,15 @@ func TestScalewayFeatureExtractionBatchCodec_Encode(t *testing.T) {
 	provider := newScalewayProvider(t)
 	codec := provider.FeatureExtractionPooledBatchCodec()
 
-	body, _, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionBatchRequest]{
-		Context: context.Background(),
-		Request: hftypes.FeatureExtractionBatchRequest{
-			Inputs: []string{"first input", "second input"},
+	body, _, err := codec.Encode(
+		context.Background(),
+		EncodeParams[hftypes.FeatureExtractionBatchRequest]{
+			Request: hftypes.FeatureExtractionBatchRequest{
+				Inputs: []string{"first input", "second input"},
+			},
+			Model: scalewayEmbedModel,
 		},
-		Model: scalewayEmbedModel,
-	})
+	)
 	require.NoError(t, err)
 	require.JSONEq(
 		t,
@@ -261,9 +261,8 @@ func TestScalewayMixin_SubsetProvider(t *testing.T) {
 	pooled, err := AsProvider[FeatureExtractionPooledProvider](provider)
 	require.NoError(t, err)
 
-	endpoint, err := pooled.FeatureExtractionEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   scalewayEmbedModel,
+	endpoint, err := pooled.FeatureExtractionEndpoint(context.Background(), EndpointParams{
+		Model: scalewayEmbedModel,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "scaleway/v1/embeddings", endpoint.Path)
@@ -318,18 +317,16 @@ func TestScalewayEndpoint_ResolverErrorsPropagate(t *testing.T) {
 	feature, err := AsProvider[FeatureExtractionPooledProvider](provider)
 	require.NoError(t, err)
 
-	_, err = feature.FeatureExtractionEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   scalewayEmbedModel,
+	_, err = feature.FeatureExtractionEndpoint(context.Background(), EndpointParams{
+		Model: scalewayEmbedModel,
 	})
 	require.ErrorContains(t, err, "resolver outage")
 
 	batch, err := AsProvider[FeatureExtractionPooledBatchProvider](provider)
 	require.NoError(t, err)
 
-	_, err = batch.FeatureExtractionBatchEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   scalewayEmbedModel,
+	_, err = batch.FeatureExtractionBatchEndpoint(context.Background(), EndpointParams{
+		Model: scalewayEmbedModel,
 	})
 	require.ErrorContains(t, err, "resolver outage")
 }
@@ -343,16 +340,16 @@ func TestScalewayCodec_ResolverErrorsPropagate(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = provider.FeatureExtractionPooledCodec().Encode(
+		context.Background(),
 		EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
 			Request: hftypes.FeatureExtractionRequest{Input: "hello"},
 			Model:   scalewayEmbedModel,
 		})
 	require.ErrorContains(t, err, "resolver outage")
 
 	_, _, err = provider.FeatureExtractionPooledBatchCodec().Encode(
+		context.Background(),
 		EncodeParams[hftypes.FeatureExtractionBatchRequest]{
-			Context: context.Background(),
 			Request: hftypes.FeatureExtractionBatchRequest{Inputs: []string{"hello"}},
 			Model:   scalewayEmbedModel,
 		})

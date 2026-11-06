@@ -63,7 +63,7 @@ func main() {
 	ctx := context.Background()
 
 	// Send the streaming request
-	stream, err := client.ChatStream(request, hfopts.WithContext(ctx))
+	stream, err := client.ChatStream(ctx, request)
 	if err != nil {
 		log.Fatalf("Failed to start streaming chat request: %v", err)
 	}

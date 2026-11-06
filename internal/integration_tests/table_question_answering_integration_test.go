@@ -29,11 +29,10 @@ func TestTableQuestionAnswering_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	resp := testutils.RetryTransient(ctx, t, func() (hftypes.TableQuestionAnswer, error) {
-		return client.AnswerTableQuestion(
+		return client.AnswerTableQuestion(ctx,
 			hftypes.TableQuestionAnsweringRequest{
 				Input: hftypes.TableQuestionAnsweringInput{
 					Question: "How old is Bob?",
@@ -67,14 +66,13 @@ func TestTableQuestionAnswering_WithParameters(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	padding := hftypes.TableQuestionAnsweringPaddingMaxLength
 	sequential := false
 	truncation := true
 	resp := testutils.RetryTransient(ctx, t, func() (hftypes.TableQuestionAnswer, error) {
-		return client.AnswerTableQuestion(
+		return client.AnswerTableQuestion(ctx,
 			hftypes.TableQuestionAnsweringRequest{
 				Input: hftypes.TableQuestionAnsweringInput{
 					Question: "What is the most expensive product?",
@@ -109,10 +107,9 @@ func TestTableQuestionAnswering_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("google/tapas-base-finetuned-wtq"),
-		hfopts.WithContext(ctx),
 	)
 
-	_, err := client.AnswerTableQuestion(
+	_, err := client.AnswerTableQuestion(ctx,
 		hftypes.TableQuestionAnsweringRequest{
 			Input: hftypes.TableQuestionAnsweringInput{
 				Question: "How old is Bob?",

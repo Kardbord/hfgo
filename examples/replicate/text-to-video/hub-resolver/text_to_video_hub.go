@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -40,8 +41,8 @@ func main() {
 	// routinely outlasts Replicate's "Prefer: wait" window — cold-started
 	// models keep the prediction running for minutes — so the SDK polls
 	// past it; the whole exchange is bounded by the request context, so
-	// pass a generous deadline with hfopts.WithContext when the default is
-	// too tight.
+	// pass a generous deadline via that context (e.g. one derived with
+	// context.WithTimeout) when the default is too tight.
 	client := hfgo.NewClient(
 		hfopts.WithToken(token),
 		hfopts.WithModel("Wan-AI/Wan2.2-T2V-A14B-Diffusers"),
@@ -57,7 +58,7 @@ func main() {
 	// before returning the generated video. Provider-specific request
 	// parameters that the canonical request types do not cover ride on
 	// ProviderParams.
-	video, err := client.GenerateVideo(hftypes.TextToVideoRequest{
+	video, err := client.GenerateVideo(context.Background(), hftypes.TextToVideoRequest{
 		Input: prompt,
 	})
 	if err != nil {

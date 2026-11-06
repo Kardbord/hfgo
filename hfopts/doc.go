@@ -6,9 +6,13 @@
 // so the public API and the internal request plumbing can share one
 // implementation without import cycles or re-exports.
 //
-// Common options include [WithToken], [WithModel], [WithBaseURL], [WithContext],
+// Common options include [WithToken], [WithModel], [WithBaseURL],
 // [WithHeader], and [WithProvider]. Use [WithDefaultProvider] and
 // [WithDefaultHTTPClient] to restore the built-in defaults.
+//
+// Request contexts are not options: every client method takes a
+// context.Context as its first argument, so deadlines and cancellation
+// signals are scoped to a single call rather than stored in configuration.
 //
 // # Precedence
 //

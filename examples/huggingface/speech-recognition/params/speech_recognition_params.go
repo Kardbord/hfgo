@@ -37,7 +37,7 @@ func main() {
 		log.Fatal("Failed to retrieve audio: " + err.Error())
 	}
 
-	resp, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+	resp, err := client.RecognizeSpeech(context.Background(), hftypes.SpeechRecognitionRequest{
 		Input: audioInput,
 		Parameters: &hftypes.SpeechRecognitionParameters{
 			ReturnTimestamps: new(true),

@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"testing"
@@ -57,9 +58,12 @@ func TestRecognizeSpeech_RawBody(t *testing.T) {
 				hfopts.WithModel("test-model"),
 			)
 
-			resp, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
-				Input: testAudioBase64,
-			})
+			resp, err := client.RecognizeSpeech(
+				context.Background(),
+				hftypes.SpeechRecognitionRequest{
+					Input: testAudioBase64,
+				},
+			)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, resp, tc.description)
 			require.Equal(t, tc.wantText, resp.Text)
@@ -91,7 +95,7 @@ func TestRecognizeSpeech_JSONBodyWithParams(t *testing.T) {
 		hfopts.WithModel("test-model"),
 	)
 
-	resp, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+	resp, err := client.RecognizeSpeech(context.Background(), hftypes.SpeechRecognitionRequest{
 		Input: testAudioBase64,
 		Parameters: &hftypes.SpeechRecognitionParameters{
 			ReturnTimestamps: new(true),
@@ -142,9 +146,10 @@ func TestRecognizeSpeech_Errors(t *testing.T) {
 			},
 		},
 		func(opts ...hfopts.Option) (hftypes.SpeechRecognitionResponse, error) {
-			return hfgo.NewClient(opts...).RecognizeSpeech(hftypes.SpeechRecognitionRequest{
-				Input: testAudioBase64,
-			})
+			return hfgo.NewClient(opts...).
+				RecognizeSpeech(context.Background(), hftypes.SpeechRecognitionRequest{
+					Input: testAudioBase64,
+				})
 		},
 	)
 }
@@ -154,7 +159,7 @@ func TestRecognizeSpeech_InvalidBase64(t *testing.T) {
 
 	client := hfgo.NewClient(hfopts.WithModel("test-model"))
 
-	_, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+	_, err := client.RecognizeSpeech(context.Background(), hftypes.SpeechRecognitionRequest{
 		Input: "!!!not-valid-base64!!!",
 	})
 	require.Error(t, err)
@@ -176,6 +181,7 @@ func TestRecognizeSpeech_ContentTypeOverride(t *testing.T) {
 	)
 
 	_, err := client.RecognizeSpeech(
+		context.Background(),
 		hftypes.SpeechRecognitionRequest{Input: "AAAA"},
 		hfopts.WithHeader("Content-Type", "audio/wav"),
 	)

@@ -203,6 +203,7 @@ func (p ReplicateProvider) ProviderSuffix() string {
 // resolver is Replicate's Hub identifier — the key the Hub's mapping data
 // uses — which is a provider fact, not something the SDK derives.
 func resolveReplicateEndpoint(
+	ctx context.Context,
 	resolver ModelResolver,
 	params EndpointParams,
 	task Task,
@@ -211,7 +212,7 @@ func resolveReplicateEndpoint(
 		return Endpoint{}, errNilResolver(replicateProviderName)
 	}
 
-	mapping, err := resolver.ResolveModel(params.Context, ResolveModelParams{
+	mapping, err := resolver.ResolveModel(ctx, ResolveModelParams{
 		Provider: replicateProviderName,
 		Task:     task,
 		Model:    params.Model,
@@ -258,9 +259,10 @@ type ReplicateTextToImageMixin struct {
 // Replicate's identifier and returns the router-proxied prediction route
 // for it.
 func (m ReplicateTextToImageMixin) TextToImageEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
-	return resolveReplicateEndpoint(m.Resolver, params, TaskTextToImage)
+	return resolveReplicateEndpoint(ctx, m.Resolver, params, TaskTextToImage)
 }
 
 // TextToImageCodec returns the text-to-image codec, which encodes requests
@@ -295,9 +297,10 @@ type ReplicateImageToImageMixin struct {
 // Replicate's identifier and returns the router-proxied prediction route
 // for it.
 func (m ReplicateImageToImageMixin) ImageToImageEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
-	return resolveReplicateEndpoint(m.Resolver, params, TaskImageToImage)
+	return resolveReplicateEndpoint(ctx, m.Resolver, params, TaskImageToImage)
 }
 
 // ImageToImageCodec returns the image-to-image codec, which encodes requests
@@ -332,9 +335,10 @@ type ReplicateTextToVideoMixin struct {
 // Replicate's identifier and returns the router-proxied prediction route
 // for it.
 func (m ReplicateTextToVideoMixin) TextToVideoEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
-	return resolveReplicateEndpoint(m.Resolver, params, TaskTextToVideo)
+	return resolveReplicateEndpoint(ctx, m.Resolver, params, TaskTextToVideo)
 }
 
 // TextToVideoCodec returns the text-to-video codec, which encodes requests
@@ -369,9 +373,10 @@ type ReplicateSpeechRecognitionMixin struct {
 // to Replicate's identifier and returns the router-proxied prediction route
 // for it.
 func (m ReplicateSpeechRecognitionMixin) SpeechRecognitionEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
-	return resolveReplicateEndpoint(m.Resolver, params, TaskAutomaticSpeechRecognition)
+	return resolveReplicateEndpoint(ctx, m.Resolver, params, TaskAutomaticSpeechRecognition)
 }
 
 // SpeechRecognitionCodec returns the speech-recognition codec, which
@@ -862,6 +867,7 @@ var (
 )
 
 func (c replicateTextToImageCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.TextToImageRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
@@ -872,7 +878,7 @@ func (c replicateTextToImageCodec) Encode(
 	}
 
 	payload, err := replicateEncodePayload(
-		params.Context, params.Mapping, c.resolver, TaskTextToImage, params.Model, input,
+		ctx, params.Mapping, c.resolver, TaskTextToImage, params.Model, input,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -882,6 +888,7 @@ func (c replicateTextToImageCodec) Encode(
 }
 
 func (c replicateTextToImageCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) (hftypes.TextToImageResponse, error) {
 	image, mediaType, err := c.decodeMediaBody(params)
@@ -932,6 +939,7 @@ var (
 )
 
 func (c replicateImageToImageCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.ImageToImageRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
@@ -955,7 +963,7 @@ func (c replicateImageToImageCodec) Encode(
 	}
 
 	payload, err := replicateEncodePayload(
-		params.Context, params.Mapping, c.resolver, TaskImageToImage, params.Model, input,
+		ctx, params.Mapping, c.resolver, TaskImageToImage, params.Model, input,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -965,6 +973,7 @@ func (c replicateImageToImageCodec) Encode(
 }
 
 func (c replicateImageToImageCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) (hftypes.ImageToImageResponse, error) {
 	image, mediaType, err := c.decodeMediaBody(params)
@@ -1014,6 +1023,7 @@ var (
 )
 
 func (c replicateTextToVideoCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.TextToVideoRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
@@ -1024,7 +1034,7 @@ func (c replicateTextToVideoCodec) Encode(
 	}
 
 	payload, err := replicateEncodePayload(
-		params.Context, params.Mapping, c.resolver, TaskTextToVideo, params.Model, input,
+		ctx, params.Mapping, c.resolver, TaskTextToVideo, params.Model, input,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -1034,6 +1044,7 @@ func (c replicateTextToVideoCodec) Encode(
 }
 
 func (c replicateTextToVideoCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) (hftypes.TextToVideoResponse, error) {
 	video, mediaType, err := c.decodeMediaBody(params)
@@ -1084,6 +1095,7 @@ var (
 )
 
 func (c replicateSpeechRecognitionCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.SpeechRecognitionRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
@@ -1099,7 +1111,7 @@ func (c replicateSpeechRecognitionCodec) Encode(
 	}
 
 	payload, err := replicateEncodePayload(
-		params.Context, params.Mapping, c.resolver,
+		ctx, params.Mapping, c.resolver,
 		TaskAutomaticSpeechRecognition, params.Model, input,
 	)
 	if err != nil {
@@ -1110,6 +1122,7 @@ func (c replicateSpeechRecognitionCodec) Encode(
 }
 
 func (c replicateSpeechRecognitionCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) (hftypes.SpeechRecognitionResponse, error) {
 	return replicateDecodeTranscript(params)

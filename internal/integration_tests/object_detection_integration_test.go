@@ -57,11 +57,10 @@ func TestDetectObjects_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ObjectDetection, error) {
-		return client.DetectObjects(hftypes.ObjectDetectionRequest{
+		return client.DetectObjects(ctx, hftypes.ObjectDetectionRequest{
 			Input: detectObjectsInput(t),
 		})
 	})
@@ -95,12 +94,11 @@ func TestDetectObjects_WithThreshold(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	threshold := 0.8
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.ObjectDetection, error) {
-		return client.DetectObjects(hftypes.ObjectDetectionRequest{
+		return client.DetectObjects(ctx, hftypes.ObjectDetectionRequest{
 			Input: detectObjectsInput(t),
 			Parameters: &hftypes.ObjectDetectionParameters{
 				Threshold: &threshold,
@@ -129,12 +127,11 @@ func TestDetectObjects_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("facebook/detr-resnet-50"),
-		hfopts.WithContext(ctx),
 	)
 
 	// Use a minimal inline base64 image (1x1 transparent PNG) so the cancelled
 	// context is exercised immediately, without a preliminary HTTP fetch.
-	resp, err := client.DetectObjects(hftypes.ObjectDetectionRequest{
+	resp, err := client.DetectObjects(ctx, hftypes.ObjectDetectionRequest{
 		Input: testutils.TinyPNGBase64,
 	})
 

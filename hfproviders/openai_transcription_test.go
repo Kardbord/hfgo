@@ -183,7 +183,6 @@ func TestOpenAIDecodeTranscription(t *testing.T) {
 		t.Parallel()
 
 		resp, err := decodeOpenAITranscription(DecodeParams{
-			Context: t.Context(),
 			Body: []byte(
 				`{"text":"hello","segments":[{"id":0,"start":0.5,"end":1.5,"text":"hello"}],` +
 					`"language":"en","duration":1.5}`,
@@ -201,7 +200,6 @@ func TestOpenAIDecodeTranscription(t *testing.T) {
 		t.Parallel()
 
 		_, err := decodeOpenAITranscription(DecodeParams{
-			Context: t.Context(),
 			Body:    []byte(`{"segments":[]}`),
 			Headers: jsonHeaders(ctJSON),
 		})
@@ -215,7 +213,6 @@ func TestOpenAIDecodeTranscription(t *testing.T) {
 		headers.Set("Content-Type", "text/plain")
 
 		_, err := decodeOpenAITranscription(DecodeParams{
-			Context: t.Context(),
 			Body:    []byte(`{"text":"hi"}`),
 			Headers: headers,
 		})
@@ -226,7 +223,6 @@ func TestOpenAIDecodeTranscription(t *testing.T) {
 		t.Parallel()
 
 		_, err := decodeOpenAITranscription(DecodeParams{
-			Context: t.Context(),
 			Body:    []byte("not json"),
 			Headers: jsonHeaders(ctJSON),
 		})

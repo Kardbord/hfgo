@@ -29,11 +29,10 @@ func TestQuestionAnswering_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.QuestionAnswer, error) {
-		return client.AnswerQuestion(
+		return client.AnswerQuestion(ctx,
 			hftypes.QuestionAnsweringRequest{
 				Input: hftypes.QuestionAnsweringInput{
 					Question: "What is the capital of France?",
@@ -86,7 +85,6 @@ func TestQuestionAnswering_TopKResponseFormatQuirk(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	question := "What is the capital of France?"
@@ -95,7 +93,7 @@ func TestQuestionAnswering_TopKResponseFormatQuirk(t *testing.T) {
 	// Test 1: Without top_k (unset) - API returns bare object, SDK normalizes to slice
 	t.Run("without_topk_bare_object", func(t *testing.T) {
 		resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.QuestionAnswer, error) {
-			return client.AnswerQuestion(
+			return client.AnswerQuestion(ctx,
 				hftypes.QuestionAnsweringRequest{
 					Input: hftypes.QuestionAnsweringInput{
 						Question: question,
@@ -120,7 +118,7 @@ func TestQuestionAnswering_TopKResponseFormatQuirk(t *testing.T) {
 	t.Run("with_topk_1_bare_object", func(t *testing.T) {
 		topK := 1
 		resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.QuestionAnswer, error) {
-			return client.AnswerQuestion(
+			return client.AnswerQuestion(ctx,
 				hftypes.QuestionAnsweringRequest{
 					Input: hftypes.QuestionAnsweringInput{
 						Question: question,
@@ -152,7 +150,7 @@ func TestQuestionAnswering_TopKResponseFormatQuirk(t *testing.T) {
 	t.Run("with_topk_3_array", func(t *testing.T) {
 		topK := 3
 		resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.QuestionAnswer, error) {
-			return client.AnswerQuestion(
+			return client.AnswerQuestion(ctx,
 				hftypes.QuestionAnsweringRequest{
 					Input: hftypes.QuestionAnsweringInput{
 						Question: question,
@@ -203,12 +201,11 @@ func TestQuestionAnswering_WithParameters(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	maxAnswerLen := 5
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.QuestionAnswer, error) {
-		return client.AnswerQuestion(
+		return client.AnswerQuestion(ctx,
 			hftypes.QuestionAnsweringRequest{
 				Input: hftypes.QuestionAnsweringInput{
 					Question: "What is the capital of France?",
@@ -246,10 +243,9 @@ func TestQuestionAnswering_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("deepset/roberta-base-squad2"),
-		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.AnswerQuestion(
+	resp, err := client.AnswerQuestion(ctx,
 		hftypes.QuestionAnsweringRequest{
 			Input: hftypes.QuestionAnsweringInput{
 				Question: "What is the capital of France?",

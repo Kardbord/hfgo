@@ -34,7 +34,6 @@ func newScalewayClient(t *testing.T, ctx context.Context, model string) hfgo.Cli
 		hfopts.WithToken(os.Getenv("HF_TOKEN")),
 		hfopts.WithModel(model),
 		hfopts.WithProvider(provider),
-		hfopts.WithContext(ctx),
 	)
 }
 
@@ -51,7 +50,7 @@ func TestChatCompletion_ScalewayLiveAPI(t *testing.T) {
 
 	const text = "Say hello in one sentence."
 	resp := testutils.RetryTransient(ctx, t, func() (hftypes.ChatResponse, error) {
-		return client.Chat(
+		return client.Chat(ctx,
 			hftypes.ChatRequest{
 				Messages: []hftypes.ChatMessage{
 					{
@@ -91,7 +90,7 @@ func TestFeatureExtractionPooled_ScalewayLiveAPI(t *testing.T) {
 		ctx,
 		t,
 		func() (hftypes.FeatureExtractionPooledEmbedding, error) {
-			return client.ExtractPooledFeatures(
+			return client.ExtractPooledFeatures(ctx,
 				hftypes.FeatureExtractionRequest{
 					Input: "What is the capital of France?",
 				},
@@ -123,7 +122,7 @@ func TestFeatureExtractionPooledBatch_ScalewayLiveAPI(t *testing.T) {
 		ctx,
 		t,
 		func() ([]hftypes.FeatureExtractionPooledEmbedding, error) {
-			return client.ExtractPooledFeaturesBatch(
+			return client.ExtractPooledFeaturesBatch(ctx,
 				hftypes.FeatureExtractionBatchRequest{
 					Inputs: inputs,
 				},

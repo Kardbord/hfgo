@@ -80,21 +80,18 @@ func TestDeepInfraProvider_ZeroValueIsSafe(t *testing.T) {
 
 	var provider DeepInfraProvider
 
-	_, err := provider.SpeechRecognitionEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err := provider.SpeechRecognitionEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
-	_, err = provider.FeatureExtractionEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err = provider.FeatureExtractionEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
-	_, err = provider.FeatureExtractionBatchEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   "any-model",
+	_, err = provider.FeatureExtractionBatchEndpoint(context.Background(), EndpointParams{
+		Model: "any-model",
 	})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
@@ -104,23 +101,23 @@ func TestDeepInfraProvider_ZeroValueIsSafe(t *testing.T) {
 	)
 
 	_, _, err = speechMixin.SpeechRecognitionCodec().Encode(
+		context.Background(),
 		EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
-			Model:   "any-model",
+			Model: "any-model",
 		})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
 	_, _, err = featureMixin.FeatureExtractionPooledCodec().Encode(
+		context.Background(),
 		EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
-			Model:   "any-model",
+			Model: "any-model",
 		})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 
 	_, _, err = featureMixin.FeatureExtractionPooledBatchCodec().Encode(
+		context.Background(),
 		EncodeParams[hftypes.FeatureExtractionBatchRequest]{
-			Context: context.Background(),
-			Model:   "any-model",
+			Model: "any-model",
 		})
 	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 }
@@ -227,9 +224,8 @@ func TestDeepInfraProvider_SpeechRecognitionEndpoint(t *testing.T) {
 	speech, err := AsProvider[SpeechRecognitionProvider](provider)
 	require.NoError(t, err)
 
-	endpoint, err := speech.SpeechRecognitionEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   deepInfraASRModel,
+	endpoint, err := speech.SpeechRecognitionEndpoint(context.Background(), EndpointParams{
+		Model: deepInfraASRModel,
 	})
 	require.NoError(t, err)
 	require.Equal(t, http.MethodPost, endpoint.Method)
@@ -341,17 +337,18 @@ func TestDeepInfraSpeechRecognitionCodec_Encode(t *testing.T) {
 	t.Run("multipart body carries audio, parameters, and model", func(t *testing.T) {
 		t.Parallel()
 
-		body, headers, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
-			Request: hftypes.SpeechRecognitionRequest{
-				Input: base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
-				Parameters: &hftypes.SpeechRecognitionParameters{
-					ReturnTimestamps: new(true),
+		body, headers, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SpeechRecognitionRequest]{
+				Request: hftypes.SpeechRecognitionRequest{
+					Input: base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
+					Parameters: &hftypes.SpeechRecognitionParameters{
+						ReturnTimestamps: new(true),
+					},
+					ProviderParams: map[string]any{"beam_size": 5},
 				},
-				ProviderParams: map[string]any{"beam_size": 5},
-			},
-			Model: deepInfraASRModel,
-		})
+				Model: deepInfraASRModel,
+			})
 		require.NoError(t, err)
 
 		contentType := headers.Get("Content-Type")
@@ -378,13 +375,14 @@ func TestDeepInfraSpeechRecognitionCodec_Encode(t *testing.T) {
 	t.Run("filename follows the sniffed media type", func(t *testing.T) {
 		t.Parallel()
 
-		body, headers, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
-			Request: hftypes.SpeechRecognitionRequest{
-				Input: base64.StdEncoding.EncodeToString([]byte(deepInfraMP3Audio)),
-			},
-			Model: deepInfraASRModel,
-		})
+		body, headers, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SpeechRecognitionRequest]{
+				Request: hftypes.SpeechRecognitionRequest{
+					Input: base64.StdEncoding.EncodeToString([]byte(deepInfraMP3Audio)),
+				},
+				Model: deepInfraASRModel,
+			})
 		require.NoError(t, err)
 
 		parts := deepInfraParseMultipart(t, headers.Get("Content-Type"), body)
@@ -399,14 +397,15 @@ func TestDeepInfraSpeechRecognitionCodec_Encode(t *testing.T) {
 	t.Run("provider parameters cannot override the model", func(t *testing.T) {
 		t.Parallel()
 
-		body, headers, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
-			Request: hftypes.SpeechRecognitionRequest{
-				Input:          base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
-				ProviderParams: map[string]any{"model": "attacker-model"},
-			},
-			Model: deepInfraASRModel,
-		})
+		body, headers, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SpeechRecognitionRequest]{
+				Request: hftypes.SpeechRecognitionRequest{
+					Input:          base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
+					ProviderParams: map[string]any{"model": "attacker-model"},
+				},
+				Model: deepInfraASRModel,
+			})
 		require.NoError(t, err)
 
 		parts := deepInfraParseMultipart(t, headers.Get("Content-Type"), body)
@@ -416,17 +415,18 @@ func TestDeepInfraSpeechRecognitionCodec_Encode(t *testing.T) {
 	t.Run("complex provider parameters JSON-encode", func(t *testing.T) {
 		t.Parallel()
 
-		body, headers, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
-			Request: hftypes.SpeechRecognitionRequest{
-				Input: base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
-				ProviderParams: map[string]any{
-					"options": map[string]any{"a": 1},
-					"strict":  true,
+		body, headers, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SpeechRecognitionRequest]{
+				Request: hftypes.SpeechRecognitionRequest{
+					Input: base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
+					ProviderParams: map[string]any{
+						"options": map[string]any{"a": 1},
+						"strict":  true,
+					},
 				},
-			},
-			Model: deepInfraASRModel,
-		})
+				Model: deepInfraASRModel,
+			})
 		require.NoError(t, err)
 
 		parts := deepInfraParseMultipart(t, headers.Get("Content-Type"), body)
@@ -439,15 +439,16 @@ func TestDeepInfraSpeechRecognitionCodec_Encode(t *testing.T) {
 
 		// jfk.flac-style input: net/http cannot sniff FLAC, so the codec's
 		// explicit "fLaC" check supplies the media type and extension.
-		body, headers, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
-			Request: hftypes.SpeechRecognitionRequest{
-				Input: base64.StdEncoding.EncodeToString(
-					append([]byte("fLaC"), make([]byte, 8)...),
-				),
-			},
-			Model: deepInfraASRModel,
-		})
+		body, headers, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SpeechRecognitionRequest]{
+				Request: hftypes.SpeechRecognitionRequest{
+					Input: base64.StdEncoding.EncodeToString(
+						append([]byte("fLaC"), make([]byte, 8)...),
+					),
+				},
+				Model: deepInfraASRModel,
+			})
 		require.NoError(t, err)
 
 		parts := deepInfraParseMultipart(t, headers.Get("Content-Type"), body)
@@ -459,28 +460,30 @@ func TestDeepInfraSpeechRecognitionCodec_Encode(t *testing.T) {
 	t.Run("unmarshalable provider parameter fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, _, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
-			Request: hftypes.SpeechRecognitionRequest{
-				Input:          base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
-				ProviderParams: map[string]any{"bad": make(chan int)},
-			},
-			Model: deepInfraASRModel,
-		})
+		_, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SpeechRecognitionRequest]{
+				Request: hftypes.SpeechRecognitionRequest{
+					Input:          base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
+					ProviderParams: map[string]any{"bad": make(chan int)},
+				},
+				Model: deepInfraASRModel,
+			})
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
 	})
 
 	t.Run("nil provider parameters are skipped", func(t *testing.T) {
 		t.Parallel()
 
-		body, headers, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
-			Request: hftypes.SpeechRecognitionRequest{
-				Input:          base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
-				ProviderParams: map[string]any{"ignored": nil},
-			},
-			Model: deepInfraASRModel,
-		})
+		body, headers, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SpeechRecognitionRequest]{
+				Request: hftypes.SpeechRecognitionRequest{
+					Input:          base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
+					ProviderParams: map[string]any{"ignored": nil},
+				},
+				Model: deepInfraASRModel,
+			})
 		require.NoError(t, err)
 
 		// Only the file part and the model field survive the nil skip.
@@ -491,11 +494,12 @@ func TestDeepInfraSpeechRecognitionCodec_Encode(t *testing.T) {
 	t.Run("invalid base64 input fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, _, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
-			Request: hftypes.SpeechRecognitionRequest{Input: "not base64!!"},
-			Model:   deepInfraASRModel,
-		})
+		_, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SpeechRecognitionRequest]{
+				Request: hftypes.SpeechRecognitionRequest{Input: "not base64!!"},
+				Model:   deepInfraASRModel,
+			})
 		require.Error(t, err)
 
 		var sdkErr *hferrors.SDKError
@@ -510,16 +514,17 @@ func TestDeepInfraSpeechRecognitionCodec_Encode(t *testing.T) {
 		resolver := &recordingResolver{}
 		codec := DeepInfraSpeechRecognitionMixin{Resolver: resolver}.SpeechRecognitionCodec()
 
-		body, headers, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
-			Request: hftypes.SpeechRecognitionRequest{
-				Input: base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
-			},
-			Model: deepInfraASRModel,
-			Mapping: &ModelMapping{
-				ProviderModelID: "mapped-at-endpoint-construction",
-			},
-		})
+		body, headers, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SpeechRecognitionRequest]{
+				Request: hftypes.SpeechRecognitionRequest{
+					Input: base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
+				},
+				Model: deepInfraASRModel,
+				Mapping: &ModelMapping{
+					ProviderModelID: "mapped-at-endpoint-construction",
+				},
+			})
 		require.NoError(t, err)
 		require.Zero(t, resolver.calls.Load())
 
@@ -536,13 +541,14 @@ func TestDeepInfraSpeechRecognitionCodec_Encode(t *testing.T) {
 
 		codec := DeepInfraSpeechRecognitionMixin{}.SpeechRecognitionCodec()
 
-		_, _, err := codec.Encode(EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
-			Request: hftypes.SpeechRecognitionRequest{
-				Input: base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
-			},
-			Model: deepInfraASRModel,
-		})
+		_, _, err := codec.Encode(
+			context.Background(),
+			EncodeParams[hftypes.SpeechRecognitionRequest]{
+				Request: hftypes.SpeechRecognitionRequest{
+					Input: base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
+				},
+				Model: deepInfraASRModel,
+			})
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	})
 }
@@ -555,8 +561,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Run("transcript only", func(t *testing.T) {
 		t.Parallel()
 
-		resp, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		resp, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"text":"And my soul from out that shadow"}`),
 			Headers: jsonHeaders(ctJSON),
 		})
@@ -569,8 +574,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Run("segments map to chunks and extras ride metadata", func(t *testing.T) {
 		t.Parallel()
 
-		resp, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		resp, err := codec.Decode(context.Background(), DecodeParams{
 			Body: []byte(`{
 				"task": "transcribe",
 				"language": "en",
@@ -611,8 +615,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Run("null segments produce no chunks", func(t *testing.T) {
 		t.Parallel()
 
-		resp, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		resp, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"text":"hi","segments":null}`),
 			Headers: jsonHeaders(ctJSON),
 		})
@@ -624,8 +627,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Run("missing text fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"segments":[]}`),
 			Headers: jsonHeaders(ctJSON),
 		})
@@ -640,8 +642,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Run("null text fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"text":null}`),
 			Headers: jsonHeaders(ctJSON),
 		})
@@ -651,8 +652,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Run("non-string text fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"text":42}`),
 			Headers: jsonHeaders(ctJSON),
 		})
@@ -662,8 +662,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Run("non-array segments fail", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"text":"hi","segments":{}}`),
 			Headers: jsonHeaders(ctJSON),
 		})
@@ -676,8 +675,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 		headers := http.Header{}
 		headers.Set("Content-Type", "text/plain")
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"text":"hi"}`),
 			Headers: headers,
 		})
@@ -687,8 +685,7 @@ func TestDeepInfraSpeechRecognitionCodec_Decode(t *testing.T) {
 	t.Run("malformed body fails", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := codec.Decode(DecodeParams{
-			Context: context.Background(),
+		_, err := codec.Decode(context.Background(), DecodeParams{
 			Body:    []byte("{not json"),
 			Headers: jsonHeaders(ctJSON),
 		})
@@ -720,13 +717,14 @@ func TestDeepInfraFeatureExtractionBatchCodec_Encode(t *testing.T) {
 	provider := newDeepInfraProvider(t)
 	codec := provider.FeatureExtractionPooledBatchCodec()
 
-	body, _, err := codec.Encode(EncodeParams[hftypes.FeatureExtractionBatchRequest]{
-		Context: context.Background(),
-		Request: hftypes.FeatureExtractionBatchRequest{
-			Inputs: []string{"first input", "second input"},
-		},
-		Model: deepInfraEmbedModel,
-	})
+	body, _, err := codec.Encode(
+		context.Background(),
+		EncodeParams[hftypes.FeatureExtractionBatchRequest]{
+			Request: hftypes.FeatureExtractionBatchRequest{
+				Inputs: []string{"first input", "second input"},
+			},
+			Model: deepInfraEmbedModel,
+		})
 	require.NoError(t, err)
 	require.JSONEq(
 		t,
@@ -764,9 +762,8 @@ func TestDeepInfraMixin_SubsetProvider(t *testing.T) {
 	pooled, err := AsProvider[FeatureExtractionPooledProvider](provider)
 	require.NoError(t, err)
 
-	endpoint, err := pooled.FeatureExtractionEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   deepInfraEmbedModel,
+	endpoint, err := pooled.FeatureExtractionEndpoint(context.Background(), EndpointParams{
+		Model: deepInfraEmbedModel,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "deepinfra/v1/openai/embeddings", endpoint.Path)
@@ -818,27 +815,24 @@ func TestDeepInfraEndpoint_ResolverErrorsPropagate(t *testing.T) {
 	speech, err := AsProvider[SpeechRecognitionProvider](provider)
 	require.NoError(t, err)
 
-	_, err = speech.SpeechRecognitionEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   deepInfraASRModel,
+	_, err = speech.SpeechRecognitionEndpoint(context.Background(), EndpointParams{
+		Model: deepInfraASRModel,
 	})
 	require.ErrorContains(t, err, "resolver outage")
 
 	feature, err := AsProvider[FeatureExtractionPooledProvider](provider)
 	require.NoError(t, err)
 
-	_, err = feature.FeatureExtractionEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   deepInfraEmbedModel,
+	_, err = feature.FeatureExtractionEndpoint(context.Background(), EndpointParams{
+		Model: deepInfraEmbedModel,
 	})
 	require.ErrorContains(t, err, "resolver outage")
 
 	batch, err := AsProvider[FeatureExtractionPooledBatchProvider](provider)
 	require.NoError(t, err)
 
-	_, err = batch.FeatureExtractionBatchEndpoint(EndpointParams{
-		Context: context.Background(),
-		Model:   deepInfraEmbedModel,
+	_, err = batch.FeatureExtractionBatchEndpoint(context.Background(), EndpointParams{
+		Model: deepInfraEmbedModel,
 	})
 	require.ErrorContains(t, err, "resolver outage")
 }
@@ -852,8 +846,8 @@ func TestDeepInfraCodec_ResolverErrorsPropagate(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _, err = provider.SpeechRecognitionCodec().Encode(
+		context.Background(),
 		EncodeParams[hftypes.SpeechRecognitionRequest]{
-			Context: context.Background(),
 			Request: hftypes.SpeechRecognitionRequest{
 				Input: base64.StdEncoding.EncodeToString([]byte(deepInfraWAVAudio)),
 			},
@@ -862,8 +856,8 @@ func TestDeepInfraCodec_ResolverErrorsPropagate(t *testing.T) {
 	require.ErrorContains(t, err, "resolver outage")
 
 	_, _, err = provider.FeatureExtractionPooledCodec().Encode(
+		context.Background(),
 		EncodeParams[hftypes.FeatureExtractionRequest]{
-			Context: context.Background(),
 			Request: hftypes.FeatureExtractionRequest{Input: "hello"},
 			Model:   deepInfraEmbedModel,
 		})

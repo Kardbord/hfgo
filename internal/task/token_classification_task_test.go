@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -88,7 +89,7 @@ func TestClassifyTokens_ResponseDecoding(t *testing.T) {
 				Input: "My name is Sarah and I live in London.",
 			}
 
-			result, err := client.ClassifyTokens(req)
+			result, err := client.ClassifyTokens(context.Background(), req)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, result)
 			require.Len(t, result, tc.expectedLen, tc.description)
@@ -138,7 +139,7 @@ func TestClassifyTokens_WithParameters(t *testing.T) {
 		},
 	}
 
-	result, err := client.ClassifyTokens(req)
+	result, err := client.ClassifyTokens(context.Background(), req)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -185,9 +186,10 @@ func TestClassifyTokens_Errors(t *testing.T) {
 			},
 		},
 		func(opts ...hfopts.Option) ([]hftypes.TokenClassification, error) {
-			return hfgo.NewClient(opts...).ClassifyTokens(hftypes.TokenClassificationRequest{
-				Input: "My name is Sarah and I live in London.",
-			})
+			return hfgo.NewClient(opts...).
+				ClassifyTokens(context.Background(), hftypes.TokenClassificationRequest{
+					Input: "My name is Sarah and I live in London.",
+				})
 		},
 	)
 }

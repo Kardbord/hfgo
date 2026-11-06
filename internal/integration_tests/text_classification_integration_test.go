@@ -29,12 +29,11 @@ func TestTextClassification_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	const text = "This product is excellent and I love it!"
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.TextClassification, error) {
-		return client.ClassifyText(
+		return client.ClassifyText(ctx,
 			hftypes.TextClassificationRequest{
 				Input: text,
 			},
@@ -64,13 +63,12 @@ func TestTextClassification_WithParameters(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(model),
-		hfopts.WithContext(ctx),
 	)
 
 	topK := 2
 	function := hftypes.TextClassificationFuncSoftmax
 	resp := testutils.RetryTransient(ctx, t, func() ([]hftypes.TextClassification, error) {
-		return client.ClassifyText(
+		return client.ClassifyText(ctx,
 			hftypes.TextClassificationRequest{
 				Input: "Excellent product!",
 				Parameters: &hftypes.TextClassificationParameters{
@@ -111,10 +109,9 @@ func TestTextClassification_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel("ProsusAI/finbert"),
-		hfopts.WithContext(ctx),
 	)
 
-	resp, err := client.ClassifyText(
+	resp, err := client.ClassifyText(ctx,
 		hftypes.TextClassificationRequest{
 			Input: "This is great!",
 		},

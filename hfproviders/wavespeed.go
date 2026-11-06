@@ -129,6 +129,7 @@ func (p WaveSpeedProvider) ProviderSuffix() string {
 // WaveSpeed's Hub identifier — the key the Hub's mapping data uses — which is
 // a provider fact, not something the SDK derives.
 func resolveWaveSpeedEndpoint(
+	ctx context.Context,
 	resolver ModelResolver,
 	params EndpointParams,
 	task Task,
@@ -137,7 +138,7 @@ func resolveWaveSpeedEndpoint(
 		return Endpoint{}, errNilResolver(wavespeedProviderName)
 	}
 
-	mapping, err := resolver.ResolveModel(params.Context, ResolveModelParams{
+	mapping, err := resolver.ResolveModel(ctx, ResolveModelParams{
 		Provider: wavespeedProviderName,
 		Task:     task,
 		Model:    params.Model,
@@ -168,9 +169,10 @@ type WaveSpeedTextToVideoMixin struct {
 // TextToVideoEndpoint resolves the configured Hugging Face model ID to
 // WaveSpeed's identifier and returns the router-proxied path for it.
 func (m WaveSpeedTextToVideoMixin) TextToVideoEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
-	return resolveWaveSpeedEndpoint(m.Resolver, params, TaskTextToVideo)
+	return resolveWaveSpeedEndpoint(ctx, m.Resolver, params, TaskTextToVideo)
 }
 
 // TextToVideoCodec returns the text-to-video codec, which encodes requests as
@@ -202,9 +204,10 @@ type WaveSpeedTextToImageMixin struct {
 // TextToImageEndpoint resolves the configured Hugging Face model ID to
 // WaveSpeed's identifier and returns the router-proxied path for it.
 func (m WaveSpeedTextToImageMixin) TextToImageEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
-	return resolveWaveSpeedEndpoint(m.Resolver, params, TaskTextToImage)
+	return resolveWaveSpeedEndpoint(ctx, m.Resolver, params, TaskTextToImage)
 }
 
 // TextToImageCodec returns the text-to-image codec, which encodes requests as
@@ -236,9 +239,10 @@ type WaveSpeedImageToImageMixin struct {
 // ImageToImageEndpoint resolves the configured Hugging Face model ID to
 // WaveSpeed's identifier and returns the router-proxied path for it.
 func (m WaveSpeedImageToImageMixin) ImageToImageEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
-	return resolveWaveSpeedEndpoint(m.Resolver, params, TaskImageToImage)
+	return resolveWaveSpeedEndpoint(ctx, m.Resolver, params, TaskImageToImage)
 }
 
 // ImageToImageCodec returns the image-to-image codec, which encodes requests
@@ -612,6 +616,7 @@ var (
 )
 
 func (c wavespeedTextToVideoCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.TextToVideoRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
@@ -623,7 +628,7 @@ func (c wavespeedTextToVideoCodec) Encode(
 		return nil, nil, err
 	}
 	if err := wavespeedInjectAdapterLoras(
-		params.Context, params.Mapping, c.resolver, TaskTextToVideo, params.Model, payload,
+		ctx, params.Mapping, c.resolver, TaskTextToVideo, params.Model, payload,
 	); err != nil {
 		return nil, nil, err
 	}
@@ -637,6 +642,7 @@ func (c wavespeedTextToVideoCodec) Encode(
 }
 
 func (c wavespeedTextToVideoCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) (hftypes.TextToVideoResponse, error) {
 	video, mediaType, err := c.decodeMediaBody(params)
@@ -686,6 +692,7 @@ var (
 )
 
 func (c wavespeedTextToImageCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.TextToImageRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
@@ -697,7 +704,7 @@ func (c wavespeedTextToImageCodec) Encode(
 		return nil, nil, err
 	}
 	if err := wavespeedInjectAdapterLoras(
-		params.Context, params.Mapping, c.resolver, TaskTextToImage, params.Model, payload,
+		ctx, params.Mapping, c.resolver, TaskTextToImage, params.Model, payload,
 	); err != nil {
 		return nil, nil, err
 	}
@@ -711,6 +718,7 @@ func (c wavespeedTextToImageCodec) Encode(
 }
 
 func (c wavespeedTextToImageCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) (hftypes.TextToImageResponse, error) {
 	image, mediaType, err := c.decodeMediaBody(params)
@@ -761,6 +769,7 @@ var (
 )
 
 func (c wavespeedImageToImageCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.ImageToImageRequest],
 ) (body []byte, headers http.Header, err error) {
 	req := params.Request
@@ -781,7 +790,7 @@ func (c wavespeedImageToImageCodec) Encode(
 		return nil, nil, err
 	}
 	if err := wavespeedInjectAdapterLoras(
-		params.Context, params.Mapping, c.resolver, TaskImageToImage, params.Model, payload,
+		ctx, params.Mapping, c.resolver, TaskImageToImage, params.Model, payload,
 	); err != nil {
 		return nil, nil, err
 	}
@@ -795,6 +804,7 @@ func (c wavespeedImageToImageCodec) Encode(
 }
 
 func (c wavespeedImageToImageCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) (hftypes.ImageToImageResponse, error) {
 	image, mediaType, err := c.decodeMediaBody(params)

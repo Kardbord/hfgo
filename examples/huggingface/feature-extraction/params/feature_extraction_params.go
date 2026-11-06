@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -37,6 +38,7 @@ func main() {
 
 	// Make the feature extraction request with parameters
 	embedding, err := client.ExtractPooledFeatures(
+		context.Background(),
 		hftypes.FeatureExtractionRequest{
 			Input:      input,
 			Parameters: &params,

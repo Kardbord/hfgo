@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -31,6 +32,7 @@ func main() {
 
 	// Make the classification request
 	classifications, err := client.ClassifyText(
+		context.Background(),
 		hftypes.TextClassificationRequest{
 			Input: input,
 			Parameters: &hftypes.TextClassificationParameters{

@@ -42,7 +42,7 @@ client := hfgo.NewClient(
 	hfopts.WithProvider(hfproviders.NewPublicAIProvider()),
 )
 
-response, err := client.Chat(hftypes.ChatRequest{
+response, err := client.Chat(context.Background(), hftypes.ChatRequest{
 	Messages: []hftypes.ChatMessage{{
 		Role: "user",
 		Content: hftypes.ChatMessageContent{

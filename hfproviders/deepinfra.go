@@ -2,6 +2,7 @@ package hfproviders
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 
 	"github.com/Kardbord/hfgo/v4/hftypes"
@@ -125,9 +126,11 @@ type DeepInfraSpeechRecognitionMixin struct {
 // DeepInfra's identifier and returns the router-proxied path for the
 // transcription endpoint.
 func (m DeepInfraSpeechRecognitionMixin) SpeechRecognitionEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return resolveDeepInfraEndpoint(
+		ctx,
 		m.Resolver,
 		params,
 		TaskAutomaticSpeechRecognition,
@@ -165,9 +168,11 @@ type DeepInfraFeatureExtractionMixin struct {
 // DeepInfra's identifier and returns the router-proxied path for the
 // embeddings endpoint.
 func (m DeepInfraFeatureExtractionMixin) FeatureExtractionEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return resolveDeepInfraEndpoint(
+		ctx,
 		m.Resolver,
 		params,
 		TaskFeatureExtraction,
@@ -179,9 +184,11 @@ func (m DeepInfraFeatureExtractionMixin) FeatureExtractionEndpoint(
 // ID to DeepInfra's identifier and returns the router-proxied path for the
 // embeddings endpoint. Single and batch requests share the same path.
 func (m DeepInfraFeatureExtractionMixin) FeatureExtractionBatchEndpoint(
+	ctx context.Context,
 	params EndpointParams,
 ) (Endpoint, error) {
 	return resolveDeepInfraEndpoint(
+		ctx,
 		m.Resolver,
 		params,
 		TaskFeatureExtraction,
@@ -210,13 +217,14 @@ func (m DeepInfraFeatureExtractionMixin) FeatureExtractionPooledBatchCodec() Fea
 // is DeepInfra's Hub identifier — the key the Hub's mapping data uses — which
 // is a provider fact, not something the SDK derives.
 func resolveDeepInfraEndpoint(
+	ctx context.Context,
 	resolver ModelResolver,
 	params EndpointParams,
 	task Task,
 	path string,
 ) (Endpoint, error) {
 	mapping, err := resolveMapping(
-		params.Context,
+		ctx,
 		deepinfraProviderName,
 		resolver,
 		nil,
@@ -260,10 +268,11 @@ type deepinfraSpeechRecognitionCodec struct {
 }
 
 func (c deepinfraSpeechRecognitionCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.SpeechRecognitionRequest],
 ) (body []byte, headers http.Header, err error) {
 	mapping, err := resolveMapping(
-		params.Context,
+		ctx,
 		deepinfraProviderName,
 		c.resolver,
 		params.Mapping,
@@ -284,6 +293,7 @@ func (c deepinfraSpeechRecognitionCodec) Encode(
 }
 
 func (c deepinfraSpeechRecognitionCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) (hftypes.SpeechRecognitionResponse, error) {
 	return decodeOpenAITranscription(params)
@@ -301,10 +311,11 @@ type deepinfraFeatureExtractionCodec struct {
 }
 
 func (c deepinfraFeatureExtractionCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.FeatureExtractionRequest],
 ) (body []byte, headers http.Header, err error) {
 	mapping, err := resolveMapping(
-		params.Context,
+		ctx,
 		deepinfraProviderName,
 		c.resolver,
 		params.Mapping,
@@ -319,6 +330,7 @@ func (c deepinfraFeatureExtractionCodec) Encode(
 }
 
 func (c deepinfraFeatureExtractionCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) (hftypes.FeatureExtractionPooledEmbedding, error) {
 	embeddings, err := decodeOpenAIEmbeddings(params)
@@ -341,10 +353,11 @@ type deepinfraFeatureExtractionBatchCodec struct {
 }
 
 func (c deepinfraFeatureExtractionBatchCodec) Encode(
+	ctx context.Context,
 	params EncodeParams[hftypes.FeatureExtractionBatchRequest],
 ) (body []byte, headers http.Header, err error) {
 	mapping, err := resolveMapping(
-		params.Context,
+		ctx,
 		deepinfraProviderName,
 		c.resolver,
 		params.Mapping,
@@ -359,6 +372,7 @@ func (c deepinfraFeatureExtractionBatchCodec) Encode(
 }
 
 func (c deepinfraFeatureExtractionBatchCodec) Decode(
+	_ context.Context,
 	params DecodeParams,
 ) ([]hftypes.FeatureExtractionPooledEmbedding, error) {
 	return decodeOpenAIEmbeddings(params)

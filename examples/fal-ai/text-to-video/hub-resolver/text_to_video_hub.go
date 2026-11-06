@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -38,8 +39,8 @@ func main() {
 	// Fal AI provider. Generated videos are binary and far exceed the
 	// default 1 MiB response cap, so raise it generously. Video generation
 	// can also take several minutes: the queue exchange is bounded by the
-	// request context, so pass a deadline with hfopts.WithContext when the
-	// default is too tight.
+	// request context, so pass a deadline via that context (e.g. one derived
+	// with context.WithTimeout) when the default is too tight.
 	client := hfgo.NewClient(
 		hfopts.WithToken(token),
 		hfopts.WithModel("Wan-AI/Wan2.2-TI2V-5B"),
@@ -54,7 +55,7 @@ func main() {
 	// The SDK runs fal's queue exchange (submit, poll, fetch) and downloads
 	// the generated video. Provider-specific request parameters that the
 	// canonical request types do not cover ride on ProviderParams.
-	video, err := client.GenerateVideo(hftypes.TextToVideoRequest{
+	video, err := client.GenerateVideo(context.Background(), hftypes.TextToVideoRequest{
 		Input: prompt,
 	})
 	if err != nil {

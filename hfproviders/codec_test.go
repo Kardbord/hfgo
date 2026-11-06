@@ -33,8 +33,8 @@ func TestJSONCodec_Encode(t *testing.T) {
 	t.Parallel()
 
 	body, headers, err := JSONCodec[encodeReq, decodeResp]{}.Encode(
+		context.Background(),
 		EncodeParams[encodeReq]{
-			Context: context.Background(),
 			Request: encodeReq{Inputs: "hi"},
 			Model:   "some-model",
 		},
@@ -50,6 +50,7 @@ func TestJSONCodec_EncodeError(t *testing.T) {
 
 	// Channels cannot be marshaled to JSON.
 	_, _, err := JSONCodec[chan int, decodeResp]{}.Encode(
+		context.Background(),
 		EncodeParams[chan int]{Request: make(chan int)},
 	)
 	require.Error(t, err)
@@ -82,6 +83,7 @@ func TestJSONCodec_EncodePreservesSDKError(t *testing.T) {
 	t.Parallel()
 
 	_, _, err := JSONCodec[sdkErrorReq, decodeResp]{}.Encode(
+		context.Background(),
 		EncodeParams[sdkErrorReq]{Request: sdkErrorReq{}},
 	)
 	require.Error(t, err)
@@ -91,7 +93,7 @@ func TestJSONCodec_EncodePreservesSDKError(t *testing.T) {
 func TestJSONCodec_DecodePreservesSDKError(t *testing.T) {
 	t.Parallel()
 
-	_, err := JSONCodec[encodeReq, sdkErrorResp]{}.Decode(DecodeParams{
+	_, err := JSONCodec[encodeReq, sdkErrorResp]{}.Decode(context.Background(), DecodeParams{
 		Headers: jsonHeaders(ctJSON),
 		Body:    []byte(`{}`),
 	})
@@ -107,7 +109,7 @@ func TestJSONCodec_Decode(t *testing.T) {
 	t.Run("valid json", func(t *testing.T) {
 		t.Parallel()
 
-		resp, err := c.Decode(DecodeParams{
+		resp, err := c.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"generated_text":"hello"}`),
 			Headers: jsonHeaders(mimeTypeJSON),
 		})
@@ -118,7 +120,7 @@ func TestJSONCodec_Decode(t *testing.T) {
 	t.Run("json with charset parameter", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := c.Decode(DecodeParams{
+		_, err := c.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"generated_text":"hello"}`),
 			Headers: jsonHeaders(mimeTypeJSON + "; charset=utf-8"),
 		})
@@ -128,7 +130,7 @@ func TestJSONCodec_Decode(t *testing.T) {
 	t.Run("structured plus json suffix", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := c.Decode(DecodeParams{
+		_, err := c.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"generated_text":"hello"}`),
 			Headers: jsonHeaders("application/vnd.api+json"),
 		})
@@ -138,7 +140,7 @@ func TestJSONCodec_Decode(t *testing.T) {
 	t.Run("non-json content type", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := c.Decode(DecodeParams{
+		_, err := c.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"generated_text":"hello"}`),
 			Headers: jsonHeaders("text/plain"),
 		})
@@ -149,7 +151,7 @@ func TestJSONCodec_Decode(t *testing.T) {
 	t.Run("missing content type", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := c.Decode(DecodeParams{Body: []byte(`{}`)})
+		_, err := c.Decode(context.Background(), DecodeParams{Body: []byte(`{}`)})
 		require.Error(t, err)
 		assertSerializationError(t, err)
 	})
@@ -157,7 +159,10 @@ func TestJSONCodec_Decode(t *testing.T) {
 	t.Run("empty body", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := c.Decode(DecodeParams{Body: []byte{}, Headers: jsonHeaders(mimeTypeJSON)})
+		_, err := c.Decode(context.Background(), DecodeParams{
+			Body:    []byte{},
+			Headers: jsonHeaders(mimeTypeJSON),
+		})
 		require.Error(t, err)
 		assertSerializationError(t, err)
 		// The exact wrapping message depends on the Go version: some return
@@ -171,7 +176,7 @@ func TestJSONCodec_Decode(t *testing.T) {
 	t.Run("invalid json surfaces wrapped error", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := c.Decode(DecodeParams{
+		_, err := c.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`not json`),
 			Headers: jsonHeaders(mimeTypeJSON),
 		})
@@ -197,7 +202,7 @@ func TestQuestionAnsweringCodec_Decode(t *testing.T) {
 	t.Run("array response", func(t *testing.T) {
 		t.Parallel()
 
-		answers, err := c.Decode(params(
+		answers, err := c.Decode(context.Background(), params(
 			`[{"answer":"Paris","score":0.9,"start":0,"end":5}]`,
 		))
 		require.NoError(t, err)
@@ -208,7 +213,7 @@ func TestQuestionAnsweringCodec_Decode(t *testing.T) {
 	t.Run("single object response", func(t *testing.T) {
 		t.Parallel()
 
-		answers, err := c.Decode(params(
+		answers, err := c.Decode(context.Background(), params(
 			`{"answer":"Paris","score":0.9,"start":0,"end":5}`,
 		))
 		require.NoError(t, err)
@@ -219,7 +224,7 @@ func TestQuestionAnsweringCodec_Decode(t *testing.T) {
 	t.Run("structured plus json content type accepted", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := c.Decode(DecodeParams{
+		_, err := c.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`{"answer":"Paris","score":0.9,"start":0,"end":5}`),
 			Headers: jsonHeaders("application/vnd.hf+json"),
 		})
@@ -229,7 +234,7 @@ func TestQuestionAnsweringCodec_Decode(t *testing.T) {
 	t.Run("non-json content type rejected", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := c.Decode(DecodeParams{
+		_, err := c.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`[{"answer":"Paris","score":0.9,"start":0,"end":5}]`),
 			Headers: jsonHeaders("text/plain"),
 		})
@@ -241,7 +246,7 @@ func TestQuestionAnsweringCodec_Decode(t *testing.T) {
 	t.Run("unparseable response joins underlying errors", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := c.Decode(params(`not json`))
+		_, err := c.Decode(context.Background(), params(`not json`))
 		require.Error(t, err)
 
 		var sdkErr *hferrors.SDKError
@@ -252,7 +257,7 @@ func TestQuestionAnsweringCodec_Decode(t *testing.T) {
 	t.Run("empty object rejected", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := c.Decode(params(`{}`))
+		_, err := c.Decode(context.Background(), params(`{}`))
 		require.Error(t, err)
 		assertSerializationError(t, err)
 	})
@@ -260,7 +265,7 @@ func TestQuestionAnsweringCodec_Decode(t *testing.T) {
 	t.Run("unrelated object rejected", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := c.Decode(params(`{"error":"model failed"}`))
+		_, err := c.Decode(context.Background(), params(`{"error":"model failed"}`))
 		require.Error(t, err)
 		assertSerializationError(t, err)
 	})
@@ -357,7 +362,7 @@ func TestFeatureExtractionTokenCodec_Decode(t *testing.T) {
 	t.Parallel()
 
 	codec := HuggingFaceFeatureExtractionMixin{}
-	got, err := codec.FeatureExtractionTokenCodec().Decode(DecodeParams{
+	got, err := codec.FeatureExtractionTokenCodec().Decode(context.Background(), DecodeParams{
 		Body:    []byte(`[[0.1,0.2],[0.3,0.4]]`),
 		Headers: jsonHeaders(mimeTypeJSON),
 	})
@@ -369,7 +374,7 @@ func TestFeatureExtractionTokenBatchCodec_Decode(t *testing.T) {
 	t.Parallel()
 
 	codec := HuggingFaceFeatureExtractionMixin{}
-	got, err := codec.FeatureExtractionTokenBatchCodec().Decode(DecodeParams{
+	got, err := codec.FeatureExtractionTokenBatchCodec().Decode(context.Background(), DecodeParams{
 		Body:    []byte(`[[[0.1],[0.2]],[[0.3]]]`),
 		Headers: jsonHeaders(mimeTypeJSON),
 	})
@@ -385,6 +390,7 @@ func TestQuestionAnsweringCodec_EncodePassesHeaders(t *testing.T) {
 	t.Parallel()
 
 	body, headers, err := HuggingFaceQuestionAnsweringMixin{}.QuestionAnsweringCodec().Encode(
+		context.Background(),
 		EncodeParams[hftypes.QuestionAnsweringRequest]{
 			Request: hftypes.QuestionAnsweringRequest{
 				Input: hftypes.QuestionAnsweringInput{Question: "q", Context: "c"},
@@ -401,8 +407,8 @@ func TestTextToImageCodec_Encode(t *testing.T) {
 	t.Parallel()
 
 	body, headers, err := HuggingFaceTextToImageMixin{}.TextToImageCodec().Encode(
+		context.Background(),
 		EncodeParams[hftypes.TextToImageRequest]{
-			Context: context.Background(),
 			Request: hftypes.TextToImageRequest{
 				Input: "a serene mountain landscape at sunset",
 				Parameters: &hftypes.TextToImageParameters{
@@ -487,7 +493,7 @@ func TestTextToImageCodec_Decode(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := c.Decode(DecodeParams{
+			got, err := c.Decode(context.Background(), DecodeParams{
 				Body:    imageBytes,
 				Headers: jsonHeaders(tc.contentType),
 			})
@@ -752,7 +758,7 @@ func TestTextClassificationCodec_Decode(t *testing.T) {
 	t.Run("flat response", func(t *testing.T) {
 		t.Parallel()
 
-		labels, err := c.Decode(params(`[{"label":"positive","score":0.95}]`))
+		labels, err := c.Decode(context.Background(), params(`[{"label":"positive","score":0.95}]`))
 		require.NoError(t, err)
 		require.Len(t, labels, 1)
 		require.Equal(t, "positive", labels[0].Label)
@@ -761,7 +767,7 @@ func TestTextClassificationCodec_Decode(t *testing.T) {
 	t.Run("single nested response unwraps outer layer", func(t *testing.T) {
 		t.Parallel()
 
-		labels, err := c.Decode(params(
+		labels, err := c.Decode(context.Background(), params(
 			`[[{"label":"positive","score":0.95},{"label":"negative","score":0.05}]]`,
 		))
 		require.NoError(t, err)
@@ -772,7 +778,7 @@ func TestTextClassificationCodec_Decode(t *testing.T) {
 	t.Run("multiple nested result sets rejected", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := c.Decode(params(
+		_, err := c.Decode(context.Background(), params(
 			`[[{"label":"a","score":0.5}],[{"label":"b","score":0.5}]]`,
 		))
 		require.Error(t, err)
@@ -782,7 +788,7 @@ func TestTextClassificationCodec_Decode(t *testing.T) {
 	t.Run("non-json content type rejected", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := c.Decode(DecodeParams{
+		_, err := c.Decode(context.Background(), DecodeParams{
 			Body:    []byte(`[{"label":"positive","score":0.95}]`),
 			Headers: jsonHeaders("text/plain"),
 		})
@@ -794,7 +800,7 @@ func TestTextClassificationCodec_Decode(t *testing.T) {
 	t.Run("unparseable response joins underlying errors", func(t *testing.T) {
 		t.Parallel()
 
-		_, err := c.Decode(params(`not json`))
+		_, err := c.Decode(context.Background(), params(`not json`))
 		require.Error(t, err)
 
 		var sdkErr *hferrors.SDKError

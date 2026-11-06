@@ -65,17 +65,10 @@ type Provider interface {
 }
 
 // EndpointParams carries the inputs to a per-task endpoint resolution method,
-// e.g. [ChatProvider.ChatEndpoint]. The typed dispatch layer guarantees a
+// e.g. [ChatProvider.ChatEndpoint]. The per-call context is passed to the
+// endpoint method separately. The typed dispatch layer guarantees a
 // non-empty Model before any endpoint method is called.
 type EndpointParams struct {
-	// Context carries the caller's request context, including its deadline
-	// and cancellation signals. It is never nil (it falls back to
-	// context.Background()). Implementations must not retain it beyond the
-	// duration of the call.
-	//
-	//nolint:containedctx // EndpointParams is a per-call carrier, not stored state.
-	Context context.Context
-
 	// Model identifies the model the request is routed to. For chat tasks
 	// it is the resolved routing identifier including any provider suffix
 	// (e.g. "zai-org/GLM-5.3:zai-org"), because chat payloads carry the model
@@ -113,14 +106,14 @@ type Endpoint struct {
 // ChatProvider is a Provider that supplies an endpoint and Codec for the Chat task.
 type ChatProvider interface {
 	Provider
-	ChatEndpoint(params EndpointParams) (Endpoint, error)
+	ChatEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	ChatCodec() ChatCodec
 }
 
 // ChatStreamProvider is a Provider that supplies an endpoint and Codec for the ChatStream task.
 type ChatStreamProvider interface {
 	Provider
-	ChatEndpoint(params EndpointParams) (Endpoint, error)
+	ChatEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	ChatStreamCodec() ChatStreamCodec
 }
 
@@ -128,7 +121,7 @@ type ChatStreamProvider interface {
 // and pooled Codec for the FeatureExtractionBatch task.
 type FeatureExtractionPooledBatchProvider interface {
 	Provider
-	FeatureExtractionBatchEndpoint(params EndpointParams) (Endpoint, error)
+	FeatureExtractionBatchEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	FeatureExtractionPooledBatchCodec() FeatureExtractionPooledBatchCodec
 }
 
@@ -136,7 +129,7 @@ type FeatureExtractionPooledBatchProvider interface {
 // pooled Codec for the FeatureExtraction task.
 type FeatureExtractionPooledProvider interface {
 	Provider
-	FeatureExtractionEndpoint(params EndpointParams) (Endpoint, error)
+	FeatureExtractionEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	FeatureExtractionPooledCodec() FeatureExtractionPooledCodec
 }
 
@@ -144,7 +137,7 @@ type FeatureExtractionPooledProvider interface {
 // token-level Codec for the FeatureExtraction task.
 type FeatureExtractionTokenProvider interface {
 	Provider
-	FeatureExtractionEndpoint(params EndpointParams) (Endpoint, error)
+	FeatureExtractionEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	FeatureExtractionTokenCodec() FeatureExtractionTokenCodec
 }
 
@@ -152,14 +145,14 @@ type FeatureExtractionTokenProvider interface {
 // and token-level Codec for the FeatureExtractionBatch task.
 type FeatureExtractionTokenBatchProvider interface {
 	Provider
-	FeatureExtractionBatchEndpoint(params EndpointParams) (Endpoint, error)
+	FeatureExtractionBatchEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	FeatureExtractionTokenBatchCodec() FeatureExtractionTokenBatchCodec
 }
 
 // FillMaskProvider is a Provider that supplies an endpoint and Codec for the FillMask task.
 type FillMaskProvider interface {
 	Provider
-	FillMaskEndpoint(params EndpointParams) (Endpoint, error)
+	FillMaskEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	FillMaskCodec() FillMaskCodec
 }
 
@@ -167,7 +160,7 @@ type FillMaskProvider interface {
 // for the ImageClassification task.
 type ImageClassificationProvider interface {
 	Provider
-	ImageClassificationEndpoint(params EndpointParams) (Endpoint, error)
+	ImageClassificationEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	ImageClassificationCodec() ImageClassificationCodec
 }
 
@@ -175,7 +168,7 @@ type ImageClassificationProvider interface {
 // the ObjectDetection task.
 type ObjectDetectionProvider interface {
 	Provider
-	ObjectDetectionEndpoint(params EndpointParams) (Endpoint, error)
+	ObjectDetectionEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	ObjectDetectionCodec() ObjectDetectionCodec
 }
 
@@ -183,7 +176,7 @@ type ObjectDetectionProvider interface {
 // for the ImageSegmentation task.
 type ImageSegmentationProvider interface {
 	Provider
-	ImageSegmentationEndpoint(params EndpointParams) (Endpoint, error)
+	ImageSegmentationEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	ImageSegmentationCodec() ImageSegmentationCodec
 }
 
@@ -191,7 +184,7 @@ type ImageSegmentationProvider interface {
 // for the QuestionAnswering task.
 type QuestionAnsweringProvider interface {
 	Provider
-	QuestionAnsweringEndpoint(params EndpointParams) (Endpoint, error)
+	QuestionAnsweringEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	QuestionAnsweringCodec() QuestionAnsweringCodec
 }
 
@@ -199,7 +192,7 @@ type QuestionAnsweringProvider interface {
 // the Summarization task.
 type SummarizationProvider interface {
 	Provider
-	SummarizationEndpoint(params EndpointParams) (Endpoint, error)
+	SummarizationEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	SummarizationCodec() SummarizationCodec
 }
 
@@ -207,7 +200,7 @@ type SummarizationProvider interface {
 // Codec for the TableQuestionAnswering task.
 type TableQuestionAnsweringProvider interface {
 	Provider
-	TableQuestionAnsweringEndpoint(params EndpointParams) (Endpoint, error)
+	TableQuestionAnsweringEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	TableQuestionAnsweringCodec() TableQuestionAnsweringCodec
 }
 
@@ -215,7 +208,7 @@ type TableQuestionAnsweringProvider interface {
 // for the TextClassification task.
 type TextClassificationProvider interface {
 	Provider
-	TextClassificationEndpoint(params EndpointParams) (Endpoint, error)
+	TextClassificationEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	TextClassificationCodec() TextClassificationCodec
 }
 
@@ -223,7 +216,7 @@ type TextClassificationProvider interface {
 // the ImageToImage task.
 type ImageToImageProvider interface {
 	Provider
-	ImageToImageEndpoint(params EndpointParams) (Endpoint, error)
+	ImageToImageEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	ImageToImageCodec() ImageToImageCodec
 }
 
@@ -231,7 +224,7 @@ type ImageToImageProvider interface {
 // TextToImage task.
 type TextToImageProvider interface {
 	Provider
-	TextToImageEndpoint(params EndpointParams) (Endpoint, error)
+	TextToImageEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	TextToImageCodec() TextToImageCodec
 }
 
@@ -239,7 +232,7 @@ type TextToImageProvider interface {
 // TextToVideo task.
 type TextToVideoProvider interface {
 	Provider
-	TextToVideoEndpoint(params EndpointParams) (Endpoint, error)
+	TextToVideoEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	TextToVideoCodec() TextToVideoCodec
 }
 
@@ -247,7 +240,7 @@ type TextToVideoProvider interface {
 // for the TokenClassification task.
 type TokenClassificationProvider interface {
 	Provider
-	TokenClassificationEndpoint(params EndpointParams) (Endpoint, error)
+	TokenClassificationEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	TokenClassificationCodec() TokenClassificationCodec
 }
 
@@ -255,7 +248,7 @@ type TokenClassificationProvider interface {
 // Translation task.
 type TranslationProvider interface {
 	Provider
-	TranslationEndpoint(params EndpointParams) (Endpoint, error)
+	TranslationEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	TranslationCodec() TranslationCodec
 }
 
@@ -263,7 +256,7 @@ type TranslationProvider interface {
 // and Codec for the ZeroShotTextClassification task.
 type ZeroShotTextClassificationProvider interface {
 	Provider
-	ZeroShotTextClassificationEndpoint(params EndpointParams) (Endpoint, error)
+	ZeroShotTextClassificationEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	ZeroShotTextClassificationCodec() ZeroShotTextClassificationCodec
 }
 
@@ -271,6 +264,6 @@ type ZeroShotTextClassificationProvider interface {
 // for the SpeechRecognition task.
 type SpeechRecognitionProvider interface {
 	Provider
-	SpeechRecognitionEndpoint(params EndpointParams) (Endpoint, error)
+	SpeechRecognitionEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
 	SpeechRecognitionCodec() SpeechRecognitionCodec
 }

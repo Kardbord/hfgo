@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -82,7 +83,7 @@ func TestFillMask_ResponseDecoding(t *testing.T) {
 				Input: "The capital of France is [MASK].",
 			}
 
-			result, err := client.FillMask(req)
+			result, err := client.FillMask(context.Background(), req)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, result)
 			require.Len(t, result, tc.expectedLen, tc.description)
@@ -127,7 +128,7 @@ func TestFillMask_WithParameters(t *testing.T) {
 		},
 	}
 
-	result, err := client.FillMask(req)
+	result, err := client.FillMask(context.Background(), req)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -176,7 +177,7 @@ func TestFillMask_Errors(t *testing.T) {
 			},
 		},
 		func(opts ...hfopts.Option) ([]hftypes.FillMaskPrediction, error) {
-			return hfgo.NewClient(opts...).FillMask(hftypes.FillMaskRequest{
+			return hfgo.NewClient(opts...).FillMask(context.Background(), hftypes.FillMaskRequest{
 				Input: "The capital of France is [MASK].",
 			})
 		},

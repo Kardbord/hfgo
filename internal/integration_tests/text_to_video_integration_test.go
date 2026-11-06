@@ -31,13 +31,12 @@ func TestGenerateVideo_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(textToVideoModel),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newWaveSpeedProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(16<<20), // Videos can be large.
 	)
 
 	response := testutils.RetryTransient(ctx, t, func() (hftypes.TextToVideoResponse, error) {
-		return client.GenerateVideo(hftypes.TextToVideoRequest{
+		return client.GenerateVideo(ctx, hftypes.TextToVideoRequest{
 			Input: "A serene mountain landscape at sunset",
 		})
 	})
@@ -65,11 +64,10 @@ func TestGenerateVideo_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(textToVideoModel),
-		hfopts.WithContext(ctx),
 		hfopts.WithProvider(newWaveSpeedProvider(t)),
 	)
 
-	response, err := client.GenerateVideo(hftypes.TextToVideoRequest{
+	response, err := client.GenerateVideo(ctx, hftypes.TextToVideoRequest{
 		Input: "A serene mountain landscape at sunset",
 	})
 

@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -84,7 +85,7 @@ func TestGenerateImage_ResponseDecoding(t *testing.T) {
 				hfopts.WithModel("test-model"),
 			)
 
-			image, err := client.GenerateImage(hftypes.TextToImageRequest{
+			image, err := client.GenerateImage(context.Background(), hftypes.TextToImageRequest{
 				Input: "a serene mountain landscape at sunset",
 			})
 
@@ -113,7 +114,7 @@ func TestGenerateImage_WithParameters(t *testing.T) {
 		hfopts.WithModel("test-model"),
 	)
 
-	image, err := client.GenerateImage(hftypes.TextToImageRequest{
+	image, err := client.GenerateImage(context.Background(), hftypes.TextToImageRequest{
 		Input: "a majestic lion in the savanna",
 		Parameters: &hftypes.TextToImageParameters{
 			GuidanceScale:     new(7.5),
@@ -178,9 +179,10 @@ func TestGenerateImage_Errors(t *testing.T) {
 			},
 		},
 		func(opts ...hfopts.Option) (hftypes.TextToImageResponse, error) {
-			return hfgo.NewClient(opts...).GenerateImage(hftypes.TextToImageRequest{
-				Input: "a cat",
-			})
+			return hfgo.NewClient(opts...).
+				GenerateImage(context.Background(), hftypes.TextToImageRequest{
+					Input: "a cat",
+				})
 		},
 	)
 }

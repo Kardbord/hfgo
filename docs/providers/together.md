@@ -42,7 +42,7 @@ client := hfgo.NewClient(
 	hfopts.WithProvider(provider),
 )
 
-response, err := client.Chat(hftypes.ChatRequest{
+response, err := client.Chat(context.Background(), hftypes.ChatRequest{
 	Messages: []hftypes.ChatMessage{{
 		Role: "user",
 		Content: hftypes.ChatMessageContent{
@@ -77,7 +77,7 @@ unchanged (matching the official clients), as are `text`, `json_object`, and
 provider-specific format types.
 
 ```go
-response, err := client.Chat(hftypes.ChatRequest{
+response, err := client.Chat(context.Background(), hftypes.ChatRequest{
 	Messages: []hftypes.ChatMessage{{
 		Role: "user",
 		Content: hftypes.ChatMessageContent{

@@ -26,7 +26,6 @@ func newFeatherlessAIClient(ctx context.Context) hfgo.Client {
 		hfopts.WithToken(os.Getenv("HF_TOKEN")),
 		hfopts.WithModel("zai-org/GLM-5.3"),
 		hfopts.WithProvider(hfproviders.NewFeatherlessAIProvider()),
-		hfopts.WithContext(ctx),
 	)
 }
 
@@ -43,7 +42,7 @@ func TestChatCompletion_FeatherlessAILiveAPI(t *testing.T) {
 
 	const text = "Say hello in one sentence."
 	resp := testutils.RetryTransient(ctx, t, func() (hftypes.ChatResponse, error) {
-		return client.Chat(
+		return client.Chat(ctx,
 			hftypes.ChatRequest{
 				Messages: []hftypes.ChatMessage{
 					{
@@ -81,7 +80,7 @@ func TestChatCompletion_FeatherlessAIStreamingLiveAPI(t *testing.T) {
 
 	text := "Say hello in one sentence."
 	stream := testutils.RetryTransient(ctx, t, func() (*hftypes.ChatStream, error) {
-		return client.ChatStream(
+		return client.ChatStream(ctx,
 			hftypes.ChatRequest{
 				Messages: []hftypes.ChatMessage{
 					{
@@ -137,7 +136,7 @@ func TestChatCompletion_FeatherlessAIMultiMessageLiveAPI(t *testing.T) {
 	text2 := "What is the answer multiplied by 3?"
 
 	resp := testutils.RetryTransient(ctx, t, func() (hftypes.ChatResponse, error) {
-		return client.Chat(
+		return client.Chat(ctx,
 			hftypes.ChatRequest{
 				Messages: []hftypes.ChatMessage{
 					{

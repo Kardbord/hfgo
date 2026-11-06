@@ -45,7 +45,7 @@ client := hfgo.NewClient(
 	hfopts.WithProvider(provider),
 )
 
-response, err := client.Chat(hftypes.ChatRequest{
+response, err := client.Chat(context.Background(), hftypes.ChatRequest{
 	Messages: []hftypes.ChatMessage{{
 		Role: "user",
 		Content: hftypes.ChatMessageContent{
@@ -87,7 +87,7 @@ Python client — `ProviderParams` merge over the typed fields, and
 parameters such as `n` or `size` ride the request's `ProviderParams` field:
 
 ```go
-image, err := client.GenerateImage(hftypes.TextToImageRequest{
+image, err := client.GenerateImage(context.Background(), hftypes.TextToImageRequest{
 	Input: "A serene landscape with mountains at sunset",
 	Parameters: &hftypes.TextToImageParameters{
 		Width:             new(1024),
@@ -136,7 +136,7 @@ client := hfgo.NewClient(
 	hfopts.WithProvider(provider),
 )
 
-image, err := client.GenerateImage(hftypes.TextToImageRequest{
+image, err := client.GenerateImage(context.Background(), hftypes.TextToImageRequest{
 	Input: "A serene landscape with mountains at sunset",
 })
 ```

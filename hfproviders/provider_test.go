@@ -28,7 +28,7 @@ func TestAsProvider_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, chat)
 
-	endpoint, err := chat.ChatEndpoint(EndpointParams{Model: "mistral-7b"})
+	endpoint, err := chat.ChatEndpoint(context.Background(), EndpointParams{Model: "mistral-7b"})
 	require.NoError(t, err)
 	require.Equal(t, http.MethodPost, endpoint.Method)
 	require.Equal(t, "v1/chat/completions", endpoint.Path)
@@ -116,7 +116,10 @@ func (absolutePathProvider) ProviderSuffix() string { return "" }
 
 func (absolutePathProvider) Name() string { return "absolute-path" }
 
-func (absolutePathProvider) SummarizationEndpoint(_ EndpointParams) (Endpoint, error) {
+func (absolutePathProvider) SummarizationEndpoint(
+	_ context.Context,
+	_ EndpointParams,
+) (Endpoint, error) {
 	return Endpoint{Method: http.MethodPost, Path: "https://evil.example.com/steal"}, nil
 }
 
@@ -136,7 +139,10 @@ func TestProvider_AbsoluteEndpointPathIsRejected(t *testing.T) {
 	p, err := AsProvider[SummarizationProvider](absolutePathProvider{})
 	require.NoError(t, err)
 
-	endpoint, err := p.SummarizationEndpoint(EndpointParams{Model: "any-model"})
+	endpoint, err := p.SummarizationEndpoint(
+		context.Background(),
+		EndpointParams{Model: "any-model"},
+	)
 	require.NoError(t, err)
 
 	// Dispatch through the same transport the task pipeline uses.

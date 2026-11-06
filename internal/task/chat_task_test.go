@@ -3,6 +3,7 @@
 package task
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -167,14 +168,14 @@ func TestChat_Validation(t *testing.T) {
 
 	t.Run("returns error when model is missing", func(t *testing.T) {
 		opts := hfopts.NewOptions().With(hfopts.WithProvider(hfproviders.NewHuggingFaceProvider()))
-		_, err := Chat(opts, hftypes.ChatRequest{})
+		_, err := Chat(context.Background(), opts, hftypes.ChatRequest{})
 		require.Error(t, err)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	})
 
 	t.Run("returns error when provider is nil", func(t *testing.T) {
 		opts := hfopts.NewOptions().With(hfopts.WithProvider(nil))
-		_, err := Chat(opts, hftypes.ChatRequest{Model: new("model")})
+		_, err := Chat(context.Background(), opts, hftypes.ChatRequest{Model: new("model")})
 		require.Error(t, err)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	})
@@ -184,7 +185,7 @@ func TestChat_Validation(t *testing.T) {
 			hfopts.WithModel("model"),
 			hfopts.WithProvider(hfproviders.NewHuggingFaceProvider()),
 		)
-		_, err := Chat(opts, hftypes.ChatRequest{})
+		_, err := Chat(context.Background(), opts, hftypes.ChatRequest{})
 		require.Error(t, err)
 		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
 	})
@@ -203,7 +204,7 @@ func TestChat_RejectStream(t *testing.T) {
 	)
 
 	stream := true
-	_, err := Chat(opts, hftypes.ChatRequest{
+	_, err := Chat(context.Background(), opts, hftypes.ChatRequest{
 		Model: new("request-model"),
 		Messages: []hftypes.ChatMessage{
 			{Role: "user", Content: hftypes.ChatMessageContent{Text: new("hi")}},
@@ -229,7 +230,7 @@ func TestChatStream_SetsStreamTrue(t *testing.T) {
 		hfopts.WithProvider(hfproviders.NewHuggingFaceProvider()),
 	)
 
-	stream, err := ChatStream(opts, hftypes.ChatRequest{
+	stream, err := ChatStream(context.Background(), opts, hftypes.ChatRequest{
 		Messages: []hftypes.ChatMessage{
 			{Role: "user", Content: hftypes.ChatMessageContent{Text: new("hi")}},
 		},

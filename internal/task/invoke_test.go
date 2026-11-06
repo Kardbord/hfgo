@@ -32,6 +32,7 @@ type transformProvider struct {
 }
 
 func (p transformProvider) ChatEndpoint(
+	_ context.Context,
 	_ hfproviders.EndpointParams,
 ) (hfproviders.Endpoint, error) {
 	return hfproviders.Endpoint{Path: "/test-endpoint"}, nil
@@ -45,6 +46,7 @@ type testCodec struct {
 }
 
 func (c testCodec) Encode(
+	_ context.Context,
 	params hfproviders.EncodeParams[jsonInferenceReq],
 ) (body []byte, headers http.Header, err error) {
 	body, err = json.Marshal(params.Request)
@@ -61,7 +63,10 @@ func (c testCodec) Encode(
 	}, nil
 }
 
-func (c testCodec) Decode(params hfproviders.DecodeParams) (jsonInferenceResp, error) {
+func (c testCodec) Decode(
+	_ context.Context,
+	params hfproviders.DecodeParams,
+) (jsonInferenceResp, error) {
 	if c.p.onDecode != nil {
 		c.p.onDecode(params)
 	}
@@ -125,6 +130,7 @@ func TestDoInference_Success(t *testing.T) {
 	p := transformProvider{}
 
 	result, err := doInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -184,6 +190,7 @@ func TestDoInference_ProviderTransformsRequestAndResponse(t *testing.T) {
 	)
 
 	result, err := doInference(
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -212,6 +219,7 @@ func TestDoInference_EncodeErrorPropagated(t *testing.T) {
 	)
 
 	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -238,6 +246,7 @@ func TestDoInference_DecodeErrorPropagated(t *testing.T) {
 	)
 
 	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -258,6 +267,7 @@ func TestDoInference_204NoContent(t *testing.T) {
 	)
 
 	result, err := doInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -279,6 +289,7 @@ func TestDoInference_205ResetContent(t *testing.T) {
 	)
 
 	result, err := doInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -300,6 +311,7 @@ func TestDoInference_EmptyResponseBody(t *testing.T) {
 	)
 
 	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -321,6 +333,7 @@ func TestDoInference_InvalidJSONResponse(t *testing.T) {
 	)
 
 	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -343,6 +356,7 @@ func TestDoInference_NonJSONResponseContentType(t *testing.T) {
 	)
 
 	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -367,6 +381,7 @@ func TestDoInference_UserHeadersOverrideCodecHeaders(t *testing.T) {
 	)
 
 	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -400,6 +415,7 @@ func TestDoInference_CodecHeadersCannotOverrideAuth(t *testing.T) {
 	)
 
 	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -430,6 +446,7 @@ func TestDoInference_MultiValuedCodecHeadersPreserved(t *testing.T) {
 	)
 
 	_, err := doInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -458,6 +475,7 @@ func TestDoStreamingInference_Success(t *testing.T) {
 	)
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -494,6 +512,7 @@ func TestDoStreamingInference_SSELimitUsesOptions(t *testing.T) {
 	)
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -528,6 +547,7 @@ func TestDoStreamingInference_NonEventStream(t *testing.T) {
 	)
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -570,6 +590,7 @@ func TestDoStreamingInference_ProviderTransformsPerEvent(t *testing.T) {
 	)
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -607,6 +628,7 @@ func TestDoStreamingInference_EventNamePropagated(t *testing.T) {
 	)
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -632,6 +654,7 @@ func TestDoStreamingInference_EventNamePropagated(t *testing.T) {
 type framingCodec struct{}
 
 func (framingCodec) Encode(
+	_ context.Context,
 	_ hfproviders.EncodeParams[jsonInferenceReq],
 ) (body []byte, headers http.Header, err error) {
 	return []byte(`{}`), http.Header{
@@ -640,7 +663,10 @@ func (framingCodec) Encode(
 	}, nil
 }
 
-func (framingCodec) Decode(params hfproviders.DecodeParams) (jsonInferenceResp, error) {
+func (framingCodec) Decode(
+	_ context.Context,
+	params hfproviders.DecodeParams,
+) (jsonInferenceResp, error) {
 	switch params.Event {
 	case "content_block_start":
 		return jsonInferenceResp{}, hferrors.SkipEventError{}
@@ -672,6 +698,7 @@ func TestDoStreamingInference_CodecControlSignalsSkipAndEnd(t *testing.T) {
 	)
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		framingCodec{},
@@ -711,6 +738,7 @@ func TestDoStreamingInference_DecodeErrorPropagated(t *testing.T) {
 	)
 
 	stream, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},
@@ -735,6 +763,7 @@ func TestDoStreamingInference_NonEventStreamContentType(t *testing.T) {
 	)
 
 	_, err := doStreamingInference[jsonInferenceReq, jsonInferenceResp](
+		context.Background(),
 		opts,
 		hfproviders.Endpoint{Path: "/test-endpoint"},
 		testCodec{p: p},

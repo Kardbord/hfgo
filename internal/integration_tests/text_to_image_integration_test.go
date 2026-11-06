@@ -32,12 +32,11 @@ func TestGenerateImage_LiveAPI(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(textToImageModel),
-		hfopts.WithContext(ctx),
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
 
 	response := testutils.RetryTransient(ctx, t, func() (hftypes.TextToImageResponse, error) {
-		return client.GenerateImage(hftypes.TextToImageRequest{
+		return client.GenerateImage(ctx, hftypes.TextToImageRequest{
 			Input: "A serene mountain landscape at sunset",
 			Parameters: &hftypes.TextToImageParameters{
 				Width:  new(512),
@@ -77,10 +76,9 @@ func TestGenerateImage_ContextCancellation(t *testing.T) {
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
 		hfopts.WithModel(textToImageModel),
-		hfopts.WithContext(ctx),
 	)
 
-	response, err := client.GenerateImage(hftypes.TextToImageRequest{
+	response, err := client.GenerateImage(ctx, hftypes.TextToImageRequest{
 		Input: "A serene mountain landscape at sunset",
 	})
 

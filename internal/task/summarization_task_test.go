@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -43,7 +44,7 @@ func TestSummarize_ResponseVariations(t *testing.T) {
 		},
 		func() hftypes.SummarizationRequest { return hftypes.SummarizationRequest{Input: "Some long text."} },
 		func(c hfgo.Client, req hftypes.SummarizationRequest) ([]hftypes.Summarization, error) {
-			return c.Summarize(req)
+			return c.Summarize(context.Background(), req)
 		},
 		func(s hftypes.Summarization) string { return s.SummaryText },
 	)
@@ -143,7 +144,7 @@ func TestSummarize_ParameterSerialization(t *testing.T) {
 				}
 			}
 
-			result, err := client.Summarize(req)
+			result, err := client.Summarize(context.Background(), req)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, result, tc.description)
 
@@ -183,9 +184,10 @@ func TestSummarize_Errors(t *testing.T) {
 			},
 		},
 		func(opts ...hfopts.Option) ([]hftypes.Summarization, error) {
-			return hfgo.NewClient(opts...).Summarize(hftypes.SummarizationRequest{
-				Input: "Some long text that should be summarized.",
-			})
+			return hfgo.NewClient(opts...).
+				Summarize(context.Background(), hftypes.SummarizationRequest{
+					Input: "Some long text that should be summarized.",
+				})
 		},
 	)
 }

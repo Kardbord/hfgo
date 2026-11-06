@@ -41,7 +41,7 @@ client := hfgo.NewClient(
 	hfopts.WithProvider(hfproviders.NewCerebrasProvider()),
 )
 
-response, err := client.Chat(hftypes.ChatRequest{
+response, err := client.Chat(context.Background(), hftypes.ChatRequest{
 	Messages: []hftypes.ChatMessage{{
 		Role: "user",
 		Content: hftypes.ChatMessageContent{

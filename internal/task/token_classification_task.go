@@ -1,17 +1,23 @@
 package task
 
 import (
+	"context"
+
 	"github.com/Kardbord/hfgo/v4/hferrors"
 	"github.com/Kardbord/hfgo/v4/hfopts"
 	"github.com/Kardbord/hfgo/v4/hfproviders"
 	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/utils"
 )
 
 // ClassifyTokens sends a token classification request for a single input.
 func ClassifyTokens(
+	ctx context.Context,
 	opts hfopts.Options,
 	req hftypes.TokenClassificationRequest,
 ) ([]hftypes.TokenClassification, error) {
+	ctx = utils.NormalizeContext(ctx)
+
 	if err := validateDispatch(opts); err != nil {
 		return nil, err
 	}
@@ -21,9 +27,8 @@ func ClassifyTokens(
 		return nil, err
 	}
 
-	endpoint, err := prov.TokenClassificationEndpoint(hfproviders.EndpointParams{
-		Context: opts.Context(),
-		Model:   opts.Model,
+	endpoint, err := prov.TokenClassificationEndpoint(ctx, hfproviders.EndpointParams{
+		Model: opts.Model,
 	})
 	if err != nil {
 		return nil, &hferrors.SDKError{
@@ -33,5 +38,5 @@ func ClassifyTokens(
 		}
 	}
 
-	return doInference(opts, endpoint, prov.TokenClassificationCodec(), req)
+	return doInference(ctx, opts, endpoint, prov.TokenClassificationCodec(), req)
 }

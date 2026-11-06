@@ -42,7 +42,12 @@ token, base URL, provider, and transport are reused unchanged.
 
 Per-request options (variadic `hfopts.Option`) override client defaults for a
 single call. Options are applied by value with defensive header copies;
-contexts and HTTP clients are shared references.
+HTTP clients are shared references.
+
+Every task method takes a `context.Context` as its first argument
+(`client.Chat(ctx, req, ...)`). Contexts are per-call, never stored in
+`hfopts.Options`: deadlines and cancellation signals are scoped to a single
+request rather than to the client.
 
 ### Options precedence
 
@@ -50,7 +55,7 @@ When a setting can be specified at multiple levels, the following precedence
 applies (highest to lowest):
 
 1. Request DTO fields (e.g. `ChatRequest.Model`)
-2. Per-request options (e.g. `client.Chat(req, hfopts.WithModel(...))`)
+2. Per-request options (e.g. `client.Chat(ctx, req, hfopts.WithModel(...))`)
 3. Client-level options (e.g. `hfgo.NewClient(hfopts.WithModel(...))`)
 
 This ensures more specific configuration always wins over more general

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -48,7 +49,7 @@ func main() {
 	fmt.Println("Transcribing audio: " + audioURL)
 	fmt.Println("...")
 
-	resp, err := client.RecognizeSpeech(hftypes.SpeechRecognitionRequest{
+	resp, err := client.RecognizeSpeech(context.Background(), hftypes.SpeechRecognitionRequest{
 		Input: audioURL,
 	})
 	if err != nil {

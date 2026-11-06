@@ -3,6 +3,7 @@
 package task_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -58,9 +59,12 @@ func TestClassifyImage_ResponseDecoding(t *testing.T) {
 				hfopts.WithModel("test-model"),
 			)
 
-			predictions, err := client.ClassifyImage(hftypes.ImageClassificationRequest{
-				Input: testutils.TinyPNGBase64,
-			})
+			predictions, err := client.ClassifyImage(
+				context.Background(),
+				hftypes.ImageClassificationRequest{
+					Input: testutils.TinyPNGBase64,
+				},
+			)
 			require.NoError(t, err, tc.description)
 			require.NotNil(t, predictions)
 			require.Len(t, predictions, tc.expectedLen, tc.description)
@@ -90,13 +94,16 @@ func TestClassifyImage_WithParameters(t *testing.T) {
 		hfopts.WithModel("test-model"),
 	)
 
-	predictions, err := client.ClassifyImage(hftypes.ImageClassificationRequest{
-		Input: testutils.TinyPNGBase64,
-		Parameters: &hftypes.ImageClassificationParameters{
-			FunctionToApply: new(hftypes.ImageClassificationFuncSoftmax),
-			TopK:            new(5),
+	predictions, err := client.ClassifyImage(
+		context.Background(),
+		hftypes.ImageClassificationRequest{
+			Input: testutils.TinyPNGBase64,
+			Parameters: &hftypes.ImageClassificationParameters{
+				FunctionToApply: new(hftypes.ImageClassificationFuncSoftmax),
+				TopK:            new(5),
+			},
 		},
-	})
+	)
 	require.NoError(t, err)
 	require.NotNil(t, predictions)
 
@@ -140,9 +147,10 @@ func TestClassifyImage_Errors(t *testing.T) {
 			},
 		},
 		func(opts ...hfopts.Option) ([]hftypes.ImageClassification, error) {
-			return hfgo.NewClient(opts...).ClassifyImage(hftypes.ImageClassificationRequest{
-				Input: testutils.TinyPNGBase64,
-			})
+			return hfgo.NewClient(opts...).
+				ClassifyImage(context.Background(), hftypes.ImageClassificationRequest{
+					Input: testutils.TinyPNGBase64,
+				})
 		},
 	)
 }

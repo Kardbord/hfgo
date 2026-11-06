@@ -36,7 +36,7 @@ func main() {
 		log.Fatal("Failed to retrieve image URL: " + err.Error())
 	}
 
-	segments, err := client.SegmentImage(hftypes.ImageSegmentationRequest{
+	segments, err := client.SegmentImage(context.Background(), hftypes.ImageSegmentationRequest{
 		Input: imgData,
 	})
 	if err != nil {

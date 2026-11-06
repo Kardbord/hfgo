@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -35,6 +36,7 @@ func main() {
 
 	// Make the batched feature extraction request
 	embeddings, err := client.ExtractPooledFeaturesBatch(
+		context.Background(),
 		hftypes.FeatureExtractionBatchRequest{
 			Inputs: inputs,
 		},

@@ -55,7 +55,7 @@ client := hfgo.NewClient(
 	hfopts.WithProvider(provider),
 )
 
-response, err := client.Chat(hftypes.ChatRequest{
+response, err := client.Chat(context.Background(), hftypes.ChatRequest{
 	Messages: []hftypes.ChatMessage{{
 		Role: "user",
 		Content: hftypes.ChatMessageContent{
@@ -159,7 +159,7 @@ does not accept them. DeepInfra-specific parameters such as `encoding_format`
 and `dimensions` ride the request's `ProviderParams` field instead:
 
 ```go
-embedding, err := client.ExtractPooledFeatures(hftypes.FeatureExtractionRequest{
+embedding, err := client.ExtractPooledFeatures(context.Background(), hftypes.FeatureExtractionRequest{
 	Input: "What is the capital of France?",
 	ProviderParams: map[string]any{
 		"encoding_format": "float",
@@ -189,7 +189,7 @@ client := hfgo.NewClient(
 	hfopts.WithProvider(provider),
 )
 
-embedding, err := client.ExtractPooledFeatures(hftypes.FeatureExtractionRequest{
+embedding, err := client.ExtractPooledFeatures(context.Background(), hftypes.FeatureExtractionRequest{
 	Input: "What is the capital of France?",
 })
 ```
