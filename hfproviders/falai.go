@@ -239,7 +239,6 @@ func (m FalAITextToImageMixin) TextToImageEndpoint(
 // endpoint-construction time, falling back to the mixin's resolver when used
 // standalone (see [falaiInjectAdapterLoras]).
 func (m FalAITextToImageMixin) TextToImageCodec() TextToImageCodec {
-	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return falaiTextToImageCodec{falaiQueueCodec{queueTaskCodec{
 		defaults:    falaiDefaultPollTiming(),
 		mediaPrefix: falaiImageMediaPrefix,
@@ -275,7 +274,6 @@ func (m FalAIImageToImageMixin) ImageToImageEndpoint(
 // endpoint-construction time, falling back to the mixin's resolver when used
 // standalone (see [falaiInjectAdapterLoras]).
 func (m FalAIImageToImageMixin) ImageToImageCodec() ImageToImageCodec {
-	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return falaiImageToImageCodec{falaiQueueCodec{queueTaskCodec{
 		defaults:    falaiDefaultPollTiming(),
 		mediaPrefix: falaiImageMediaPrefix,
@@ -310,7 +308,6 @@ func (m FalAITextToVideoMixin) TextToVideoEndpoint(
 // falling back to the mixin's resolver when used standalone (see
 // [falaiInjectAdapterLoras]).
 func (m FalAITextToVideoMixin) TextToVideoCodec() TextToVideoCodec {
-	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return falaiTextToVideoCodec{falaiQueueCodec{queueTaskCodec{
 		defaults:    falaiDefaultPollTiming(),
 		mediaPrefix: falaiVideoMediaPrefix,
@@ -343,7 +340,6 @@ func (m FalAIImageSegmentationMixin) ImageSegmentationEndpoint(
 // inline) and completes fal's queue exchange before returning the mask
 // segments.
 func (m FalAIImageSegmentationMixin) ImageSegmentationCodec() ImageSegmentationCodec {
-	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return falaiImageSegmentationCodec{falaiQueueCodec{queueTaskCodec{
 		defaults:    falaiDefaultPollTiming(),
 		mediaPrefix: falaiImageMediaPrefix,
@@ -376,7 +372,6 @@ func (m FalAISpeechRecognitionMixin) SpeechRecognitionEndpoint(
 // a data: URI or URL) and completes fal's queue exchange before returning
 // the transcript.
 func (m FalAISpeechRecognitionMixin) SpeechRecognitionCodec() SpeechRecognitionCodec {
-	//nolint:exhaustruct_v5 // Zero polling knobs and media prefix are unused.
 	return falaiSpeechRecognitionCodec{falaiQueueCodec{queueTaskCodec{
 		defaults: falaiDefaultPollTiming(),
 		resolver: m.Resolver,

@@ -161,7 +161,6 @@ func NewClient(params request.Params, cfg Config) *Client {
 		maxEntries = DefaultMaxEntries
 	}
 
-	//nolint:exhaustruct_v5 // mu is a zero-value mutex; it needs no initialization.
 	return &Client{
 		params:       params,
 		ttl:          ttl,

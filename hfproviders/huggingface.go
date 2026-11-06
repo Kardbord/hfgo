@@ -302,7 +302,6 @@ type HuggingFaceChatMixin struct{}
 // served from a fixed OpenAI-compatible path, so this endpoint is
 // model-independent: an empty params.Model is legal.
 func (HuggingFaceChatMixin) ChatEndpoint(_ EndpointParams) (Endpoint, error) {
-	//nolint:exhaustruct_v5 // Mapping is optional and stays nil: chat routes server-side without a mapping.
 	return Endpoint{Method: http.MethodPost, Path: "v1/chat/completions"}, nil
 }
 
@@ -797,7 +796,6 @@ func hfModelEndpoint(params EndpointParams, suffix string) (Endpoint, error) {
 		}
 	}
 
-	//nolint:exhaustruct_v5 // Mapping is optional and stays nil: routing is expressed in the model path.
 	return Endpoint{
 		Method: http.MethodPost,
 		Path:   hfModelPrefix + params.Model + suffix,

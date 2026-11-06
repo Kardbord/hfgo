@@ -18,7 +18,6 @@ import (
 // and pointed at the local httptest.Server.
 func testClient() func() http.Client {
 	return func() http.Client {
-		//nolint:exhaustruct // Zero-value Transport uses no proxy and HTTP/1.1.
 		return http.Client{Transport: &http.Transport{}}
 	}
 }

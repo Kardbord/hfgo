@@ -71,7 +71,6 @@ func NewOptions() Options {
 
 // DefaultHTTPClient returns a fresh default HTTP client value.
 func DefaultHTTPClient() http.Client {
-	//nolint:exhaustruct // A zero-value http.Client uses the stdlib default transport and no timeout.
 	return http.Client{}
 }
 

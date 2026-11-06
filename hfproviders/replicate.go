@@ -271,7 +271,6 @@ func (m ReplicateTextToImageMixin) TextToImageEndpoint(
 // mixin's resolver when used standalone (see
 // [replicateInjectAdapterLora]).
 func (m ReplicateTextToImageMixin) TextToImageCodec() TextToImageCodec {
-	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return replicateTextToImageCodec{replicateAsyncCodec{queueTaskCodec{
 		defaults:    replicateDefaultPollTiming(),
 		mediaPrefix: replicateImageMediaPrefix,
@@ -309,7 +308,6 @@ func (m ReplicateImageToImageMixin) ImageToImageEndpoint(
 // resolved at endpoint-construction time, falling back to the mixin's
 // resolver when used standalone (see [replicateInjectAdapterLora]).
 func (m ReplicateImageToImageMixin) ImageToImageCodec() ImageToImageCodec {
-	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return replicateImageToImageCodec{replicateAsyncCodec{queueTaskCodec{
 		defaults:    replicateDefaultPollTiming(),
 		mediaPrefix: replicateImageMediaPrefix,
@@ -347,7 +345,6 @@ func (m ReplicateTextToVideoMixin) TextToVideoEndpoint(
 // mixin's resolver when used standalone (see
 // [replicateInjectAdapterLora]).
 func (m ReplicateTextToVideoMixin) TextToVideoCodec() TextToVideoCodec {
-	//nolint:exhaustruct_v5 // Zero polling knobs select the default schedule.
 	return replicateTextToVideoCodec{replicateAsyncCodec{queueTaskCodec{
 		defaults:    replicateDefaultPollTiming(),
 		mediaPrefix: replicateVideoMediaPrefix,
@@ -382,7 +379,6 @@ func (m ReplicateSpeechRecognitionMixin) SpeechRecognitionEndpoint(
 // "audio" as a data: URI or URL) and completes Replicate's asynchronous
 // prediction exchange before returning the transcript.
 func (m ReplicateSpeechRecognitionMixin) SpeechRecognitionCodec() SpeechRecognitionCodec {
-	//nolint:exhaustruct_v5 // Zero polling knobs and media prefix are unused.
 	return replicateSpeechRecognitionCodec{replicateAsyncCodec{queueTaskCodec{
 		defaults: replicateDefaultPollTiming(),
 		resolver: m.Resolver,

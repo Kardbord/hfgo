@@ -14,7 +14,6 @@ restricted_mode = true
 output_run_details = true
 
 # /review
-# NOTE: the review tool reads its settings from [pr_reviewer], NOT [pr_review].
 [pr_reviewer]
 require_tests_review = true
 require_estimate_effort_to_review = false

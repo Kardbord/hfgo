@@ -77,12 +77,12 @@ func TestCloneHeader(t *testing.T) {
 	require.Equal(
 		t,
 		[]string{"one", "two"},
-		base["x-test"], //nolint:staticcheck // non-canonical key is intentional
+		base["x-test"], //nolint:staticcheck // SA1008: non-canonical key is intentional
 	)
 	require.Empty(t, base.Get("X-Other"))
 	require.Len(
 		t,
-		base["x-test"], //nolint:staticcheck // non-canonical key is intentional
+		base["x-test"], //nolint:staticcheck // SA1008: non-canonical key is intentional
 		2,
 		"original slice must not be reused",
 	)
@@ -171,7 +171,7 @@ func TestOverrideHeaders(t *testing.T) {
 		require.Equal(
 			t,
 			[]string{"old"},
-			base["x-replace"], //nolint:staticcheck // non-canonical source key is intentional
+			base["x-replace"], //nolint:staticcheck // SA1008: non-canonical source key is intentional
 			"base must not be mutated",
 		)
 

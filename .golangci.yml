@@ -108,6 +108,21 @@ linters:
   settings:
     exhaustruct_v5:
       allow-empty-returns: true
+      # Zero-value literals for these types are intentional defaults:
+      #   - queueTaskCodec: zero polling knobs select the default poll
+      #     schedule; speech-recognition codecs also omit mediaPrefix on
+      #     purpose.
+      #   - Endpoint: Mapping is optional and stays nil unless a provider
+      #     resolves one at endpoint-construction time.
+      #   - hubResolverConfig: optional fields are intentionally zero;
+      #     hub.Client applies documented defaults.
+      #   - hub.Client: mu is a zero-value mutex; it needs no
+      #     initialization.
+      ignore-patterns:
+        - 'github\.com/Kardbord/hfgo/v4/hfproviders\.queueTaskCodec$'
+        - 'github\.com/Kardbord/hfgo/v4/hfproviders\.Endpoint$'
+        - 'github\.com/Kardbord/hfgo/v4/hfproviders\.hubResolverConfig$'
+        - 'github\.com/Kardbord/hfgo/v4/internal/hub\.Client$'
     ireturn:
       allow:
         - error

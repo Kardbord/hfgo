@@ -43,7 +43,6 @@ var _ ModelResolver = (*HubModelResolver)(nil)
 func NewHubModelResolver(opts ...HubModelResolverOption) *HubModelResolver {
 	var defaultClient http.Client
 
-	//nolint:exhaustruct_v5 // Optional fields are intentionally zero; hub.Client applies documented defaults.
 	cfg := hubResolverConfig{
 		baseURL:    DefaultHubBaseURL,
 		httpClient: &defaultClient,
