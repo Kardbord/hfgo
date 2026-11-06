@@ -925,7 +925,7 @@ func TestAPIErrorFromResponse(t *testing.T) {
 	t.Run("preserves untruncated UTF-8 in message", func(t *testing.T) {
 		t.Parallel()
 
-		body := "模型未找到"
+		body := "模型未找到" //nolint:gosmopolitan // runes used for test
 		resp := &http.Response{
 			StatusCode: http.StatusNotFound,
 			Body:       io.NopCloser(strings.NewReader(body)),
