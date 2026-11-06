@@ -62,6 +62,9 @@ func NewHubModelResolver(opts ...HubModelResolverOption) *HubModelResolver {
 				UserAgent:  hfgoversion.UserAgent(),
 				Token:      cfg.token,
 				Headers:    nil,
+				// The hub resolver exposes no body-cap option; the default
+				// applies.
+				MaxResponseBodyBytes: 0,
 			},
 			hub.Config{
 				CacheTTL:     cfg.cacheTTL,

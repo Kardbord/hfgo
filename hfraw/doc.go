@@ -17,8 +17,8 @@
 // The stream methods require the response to be a server-sent event stream.
 // The status code and headers of a stream response are available via
 // [Stream.StatusCode] and [Stream.Header]. A 4xx/5xx response that is not
-// an event stream is returned as a [hferrors.APIError] whose Body the caller
-// must read and close; any other non-stream response is returned as a
+// an event stream is returned as a [hferrors.APIError] whose Body holds the
+// buffered response body bytes; any other non-stream response is returned as a
 // [hferrors.SDKError]. Surfacing these responses keeps an API error from being
 // silently dropped when the body cannot be decoded as an event stream.
 //

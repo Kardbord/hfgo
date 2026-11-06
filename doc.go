@@ -39,9 +39,11 @@
 // Methods return [hferrors.APIError] for 4xx/5xx API responses and
 // [hferrors.SDKError] for local failures. Inspect them with errors.As. For API
 // responses, [hferrors.APIError] classifies the failure with helpers such as
-// [hferrors.APIError.IsClientError] and [hferrors.APIError.IsRateLimitError].
-// For local failures, [hferrors.SDKErrorKind] distinguishes configuration,
-// validation, serialization, transport, and internal errors.
+// [hferrors.APIError.IsClientError] and [hferrors.APIError.IsRateLimitError];
+// its Message carries the status text plus a truncated copy of the response
+// body, and its Body holds the full buffered body bytes. For local failures,
+// [hferrors.SDKErrorKind] distinguishes configuration, validation,
+// serialization, transport, and internal errors.
 //
 // [hferrors]: https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hferrors
 // [hferrors.APIError]: https://pkg.go.dev/github.com/Kardbord/hfgo/v4/hferrors#APIError

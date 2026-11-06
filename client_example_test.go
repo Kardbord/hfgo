@@ -216,8 +216,8 @@ func ExampleClient_ChatStream() {
 // ExampleClient_Chat_apiError demonstrates inspecting a 4xx/5xx API response.
 // Methods return an error wrapping *hferrors.APIError for API failures; extract
 // it with errors.As to branch on the status code or use helpers such as
-// IsRateLimitError. APIError.Body holds the raw response body and must be
-// closed by the caller.
+// IsRateLimitError. APIError.Body holds the buffered response body bytes, and
+// Message carries the status text plus a truncated copy of the body.
 func ExampleClient_Chat_apiError() {
 	// The 429 response is hard-coded so the example can run without a real token.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -252,10 +252,9 @@ func ExampleClient_Chat_apiError() {
 	if !errors.As(err, &apiErr) {
 		panic(err)
 	}
-	defer apiErr.Body.Close()
 
-	fmt.Println(apiErr.StatusCode, apiErr.IsRateLimitError())
-	// Output: 429 true
+	fmt.Println(apiErr.StatusCode, apiErr.IsRateLimitError(), string(apiErr.Body))
+	// Output: 429 true {"error":"rate limit exceeded"}
 }
 
 // ExampleClient_ClassifyText demonstrates text classification.

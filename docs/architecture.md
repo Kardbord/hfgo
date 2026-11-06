@@ -358,7 +358,13 @@ returned by `Recv`.
 Errors are categorized into two types in the `hferrors` package:
 
 - **`APIError`**: returned by the API (4xx/5xx HTTP responses). Carries the
-  status code, message, body reader, response headers, method, and URL. Helper
+  status code, message, the buffered response body bytes, response headers,
+  method, and URL. The body is read eagerly when the error is constructed:
+  `Message` carries the status text plus a truncated, log-friendly copy of the
+  body (capped at 4 KiB, with control characters such as newlines stripped so
+  server-controlled bytes cannot forge log lines), while `Body` holds the full
+  body up to the request's
+  `MaxResponseBodyBytes` cap. Helper
   methods: `IsClientError()`, `IsServerError()`, `IsAuthenticationError()`,
   `IsRateLimitError()`, and `RetryAfter()` for the server-provided retry delay.
 - **`SDKError`**: produced locally (before an API response, while unmarshaling
@@ -385,8 +391,9 @@ callers can inspect the status and headers themselves. Stream methods require
 the response to advertise `text/event-stream`; a response that does not is
 never handed to the SSE decoder, which would otherwise yield no events and
 report `io.EOF`, silently dropping the response. A 4xx/5xx response that is not
-an event stream is returned as an `*hferrors.APIError` whose `Body` the caller
-owns, so the error payload is preserved; every other non-stream response is
+an event stream is returned as an `*hferrors.APIError` whose `Body` holds the
+buffered response body bytes, so the error payload is preserved; every other
+non-stream response is
 returned as an `*hferrors.SDKError` and its body is drained and closed. The
 status code and headers of a successfully opened stream are exposed via
 `Stream.StatusCode` and `Stream.Header`.

@@ -2,7 +2,6 @@ package hferrors
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -17,13 +16,20 @@ type APIError struct {
 	// StatusCode is the HTTP status code returned by the API
 	StatusCode int
 
-	// Message is the human-readable error message
+	// Message is the human-readable error message. It carries the HTTP status
+	// text followed by the (truncated) response body when one was available,
+	// e.g. "Not Found: {\"error\":\"Model not found\"}". The body portion is
+	// capped for log-friendly output, and control characters (including
+	// newlines) are removed so server-controlled bytes cannot forge log lines;
+	// the full body is available in [APIError.Body].
 	Message string
 
-	// Body contains the response body from the API as a readable stream.
-	// The caller is responsible for closing this body to ensure proper resource cleanup.
-	// If Body is nil, no response body was available.
-	Body io.ReadCloser
+	// Body contains the full response body from the API as buffered bytes,
+	// capped by the request's MaxResponseBodyBytes option (1 MiB by default).
+	// It is nil when no response body was available. The body is read eagerly
+	// when the error is constructed; callers never need to close anything.
+	// Treat the slice as read-only.
+	Body []byte
 
 	// Headers contains the response headers as returned by the API, with
 	// canonicalized keys, deep-copied so the error never aliases the live

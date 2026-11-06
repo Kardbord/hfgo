@@ -99,7 +99,7 @@ func (c Client) DoRawReader(
 }
 
 // Stream performs a raw HTTP request and returns an SSE stream, applying SDK error interpretation on 4xx/5xx responses.
-// A 4xx/5xx response becomes an *hferrors.APIError whose Body the caller must close. A response that is not a
+// A 4xx/5xx response becomes an *hferrors.APIError whose Body holds the buffered response body bytes. A response that is not a
 // server-sent event stream is reported as an *hferrors.SDKError.
 // The status code and headers of the response that opened the stream are available via [Stream.StatusCode] and [Stream.Header].
 // Callers should close the returned Stream when finished to promptly release the HTTP connection and decoder goroutine.
@@ -114,7 +114,7 @@ func (c Client) Stream(
 }
 
 // StreamReader performs a raw HTTP request with a streaming body and returns an SSE stream with SDK error interpretation.
-// A 4xx/5xx response becomes an *hferrors.APIError whose Body the caller must close. A response that is not a
+// A 4xx/5xx response becomes an *hferrors.APIError whose Body holds the buffered response body bytes. A response that is not a
 // server-sent event stream is reported as an *hferrors.SDKError.
 // The status code and headers of the response that opened the stream are available via [Stream.StatusCode] and [Stream.Header].
 // Callers should close the returned Stream when finished to promptly release the HTTP connection and decoder goroutine.

@@ -709,6 +709,34 @@ func TestDo_IgnoresResponseOnTransportError(t *testing.T) {
 	}
 }
 
+// errAfterPartialBody is an io.ReadCloser that yields its data on the first
+// Read and fails every subsequent Read, simulating a connection reset mid-body.
+type errAfterPartialBody struct {
+	data   string
+	err    error
+	read   bool
+	closed bool
+}
+
+func (b *errAfterPartialBody) Read(p []byte) (int, error) {
+	if b.read {
+		if b.err != nil {
+			return 0, b.err
+		}
+
+		return 0, errors.New("read failed")
+	}
+	b.read = true
+
+	return copy(p, b.data), nil
+}
+
+func (b *errAfterPartialBody) Close() error {
+	b.closed = true
+
+	return nil
+}
+
 func TestAPIErrorFromResponse(t *testing.T) {
 	t.Parallel()
 
@@ -734,10 +762,14 @@ func TestAPIErrorFromResponse(t *testing.T) {
 			Request: req,
 		}
 
-		apiErr := APIErrorFromResponse(resp, req.Method)
+		apiErr, apiErrErr := APIErrorFromResponse(resp, req.Method, 0)
+		require.NoError(t, apiErrErr)
 		require.Equal(t, http.StatusUnauthorized, apiErr.StatusCode)
-		require.Equal(t, http.StatusText(http.StatusUnauthorized), apiErr.Message)
-		require.Equal(t, body, apiErr.Body)
+		require.Equal(t,
+			http.StatusText(http.StatusUnauthorized)+": {\"error\":\"nope\"}",
+			apiErr.Message,
+		)
+		require.JSONEq(t, `{"error":"nope"}`, string(apiErr.Body))
 		require.Equal(t, http.MethodPost, apiErr.Method)
 		require.Equal(t, "https://example.com/v1/chat/completions", apiErr.URL)
 		require.Equal(t, "req-123", apiErr.Headers.Get("X-Request-Id"))
@@ -763,13 +795,154 @@ func TestAPIErrorFromResponse(t *testing.T) {
 			Header:     http.Header{},
 		}
 
-		apiErr := APIErrorFromResponse(resp, http.MethodGet)
+		apiErr, apiErrErr := APIErrorFromResponse(resp, http.MethodGet, 0)
+		require.NoError(t, apiErrErr)
 		require.Equal(t, http.StatusInternalServerError, apiErr.StatusCode)
+		require.Equal(t, http.StatusText(http.StatusInternalServerError), apiErr.Message)
+		require.Nil(t, apiErr.Body)
 		require.Empty(t, apiErr.URL)
 		require.NotNil(t, apiErr.Headers)
 		require.Empty(t, apiErr.Headers.Get("Retry-After"))
 		require.Zero(t, apiErr.RetryAfter())
 	})
+
+	t.Run("truncates message body but keeps full Body", func(t *testing.T) {
+		t.Parallel()
+
+		// 4 KiB + 1 byte so the message cap is exceeded but the default
+		// MaxResponseBodyBytes cap is not.
+		fullBody := strings.Repeat("a", apiErrorMessageCapBytes+1)
+		resp := &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(strings.NewReader(fullBody)),
+			Header:     http.Header{},
+		}
+
+		apiErr, apiErrErr := APIErrorFromResponse(resp, http.MethodGet, 0)
+		require.NoError(t, apiErrErr)
+		wantMessage := http.StatusText(http.StatusNotFound) + ": " +
+			fullBody[:apiErrorMessageCapBytes] + "... (truncated)"
+		require.Equal(t, wantMessage, apiErr.Message)
+		require.Equal(t, fullBody, string(apiErr.Body))
+	})
+
+	t.Run("message at exact cap is not marked truncated", func(t *testing.T) {
+		t.Parallel()
+
+		fullBody := strings.Repeat("b", apiErrorMessageCapBytes)
+		resp := &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(strings.NewReader(fullBody)),
+			Header:     http.Header{},
+		}
+
+		apiErr, apiErrErr := APIErrorFromResponse(resp, http.MethodGet, 0)
+		require.NoError(t, apiErrErr)
+		require.Equal(t,
+			http.StatusText(http.StatusNotFound)+": "+fullBody,
+			apiErr.Message,
+		)
+		require.NotContains(t, apiErr.Message, "truncated")
+	})
+
+	t.Run("caps Body at maxBytes, marks message truncated", func(t *testing.T) {
+		t.Parallel()
+
+		fullBody := strings.Repeat("c", 100)
+		resp := &http.Response{
+			StatusCode: http.StatusServiceUnavailable,
+			Body:       io.NopCloser(strings.NewReader(fullBody)),
+			Header:     http.Header{},
+		}
+
+		apiErr, apiErrErr := APIErrorFromResponse(resp, http.MethodGet, 10)
+		require.NoError(t, apiErrErr)
+		require.Equal(t, fullBody[:10], string(apiErr.Body))
+		require.Contains(t, apiErr.Message, "... (truncated)")
+	})
+
+	t.Run("strips control characters from the message copy", func(t *testing.T) {
+		t.Parallel()
+
+		// Newlines and other control bytes must not reach the message copy:
+		// error strings are typically logged, so server-controlled bytes must
+		// not be able to forge log lines. Body stays verbatim.
+		body := "line1\nline2\rtab\tend"
+		resp := &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Header:     http.Header{},
+		}
+
+		apiErr, apiErrErr := APIErrorFromResponse(resp, http.MethodGet, 0)
+		require.NoError(t, apiErrErr)
+		require.Equal(t, "Bad Request: line1line2tabend", apiErr.Message)
+		require.Equal(t, body, string(apiErr.Body))
+	})
+
+	t.Run("read error on error body yields nil Body and plain status text", func(t *testing.T) {
+		t.Parallel()
+
+		// A body that yields bytes and then fails mid-read (e.g. a connection
+		// reset): the read error is deliberately not surfaced, Body is nil,
+		// and Message falls back to plain status text. The body is still closed.
+		body := &errAfterPartialBody{data: "partial"}
+		resp := &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       body,
+			Header:     http.Header{},
+		}
+
+		apiErr, apiErrErr := APIErrorFromResponse(resp, http.MethodGet, 0)
+		require.NoError(t, apiErrErr)
+		require.Equal(t, http.StatusInternalServerError, apiErr.StatusCode)
+		require.Equal(t, http.StatusText(http.StatusInternalServerError), apiErr.Message)
+		require.Nil(t, apiErr.Body)
+		require.True(t, body.closed, "the error body must still be closed")
+	})
+
+	t.Run("context cancellation during error body read is surfaced", func(t *testing.T) {
+		t.Parallel()
+
+		// Cancellation must stay observable through the APIError path, so the
+		// caller can distinguish "gave up" from "server failed". The body is
+		// still closed.
+		body := &errAfterPartialBody{err: context.Canceled}
+		resp := &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       body,
+			Header:     http.Header{},
+		}
+
+		apiErr, apiErrErr := APIErrorFromResponse(resp, http.MethodGet, 0)
+		require.Nil(t, apiErr)
+		require.ErrorIs(t, apiErrErr, context.Canceled)
+		require.True(t, body.closed, "the error body must still be closed")
+	})
+}
+
+func TestDo_APIErrorBodyHonorsMaxResponseBodyBytes(t *testing.T) {
+	t.Parallel()
+
+	// Pins the wiring: the per-call MaxResponseBodyBytes option must bound the
+	// buffered error body, not just successful response reads.
+	fullBody := strings.Repeat("x", 100)
+	mt := &testutils.MockTransport{
+		Response: &http.Response{
+			StatusCode: http.StatusServiceUnavailable,
+			Body:       io.NopCloser(strings.NewReader(fullBody)),
+			Header:     make(http.Header),
+		},
+	}
+	params := newTestParams(mt, nil)
+	params.MaxResponseBodyBytes = 10
+
+	_, err := Do(context.Background(), params, http.MethodGet, "/test", nil)
+	require.Error(t, err)
+
+	apiErr := testutils.AssertAPIErrorStatus(t, err, http.StatusServiceUnavailable)
+	require.Equal(t, fullBody[:10], string(apiErr.Body))
+	require.Contains(t, apiErr.Message, "... (truncated)")
 }
 
 // newUnauthenticatedTestParams returns UnauthenticatedParams backed by the
