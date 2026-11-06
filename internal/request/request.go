@@ -222,7 +222,9 @@ func APIErrorFromResponse(
 	}
 	message := http.StatusText(resp.StatusCode)
 	if err == nil && len(body) > 0 {
-		message = message + ": " + messageBody(body, truncated)
+		if bodyText := messageBody(body, truncated); bodyText != "" {
+			message = message + ": " + bodyText
+		}
 	}
 
 	return &hferrors.APIError{
