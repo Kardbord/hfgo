@@ -381,7 +381,7 @@ func queuePollOnce[T any](
 	// caller can inspect it per the APIError contract.
 	if resp.StatusCode >= http.StatusBadRequest {
 		apiErr, apiErrErr := request.APIErrorFromResponse(
-			resp, http.MethodGet, params.MaxResponseBodyBytes,
+			resp, http.MethodGet, pollParams.MaxResponseBodyBytes,
 		)
 		if apiErrErr != nil {
 			return nil, 0, apiErrErr
@@ -481,7 +481,7 @@ func queueFetchOnce(
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
 		apiErr, apiErrErr := request.APIErrorFromResponse(
-			resp, http.MethodGet, params.MaxResponseBodyBytes,
+			resp, http.MethodGet, pollParams.MaxResponseBodyBytes,
 		)
 		if apiErrErr != nil {
 			return nil, false, 0, apiErrErr
