@@ -714,21 +714,23 @@ func TestDo_IgnoresResponseOnTransportError(t *testing.T) {
 type errAfterPartialBody struct {
 	data   string
 	err    error
-	read   bool
+	offset int
 	closed bool
 }
 
 func (b *errAfterPartialBody) Read(p []byte) (int, error) {
-	if b.read {
+	if b.offset >= len(b.data) {
 		if b.err != nil {
 			return 0, b.err
 		}
 
 		return 0, errors.New("read failed")
 	}
-	b.read = true
 
-	return copy(p, b.data), nil
+	n := copy(p, b.data[b.offset:])
+	b.offset += n
+
+	return n, nil
 }
 
 func (b *errAfterPartialBody) Close() error {
