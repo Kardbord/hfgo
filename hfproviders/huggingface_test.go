@@ -590,6 +590,170 @@ func TestHuggingFaceSummarizationCodec_EncodeProviderParams(t *testing.T) {
 	})
 }
 
+// garbageBodyCodec is a stub inner codec that emits a body JSON cannot
+// decode. It lets tests exercise hfParamsCodec's post-marshal decode failure
+// handling, which the built-in JSON codecs cannot produce.
+type garbageBodyCodec[Req, Resp any] struct{}
+
+func (garbageBodyCodec[Req, Resp]) Encode(
+	_ EncodeParams[Req],
+) (body []byte, headers http.Header, err error) {
+	return []byte("not json"), jsonRequestHeaders(mimeTypeJSON), nil
+}
+
+func (garbageBodyCodec[Req, Resp]) Decode(_ DecodeParams) (Resp, error) {
+	var zero Resp
+
+	return zero, nil
+}
+
+// TestHfParamsCodec_UndecodableInnerBody pins how the wrapper reacts to a
+// body the post-marshal decode cannot parse: without ProviderParams the body
+// passes through untouched, and with ProviderParams the decode failure
+// surfaces as a serialization error.
+func TestHfParamsCodec_UndecodableInnerBody(t *testing.T) {
+	t.Parallel()
+
+	newCodec := func() hfParamsCodec[hftypes.SummarizationRequest, []hftypes.Summarization] {
+		return hfPipelineParamsCodec(
+			garbageBodyCodec[hftypes.SummarizationRequest, []hftypes.Summarization]{},
+			summarizationRequestProviderParams,
+		)
+	}
+
+	t.Run("no-op keeps an undecodable body untouched", func(t *testing.T) {
+		t.Parallel()
+
+		body, _, err := newCodec().Encode(EncodeParams[hftypes.SummarizationRequest]{
+			Request: hftypes.SummarizationRequest{Input: "text"},
+		})
+		require.NoError(t, err)
+		require.Equal(t, "not json", string(body))
+	})
+
+	t.Run("merge surfaces the decode failure", func(t *testing.T) {
+		t.Parallel()
+
+		_, _, err := newCodec().Encode(EncodeParams[hftypes.SummarizationRequest]{
+			Request: hftypes.SummarizationRequest{
+				Input:          "text",
+				ProviderParams: map[string]any{"max_new_tokens": 128},
+			},
+		})
+		testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindSerialization)
+		require.ErrorContains(t, err, errFailedToDecodeRequestBody)
+	})
+}
+
+// TestRequestProviderParamsAccessors covers each typed ProviderParams
+// accessor: it returns exactly the request's ProviderParams map, and nil for
+// a zero request. A field rename or removal in hftypes fails to compile at
+// the accessor instead of silently dropping the merge.
+func TestRequestProviderParamsAccessors(t *testing.T) {
+	t.Parallel()
+
+	sentinel := map[string]any{"entry": "value"}
+	cases := []struct {
+		name string
+		get  func() map[string]any
+	}{
+		{"chat", func() map[string]any {
+			return chatRequestProviderParams(hftypes.ChatRequest{ProviderParams: sentinel})
+		}},
+		{"feature extraction", func() map[string]any {
+			return featureExtractionRequestProviderParams(hftypes.FeatureExtractionRequest{
+				ProviderParams: sentinel,
+			})
+		}},
+		{"feature extraction batch", func() map[string]any {
+			return featureExtractionBatchRequestProviderParams(
+				hftypes.FeatureExtractionBatchRequest{ProviderParams: sentinel},
+			)
+		}},
+		{"fill mask", func() map[string]any {
+			return fillMaskRequestProviderParams(
+				hftypes.FillMaskRequest{ProviderParams: sentinel},
+			)
+		}},
+		{"image classification", func() map[string]any {
+			return imageClassificationRequestProviderParams(hftypes.ImageClassificationRequest{
+				ProviderParams: sentinel,
+			})
+		}},
+		{"image segmentation", func() map[string]any {
+			return imageSegmentationRequestProviderParams(hftypes.ImageSegmentationRequest{
+				ProviderParams: sentinel,
+			})
+		}},
+		{"object detection", func() map[string]any {
+			return objectDetectionRequestProviderParams(hftypes.ObjectDetectionRequest{
+				ProviderParams: sentinel,
+			})
+		}},
+		{"question answering", func() map[string]any {
+			return questionAnsweringRequestProviderParams(hftypes.QuestionAnsweringRequest{
+				ProviderParams: sentinel,
+			})
+		}},
+		{"speech recognition", func() map[string]any {
+			return speechRecognitionRequestProviderParams(
+				hftypes.SpeechRecognitionRequest{ProviderParams: sentinel},
+			)
+		}},
+		{"summarization", func() map[string]any {
+			return summarizationRequestProviderParams(
+				hftypes.SummarizationRequest{ProviderParams: sentinel},
+			)
+		}},
+		{"table question answering", func() map[string]any {
+			return tableQuestionAnsweringRequestProviderParams(
+				hftypes.TableQuestionAnsweringRequest{ProviderParams: sentinel},
+			)
+		}},
+		{"text classification", func() map[string]any {
+			return textClassificationRequestProviderParams(hftypes.TextClassificationRequest{
+				ProviderParams: sentinel,
+			})
+		}},
+		{"text to image", func() map[string]any {
+			return textToImageRequestProviderParams(
+				hftypes.TextToImageRequest{ProviderParams: sentinel},
+			)
+		}},
+		{"token classification", func() map[string]any {
+			return tokenClassificationRequestProviderParams(hftypes.TokenClassificationRequest{
+				ProviderParams: sentinel,
+			})
+		}},
+		{"translation", func() map[string]any {
+			return translationRequestProviderParams(
+				hftypes.TranslationRequest{ProviderParams: sentinel},
+			)
+		}},
+		{"zero-shot text classification", func() map[string]any {
+			return zeroShotTextClassificationRequestProviderParams(
+				hftypes.ZeroShotTextClassificationRequest{ProviderParams: sentinel},
+			)
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, sentinel, tc.get())
+		})
+	}
+
+	t.Run("zero request has no ProviderParams", func(t *testing.T) {
+		t.Parallel()
+
+		// The accessor bodies are identical one-liners, so one representative
+		// pins the nil return for every zero-value request.
+		require.Nil(t, summarizationRequestProviderParams(hftypes.SummarizationRequest{}))
+	})
+}
+
 // TestHuggingFacePipelineCodecs_EncodeProviderParams exercises the remaining
 // distinct HF codec encode paths: the feature-extraction wrapper, the
 // response-shape-flexible delegation codecs (question answering and text

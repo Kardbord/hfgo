@@ -704,6 +704,40 @@ func TestMergeRequestParameters(t *testing.T) {
 	})
 }
 
+// TestDecodeBodyToPayloadMap exercises the request-body map decoder used by
+// body post-processing codecs (the hfParamsCodec merge, Together's flatten):
+// numbers decode as json.Number so a re-marshal preserves the original
+// literals, and undecodable bodies fail with a serialization error. The full
+// hfParamsCodec encode path cannot produce an undecodable body —
+// JSONCodec.Encode marshals the request first — so the invalid cases are
+// crafted by hand, mirroring the shared-helper tests above.
+func TestDecodeBodyToPayloadMap(t *testing.T) {
+	t.Parallel()
+
+	t.Run("decodes with numeric fidelity", func(t *testing.T) {
+		t.Parallel()
+
+		payload, err := decodeBodyToPayloadMap(
+			[]byte(`{"seed":9007199254740993,"nested":{"on":true}}`),
+		)
+		require.NoError(t, err)
+		require.Equal(t, map[string]any{
+			"seed":   json.Number("9007199254740993"),
+			"nested": map[string]any{"on": true},
+		}, payload)
+	})
+
+	t.Run("undecodable body fails", func(t *testing.T) {
+		t.Parallel()
+
+		for _, body := range []string{"not json", `[1,2,3]`} {
+			_, err := decodeBodyToPayloadMap([]byte(body))
+			assertSerializationError(t, err)
+			require.ErrorContains(t, err, errFailedToDecodeRequestBody)
+		}
+	})
+}
+
 func TestTextClassificationCodec_Decode(t *testing.T) {
 	t.Parallel()
 
