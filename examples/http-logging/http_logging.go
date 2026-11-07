@@ -57,17 +57,14 @@ func (t loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	start := time.Now()
 
-	authorization := req.Header.Get("Authorization")
-	if authorization != "" {
-		authorization = redactedAuthorization
-	}
+	hasAuthorization := req.Header.Get("Authorization") != ""
 
 	resp, err := inner.RoundTrip(req)
 
 	attrs := []slog.Attr{
 		slog.String("method", req.Method),
 		slog.String("url", req.URL.String()),
-		slog.String("authorization", authorization),
+		slog.Bool("authorization_present", hasAuthorization),
 		slog.Int64("duration_ms", time.Since(start).Milliseconds()),
 	}
 
