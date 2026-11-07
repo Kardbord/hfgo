@@ -35,7 +35,7 @@ type ModelResolver interface {
 // ResolveModelParams carries the inputs to [ModelResolver.ResolveModel]. The
 // per-call context is passed to ResolveModel separately.
 type ResolveModelParams struct {
-	// Provider is the partner's Hub identifier, e.g. "fal-ai". The calling
+	// Provider is the Hugging Face partner's Hub identifier, e.g. "fal-ai". The calling
 	// provider supplies it; it is the slug the Hub's
 	// inferenceProviderMapping data keys mappings by, not necessarily the
 	// provider's display name.
@@ -79,7 +79,7 @@ type ModelMapping struct {
 // StaticMapping identifies a pinned model resolution: the provider's Hub
 // identifier, the upstream task, and the Hugging Face model ID.
 type StaticMapping struct {
-	// Provider is the partner's Hub identifier, e.g. "fal-ai".
+	// Provider is the Hugging Face partner's Hub identifier, e.g. "fal-ai".
 	Provider string
 
 	// Task is the upstream task identifier, e.g. [TaskTextToImage].

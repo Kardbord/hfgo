@@ -136,7 +136,7 @@ Each link points to a runnable example. Most tasks have several variants
 - [Translation](./examples/huggingface/translation)
 - [Zero-Shot Text Classification](./examples/huggingface/zero-shot-text-classification)
 
-Partner providers have their own examples:
+Hugging Face's partner providers have their own examples:
 
 - [WaveSpeed](./examples/wavespeed) — text-to-video, text-to-image, and
   image-to-image through WaveSpeed.

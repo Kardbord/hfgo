@@ -147,13 +147,14 @@ func (MyProvider) Name() string           { return "my-provider" }
 func (MyProvider) ProviderSuffix() string { return "" }
 ```
 
-Partner providers that need model resolution use the same pattern with one
-addition: their mixins carry the resolver as state. `WaveSpeedProvider`, for
-example, composes `WaveSpeedTextToVideoMixin`, `WaveSpeedTextToImageMixin`, and
-`WaveSpeedImageToImageMixin`, each with an exported `Resolver ModelResolver`
-field that its endpoint methods consult. `NewWaveSpeedProvider` sets every
-field; a custom provider embedding a single mixin sets it directly. Mixins that
-need no per-instance state (like the Hugging Face ones) stay zero-byte.
+Hugging Face partner providers that need model resolution use the same
+pattern with one addition: their mixins carry the resolver as state.
+`WaveSpeedProvider`, for example, composes `WaveSpeedTextToVideoMixin`,
+`WaveSpeedTextToImageMixin`, and `WaveSpeedImageToImageMixin`, each with
+an exported `Resolver ModelResolver` field that its endpoint methods
+consult. `NewWaveSpeedProvider` sets every field; a custom provider
+embedding a single mixin sets it directly. Mixins that need no
+per-instance state (like the Hugging Face ones) stay zero-byte.
 
 A partner provider that needs no resolver state reuses the zero-byte mixins
 directly: the chat-only partner providers (e.g. `BasetenProvider`,

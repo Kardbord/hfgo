@@ -58,6 +58,12 @@
 // and [Provider.ProviderSuffix]. Mixins carry no provider identity, so
 // composing several is unambiguous.
 //
+// "Partner providers" throughout this package means the third-party
+// inference platforms partnered with Hugging Face upstream — the partners
+// in Hugging Face's Inference Providers program (e.g. WaveSpeed, fal.ai,
+// Together, Baseten). They are not partners of this project; hfgo is
+// unaffiliated with them and merely ships client bindings.
+//
 // Partner-provider mixins such as [WaveSpeedTextToImageMixin] follow the
 // same pattern but additionally carry a model resolver in an exported
 // field; [WaveSpeedProvider] composes them and [NewWaveSpeedProvider]
