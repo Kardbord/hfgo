@@ -4,13 +4,16 @@ Runnable programs demonstrating each inference task. Examples are organized by
 provider: `examples/<provider>/<task>/<variant>`. The default Hugging Face
 provider's examples live under [`huggingface/`](./huggingface), examples for
 Hugging Face's partner providers under that provider's directory (e.g.
-[`wavespeed/`](./wavespeed)), and [`custom-provider`](./custom-provider)
-shows how to plug in a fictional provider. Each `main` package is self-contained.
+[`wavespeed/`](./wavespeed)), [`custom-provider`](./custom-provider)
+shows how to plug in a fictional provider, and [`http-logging`](./http-logging)
+shows how to observe SDK traffic with a logging `http.RoundTripper`. Each
+`main` package is self-contained.
 Per-task examples read their token from the `HF_TOKEN` environment variable,
 with the exception of [`huggingface/chat/openai-compatibility`](./huggingface/chat/openai-compatibility),
 which necessarily reads its token from `OPENROUTER_TOKEN`. The
 [`custom-provider`](./custom-provider) example makes no inference call and
-needs no token.
+needs no token, and the [`http-logging`](./http-logging) example sends its
+request to a local test server, so it too needs no token and incurs no cost.
 
 Each program constructs its own client for clarity, but that is not required:
 one client can be reused across every task — only the model changes. See
@@ -19,7 +22,9 @@ one client can be reused across every task — only the model changes. See
 > **Cost notice:** Most examples call the live Hugging Face Inference API and
 > may incur charges on your account. The same applies to the integration tests
 > and the [Bruno collection](../tools/bruno/hfgo/). The `custom-provider`
-> example only resolves an endpoint and sends no request. The WaveSpeed, Fal AI,
+> example only resolves an endpoint and sends no request, and the
+> [`http-logging`](./http-logging) example sends its request to a local test
+> server. The WaveSpeed, Fal AI,
 > DeepInfra, Nscale, and Replicate `hub-resolver` examples additionally query the Hub's
 > model mapping data; that metadata lookup is not an inference call.
 
@@ -299,7 +304,11 @@ follow the standard naming scheme:
 In addition to per-task examples, [custom-provider](./custom-provider) shows
 how to plug in a fictional `FooProvider` that maps Hugging Face model IDs to
 its own model identifiers through an explicitly injected model resolver,
-without sending an inference call.
+without sending an inference call, and [http-logging](./http-logging) shows
+how to observe the SDK's HTTP traffic — method, URL, status, latency — by
+wrapping the client's `http.Transport` with a logging `http.RoundTripper`
+via `hfopts.WithHTTPClientFactory`. The SDK itself logs nothing at runtime;
+logging configuration is a caller decision.
 
 ## See also
 
