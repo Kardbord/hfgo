@@ -67,6 +67,14 @@ func ParseRetryAfter(h http.Header, limit time.Duration) time.Duration {
 		return 0
 	}
 
+	// Compare in whole seconds before scaling: a value at or beyond the
+	// limit saturates there, and the comparison also prevents the
+	// seconds-to-duration multiplication from silently overflowing into a
+	// negative (or bogus positive) duration.
+	if int64(seconds) >= int64(limit/time.Second) {
+		return limit
+	}
+
 	delay := time.Duration(seconds) * time.Second
 	if delay > limit {
 		return limit

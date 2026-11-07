@@ -295,14 +295,25 @@ func (s *sseState) handleLine(ctx context.Context, line string, results chan<- r
 		case "id":
 			s.eventID = value
 		case "retry":
-			if ms, err := strconv.Atoi(value); err == nil {
-				s.retrySet = true
-				s.retry = time.Duration(ms) * time.Millisecond
-			}
+			s.setRetry(value)
 		}
 	}
 
 	return true
+}
+
+// setRetry parses an SSE retry field value. Per the SSE spec the value must
+// be ASCII digits; anything else (including negative values) is ignored. The
+// upper bound prevents the milliseconds-to-duration multiplication from
+// silently overflowing into a negative duration.
+func (s *sseState) setRetry(value string) {
+	millis, err := strconv.Atoi(value)
+	if err != nil || millis < 0 || int64(millis) > math.MaxInt64/int64(time.Millisecond) {
+		return
+	}
+
+	s.retrySet = true
+	s.retry = time.Duration(millis) * time.Millisecond
 }
 
 // appendData adds a data field to the current event, enforcing the configured

@@ -105,6 +105,12 @@ func TestParseRetryAfter(t *testing.T) {
 		{"negative is ignored", "-5", 0},
 		{"not an integer", "soon", 0},
 		{"not a plain integer", "1.5", 0},
+		{"one below cap", "59", 59 * time.Second},
+		{"exactly at cap", "60", retryCap},
+		{"overflow threshold", "9999999999", retryCap}, // just above MaxInt64/1e9
+		{"overflow above", "10000000000", retryCap},    // multiply would overflow
+		{"huge value", "999999999999999999", retryCap}, // large but parseable
+		{"max int64", "9223372036854775807", retryCap}, // overflow range
 		{"capped at max", "999999", retryCap},
 	}
 
@@ -138,6 +144,27 @@ func TestParseRetryAfter(t *testing.T) {
 
 		h := http.Header{"Retry-After": []string{"90"}}
 		require.Equal(t, 90*time.Second, ParseRetryAfter(h, time.Hour))
+	})
+
+	t.Run("zero limit yields zero for any value", func(t *testing.T) {
+		t.Parallel()
+
+		h := http.Header{"Retry-After": []string{"999999999999999999"}}
+		require.Equal(t, time.Duration(0), ParseRetryAfter(h, 0))
+	})
+
+	t.Run("overflow saturates instead of wrapping negative", func(t *testing.T) {
+		t.Parallel()
+
+		// Before the seconds-first comparison, values large enough to
+		// overflow the seconds-to-duration multiplication wrapped into a
+		// negative duration that bypassed the cap.
+		for _, seconds := range []string{"10000000000", "999999999999999999", "9223372036854775807"} {
+			h := http.Header{"Retry-After": []string{seconds}}
+			got := ParseRetryAfter(h, retryCap)
+			require.GreaterOrEqual(t, got, time.Duration(0), "ParseRetryAfter(%q)", seconds)
+			require.Equal(t, retryCap, got, "ParseRetryAfter(%q)", seconds)
+		}
 	})
 }
 
