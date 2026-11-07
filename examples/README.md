@@ -2,12 +2,12 @@
 
 Runnable programs demonstrating each inference task. Examples are organized by
 provider: `examples/<provider>/<task>/<variant>`. The default Hugging Face
-provider's examples live under [`huggingface/`](./huggingface), partner-provider
-examples under their provider's directory (e.g. [`wavespeed/`](./wavespeed)), and
-[`custom-provider`](./custom-provider) shows how to plug in a fictional
-provider. Each `main` package is self-contained. Per-task examples read their
-token from the `HF_TOKEN` environment variable, with the exception of
-[`huggingface/chat/openai-compatibility`](./huggingface/chat/openai-compatibility),
+provider's examples live under [`huggingface/`](./huggingface), examples for
+Hugging Face's partner providers under that provider's directory (e.g.
+[`wavespeed/`](./wavespeed)), and [`custom-provider`](./custom-provider)
+shows how to plug in a fictional provider. Each `main` package is self-contained.
+Per-task examples read their token from the `HF_TOKEN` environment variable,
+with the exception of [`huggingface/chat/openai-compatibility`](./huggingface/chat/openai-compatibility),
 which necessarily reads its token from `OPENROUTER_TOKEN`. The
 [`custom-provider`](./custom-provider) example makes no inference call and
 needs no token.

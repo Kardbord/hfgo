@@ -37,7 +37,7 @@ const staleRetryInterval = 30 * time.Second
 // Mapping is one inference-provider mapping entry for a model, as reported
 // by the Hugging Face Hub's inferenceProviderMapping data.
 type Mapping struct {
-	// Provider is the partner's Hub identifier, e.g. "fal-ai".
+	// Provider is the Hugging Face partner's Hub identifier, e.g. "fal-ai".
 	Provider string
 
 	// ProviderModelID is the provider-specific model identifier, e.g.

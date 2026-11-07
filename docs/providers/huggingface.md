@@ -13,6 +13,13 @@ image-to-image, which the Hugging Face router does not expose through the
 canonical task endpoints. Those tasks require a partner provider such as
 [WaveSpeed](./wavespeed.md).
 
+> "Partner" throughout these docs means a third-party inference platform
+> partnered with Hugging Face upstream — a provider in Hugging Face's
+> [Inference Providers
+> program](https://huggingface.co/docs/inference-providers/main/en/index) —
+> not a partner of this project. hfgo is unaffiliated with these providers
+> and merely ships client bindings.
+
 Pipeline tasks (fill-mask, text-to-image, and the rest) use the router's task
 endpoints and the canonical JSON wire format, with the model in the endpoint
 path.
