@@ -164,10 +164,10 @@ identity, pinning chat completions to their provider by appending the
 server-side, so no resolution machinery is required. `DeepInfraProvider`
 composes both shapes: `HuggingFaceChatMixin` for suffix-pinned chat plus
 resolver-carrying DeepInfra mixins for speech recognition and pooled feature
-extraction. `TogetherProvider` embeds only `HuggingFaceChatMixin` but shadows
-its codec accessors with provider-owned codecs, so `json_schema` response
-formats leave in Together's flattened wire shape — one of the cases where a
-partner needs a chat codec of its own while reusing the mixin's endpoint.
+extraction. `TogetherProvider` embeds `HuggingFaceChatMixin` — endpoint and
+codecs — because Together's chat-completions API consumes the canonical
+OpenAI-compatible wire format the mixin emits, including OpenAI's nested
+`json_schema` response_format envelope.
 `NscaleProvider` follows the same composition: `HuggingFaceChatMixin`
 for suffix-pinned chat plus a resolver-carrying Nscale mixin for text-to-image.
 `ScalewayProvider` composes the same two shapes: `HuggingFaceChatMixin`

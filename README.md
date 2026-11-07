@@ -271,8 +271,7 @@ Built-in providers have their own guides:
   pinned via the router's `:deepinfra` suffix plus speech recognition and
   pooled feature extraction through DeepInfra's OpenAI-compatible endpoints.
 - [Together provider](./docs/providers/together.md) — chat completions pinned
-  via the router's `:together` suffix, with `json_schema` response formats
-  rewritten to Together's flattened shape.
+  via the router's `:together` suffix.
 - [Nscale provider](./docs/providers/nscale.md) — chat completions pinned via
   the router's `:nscale` suffix plus text-to-image through Nscale's
   OpenAI-compatible images endpoint.
