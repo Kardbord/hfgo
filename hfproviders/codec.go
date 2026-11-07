@@ -368,7 +368,17 @@ func isJSONContentType(contentType string) bool {
 		return false
 	}
 
-	return mediatype == mimeTypeJSON || strings.HasSuffix(mediatype, "+json")
+	return mediatype == mimeTypeJSON || isStructuredJSONSuffix(mediatype)
+}
+
+// isStructuredJSONSuffix reports whether mediaType ends in the +json
+// structured-syntax suffix with a proper type/subtype before it. RFC 6838
+// requires the suffix to follow a subtype, so a bare "+json" (which
+// mime.ParseMediaType tolerates) is not a JSON media type.
+func isStructuredJSONSuffix(mediaType string) bool {
+	base, ok := strings.CutSuffix(mediaType, "+json")
+
+	return ok && strings.Contains(base, "/")
 }
 
 // parseMediaType parses contentType and returns its normalized media type (for
