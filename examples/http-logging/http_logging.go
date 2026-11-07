@@ -27,11 +27,6 @@ import (
 	"github.com/Kardbord/hfgo/v4/hftypes"
 )
 
-// redactedAuthorization is what the logging transport prints in place of a
-// real bearer token. The token never reaches the log: it is replaced before
-// any attribute is emitted.
-const redactedAuthorization = "[REDACTED]"
-
 // loggingTransport is an [http.RoundTripper] that logs each request's method,
 // URL, status code, and duration. It never mutates the in-flight request and
 // never logs request or response bodies: the Authorization header carries the
