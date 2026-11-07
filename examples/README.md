@@ -127,9 +127,9 @@ Hub, so their variants are named for the resolver they wire:
 ### Together
 
 The [Together provider](../docs/providers/together.md) pins chat completions
-to Together. It reuses the default provider's endpoint — the router receives
-the model with the `:together` suffix appended — but its codecs rewrite
-`json_schema` response formats to Together's flattened shape (see the
+to Together. It reuses the shared chat mixin — the router receives
+the model with the `:together` suffix appended, and `json_schema` response
+formats leave in OpenAI's nested envelope (see the
 [provider guide](../docs/providers/together.md#structured-outputs-json_schema-response-formats)),
 so structured output works without any caller-side adaptation.
 

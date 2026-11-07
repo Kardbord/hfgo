@@ -3,9 +3,9 @@
 `hfproviders.TogetherProvider` serves chat completions (unary and streaming,
 including vision-language requests) through the Hugging Face router, pinned
 to Together with the `:together` model suffix like the other chat partner
-providers. It differs from them in one respect: its chat requests go through
-a provider-owned codec that adapts structured-output configuration to
-Together's wire shape.
+providers. It reuses the shared chat mixin — endpoint and codecs — because
+Together's chat-completions API consumes the canonical OpenAI-compatible
+wire format the mixin emits.
 
 This page covers only what is specific to Together; the provider layer's
 design is documented in
@@ -64,17 +64,29 @@ through as-is, which opts out of the pin.
 
 ## Structured outputs (json_schema response formats)
 
-Structured output for Together rides a flattened `response_format` shape —
-`{"type": "json_schema", "schema": ...}` — rather than OpenAI's nested
-`{"type": "json_schema", "json_schema": {"schema": ...}}` envelope: both
-official Hugging Face clients send the flattened shape — even when routed
-through Hugging Face — and the router forwards request bodies untouched, so
-the rewrite is client-side work. This provider's chat codecs perform it
-exactly as the official clients do: a `json_schema` response format is
-unwrapped onto the wire and its `name` and `strict` fields are dropped. A
-`json_schema` format whose envelope carries no `schema` is passed through
-unchanged (matching the official clients), as are `text`, `json_object`, and
-provider-specific format types.
+Structured output for Together uses OpenAI's nested `response_format`
+envelope — `{"type": "json_schema", "json_schema": {"schema": ...}}` —
+which is exactly what `hftypes.ChatRequest` marshals to: `name`,
+`description`, `schema`, and `strict` all travel to Together as the caller
+set them. (`text`, `json_object`, and provider-specific format types pass
+through unchanged too.)
+
+HF's official JS and Python clients send a flattened
+`{"type": "json_schema", "schema": ...}` shape instead; Together's current
+API rejects it with `missing field \`json_schema\``. Callers who need that
+shape (or any other provider-specific shape) can pass it via
+`hftypes.ChatRequest.ProviderParams`, which overrides the typed
+`response_format` on the wire.
+
+> **Known upstream breakage:** structured output over the Hugging Face
+> router currently fails regardless of the client. The router's Together
+> mapping flattens `response_format` before forwarding, and Together rejects
+> the flattened shape — a routed `json_schema` request returns 400
+> `json_parse_error` ("missing field `json_schema`"), while the same request
+> direct to `api.together.xyz` with the nested envelope succeeds. The live
+> integration test `TestChatCompletion_TogetherJSONSchemaLiveAPI` is skipped
+> until the router forwards the nested envelope untouched; the SDK needs no
+> change when that fix ships.
 
 ```go
 response, err := client.Chat(context.Background(), hftypes.ChatRequest{
@@ -97,9 +109,8 @@ response, err := client.Chat(context.Background(), hftypes.ChatRequest{
 })
 ```
 
-sends `"response_format": {"type":"json_schema","schema":{...}}` on the wire.
-Callers always build and receive the canonical `hftypes` shapes; the rewrite
-is a wire-format detail that never surfaces.
+sends `"response_format": {"type":"json_schema","json_schema":{"name":"capital","strict":true,"schema":{...}}}` on the wire.
+Callers always build and receive the canonical `hftypes` shapes.
 
 Responses decode with the default provider's schema; Together omits
 `system_fingerprint` from some responses and the canonical `hftypes` treat it
@@ -120,18 +131,11 @@ the routed-versus-custom-key comparison.
 ## Reusing the chat mixin
 
 `TogetherProvider` embeds `HuggingFaceChatMixin` — the same zero-byte mixin
-the default provider and the chat-only partners use — for the
-model-independent chat endpoint, and shadows the mixin's `ChatCodec` and
-`ChatStreamCodec` accessors with the Together-specific codecs described
-above. Together's codecs wrap the mixin's codec internally, so they keep its
-`ProviderParams` merge: entries ride the body's top level with the resolved
-`"model"` protected. A custom provider embedding only `HuggingFaceChatMixin` gets the
-default envelope shape — the shape the official clients rewrite away, which
-is why Together-bound structured output needs the special codec. The Together
-codecs themselves are unexported: external providers needing the flattened
-rewrite should embed `TogetherProvider` (overriding only the identity
-methods) to inherit its codec accessors, or re-implement the rewrite over
-`JSONCodec`. See
+the default provider and the chat-only partners use — and inherits its
+model-independent chat endpoint and codecs, including the `ProviderParams`
+merge: entries ride the body's top level with the resolved `"model"`
+protected. A custom provider embedding `HuggingFaceChatMixin` gets the same
+wire behavior. See
 [Per-task provider mixins](../architecture.md#per-task-provider-mixins) for
 the general pattern.
 
@@ -141,5 +145,5 @@ the general pattern.
   `basic`, `streaming`, and `conversation` variants.
 - [Together on the Hugging Face Hub](https://huggingface.co/docs/inference-providers/providers/together)
 - [Groq provider](./groq.md) — the chat-routing convention this provider
-  follows, without the codec twist.
+  follows.
 - [architecture.md](../architecture.md)

@@ -272,8 +272,8 @@ func TestClientChat_ScalewayProviderSuffix(t *testing.T) {
 
 // TestClientChat_TogetherProvider pins the Together provider's chat wire
 // format end to end: the ":together" model suffix is appended like the other
-// chat partner providers, and a json_schema response_format is flattened to
-// Together's shape on the way out.
+// chat partner providers, and a json_schema response_format is sent in
+// OpenAI's nested envelope, which Together's API consumes.
 func TestClientChat_TogetherProvider(t *testing.T) {
 	t.Parallel()
 
@@ -329,7 +329,7 @@ func TestClientChat_TogetherProvider(t *testing.T) {
 		require.Equal(t, model+":fastest", got["model"])
 	})
 
-	t.Run("flattens a json_schema response_format", func(t *testing.T) {
+	t.Run("passes a json_schema response_format through", func(t *testing.T) {
 		t.Parallel()
 
 		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
@@ -350,7 +350,14 @@ func TestClientChat_TogetherProvider(t *testing.T) {
 
 		got := testutils.ReadRequestBody(t, mt)
 		require.Equal(t,
-			map[string]any{"type": "json_schema", "schema": map[string]any{"type": "object"}},
+			map[string]any{
+				"type": "json_schema",
+				"json_schema": map[string]any{
+					"name":   "answer",
+					"strict": true,
+					"schema": map[string]any{"type": "object"},
+				},
+			},
 			got["response_format"],
 		)
 	})

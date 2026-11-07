@@ -77,9 +77,10 @@
 // [HuggingFaceChatMixin] for suffix-pinned chat completions and two
 // resolver-bearing mixins for speech recognition and pooled feature
 // extraction, wired by [NewDeepInfraProvider]. [TogetherProvider] embeds
-// [HuggingFaceChatMixin] but shadows its codec accessors with
-// Together-specific codecs so json_schema response formats ride Together's
-// flattened wire shape. [NscaleProvider] follows the same composition:
+// [HuggingFaceChatMixin] — endpoint and codecs — because Together's
+// chat-completions API consumes the canonical OpenAI-compatible wire format
+// the mixin emits, including OpenAI's nested json_schema response_format
+// envelope. [NscaleProvider] follows the same composition:
 // [HuggingFaceChatMixin] for suffix-pinned chat completions plus a
 // resolver-bearing mixin for text-to-image, wired by [NewNscaleProvider].
 // [ScalewayProvider] mixes the same two shapes: [HuggingFaceChatMixin] for

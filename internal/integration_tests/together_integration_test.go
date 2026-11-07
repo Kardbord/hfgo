@@ -125,13 +125,24 @@ func TestChatCompletion_TogetherStreamingLiveAPI(t *testing.T) {
 	require.NotEmpty(t, totalContent, "should accumulate content from chunks")
 }
 
-// TestChatCompletion_TogetherJSONSchemaLiveAPI exercises Together's flattened
-// json_schema response_format end to end: the codec unwraps OpenAI's
-// envelope, and Together answers with schema-conforming JSON. This test
+// TestChatCompletion_TogetherJSONSchemaLiveAPI exercises Together's
+// structured-output path end to end: the request leaves the SDK in OpenAI's
+// nested json_schema response_format envelope — the shape Together's current
+// API requires — and Together answers with schema-conforming JSON. This test
 // requires the HF_TOKEN environment variable to be set.
+//
+// Skipped pending an upstream fix: the Hugging Face router's Together
+// mapping rewrites response_format before forwarding, flattening OpenAI's
+// nested envelope to {"type":"json_schema","schema":...} — a shape
+// Together's current API rejects with 400 json_parse_error ("missing field
+// `json_schema`"). A direct request to api.together.xyz with the nested
+// envelope succeeds, so the SDK-side encoding is correct (pinned by
+// TestTogetherProvider_ResponseFormatPassthrough and
+// TestClientChat_TogetherProvider); no client-side change can make the
+// routed path pass. Re-enable once the router forwards the body untouched.
 func TestChatCompletion_TogetherJSONSchemaLiveAPI(t *testing.T) {
-	t.Skip("temporarily skipped until the live json_schema response_format path is verified")
-
+	t.Skip("skipped until the Hugging Face router stops flattening " +
+		"json_schema response formats, which Together's current API rejects")
 	require.NotEmpty(t, os.Getenv("HF_TOKEN"), "HF_TOKEN must be set")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
