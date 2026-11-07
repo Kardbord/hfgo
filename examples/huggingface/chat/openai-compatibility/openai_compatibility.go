@@ -20,7 +20,13 @@ const Model = "openrouter/free"
 
 // This example demonstrates using the SDK with an OpenAI-compatible
 // endpoint (OpenRouter) for multi-turn streaming chat.
-// Note that it depends on a different environment variable than
+//
+// Note that "OpenAI-compatible" only guarantees the same request/response
+// structure, not the same semantics. For example, Hugging Face-specific
+// suffixes (e.g. ':novita' in deepseek-ai/DeepSeek-R1:novita) may be
+// rejected or misinterpreted by other compatible APIs.
+//
+// Also note that this example reads a different environment variable than
 // most other examples (OPENROUTER_TOKEN vs HF_TOKEN).
 func main() {
 	chatClient := NewChatClient(
