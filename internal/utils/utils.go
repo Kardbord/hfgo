@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -67,11 +68,12 @@ func ParseRetryAfter(h http.Header, limit time.Duration) time.Duration {
 		return 0
 	}
 
-	// Compare in whole seconds before scaling: a value at or beyond the
-	// limit saturates there, and the comparison also prevents the
-	// seconds-to-duration multiplication from silently overflowing into a
-	// negative (or bogus positive) duration.
-	if int64(seconds) >= int64(limit/time.Second) {
+	// Guard the seconds-to-duration multiply: values beyond the largest
+	// whole number of seconds representable as a time.Duration saturate at
+	// the limit. Smaller values are computed exactly and clamped below, so
+	// fractional-second limits return the exact delay rather than the
+	// limit (integer division on a truncated limit would saturate early).
+	if int64(seconds) > math.MaxInt64/int64(time.Second) {
 		return limit
 	}
 

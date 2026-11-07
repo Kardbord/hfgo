@@ -4,7 +4,9 @@ package utils
 
 import (
 	"context"
+	"math"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 
@@ -156,14 +158,48 @@ func TestParseRetryAfter(t *testing.T) {
 	t.Run("overflow saturates instead of wrapping negative", func(t *testing.T) {
 		t.Parallel()
 
-		// Before the seconds-first comparison, values large enough to
-		// overflow the seconds-to-duration multiplication wrapped into a
-		// negative duration that bypassed the cap.
+		// Before the overflow guard, values large enough to overflow the
+		// seconds-to-duration multiplication wrapped into a negative
+		// duration that bypassed the cap.
 		for _, seconds := range []string{"10000000000", "999999999999999999", "9223372036854775807"} {
 			h := http.Header{"Retry-After": []string{seconds}}
 			got := ParseRetryAfter(h, retryCap)
 			require.GreaterOrEqual(t, got, time.Duration(0), "ParseRetryAfter(%q)", seconds)
 			require.Equal(t, retryCap, got, "ParseRetryAfter(%q)", seconds)
+		}
+	})
+
+	t.Run("fractional limit is not truncated", func(t *testing.T) {
+		t.Parallel()
+
+		const limit = 1500 * time.Millisecond
+
+		// A whole-second comparison against a truncated limit would
+		// saturate here at 1.5s; the exact delay is 1s.
+		h := http.Header{"Retry-After": []string{"1"}}
+		require.Equal(t, time.Second, ParseRetryAfter(h, limit))
+
+		h = http.Header{"Retry-After": []string{"2"}}
+		require.Equal(t, limit, ParseRetryAfter(h, limit))
+
+		h = http.Header{"Retry-After": []string{"0"}}
+		require.Equal(t, time.Duration(0), ParseRetryAfter(h, limit))
+	})
+
+	t.Run("threshold boundary pair saturates identically", func(t *testing.T) {
+		t.Parallel()
+
+		// Exactly MaxInt64/time.Second seconds multiply without overflow
+		// and saturate via the delay>limit clamp; one more second would
+		// overflow and saturates via the pre-multiply guard. Both must
+		// return the limit; keep the pair so the boundary cannot be
+		// simplified away. The values are derived from the type bounds so
+		// they always track the exact threshold.
+		atThreshold := strconv.FormatInt(math.MaxInt64/int64(time.Second), 10)
+		aboveThreshold := strconv.FormatInt(math.MaxInt64/int64(time.Second)+1, 10)
+		for _, seconds := range []string{atThreshold, aboveThreshold} {
+			h := http.Header{"Retry-After": []string{seconds}}
+			require.Equal(t, retryCap, ParseRetryAfter(h, retryCap), "ParseRetryAfter(%q)", seconds)
 		}
 	})
 }

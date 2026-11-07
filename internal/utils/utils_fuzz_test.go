@@ -3,7 +3,10 @@
 package utils
 
 import (
+	"math"
 	"net/http"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -54,6 +57,21 @@ func FuzzParseRetryAfter(f *testing.F) {
 		// Zero limit must yield zero: any positive delay would exceed it.
 		if zero := ParseRetryAfter(h, 0); zero != 0 {
 			t.Errorf("ParseRetryAfter(%q) with limit 0 = %v, want 0", value, zero)
+		}
+
+		// Independent oracle with a fractional-second limit: the exact
+		// delay is returned whenever it fits, so saturation must not
+		// happen early (guards the truncated-limit comparison regression).
+		const fracLimit = 1500 * time.Millisecond
+		want := time.Duration(0)
+		if seconds, err := strconv.Atoi(strings.TrimSpace(value)); err == nil && seconds > 0 {
+			want = time.Duration(seconds) * time.Second
+			if int64(seconds) > math.MaxInt64/int64(time.Second) || want > fracLimit {
+				want = fracLimit
+			}
+		}
+		if fracGot := ParseRetryAfter(h, fracLimit); fracGot != want {
+			t.Errorf("ParseRetryAfter(%q, 1.5s) = %v, want %v", value, fracGot, want)
 		}
 	})
 }
