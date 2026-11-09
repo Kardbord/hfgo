@@ -34,7 +34,7 @@ jobs:
         # reliably published and the dependent jobs below can react. The
         # blocking decision is made by the block-* jobs instead.
         continue-on-error: true
-        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        uses: amannn/action-semantic-pull-request@2252a14e810aa9b85c2d560bd7070c802206ecf6 # v6.1.2
         with:
           requireScope: false
         env:
