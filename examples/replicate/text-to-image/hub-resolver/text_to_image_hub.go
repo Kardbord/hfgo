@@ -40,7 +40,7 @@ func main() {
 	// default 1 MiB response cap, so raise it to leave headroom.
 	client := hfgo.NewClient(
 		hfopts.WithToken(token),
-		hfopts.WithModel("black-forest-labs/FLUX.1-dev"),
+		hfopts.WithModel("stabilityai/stable-diffusion-3.5-medium"),
 		hfopts.WithProvider(provider),
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
