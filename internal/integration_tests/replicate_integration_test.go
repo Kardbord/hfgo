@@ -32,10 +32,7 @@ func newReplicateProvider(t *testing.T) hfproviders.Provider {
 	return provider
 }
 
-const (
-	replicateImageToImageModel = "black-forest-labs/FLUX.2-klein-base-4B"
-	replicateTestImageURL      = "https://fastly.picsum.photos/id/60/512/512.jpg?hmac=CKdYDj-ZhSmY_J11yU1Ep4CuKgy7LaPKpPY9MQkdzZA"
-)
+const ()
 
 // TestGenerateImage_ReplicateLiveAPI tests a basic text-to-image request
 // against the live HF API using the Replicate provider.
@@ -49,7 +46,7 @@ func TestGenerateImage_ReplicateLiveAPI(t *testing.T) {
 
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
-		hfopts.WithModel("black-forest-labs/FLUX.1-dev"),
+		hfopts.WithModel("stabilityai/stable-diffusion-3.5-medium"),
 		hfopts.WithProvider(newReplicateProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
@@ -77,6 +74,7 @@ func TestGenerateImage_ReplicateLiveAPI(t *testing.T) {
 // request against the live HF API using the Replicate provider.
 // This test requires the HF_TOKEN environment variable to be set.
 func TestGenerateImageToImage_ReplicateLiveAPI(t *testing.T) {
+	t.Skip("skipped until Replicate hosts a model that supports the image to image task on huggingface")
 	apiToken := os.Getenv("HF_TOKEN")
 	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
 
@@ -85,7 +83,7 @@ func TestGenerateImageToImage_ReplicateLiveAPI(t *testing.T) {
 
 	client := hfgo.NewClient(
 		hfopts.WithToken(apiToken),
-		hfopts.WithModel(replicateImageToImageModel),
+		hfopts.WithModel("black-forest-labs/FLUX.2-klein-base-4B"),
 		hfopts.WithProvider(newReplicateProvider(t)),
 		hfopts.WithMaxResponseBodyBytes(16<<20),
 	)
@@ -94,7 +92,7 @@ func TestGenerateImageToImage_ReplicateLiveAPI(t *testing.T) {
 
 	response := testutils.RetryTransient(ctx, t, func() (hftypes.ImageToImageResponse, error) {
 		return client.GenerateImageToImage(ctx, hftypes.ImageToImageRequest{
-			Input: replicateTestImageURL,
+			Input: "https://fastly.picsum.photos/id/60/512/512.jpg?hmac=CKdYDj-ZhSmY_J11yU1Ep4CuKgy7LaPKpPY9MQkdzZA",
 			Parameters: &hftypes.ImageToImageParameters{
 				Prompt: new(prompt),
 			},
@@ -115,6 +113,7 @@ func TestGenerateImageToImage_ReplicateLiveAPI(t *testing.T) {
 // take several minutes, so the context deadline is generous.
 // This test requires the HF_TOKEN environment variable to be set.
 func TestGenerateVideo_ReplicateLiveAPI(t *testing.T) {
+	t.Skip("skipped until Replicate hosts a model that supports the text to video task on huggingface")
 	apiToken := os.Getenv("HF_TOKEN")
 	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
 
@@ -147,6 +146,7 @@ func TestGenerateVideo_ReplicateLiveAPI(t *testing.T) {
 // request against the live HF API using the Replicate provider.
 // This test requires the HF_TOKEN environment variable to be set.
 func TestRecognizeSpeech_ReplicateLiveAPI(t *testing.T) {
+	t.Skip("skipped until Replicate hosts a model that supports the speech recognition task on huggingface")
 	apiToken := os.Getenv("HF_TOKEN")
 	require.NotEmpty(t, apiToken, "HF_TOKEN must be set")
 
