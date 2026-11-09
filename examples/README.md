@@ -157,7 +157,6 @@ data live, while `static-resolver` pins the HF-to-Nscale mapping in code
 | Task                                       | Variants                             |
 | ------------------------------------------ | ------------------------------------ |
 | [Chat](./nscale/chat)                      | `basic`, `streaming`, `conversation` |
-| [Text to Image](./nscale/text-to-image)    | `hub-resolver`, `static-resolver`    |
 
 ### Scaleway
 
@@ -187,9 +186,6 @@ named for the resolver they wire: `hub-resolver` resolves against the Hub's
 | Task                                                 | Variants       |
 | ------------------------------------------------- | -------------- |
 | [Text to Image](./replicate/text-to-image)        | `hub-resolver` |
-| [Image to Image](./replicate/image-to-image)      | `hub-resolver` |
-| [Text to Video](./replicate/text-to-video)        | `hub-resolver` |
-| [Speech Recognition](./replicate/speech-recognition) | `hub-resolver` |
 
 ### Baseten
 
