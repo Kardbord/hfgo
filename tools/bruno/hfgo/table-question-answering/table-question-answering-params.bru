@@ -1,0 +1,33 @@
+meta {
+  name: Table Question Answering - Params
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_table_question_answering}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inputs": {
+      "table": {
+        "Product": ["Laptop", "Phone", "Tablet"],
+        "Price": ["1200", "800", "500"]
+      },
+      "question": "What is the most expensive product?"
+    },
+    "parameters": {
+      "padding": "max_length",
+      "sequential": false,
+      "truncation": true
+    }
+  }
+}

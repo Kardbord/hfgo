@@ -1,0 +1,23 @@
+meta {
+  name: Object Detection - Single
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_object_detection}}
+  body: none
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+}
+
+script:pre-request {
+  const { IMAGE_SAMPLE_URL, download } = require('./scripts/samples.js');
+  
+  const sample = await download('https://fastly.picsum.photos/id/60/512/512.jpg?hmac=CKdYDj-ZhSmY_J11yU1Ep4CuKgy7LaPKpPY9MQkdzZA');
+  req.setHeader('Content-Type', sample.contentType);
+  req.setBody(sample.bytes, { raw: true });
+}

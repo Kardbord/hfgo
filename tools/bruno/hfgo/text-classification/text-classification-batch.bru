@@ -1,0 +1,27 @@
+meta {
+  name: Text Classification - Batch
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_text_classification}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inputs": [
+      "I love this product!",
+      "This is the worst day ever.",
+      "It's okay, nothing special."
+    ],
+    "parameters": {}
+  }
+}

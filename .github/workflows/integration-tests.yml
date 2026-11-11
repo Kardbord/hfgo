@@ -1,0 +1,278 @@
+name: Integration Tests
+on:
+  push:
+    branches:
+      - main
+      - v*-draft
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    branches:
+      - main
+      - v*-draft
+  schedule:
+    - cron: "5 6 * * 1"
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write # For creating/closing failure issues
+# Prevents multiple integration test runs from executing simultaneously.
+# This avoids API rate limiting and resource conflicts.
+#
+# Grouping strategy:
+# - PR-triggered runs: group by PR number
+# - Branch runs (main/v*-draft): group by branch name
+# - Scheduled runs: use main group
+concurrency:
+  group: |
+    ${{
+      github.event_name == 'pull_request_target' &&
+      format('integration-tests-pr-{0}', github.event.pull_request.number) ||
+      format('integration-tests-{0}', github.ref_name)
+    }}
+  cancel-in-progress: true
+jobs:
+  check-changes:
+    name: Check for code changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run_tests: ${{ steps.check_changes.outputs.run_tests }}
+    steps:
+      - name: Check for code changes
+        id: check_changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [[ "${{ github.event_name }}" != "pull_request_target" ]]; then
+            echo "run_tests=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Fetch changed files from the API rather than checking out and
+          # merging the PR head: this job is ungated (runs before environment
+          # approval), so untrusted fork code must never be materialized here.
+          # A failure surfaces loudly (no || true) and is caught by the
+          # integration-tests aggregator rather than silently skipping.
+          CHANGED_FILES="$(gh api --paginate "repos/${{ github.repository }}/pulls/$PR_NUMBER/files" --jq '.[].filename')"
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          CODE_CHANGES=$(echo "$CHANGED_FILES" | grep -v '^docs/' | grep -v '\.md$' | grep -v '^LICENSE$' | grep -v '^\.github/' | grep -v '^.pr_agent.toml$' || true)
+          # Re-include this workflow file as a code change
+          if echo "$CHANGED_FILES" | grep -q -x '\.github/workflows/integration-tests\.yml'; then
+            CODE_CHANGES=".github/workflows/integration-tests.yml"$'\n'"$CODE_CHANGES"
+          fi
+          if [ -z "$CODE_CHANGES" ]; then
+            echo "Only non-code files changed. Skipping integration tests."
+            echo "run_tests=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Code changes detected. Running integration tests."
+            echo "run_tests=true" >> "$GITHUB_OUTPUT"
+          fi
+  run-integration-tests:
+    needs: check-changes
+    if: needs.check-changes.outputs.run_tests == 'true'
+    name: Run Integration Tests
+    runs-on: ubuntu-latest
+    # PR-triggered runs require manual approval via environment protection rules.
+    # This controls costs by requiring a member/admin/owner to approve the run.
+    # Push and schedule runs bypass the environment gate since they run on
+    # protected branches that already require review before merge.
+    environment: ${{ github.event_name == 'pull_request_target' && 'integration-tests' || '' }}
+    permissions:
+      contents: read
+      id-token: write # Required for OIDC token to upload coverage and test results
+      issues: write # For creating/closing failure issues
+    steps:
+      # A local composite action's metadata must already exist in the workspace,
+      # so a normal (marketplace) checkout must run before the first local action
+      # below can be resolved. This bootstrap is not the functional checkout:
+      # checkout-pr-merge re-checks out the base and reconstructs the merge.
+      - name: Checkout (bootstrap for local actions)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.ref || github.ref }}
+      - name: Checkout and reconstruct PR merge
+        uses: ./.github/actions/checkout-pr-merge
+        with:
+          ref: ${{ github.event.pull_request.base.ref || github.ref }}
+          pr-number: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.number || '' }}
+      - name: Set up Go
+        uses: ./.github/actions/setup-go
+        with:
+          install-gotestsum: 'true'
+      # Tests are retried up to 3 times with 10-second delays between attempts.
+      # This helps mitigate transient API failures and network issues.
+      #
+      # Requirements:
+      # - HF_TOKEN: GitHub secret with valid Hugging Face API token
+      # - Tests must be tagged with '//go:build integration'
+      - name: Run live API integration tests (with retry)
+        id: integration_tests
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          gotestsum \
+            --junitfile junit.xml \
+            --format github-actions \
+            --format-icons hivis \
+            --rerun-fails=3 \
+            --packages "./..." \
+            -- \
+            -tags=integration \
+            -timeout=1800s \
+            -coverprofile=coverage.out \
+            -covermode=atomic
+      - name: Upload coverage to Codecov
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/upload-codecov
+        with:
+          flags: integration
+          artifact-name: integration-test-results
+      # Creates branch-specific labels if they don't already exist.
+      # This ensures that the subsequent issue creation/update steps can use these labels.
+      # Uses try/catch since the API errors if label already exists.
+      - name: Ensure failure labels exist
+        if: github.event_name == 'push' || github.event_name == 'schedule'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const branchName = "${{ github.ref_name }}";
+            const label = `integration-test-failure:${branchName}`;
+            const color = "d73a49"; // Red color for failure labels
+            const description = `Integration tests failing on ${branchName} branch`;
+
+            try {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: label,
+                color: color,
+                description: description
+              });
+              console.log(`Created label: ${label}`);
+            } catch (error) {
+              // Label already exists or other error
+              if (error.status === 422) {
+                console.log(`Label already exists: ${label}`);
+              } else {
+                throw error;
+              }
+            }
+      # When tests fail on tracked branches or scheduled runs:
+      # - Creates a new GitHub issue (if none exists for this branch)
+      # - Adds a comment to existing issue with failure details
+      # - Uses branch-specific labels to track which branch is failing
+      # - Skipped for PR-triggered runs
+      - name: Create or update issue on failure
+        if: |
+          failure() &&
+          (github.event_name == 'push' || github.event_name == 'schedule')
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const branchName = "${{ github.ref_name }}";
+            const label = `integration-test-failure:${branchName}`;
+            const title = `⚠️ Live API Integration Tests Failing (${branchName})`;
+
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const timestamp = new Date().toISOString();
+
+            const GITHUB_ACTIONS_USER = "41898282"; // github-actions[bot] user ID
+
+            // Search for existing bot-created issues with the branch-specific failure label
+            const issues = (await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: label
+            })).data.filter(i => i.user.id.toString() === GITHUB_ACTIONS_USER);
+
+            const bodyUpdate = `### ❌ Failure detected at ${timestamp}\nRun: ${runUrl}`;
+
+            if (issues.length === 0) {
+              // No existing issue found, create a new one with branch-specific label
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                labels: [label],
+                body: `Integration tests are currently failing on the **${branchName}** branch.\n\n${bodyUpdate}`
+              });
+            } else {
+              // Issue exists, add a comment with the new failure details
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: bodyUpdate
+              });
+            }
+      # When tests pass after previous failures:
+      # - Adds a success comment to the issue
+      # - Closes the issue
+      # - Only closes issues for the specific branch that is now passing
+      # - Skipped for PR-triggered runs
+      - name: Close issue on success
+        if: |
+          success() &&
+          (github.event_name == 'push' || github.event_name == 'schedule')
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const branchName = "${{ github.ref_name }}";
+            const label = `integration-test-failure:${branchName}`;
+
+            const GITHUB_ACTIONS_USER = "41898282"; // github-actions[bot] user ID
+
+            // Find all bot-created issues with the branch-specific failure label
+            const issues = (await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: label
+            })).data.filter(i => i.user.id.toString() === GITHUB_ACTIONS_USER);
+
+            // Close each bot-created issue with a success comment
+            for (const issue of issues) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: "### ✅ Integration tests are passing again on the **" + branchName + "** branch. Closing issue."
+              });
+
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: "closed"
+              });
+            }
+  integration-tests:
+    needs: [check-changes, run-integration-tests]
+    if: always()
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Check integration test results
+        run: |
+          result="${{ needs.run-integration-tests.result }}"
+          check_changes_result="${{ needs.check-changes.result }}"
+          # Fail not only when the test job failed, but also when check-changes
+          # crashed: in that case run_tests is unset, run-integration-tests is
+          # skipped, and this job would otherwise report a silent pass, hiding a
+          # missing integration-test signal.
+          if [[ "$result" == "failure" || "$result" == "cancelled" || "$check_changes_result" == "failure" || "$check_changes_result" == "cancelled" ]]; then
+            echo "Integration test job failed or its check-changes prerequisite failed (result: $result, check-changes: $check_changes_result)."
+            exit 1
+          fi
+          echo "Integration tests passed or were skipped (result: $result, check-changes: $check_changes_result)."

@@ -1,0 +1,26 @@
+meta {
+  name: Token Classification - Params
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_token_classification}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inputs": "Microsoft was founded by Bill Gates and Paul Allen in 1975.",
+    "parameters": {
+      "aggregation_strategy": "simple",
+      "ignore_labels": ["O"]
+    }
+  }
+}

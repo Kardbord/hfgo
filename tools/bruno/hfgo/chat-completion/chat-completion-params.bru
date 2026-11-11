@@ -1,0 +1,34 @@
+meta {
+  name: Chat Completion - Params
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{HF_BASE_URL}}/v1/chat/completions
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "model": "{{model_chat_completion}}",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Write a haiku about the ocean."
+      }
+    ],
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "max_tokens": 256,
+    "frequency_penalty": 0.3,
+    "presence_penalty": 0.3,
+    "seed": 42
+  }
+}

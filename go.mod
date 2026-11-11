@@ -1,8 +1,7 @@
-module github.com/Kardbord/hfapigo/v3
+module github.com/Kardbord/hfgo/v4
 
-go 1.17
+go 1.27
 
-require (
-	github.com/google/go-cmp v0.6.0
-	golang.org/x/image v0.24.0
-)
+require github.com/stretchr/testify v1.12.1
+
+require go.yaml.in/yaml/v3 v3.0.5 // indirect

@@ -1,0 +1,30 @@
+meta {
+  name: Text to Image - Params
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_text_to_image}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: image/png
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inputs": "A majestic lion in the savanna.",
+    "parameters": {
+      "guidance_scale": 7.5,
+      "negative_prompt": "blurry, low quality",
+      "num_inference_steps": 30,
+      "width": 512,
+      "height": 512,
+      "seed": 42
+    }
+  }
+}

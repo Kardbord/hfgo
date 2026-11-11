@@ -1,0 +1,960 @@
+//go:build !integration
+
+package hfgo
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/hfgoversion"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hfproviders"
+	"github.com/Kardbord/hfgo/v4/hftypes"
+	"github.com/Kardbord/hfgo/v4/internal/testproviders"
+	"github.com/Kardbord/hfgo/v4/internal/testutils"
+	"github.com/stretchr/testify/require"
+)
+
+const chatServiceResponseBody = `{"id":"id","created":1,"model":"m","system_fingerprint":"s","choices":[{"finish_reason":"stop","index":0,"message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`
+
+func TestNewClient_Defaults(t *testing.T) {
+	t.Parallel()
+
+	client := NewClient()
+
+	require.Equal(t, hfopts.DefaultBaseURL, client.opts.BaseURL)
+	require.Equal(t, hfopts.DefaultToken, client.opts.Token)
+	require.Equal(t, hfopts.DefaultModel, client.opts.Model)
+	require.Equal(t, hfproviders.NewHuggingFaceProvider(), client.opts.Provider)
+	require.Equal(t, hfopts.DefaultMaxResponseBodyBytes, client.opts.MaxResponseBodyBytes)
+	require.Equal(t, hfgoversion.UserAgent(), client.opts.UserAgent)
+	require.Nil(t, client.opts.Headers)
+	require.NotNil(t, client.opts.HTTPClient)
+}
+
+func TestClientChat_ModelSelection(t *testing.T) {
+	t.Parallel()
+
+	text := "hi"
+
+	cases := []struct {
+		name        string
+		clientModel string
+		optModel    string
+		reqModel    *string
+		wantModel   string
+	}{
+		{
+			name:        "uses client model when request and opt model missing",
+			clientModel: "default-model",
+			wantModel:   "default-model",
+		},
+		{
+			name:        "uses opt model when request missing",
+			clientModel: "default-model",
+			optModel:    "explicit-model",
+			wantModel:   "explicit-model",
+		},
+		{
+			name:        "respects request model",
+			clientModel: "default-model",
+			optModel:    "opts-model",
+			reqModel:    new("explicit-model"),
+			wantModel:   "explicit-model",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+			client := NewClient(
+				hfopts.WithHTTPClientFactory(
+					func() http.Client { return testutils.NewMockHTTPClient(mt) },
+				),
+				hfopts.WithModel(tc.clientModel),
+			)
+
+			req := hftypes.ChatRequest{
+				Model: tc.reqModel,
+				Messages: []hftypes.ChatMessage{
+					{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
+				},
+			}
+
+			var err error
+			if tc.optModel != "" {
+				_, err = client.Chat(context.Background(), req, hfopts.WithModel(tc.optModel))
+			} else {
+				_, err = client.Chat(context.Background(), req)
+			}
+			require.NoError(t, err)
+
+			require.NotNil(t, mt.LastRequest)
+			require.Equal(t, "/v1/chat/completions", mt.LastRequest.URL.Path)
+
+			got := testutils.ReadRequestBody(t, mt)
+			require.Equal(t, tc.wantModel, got["model"])
+		})
+	}
+}
+
+// TestClientChat_ChatOnlyProviderSuffixes pins the routing of every built-in
+// chat-only partner provider: each appends its model-string suffix on the wire
+// unless the request model already carries one. Add a row per new provider.
+func TestClientChat_ChatOnlyProviderSuffixes(t *testing.T) {
+	t.Parallel()
+
+	text := "hi"
+	request := hftypes.ChatRequest{
+		Messages: []hftypes.ChatMessage{
+			{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
+		},
+	}
+
+	// chatOnlyProviders maps each chat-only provider's router slug to its
+	// constructor.
+	chatOnlyProviders := map[string]func() hfproviders.Provider{
+		"baseten":        func() hfproviders.Provider { return hfproviders.NewBasetenProvider() },
+		"cerebras":       func() hfproviders.Provider { return hfproviders.NewCerebrasProvider() },
+		"cohere":         func() hfproviders.Provider { return hfproviders.NewCohereProvider() },
+		"featherless-ai": func() hfproviders.Provider { return hfproviders.NewFeatherlessAIProvider() },
+		"fireworks-ai":   func() hfproviders.Provider { return hfproviders.NewFireworksAIProvider() },
+		"groq":           func() hfproviders.Provider { return hfproviders.NewGroqProvider() },
+		"novita":         func() hfproviders.Provider { return hfproviders.NewNovitaProvider() },
+		"ovhcloud":       func() hfproviders.Provider { return hfproviders.NewOVHcloudProvider() },
+		"publicai":       func() hfproviders.Provider { return hfproviders.NewPublicAIProvider() },
+		"zai-org":        func() hfproviders.Provider { return hfproviders.NewZAIProvider() },
+	}
+
+	for slug, newProvider := range chatOnlyProviders {
+		t.Run(slug, func(t *testing.T) {
+			t.Parallel()
+
+			const model = "zai-org/GLM-5.3-Flash"
+
+			t.Run("appends the provider suffix to the wire model", func(t *testing.T) {
+				t.Parallel()
+
+				mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+				client := NewClient(
+					hfopts.WithHTTPClientFactory(
+						func() http.Client { return testutils.NewMockHTTPClient(mt) },
+					),
+					hfopts.WithModel(model),
+					hfopts.WithProvider(newProvider()),
+				)
+
+				_, err := client.Chat(context.Background(), request)
+				require.NoError(t, err)
+
+				require.NotNil(t, mt.LastRequest)
+				require.Equal(t, "/v1/chat/completions", mt.LastRequest.URL.Path)
+
+				got := testutils.ReadRequestBody(t, mt)
+				require.Equal(t, model+":"+slug, got["model"])
+			})
+
+			t.Run("keeps a request model that already carries a suffix", func(t *testing.T) {
+				t.Parallel()
+
+				mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+				client := NewClient(
+					hfopts.WithHTTPClientFactory(
+						func() http.Client { return testutils.NewMockHTTPClient(mt) },
+					),
+					hfopts.WithModel(model),
+					hfopts.WithProvider(newProvider()),
+				)
+
+				req := request
+				req.Model = new(model + ":fastest")
+				_, err := client.Chat(context.Background(), req)
+				require.NoError(t, err)
+
+				got := testutils.ReadRequestBody(t, mt)
+				require.Equal(t, model+":fastest", got["model"])
+			})
+		})
+	}
+}
+
+// assertClientChatProviderSuffixPin pins a resolver-backed partner provider's
+// chat routing: like the chat-only partner providers, it appends its
+// model-string suffix on the wire unless the request model already carries
+// one. The provider's pipeline tasks need a resolver, so a static (never
+// consulted by chat) resolver backs the provider in the tests below.
+func assertClientChatProviderSuffixPin(t *testing.T, provider hfproviders.Provider, slug string) {
+	t.Helper()
+
+	const model = "openai/gpt-oss-120b"
+
+	text := "hi"
+	request := hftypes.ChatRequest{
+		Messages: []hftypes.ChatMessage{
+			{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
+		},
+	}
+
+	t.Run("appends the provider suffix to the wire model", func(t *testing.T) {
+		t.Parallel()
+
+		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+		client := NewClient(
+			hfopts.WithHTTPClientFactory(
+				func() http.Client { return testutils.NewMockHTTPClient(mt) },
+			),
+			hfopts.WithModel(model),
+			hfopts.WithProvider(provider),
+		)
+
+		_, err := client.Chat(context.Background(), request)
+		require.NoError(t, err)
+
+		require.NotNil(t, mt.LastRequest)
+		require.Equal(t, "/v1/chat/completions", mt.LastRequest.URL.Path)
+
+		got := testutils.ReadRequestBody(t, mt)
+		require.Equal(t, model+":"+slug, got["model"])
+	})
+
+	t.Run("keeps a request model that already carries a suffix", func(t *testing.T) {
+		t.Parallel()
+
+		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+		client := NewClient(
+			hfopts.WithHTTPClientFactory(
+				func() http.Client { return testutils.NewMockHTTPClient(mt) },
+			),
+			hfopts.WithModel(model),
+			hfopts.WithProvider(provider),
+		)
+
+		req := request
+		req.Model = new(model + ":fastest")
+		_, err := client.Chat(context.Background(), req)
+		require.NoError(t, err)
+
+		got := testutils.ReadRequestBody(t, mt)
+		require.Equal(t, model+":fastest", got["model"])
+	})
+}
+
+// TestClientChat_DeepInfraProviderSuffix pins the DeepInfra provider's chat
+// routing through the shared suffix-pin assertions.
+func TestClientChat_DeepInfraProviderSuffix(t *testing.T) {
+	t.Parallel()
+
+	provider, err := hfproviders.NewDeepInfraProvider(hfproviders.NewStaticModelResolver(nil))
+	require.NoError(t, err)
+
+	assertClientChatProviderSuffixPin(t, provider, "deepinfra")
+}
+
+// TestClientChat_ScalewayProviderSuffix pins the Scaleway provider's chat
+// routing through the shared suffix-pin assertions.
+func TestClientChat_ScalewayProviderSuffix(t *testing.T) {
+	t.Parallel()
+
+	provider, err := hfproviders.NewScalewayProvider(hfproviders.NewStaticModelResolver(nil))
+	require.NoError(t, err)
+
+	assertClientChatProviderSuffixPin(t, provider, "scaleway")
+}
+
+// TestClientChat_TogetherProvider pins the Together provider's chat wire
+// format end to end: the ":together" model suffix is appended like the other
+// chat partner providers, and a json_schema response_format is sent in
+// OpenAI's nested envelope, which Together's API consumes.
+func TestClientChat_TogetherProvider(t *testing.T) {
+	t.Parallel()
+
+	provider := hfproviders.NewTogetherProvider()
+
+	text := "hi"
+	request := hftypes.ChatRequest{
+		Messages: []hftypes.ChatMessage{
+			{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
+		},
+	}
+
+	const model = "deepseek-ai/DeepSeek-V4.1-Flash"
+
+	newClient := func(mt *testutils.MockTransport) Client {
+		return NewClient(
+			hfopts.WithHTTPClientFactory(
+				func() http.Client { return testutils.NewMockHTTPClient(mt) },
+			),
+			hfopts.WithModel(model),
+			hfopts.WithProvider(provider),
+		)
+	}
+
+	t.Run("appends the provider suffix to the wire model", func(t *testing.T) {
+		t.Parallel()
+
+		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+		client := newClient(mt)
+
+		_, err := client.Chat(context.Background(), request)
+		require.NoError(t, err)
+
+		require.NotNil(t, mt.LastRequest)
+		require.Equal(t, "/v1/chat/completions", mt.LastRequest.URL.Path)
+
+		got := testutils.ReadRequestBody(t, mt)
+		require.Equal(t, model+":together", got["model"])
+	})
+
+	t.Run("keeps a request model that already carries a suffix", func(t *testing.T) {
+		t.Parallel()
+
+		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+		client := newClient(mt)
+
+		req := request
+		req.Model = new(model + ":fastest")
+		_, err := client.Chat(context.Background(), req)
+		require.NoError(t, err)
+
+		got := testutils.ReadRequestBody(t, mt)
+		require.Equal(t, model+":fastest", got["model"])
+	})
+
+	t.Run("passes a json_schema response_format through", func(t *testing.T) {
+		t.Parallel()
+
+		mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+		client := newClient(mt)
+
+		req := request
+		req.ResponseFormat = &hftypes.ChatResponseFormat{
+			Type: hftypes.ResponseFormatTypeJSONSchema,
+			JSONSchema: &hftypes.ChatJSONSchemaConfig{
+				Name:   "answer",
+				Strict: new(true),
+				Schema: json.RawMessage(`{"type":"object"}`),
+			},
+		}
+
+		_, err := client.Chat(context.Background(), req)
+		require.NoError(t, err)
+
+		got := testutils.ReadRequestBody(t, mt)
+		require.Equal(t,
+			map[string]any{
+				"type": "json_schema",
+				"json_schema": map[string]any{
+					"name":   "answer",
+					"strict": true,
+					"schema": map[string]any{"type": "object"},
+				},
+			},
+			got["response_format"],
+		)
+	})
+}
+
+// TestClientChat_NscaleProviderSuffix pins the Nscale provider's chat
+// routing through the shared suffix-pin assertions.
+func TestClientChat_NscaleProviderSuffix(t *testing.T) {
+	t.Parallel()
+
+	provider, err := hfproviders.NewNscaleProvider(hfproviders.NewStaticModelResolver(nil))
+	require.NoError(t, err)
+
+	assertClientChatProviderSuffixPin(t, provider, "nscale")
+}
+
+func TestClientChat_MissingModel(t *testing.T) {
+	t.Parallel()
+
+	mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+	client := NewClient(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+	)
+
+	text := "hi"
+	req := hftypes.ChatRequest{
+		Messages: []hftypes.ChatMessage{
+			{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
+		},
+	}
+
+	_, err := client.Chat(context.Background(), req)
+	require.Error(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+	require.Nil(t, mt.LastRequest)
+}
+
+func TestClientChat_StreamNotAllowed(t *testing.T) {
+	t.Parallel()
+
+	mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+	client := NewClient(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("default-model"),
+	)
+
+	stream := true
+	text := "hi"
+	req := hftypes.ChatRequest{
+		Stream: &stream,
+		Messages: []hftypes.ChatMessage{
+			{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
+		},
+	}
+
+	_, err := client.Chat(context.Background(), req)
+	require.Error(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+	require.Nil(t, mt.LastRequest)
+}
+
+func TestClientChatStream_Success(t *testing.T) {
+	t.Parallel()
+
+	body := "data: {\"id\":\"id\",\"created\":1,\"model\":\"stream-model\",\"system_fingerprint\":\"sig\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n" +
+		"data: [DONE]\n\n"
+	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
+	mt.Response.Header.Set("Content-Type", "text/event-stream")
+
+	client := NewClient(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("default-model"),
+	)
+
+	text := "hi"
+	req := hftypes.ChatRequest{
+		Messages: []hftypes.ChatMessage{
+			{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
+		},
+	}
+
+	stream, err := client.ChatStream(context.Background(), req)
+	require.NoError(t, err)
+	defer func() { _ = stream.Close() }()
+
+	chunk, err := stream.Recv(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "stream-model", chunk.Model)
+	require.Len(t, chunk.Choices, 1)
+	require.NotNil(t, chunk.Choices[0].Delta.Content)
+	require.Equal(t, "hi", *chunk.Choices[0].Delta.Content)
+
+	_, err = stream.Recv(context.Background())
+	require.ErrorIs(t, err, io.EOF)
+
+	require.NotNil(t, mt.LastRequest)
+	require.Equal(t, "/v1/chat/completions", mt.LastRequest.URL.Path)
+
+	payload := testutils.ReadRequestBody(t, mt)
+	require.Equal(t, true, payload["stream"])
+	require.Equal(t, "default-model", payload["model"])
+}
+
+func TestClientChatStream_MissingModel(t *testing.T) {
+	t.Parallel()
+
+	mt := testutils.NewMockTransport(http.StatusOK, "", nil)
+	mt.Response.Header.Set("Content-Type", "text/event-stream")
+	client := NewClient(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+	)
+
+	_, err := client.ChatStream(context.Background(), hftypes.ChatRequest{})
+	require.Error(t, err)
+	testutils.AssertSDKErrorKind(t, err, hferrors.SDKErrorKindConfiguration)
+	require.Nil(t, mt.LastRequest)
+}
+
+func TestClientChatStream_ToolCallMerging(t *testing.T) {
+	t.Parallel()
+
+	body := strings.Join([]string{
+		`data: {"id":"id","created":1,"model":"stream-model","system_fingerprint":"sig","choices":[{"index":0,"delta":{"tool_calls":[{"id":"call_0","type":"function","index":0,"function":{"name":"fn","arguments":""}}]}}]}`,
+		``,
+		`data: {"id":"id","created":1,"model":"stream-model","system_fingerprint":"sig","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"foo\":1}"}}]}}]}`,
+		``,
+		"data: [DONE]",
+		``,
+		``,
+	}, "\n")
+
+	mt := testutils.NewMockTransport(http.StatusOK, body, nil)
+	mt.Response.Header.Set("Content-Type", "text/event-stream")
+
+	client := NewClient(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("default-model"),
+	)
+
+	text := "hi"
+	req := hftypes.ChatRequest{
+		Messages: []hftypes.ChatMessage{
+			{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
+		},
+	}
+
+	stream, err := client.ChatStream(context.Background(), req)
+	require.NoError(t, err)
+	defer func() { _ = stream.Close() }()
+
+	first, err := stream.Recv(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "call_0", first.Choices[0].Delta.ToolCalls[0].ID)
+
+	second, err := stream.Recv(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "call_0", second.Choices[0].Delta.ToolCalls[0].ID)
+	require.Equal(t, `{"foo":1}`, second.Choices[0].Delta.ToolCalls[0].Function.Arguments)
+
+	_, err = stream.Recv(context.Background())
+	require.ErrorIs(t, err, io.EOF)
+}
+
+func TestClientChat_ProviderSuffix(t *testing.T) {
+	t.Parallel()
+
+	mt := testutils.NewJSONMockTransport(http.StatusOK, chatServiceResponseBody, nil)
+	client := NewClient(
+		hfopts.WithHTTPClientFactory(func() http.Client { return testutils.NewMockHTTPClient(mt) }),
+		hfopts.WithModel("mistral-7b"),
+		hfopts.WithProvider(testproviders.NewMockProvider("sambanova", "sambanova")),
+	)
+
+	text := "hi"
+	req := hftypes.ChatRequest{
+		Messages: []hftypes.ChatMessage{
+			{Role: "user", Content: hftypes.ChatMessageContent{Text: &text}},
+		},
+	}
+
+	_, err := client.Chat(context.Background(), req)
+	require.NoError(t, err)
+
+	payload := testutils.ReadRequestBody(t, mt)
+	require.Equal(t, "mistral-7b:sambanova", payload["model"])
+}
+
+func TestClient_EndpointDelegates(t *testing.T) {
+	t.Parallel()
+
+	question := hftypes.QuestionAnsweringInput{
+		Question: "What is the capital of France?",
+		Context:  "France is a country in Europe. Its capital is Paris.",
+	}
+	table := hftypes.TableQuestionAnsweringInput{
+		Question: "How old is Bob?",
+		Table: map[string][]string{
+			"Name": {"Alice", "Bob", "Carol"},
+			"Age":  {"25", "30", "35"},
+		},
+	}
+
+	const (
+		modelPath    = "/hf-inference/models/test-model"
+		pipelinePath = modelPath + "/pipeline/feature-extraction"
+	)
+
+	cases := []struct {
+		name        string
+		response    string
+		contentType string
+		wantPath    string
+		validateReq func(t *testing.T, mt *testutils.MockTransport)
+		call        func(client Client) error
+	}{
+		{
+			name:     "ClassifyText",
+			response: `[[{"label":"positive","score":0.95}]]`,
+			call: func(client Client) error {
+				_, err := client.ClassifyText(
+					context.Background(),
+					hftypes.TextClassificationRequest{Input: "test text"},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "ClassifyTokens",
+			response: `[{"entity":"PER","score":0.998,"word":"Sarah","start":11,"end":16}]`,
+			call: func(client Client) error {
+				_, err := client.ClassifyTokens(
+					context.Background(),
+					hftypes.TokenClassificationRequest{Input: "My name is Sarah."},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "AnswerQuestion",
+			response: `{"answer":"Paris","score":0.95,"start":48,"end":53}`,
+			call: func(client Client) error {
+				_, err := client.AnswerQuestion(
+					context.Background(),
+					hftypes.QuestionAnsweringRequest{Input: question},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "ZeroShotClassifyText",
+			response: `[{"label":"positive","score":0.95}]`,
+			call: func(client Client) error {
+				_, err := client.ZeroShotClassifyText(
+					context.Background(),
+					hftypes.ZeroShotTextClassificationRequest{
+						Input: "test text",
+						Parameters: &hftypes.ZeroShotTextClassificationParameters{
+							CandidateLabels: []string{"positive", "negative"},
+						},
+					},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "FillMask",
+			response: `[{"sequence":"The capital of France is Paris.","score":0.95,"token":1,"token_str":"Paris"}]`,
+			call: func(client Client) error {
+				_, err := client.FillMask(
+					context.Background(),
+					hftypes.FillMaskRequest{Input: "The capital of France is [MASK]."},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "Summarize",
+			response: `[{"summary_text":"A concise summary."}]`,
+			call: func(client Client) error {
+				_, err := client.Summarize(
+					context.Background(),
+					hftypes.SummarizationRequest{Input: "Some long text."},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "AnswerTableQuestion",
+			response: `{"answer":"30","cells":["30"],"coordinates":[[1,1]]}`,
+			call: func(client Client) error {
+				_, err := client.AnswerTableQuestion(
+					context.Background(),
+					hftypes.TableQuestionAnsweringRequest{Input: table},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "Translate",
+			response: `[{"translation_text":"Bonjour le monde."}]`,
+			call: func(client Client) error {
+				_, err := client.Translate(
+					context.Background(),
+					hftypes.TranslationRequest{Input: "Hello world."},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "ExtractPooledFeatures",
+			response: `[0.1,0.2,0.3]`,
+			wantPath: pipelinePath,
+			call: func(client Client) error {
+				_, err := client.ExtractPooledFeatures(
+					context.Background(),
+					hftypes.FeatureExtractionRequest{Input: "hello"},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "ExtractPooledFeaturesBatch",
+			response: `[[0.1,0.2,0.3]]`,
+			wantPath: pipelinePath,
+			call: func(client Client) error {
+				_, err := client.ExtractPooledFeaturesBatch(
+					context.Background(),
+					hftypes.FeatureExtractionBatchRequest{Inputs: []string{"hello"}},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "DetectObjects",
+			response: `[{"label":"person","score":0.95,"box":{"xmin":1,"ymin":2,"xmax":3,"ymax":4}}]`,
+			validateReq: func(t *testing.T, mt *testutils.MockTransport) {
+				t.Helper()
+
+				payload := testutils.ReadRequestBody(t, mt)
+				require.Equal(t, testutils.TinyPNGBase64, payload["inputs"])
+			},
+			call: func(client Client) error {
+				_, err := client.DetectObjects(
+					context.Background(),
+					hftypes.ObjectDetectionRequest{Input: testutils.TinyPNGBase64},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "SegmentImage",
+			response: `[{"label":"cat","mask":"bWFzaw==","score":0.97}]`,
+			validateReq: func(t *testing.T, mt *testutils.MockTransport) {
+				t.Helper()
+
+				payload := testutils.ReadRequestBody(t, mt)
+				require.Equal(t, testutils.TinyPNGBase64, payload["inputs"])
+			},
+			call: func(client Client) error {
+				_, err := client.SegmentImage(
+					context.Background(),
+					hftypes.ImageSegmentationRequest{Input: testutils.TinyPNGBase64},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "ClassifyImage",
+			response: `[{"label":"Egyptian cat","score":0.514}]`,
+			validateReq: func(t *testing.T, mt *testutils.MockTransport) {
+				t.Helper()
+
+				payload := testutils.ReadRequestBody(t, mt)
+				require.Equal(t, testutils.TinyPNGBase64, payload["inputs"])
+			},
+			call: func(client Client) error {
+				_, err := client.ClassifyImage(
+					context.Background(),
+					hftypes.ImageClassificationRequest{Input: testutils.TinyPNGBase64},
+				)
+
+				return err
+			},
+		},
+		{
+			name:        "GenerateImage",
+			response:    "\x89PNG\r\n\x1a\n",
+			contentType: "image/png",
+			validateReq: func(t *testing.T, mt *testutils.MockTransport) {
+				t.Helper()
+
+				payload := testutils.ReadRequestBody(t, mt)
+				require.Equal(t, "a cat", payload["inputs"])
+				require.Equal(t, "*/*", mt.LastRequest.Header.Get("Accept"))
+			},
+			call: func(client Client) error {
+				_, err := client.GenerateImage(
+					context.Background(),
+					hftypes.TextToImageRequest{Input: "a cat"},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "RecognizeSpeech_raw",
+			response: `{"text":"hello world"}`,
+			validateReq: func(t *testing.T, mt *testutils.MockTransport) {
+				t.Helper()
+
+				require.NotEmpty(
+					t,
+					mt.LastRequest.Header.Get("Content-Type"),
+					"raw audio body should have sniffed Content-Type",
+				)
+			},
+			call: func(client Client) error {
+				_, err := client.RecognizeSpeech(
+					context.Background(),
+					hftypes.SpeechRecognitionRequest{
+						Input: "AAAA",
+					},
+				)
+
+				return err
+			},
+		},
+		{
+			name:     "RecognizeSpeech_params",
+			response: `{"text":"hello world","chunks":[{"text":"hello","timestamp":[0.0,0.5]}]}`,
+			validateReq: func(t *testing.T, mt *testutils.MockTransport) {
+				t.Helper()
+
+				payload := testutils.ReadRequestBody(t, mt)
+				require.Equal(t, "AAAA", payload["inputs"])
+				params, ok := payload["parameters"].(map[string]any)
+				require.True(t, ok)
+				rt, ok := params["return_timestamps"].(bool)
+				require.True(t, ok)
+				require.True(t, rt)
+			},
+			call: func(client Client) error {
+				_, err := client.RecognizeSpeech(
+					context.Background(),
+					hftypes.SpeechRecognitionRequest{
+						Input: "AAAA",
+						Parameters: &hftypes.SpeechRecognitionParameters{
+							ReturnTimestamps: new(true),
+						},
+					},
+				)
+
+				return err
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var mt *testutils.MockTransport
+			if tc.contentType != "" {
+				mt = testutils.NewMockTransport(http.StatusOK, tc.response, nil)
+				mt.Response.Header.Set("Content-Type", tc.contentType)
+			} else {
+				mt = testutils.NewJSONMockTransport(http.StatusOK, tc.response, nil)
+			}
+			client := NewClient(
+				hfopts.WithHTTPClientFactory(
+					func() http.Client { return testutils.NewMockHTTPClient(mt) },
+				),
+				hfopts.WithModel("test-model"),
+			)
+
+			require.NoError(t, tc.call(client))
+			require.NotNil(t, mt.LastRequest)
+
+			wantPath := tc.wantPath
+			if wantPath == "" {
+				wantPath = modelPath
+			}
+			require.Equal(t, wantPath, mt.LastRequest.URL.Path)
+
+			if tc.validateReq != nil {
+				tc.validateReq(t, mt)
+			}
+		})
+	}
+}
+
+// TestClient_GenerateImageToImageAndVideo exercises the two client methods the
+// default provider does not support: with a WaveSpeed provider configured,
+// both must dispatch through the provider's async exchange (submit, download
+// the generated output) and return the media with its advertised type.
+func TestClient_GenerateImageToImageAndVideo(t *testing.T) {
+	t.Parallel()
+
+	png, err := base64.StdEncoding.DecodeString(testutils.TinyPNGBase64)
+	require.NoError(t, err)
+
+	t.Run("GenerateImageToImage", func(t *testing.T) {
+		t.Parallel()
+
+		var outputURL string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"code":200,"message":"success","data":{` +
+					`"id":"pred_1","status":"completed","outputs":["` + outputURL + `"]}}`))
+
+				return
+			}
+
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write(png)
+		}))
+		defer server.Close()
+		outputURL = server.URL + "/output"
+
+		mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
+			{
+				Provider: "wavespeed",
+				Task:     hfproviders.TaskImageToImage,
+				Model:    "test-model",
+			}: {ProviderModelID: "wavespeed-ai/image-to-image"},
+		}
+		mapper := hfproviders.NewStaticModelResolver(mappings)
+		provider, err := hfproviders.NewWaveSpeedProvider(mapper)
+		require.NoError(t, err)
+		client := NewClient(
+			hfopts.WithBaseURL(server.URL),
+			hfopts.WithModel("test-model"),
+			hfopts.WithProvider(provider),
+		)
+
+		image, err := client.GenerateImageToImage(context.Background(), hftypes.ImageToImageRequest{
+			Input: testutils.TinyPNGBase64,
+		})
+		require.NoError(t, err)
+		require.Equal(t, png, image.Image)
+		require.Equal(t, "image/png", image.MediaType)
+	})
+
+	t.Run("GenerateVideo", func(t *testing.T) {
+		t.Parallel()
+
+		var outputURL string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodPost {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"code":200,"message":"success","data":{` +
+					`"id":"pred_1","status":"completed","outputs":["` + outputURL + `"]}}`))
+
+				return
+			}
+
+			w.Header().Set("Content-Type", "video/webm")
+			_, _ = w.Write([]byte{0x1A, 0x45, 0xDF, 0xA3})
+		}))
+		defer server.Close()
+		outputURL = server.URL + "/output"
+
+		mappings := map[hfproviders.StaticMapping]hfproviders.ModelMapping{
+			{
+				Provider: "wavespeed",
+				Task:     hfproviders.TaskTextToVideo,
+				Model:    "test-model",
+			}: {ProviderModelID: "wavespeed-ai/minimax-h3/text-to-video"},
+		}
+		mapper := hfproviders.NewStaticModelResolver(mappings)
+		provider, err := hfproviders.NewWaveSpeedProvider(mapper)
+		require.NoError(t, err)
+		client := NewClient(
+			hfopts.WithBaseURL(server.URL),
+			hfopts.WithModel("test-model"),
+			hfopts.WithProvider(provider),
+		)
+
+		video, err := client.GenerateVideo(
+			context.Background(),
+			hftypes.TextToVideoRequest{Input: "a cat"},
+		)
+		require.NoError(t, err)
+		require.Equal(t, []byte{0x1A, 0x45, 0xDF, 0xA3}, video.Video)
+		require.Equal(t, "video/webm", video.MediaType)
+	})
+}

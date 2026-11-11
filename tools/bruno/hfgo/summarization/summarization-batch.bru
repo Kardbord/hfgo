@@ -1,0 +1,26 @@
+meta {
+  name: Summarization - Batch
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_summarization}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inputs": [
+      "The Earth orbits the Sun once every 365 days, giving us a year.",
+      "The Moon orbits the Earth roughly every 27 days, a period known as a sidereal month."
+    ],
+    "parameters": {}
+  }
+}

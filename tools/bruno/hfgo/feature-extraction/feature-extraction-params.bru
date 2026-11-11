@@ -1,0 +1,27 @@
+meta {
+  name: Feature Extraction - Params
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_feature_extraction}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inputs": "The capital of France is Paris, a city on the Seine.",
+    "parameters": {
+      "normalize": true,
+      "truncate": true,
+      "truncation_direction": "right"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+meta {
+  name: Chat Completion - Non-streaming
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{HF_BASE_URL}}/v1/chat/completions
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "model": "{{model_chat_completion}}",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "What is the capital of France?"
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+meta {
+  name: Zero-Shot Classification - Params
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_zero_shot_classification}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inputs": "The stock is trending upward this quarter.",
+    "parameters": {
+      "candidate_labels": ["finance", "sports", "technology"],
+      "multi_label": true,
+      "hypothesis_template": "This example is about {}."
+    }
+  }
+}

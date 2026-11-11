@@ -1,0 +1,28 @@
+---
+name: Action Lint
+
+on:
+  pull_request:
+    branches:
+      - main
+      - v*-draft
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run-actionlint:
+    name: Run actionlint
+    runs-on: ubuntu-latest
+    permissions:
+      # needed for the checkout action
+      contents: read
+      # needed to annotate the files in a pull request with comments
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run actionlint
+        uses: devops-actions/actionlint@ec02b36684b2f574f1d219ad0a43b082e46bf3e4 # v0.1.13

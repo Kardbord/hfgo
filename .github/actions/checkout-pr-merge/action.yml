@@ -1,0 +1,51 @@
+---
+name: Checkout PR merge
+description: >
+  Check out a branch and, when given a PR number, reconstruct the PR merge
+  commit deterministically instead of relying on the lazily-published
+  refs/pull/N/merge ref.
+inputs:
+  ref:
+    description: >
+      Ref to check out. For pull_request_target runs this is the PR's base
+      branch; for push/schedule/workflow_dispatch it is the pushed branch.
+    required: true
+  pr-number:
+    description: >
+      PR number. When non-empty, fetch refs/pull/N/head and merge it into the
+      checked-out base to reconstruct the merge commit. Leave empty on
+      non-PR events.
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Checkout branch
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        ref: ${{ inputs.ref }}
+        # Full history is required so the merge below can compute a merge base.
+        fetch-depth: 0
+
+    # The merge ref (refs/pull/N/merge) is lazily published by GitHub and can
+    # be missing when a pull_request_target run starts, causing transient
+    # "couldn't find remote ref" failures (and, in pr-title-check, letting a
+    # broken checkout silently bypass the breaking-change gate). Reconstruct
+    # the merge commit reliably from the base branch and the always-available
+    # refs/pull/N/head instead. Merging head into base reproduces the merge
+    # GitHub computes for refs/pull/N/merge (base = first parent, head =
+    # second) with the same resulting tree; only the commit hash differs
+    # (GitHub's own committer/timestamp), which is irrelevant for CI. If the
+    # base branch advances between event delivery and this fetch, the tree
+    # reflects the newer base (what a fresh merge would use), so it can differ
+    # slightly from the event-time merge ref. A conflicting PR fails loudly
+    # here, mirroring GitHub, which also cannot produce a merge ref for a
+    # conflicted PR.
+    - name: Reconstruct PR merge commit
+      if: inputs.pr-number != ''
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git fetch origin "refs/pull/${{ inputs.pr-number }}/head"
+        git merge --no-ff --no-edit FETCH_HEAD

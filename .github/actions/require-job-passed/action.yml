@@ -1,0 +1,24 @@
+---
+name: Require job passed
+description: >
+  Fail the containing job unless a referenced prerequisite job passed. Converts
+  a prerequisite that failed or was cancelled into a loud, blocking signal,
+  instead of silently passing when that prerequisite's outputs are unset.
+inputs:
+  result:
+    description: >
+      The prerequisite job's result (e.g. needs.<job>.result). Fails when this
+      is 'failure' or 'cancelled'.
+    required: true
+  message:
+    description: Message printed when the step fails.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Fail unless prerequisite job passed
+      if: inputs.result == 'failure' || inputs.result == 'cancelled'
+      shell: bash
+      run: |
+        printf '%s\n' "${{ inputs.message }}"
+        exit 1

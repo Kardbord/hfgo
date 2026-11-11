@@ -11,29 +11,23 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
 # IDE
 .vscode/
 
-# examples binaries
-examples/audio_classification/audio_classification
-examples/conversational/conversational
-examples/fill_mask/fill_mask
-examples/image_classification/image_classification
-examples/image_segmentation/image_segmentation
-examples/object_detection/object_detection
-examples/question_answering/question_answering
-examples/sentence_similarity/sentence_similarity
-examples/speech_recognition/speech_recognition
-examples/summarization/summarization
-examples/table_question_answering/table_question_answering
-examples/text_classification/text_classification
-examples/text_generation/text_generation
-examples/token_classification/token_classification
-examples/translation/translation
-examples/zeroshot/zeroshot
-examples/text_to_image/*
-!examples/text_to_image/*.go
-examples/image_to_text/image_to_text
+# Ignore compiled binaries under examples (typically extensionless).
+examples/**/*
+!examples/**/
+!examples/**/*.*
+
+# Go cache
+.gocache
+
+# Images
+*.png
+*.jpg
+*.jpeg
+*.svg
+
+# Misc
+.token
+.ruff_cache/

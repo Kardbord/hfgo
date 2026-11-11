@@ -1,29 +1,57 @@
-name: goreleaser
-
+name: Release
 on:
   push:
-    tags:
-      - "*"
-
+    branches:
+      - main
+      - v*-draft
 permissions:
-  contents: write
-
+  contents: read
 jobs:
-  goreleaser:
+  release-please:
+    name: Release Please
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
-      - uses: actions/checkout@v3
+      # ====================================================================
+      # Select release configuration based on branch
+      # ====================================================================
+      # main        -> stable config (default versioning)
+      # v*-draft    -> prerelease config (prerelease versioning)
+      # ====================================================================
+      - name: Select release config
+        id: config
+        run: |
+          if [[ "${{ github.ref_name }}" == main ]]; then
+            echo "config-file=.github/release-please-config.json" >> "$GITHUB_OUTPUT"
+            echo "manifest-file=.github/.release-please-manifest.json" >> "$GITHUB_OUTPUT"
+          else
+            echo "config-file=.github/prerelease-please-config.json" >> "$GITHUB_OUTPUT"
+            echo "manifest-file=.github/.prerelease-please-manifest.json" >> "$GITHUB_OUTPUT"
+          fi
+      # ====================================================================
+      # Run Release Please
+      # ====================================================================
+      # Release Please automatically:
+      # 1. Analyzes commits since last tag
+      # 2. Determines version bump (major/minor/patch/prerelease)
+      # 3. Creates Release PR with version updates:
+      #    - Updates hfgoversion/version.go
+      #    - Updates the release manifest
+      #    - May update go.mod for major-version bumps
+      #    - Generates release notes
+      # 4. On Release PR merge, creates:
+      #    - Git tag
+      #    - GitHub release with release notes
+      # ====================================================================
+      # Use a PAT or GitHub App token instead of the default GITHUB_TOKEN so
+      # that pushes and PR updates made by release-please trigger the other
+      # workflows (including the checks the release PR must pass).
+      # See https://github.com/googleapis/release-please-action#other-actions-on-release-please-prs
+      - name: Run Release Please
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
-          fetch-depth: 0
-      - run: git fetch --force --tags
-      - uses: actions/setup-go@v4
-        with:
-          go-version: ">=1.19.4"
-          cache: true
-      - uses: goreleaser/goreleaser-action@v4
-        with:
-          distribution: goreleaser
-          version: latest
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.HFGO_RELEASE_PLEASE_TOKEN }}
+          config-file: ${{ steps.config.outputs.config-file }}
+          manifest-file: ${{ steps.config.outputs.manifest-file }}

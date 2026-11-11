@@ -1,0 +1,31 @@
+---
+name: Determine if release PR
+description: >
+  Check at runtime whether a pull request is a release-please PR by inspecting
+  its current labels for the 'autorelease: pending' label (authoritative; the
+  event payload's labels array can be empty on opened/synchronize).
+inputs:
+  pr-number:
+    description: Pull request number to inspect.
+    required: true
+outputs:
+  is-release:
+    description: "'true' if the PR carries the autorelease: pending label, else 'false'."
+    value: ${{ steps.check.outputs.is-release }}
+runs:
+  using: composite
+  steps:
+    - name: Determine if release PR
+      id: check
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      shell: bash
+      run: |
+        LABELS="$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json labels --jq '[.labels[].name] | join(",")')"
+        if [[ "$LABELS" == *"autorelease: pending"* ]]; then
+          echo "is-release=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "is-release=false" >> "$GITHUB_OUTPUT"
+        fi

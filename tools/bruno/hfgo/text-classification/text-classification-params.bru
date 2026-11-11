@@ -1,0 +1,26 @@
+meta {
+  name: Text Classification - Params
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_text_classification}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inputs": "The stock market rallied today on strong earnings.",
+    "parameters": {
+      "top_k": 3,
+      "function_to_apply": "softmax"
+    }
+  }
+}

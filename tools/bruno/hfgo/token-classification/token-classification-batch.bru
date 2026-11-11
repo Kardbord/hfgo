@@ -1,0 +1,26 @@
+meta {
+  name: Token Classification - Batch
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_token_classification}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inputs": [
+      "Alice works at Google in Dublin.",
+      "Bob lives in Seattle near Microsoft."
+    ],
+    "parameters": {}
+  }
+}

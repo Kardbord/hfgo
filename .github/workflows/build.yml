@@ -1,0 +1,36 @@
+---
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+      - v*-draft
+  pull_request:
+    branches:
+      - main
+      - v*-draft
+  schedule:
+    - cron: "35 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: ./.github/actions/setup-go
+
+      - name: Build packages
+        run: go build -v ./...

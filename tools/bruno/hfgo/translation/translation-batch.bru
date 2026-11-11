@@ -1,0 +1,29 @@
+meta {
+  name: Translation - Batch
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_translation}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inputs": [
+      "Good morning, everyone.",
+      "See you tomorrow."
+    ],
+    "parameters": {
+      "src_lang": "en",
+      "tgt_lang": "de"
+    }
+  }
+}

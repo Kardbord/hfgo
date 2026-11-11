@@ -1,0 +1,26 @@
+meta {
+  name: Question Answering - Single
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_question_answering}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inputs": {
+      "question": "What is the capital of France?",
+      "context": "The capital of France is Paris, situated on the Seine river."
+    },
+    "parameters": {}
+  }
+}

@@ -1,0 +1,461 @@
+# hfgo Architecture
+
+hfgo is an unofficial Go SDK for the
+[Hugging Face Inference API](https://huggingface.co/docs/inference-providers/tasks/index).
+It provides type-safe client methods for every supported inference task and a
+pluggable provider layer for alternate wire formats. The API surface favors
+upstream feature parity; breaking changes are possible as the upstream API
+evolves.
+
+This document records the design decisions that shape the codebase. It is not
+an API reference — see [pkg.go.dev](https://pkg.go.dev/github.com/Kardbord/hfgo/v4)
+and `examples/` for usage documentation, and the code itself for full detail.
+
+## Package Layout
+
+| Package       | Import path                               | Contents                                                                                                                          |
+| ------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `hfgo`        | `github.com/Kardbord/hfgo/v4`             | `Client`, `NewClient`, and inference endpoint methods                                                                             |
+| `hfopts`      | `github.com/Kardbord/hfgo/v4/hfopts`      | `Options`, `Option`, and all `With*` helpers                                                                                      |
+| `hftypes`     | `github.com/Kardbord/hfgo/v4/hftypes`     | Request/response DTOs for every task                                                                                              |
+| `hferrors`    | `github.com/Kardbord/hfgo/v4/hferrors`    | `APIError`, `SDKError`, and `SDKErrorKind`                                                                                        |
+| `hfproviders` | `github.com/Kardbord/hfgo/v4/hfproviders` | `Provider` interface, per-task `*Provider` interfaces, `Codec`, `AsProvider`, per-task provider mixins (Hugging Face, WaveSpeed, fal.ai, DeepInfra, Scaleway, Nscale, Replicate), `HuggingFaceProvider`, `WaveSpeedProvider`, `FalAIProvider`, `DeepInfraProvider`, `ScalewayProvider`, `TogetherProvider`, `NscaleProvider`, `ReplicateProvider`, chat-only partner providers (e.g. `BasetenProvider`), `ModelResolver` |
+| `hfraw`       | `github.com/Kardbord/hfgo/v4/hfraw`       | Low-level HTTP/SSE escape hatch                                                                                                   |
+| `hfgoversion` | `github.com/Kardbord/hfgo/v4/hfgoversion` | `Version` constant and `UserAgent()` helper                                                                                       |
+
+Internal packages under `internal/` are implementation details and must only
+be imported from within the module.
+
+## Design Decisions
+
+### Immutable hfgo client
+
+An `hfgo.Client` is an immutable value type that captures configuration at creation
+time. Options are never mutated after construction. To change configuration,
+create a new client. Each method call snapshots the client's options, so
+concurrent calls are independent and deterministic.
+
+A client is not bound to a task or model: the same client serves every method.
+Because models are task-specific, supply the model per call with
+`hfopts.WithModel(...)` when it differs from the client default; the client's
+token, base URL, provider, and transport are reused unchanged.
+
+Per-request options (variadic `hfopts.Option`) override client defaults for a
+single call. Options are applied by value with defensive header copies;
+HTTP clients are shared references.
+
+Every task method takes a `context.Context` as its first argument
+(`client.Chat(ctx, req, ...)`). Contexts are per-call, never stored in
+`hfopts.Options`: deadlines and cancellation signals are scoped to a single
+request rather than to the client.
+
+### Options precedence
+
+When a setting can be specified at multiple levels, the following precedence
+applies (highest to lowest):
+
+1. Request DTO fields (e.g. `ChatRequest.Model`)
+2. Per-request options (e.g. `client.Chat(ctx, req, hfopts.WithModel(...))`)
+3. Client-level options (e.g. `hfgo.NewClient(hfopts.WithModel(...))`)
+
+This ensures more specific configuration always wins over more general
+configuration.
+
+### Request safety
+
+Request DTOs are passed to Client methods **by value** and the SDK never
+mutates the caller's payload. However, the value copy shares nested data
+(slices, maps, pointed-to values) with the caller. The request and everything
+it references must be treated as **read-only while a call is in flight**.
+
+For concurrent invocation, pass a defensive copy per call
+(`req.Clone()`) or build a fresh request per call. `Clone()` is a deep copy —
+every slice gets new backing storage and every pointer a new pointee.
+
+This is a deliberate trade-off: making DTOs non-copyable (mutexes, getters,
+pointer-only APIs) would destroy the value-copy semantics the SDK is built on.
+Preventing caller-authored races is therefore a caller responsibility.
+
+### Concurrency model
+
+Clients are safe for concurrent use out of the box. No explicit
+synchronization is required by callers. Concurrency safety comes from
+immutability plus internal synchronization for the one shared cache:
+
+- Clients never mutate their options after creation.
+- Each method call derives a fresh snapshot from the client's options.
+- No unguarded shared mutable state between goroutines. A `HubModelResolver`'s
+  cache is the one mutable component a client may hold; it is guarded by a
+  mutex and safe for concurrent use.
+
+If you inject an HTTP client via `hfopts.WithHTTPClientFactory`, ensure it is
+thread-safe by design or properly synchronized externally.
+
+Stream objects are not clients. Typed streams such as `ChatStream` are not safe
+for concurrent `Recv` calls. `Close` may be called concurrently with `Recv`.
+Callers that need fan-out must distribute chunks from a single consumer loop.
+
+### Provider abstraction
+
+Requests are routed through a pluggable provider layer defined in the
+`hfproviders` package. The Hugging Face Inference API is the reference wire
+format, so the built-in `HuggingFaceProvider` is a no-op transform;
+third-party providers can implement the same interfaces to serve HF-format
+requests from their own wire formats. The built-in defaults are composed from
+per-task mixins, so a custom provider can reuse only the tasks it serves (see
+[Per-task provider mixins](#per-task-provider-mixins)).
+
+A provider advertises task support structurally through per-task interfaces
+(e.g. `ChatProvider`, `SummarizationProvider`). Each interface pairs a task's
+endpoint-resolution method (`{Noun}Endpoint`) with its codec accessor
+(`{Noun}Codec`). Dispatch casts via `AsProvider`, which returns a
+configuration error when the cast fails.
+
+**Security invariant**: endpoint methods return paths *relative* to
+`Options.BaseURL`. The transport rejects absolute paths, so a provider can
+never redirect a request (and its bearer token) to a host the caller did not
+choose. Authentication is owned by the caller via `Options.Token` /
+`Options.Headers`; providers and codecs must not set `Authorization`.
+
+The same rule governs follow-up requests in asynchronous exchanges (task
+APIs that poll and download). A follow-up that must be authenticated is
+reduced to a relative path and resolved against `Options.BaseURL`, so
+polling still targets the host the caller chose. A follow-up fetched
+directly from a provider-controlled host (for example a signed CDN output
+link) goes through the transport's unauthenticated request helper, which
+structurally carries no credentials: its parameter type has no token field,
+it rejects URLs with embedded user credentials, and it strips
+`Authorization` defensively.
+
+### Per-task provider mixins
+
+Provider defaults are split into one zero-byte mixin per upstream task, for
+example `HuggingFaceTextClassificationMixin` or `HuggingFaceSummarizationMixin`.
+Each mixin pairs that task's endpoint-resolution method with its codec
+accessor(s). `HuggingFaceProvider` composes every mixin and adds the provider
+identity (`Name`, `ProviderSuffix`). Mixins deliberately do not implement
+`Provider`, so a custom provider embeds only the tasks it serves and supplies
+its own identity:
+
+```go
+type MyProvider struct {
+    hfproviders.HuggingFaceTextClassificationMixin
+    hfproviders.HuggingFaceSummarizationMixin
+}
+
+func (MyProvider) Name() string           { return "my-provider" }
+func (MyProvider) ProviderSuffix() string { return "" }
+```
+
+Hugging Face partner providers that need model resolution use the same
+pattern with one addition: their mixins carry the resolver as state.
+`WaveSpeedProvider`, for example, composes `WaveSpeedTextToVideoMixin`,
+`WaveSpeedTextToImageMixin`, and `WaveSpeedImageToImageMixin`, each with
+an exported `Resolver ModelResolver` field that its endpoint methods
+consult. `NewWaveSpeedProvider` sets every field; a custom provider
+embedding a single mixin sets it directly. Mixins that need no
+per-instance state (like the Hugging Face ones) stay zero-byte.
+
+A partner provider that needs no resolver state reuses the zero-byte mixins
+directly: the chat-only partner providers (e.g. `BasetenProvider`,
+`CerebrasProvider`) each embed `HuggingFaceChatMixin` and supply only their
+identity, pinning chat completions to their provider by appending the
+`:<provider>` model suffix — the chat task performs provider mapping
+server-side, so no resolution machinery is required. `DeepInfraProvider`
+composes both shapes: `HuggingFaceChatMixin` for suffix-pinned chat plus
+resolver-carrying DeepInfra mixins for speech recognition and pooled feature
+extraction. `TogetherProvider` embeds `HuggingFaceChatMixin` — endpoint and
+codecs — because Together's chat-completions API consumes the canonical
+OpenAI-compatible wire format the mixin emits, including OpenAI's nested
+`json_schema` response_format envelope.
+`NscaleProvider` follows the same composition: `HuggingFaceChatMixin`
+for suffix-pinned chat plus a resolver-carrying Nscale mixin for text-to-image.
+`ScalewayProvider` composes the same two shapes: `HuggingFaceChatMixin`
+for suffix-pinned chat plus a resolver-carrying mixin for pooled feature
+extraction.
+
+Embedding multiple resolver-carrying mixins intentionally leaves the promoted
+`Resolver` field ambiguous on the composed provider: it is not a compile error
+unless referenced, and callers never need it — the mixins read their own field
+and the constructor sets them. Composed providers therefore expose no resolver
+accessor, keeping resolution a construction-time dependency rather than a
+per-call input.
+
+Chat and feature extraction intentionally remain single mixins. Their sibling
+variants share endpoint methods, so splitting them would either duplicate those
+methods (`ChatStreamEndpoint`, `FeatureExtractionTokenEndpoint`, etc.) or
+require new shared endpoint interfaces. The tradeoff is that embedding
+`HuggingFaceChatMixin` advertises streaming as well as unary chat, and
+embedding `HuggingFaceFeatureExtractionMixin` advertises every output family.
+This is acceptable because the siblings belong to one upstream task and share
+the same endpoint; a provider that supports only one variant can implement the
+handful of methods directly. If sibling-level precision is needed later,
+granular mixins and shared endpoint interfaces can be added additively without
+changing the grouped mixins.
+
+### External provider model resolution
+
+Third-party providers frequently serve models under different identifiers than
+the Hugging Face Hub does. The chat task does not surface this: its payload
+carries the model in the request body and the router performs provider mapping
+server-side. Every other task routes through the endpoint path, so the
+provider-specific model identifier must be known at endpoint-construction
+time — but callers think in Hugging Face model IDs.
+
+Resolution lives where the model ID is consumed. A provider that needs mapping
+receives a `ModelResolver` as an explicit constructor dependency and calls it
+from its endpoint methods (or from its codecs, when payloads depend on the
+mapping — e.g. WaveSpeed's automatic LoRA injection for adapter models). When
+endpoint resolution and payload adaptation need the same mapping, the endpoint
+attaches its resolution to `Endpoint.Mapping` and the pipeline forwards it to
+`EncodeParams.Mapping`, so the codec reuses it instead of repeating the
+lookup; codecs without an attached mapping (standalone codec use) fall back to
+their own resolver.
+Dispatch, options, and the `Provider` interface carry no resolution
+machinery, so a lookup can only happen inside a provider the caller
+constructed for that purpose — there are no hidden network calls.
+
+- `hfproviders.ModelResolver` maps a Hugging Face model ID, provider slug,
+  and upstream task to the provider-side `ModelMapping`: the provider model
+  identifier plus the Hub's adapter metadata (`Adapter`,
+  `AdapterWeightsPath`) and mapping `Status`, so providers can adapt
+  requests to adapter models without further interface changes.
+- `hfproviders.StaticModelResolver` resolves from a caller-supplied mapping
+  and performs no network I/O — suitable for tests and for deployments that
+  pin the mapping themselves.
+- `hfproviders.HubModelResolver` resolves by querying the Hub's
+  `inferenceProviderMapping` data for the model. Its base URL is independent
+  of the inference base URL (`DefaultHubBaseURL`), it never inherits the
+  caller's inference token (pass `WithHubToken` explicitly), and results are
+  cached per resolver instance with a TTL and LRU cap; a stale entry can
+  optionally be served when a fresh lookup fails transiently (transport
+  error, 5xx, or 429 rate limiting; `WithHubStaleOnError`). Serving stale
+  delays the next refresh attempt by the shorter of the cache TTL and 30
+  seconds, bounding retry amplification during a sustained outage.
+
+The resolver contract is deliberately narrow: fail with an error when a model
+cannot be resolved rather than silently falling back to the original model ID
+— an unresolvable model would otherwise surface later as a confusing provider
+API error. A mapping's `status` is not gated; a present-but-unhealthy mapping
+fails honestly at the inference call. See `examples/custom-provider` for a
+minimal partner provider that resolves models through the Hub-backed resolver.
+
+The transport layer (`internal/request`) takes a transport-only `Params`
+projected by the internal `transport` adapter package, and never imports
+`hfopts`: transport has no knowledge of providers, models, or resolvers. The
+adapter is the only bridge between `hfopts` and `internal/request`; it imports
+both and projects only transport-level settings. That keeps the dependency
+graph acyclic — `hfproviders → internal/hub → internal/request`, with
+`internal/transport` depending on `hfopts` and `internal/request`.
+
+### Internal Hub client
+
+`internal/hub.Client` is distinct from `hfgo.Client` despite the shared name. It
+is an internal, non-exported transport type used only by
+`hfproviders.HubModelResolver`; it never appears in the public API. It talks to
+the Hub host (`DefaultHubBaseURL`, `https://huggingface.co`), not the inference
+router, to read a model's `inferenceProviderMapping` data.
+
+A Hub client owns a TTL+LRU cache guarded by a mutex. It must not be copied
+after first use: copying duplicates the mutex's internal state, so the copy no
+longer synchronizes with the original cache (`go vet`'s copylocks analyzer
+flags it). `NewClient` returns a pointer, and `HubModelResolver` stores that
+pointer, so copying a resolver value shares one Hub client and its cache.
+
+Concurrent misses for the same uncached model may each issue a Hub request;
+the first completed result is cached and later lookups reuse it. In-flight
+request sharing is intentionally omitted because it would couple caller
+contexts and cancellation, and the expected lookup volume does not justify
+it. When a stale entry is served after a transient failure, its expiry is
+re-stamped for the shorter of the cache TTL and 30 seconds, bounding retry
+amplification during a sustained outage.
+
+The Hub client applies its own defaults when constructed with zero values
+(`DefaultCacheTTL`, `DefaultMaxEntries`) and never inherits the caller's
+inference token; pass `WithHubToken` to the resolver explicitly. See
+[External provider model resolution](#external-provider-model-resolution) for
+the resolver contract and dependency direction.
+
+### Codecs
+
+The `Codec` interface is the wire-format transform. `Encode` receives the
+canonical request and returns the body plus request headers describing the
+format; `Decode` receives the response body/headers and owns content-type
+validation. This keeps task functions agnostic to wire format: providers own
+endpoint construction and any request/response translation.
+
+Codec-returned request headers are applied as *defaults* — caller-set headers
+win. The exceptions: codec-returned `Authorization` values are dropped
+(authentication is caller-owned), and streaming forces
+`Accept: text/event-stream` (SSE framing is a transport concern).
+
+When a codec or streaming decode hook returns an existing
+`*hferrors.SDKError`, the SDK preserves that error and its `SDKErrorKind`
+instead of relabeling it as a serialization failure. This keeps validation and
+configuration failures distinguishable from malformed JSON.
+
+`ProviderParams` merging is a codec concern, not a type concern. Canonical
+request types carry the map untouched (`json:"-"`); each provider's codec
+decides where the entries land and which structural keys stay protected. The
+flat-wire partners merge entries into their flat bodies through
+`mergeRequestParameters` with their own ordering: they assemble their payloads
+from scratch — often differently shaped and sometimes not JSON at all (binary
+and multipart media bodies) — and merge the entries mid-assembly, so their
+injected defaults stay overridable and their forced keys (mapped model,
+response format, inline masks) still win. The Hugging Face codecs — and every
+provider embedding any of its mixins — wrap a shared codec that merges the
+entries into the body's top level after the typed request is marshaled and
+re-applies the protected keys (`"model"` on chat bodies, `"inputs"` on
+pipeline bodies) so entries cannot override routing or the payload. Bodies
+without `ProviderParams` pass through byte-identically. The two mechanisms
+share one contract, not one implementation: top-level entries that override
+typed fields.
+
+Providers whose wire format needs follow-up HTTP requests after the initial
+response — such as the asynchronous task APIs of generation providers — opt in
+via `AsyncCodec`, an optional `Codec` extension. When the pipeline dispatches
+to an `AsyncCodec`, it calls `PostSubmit` instead of `Decode`, passing the
+submit response plus the transport configuration (HTTP client, base URL,
+token, response-size cap) so the codec can complete the exchange — polling,
+terminal-state handling, and output retrieval stay provider-owned wire-format
+logic inside the provider package. WaveSpeed, fal.ai, and Replicate use this
+for their submit-poll-download lifecycles.
+
+### Naming convention
+
+Client methods use an **action verb** (what the caller does); provider
+interfaces, endpoints, codecs, and request DTOs use the **upstream task noun**
+(matching Hugging Face's task taxonomy). For example, the client method is
+`ClassifyText` but the DTO is `TextClassificationRequest` and the provider
+interface is `TextClassificationProvider`. Task-name constants
+(`hfproviders.TaskTextToImage` and friends) exist only to identify the upstream
+task to model resolvers; task support is expressed structurally through
+the per-task interfaces.
+
+When a task has multiple output families, codec and provider names include the
+family qualifier. Feature extraction, for example, uses
+`FeatureExtractionPooledCodec`, `FeatureExtractionPooledBatchCodec`,
+`FeatureExtractionTokenCodec`, and `FeatureExtractionTokenBatchCodec`.
+
+Response DTOs are named by what they contain:
+
+- **Result nouns** are the default when the upstream result has a natural noun,
+  for example `Summarization`, `Translation`, `QuestionAnswer`, and
+  `FillMaskPrediction`.
+- **`Response`** is reserved for whole response envelopes whose bare name would
+  otherwise be a task/verb or collide with another type, for example
+  `ChatResponse`, `ChatStreamResponse`, `SpeechRecognitionResponse`, and
+  `TextToImageResponse`.
+- Value and element types do not take a `Response` suffix. Nested records use
+  their contextual prefix instead, for example `ChatChoice`.
+- Feature-extraction outputs use `...PooledEmbedding` for one vector per input
+  and `...TokenEmbeddings` for one vector per token.
+
+`ChatStream` is the stream handle; `ChatStreamResponse` is the per-chunk DTO
+returned by `Recv`.
+
+### Error model
+
+Errors are categorized into two types in the `hferrors` package:
+
+- **`APIError`**: returned by the API (4xx/5xx HTTP responses). Carries the
+  status code, message, the buffered response body bytes, response headers,
+  method, and URL. The body is read eagerly when the error is constructed:
+  `Message` carries the status text plus a truncated, log-friendly copy of the
+  body (capped at 4 KiB, with control characters such as newlines stripped so
+  server-controlled bytes cannot forge log lines), while `Body` holds the full
+  body up to the request's
+  `MaxResponseBodyBytes` cap. Helper
+  methods: `IsClientError()`, `IsServerError()`, `IsAuthenticationError()`,
+  `IsRateLimitError()`, and `RetryAfter()` for the server-provided retry delay.
+- **`SDKError`**: produced locally (before an API response, while unmarshaling
+  one, or when the provider reports a failure inside an otherwise valid
+  response). Carries a `SDKErrorKind` category (`validation`, `configuration`,
+  `serialization`, `transport`, `provider`, `internal`), a message, and an
+  optional underlying error. The `provider` kind covers failures the provider
+  reports in a successful response — such as a WaveSpeed or fal.ai task
+  reaching a terminal failure status — keeping `APIError` reserved for HTTP-level
+  failures.
+
+### `hfraw` escape hatch
+
+The `hfraw` package is the deliberate exception to the typed Client surface.
+It exposes raw HTTP and SSE access to endpoints the SDK does not model
+type-safely, with methods combining byte-slice or `io.Reader` bodies and
+one-shot or SSE streaming. One-shot methods come in typed-error and
+raw-response variants; streams always apply typed error handling. It is kept
+separate to avoid cluttering the root `Client` API.
+
+`Do` and the stream methods translate 4xx/5xx responses into
+`*hferrors.APIError`, whereas `DoRaw` returns the raw `*http.Response` so
+callers can inspect the status and headers themselves. Stream methods require
+the response to advertise `text/event-stream`; a response that does not is
+never handed to the SSE decoder, which would otherwise yield no events and
+report `io.EOF`, silently dropping the response. A 4xx/5xx response that is not
+an event stream is returned as an `*hferrors.APIError` whose `Body` holds the
+buffered response body bytes, so the error payload is preserved; every other
+non-stream response is
+returned as an `*hferrors.SDKError` and its body is drained and closed. The
+status code and headers of a successfully opened stream are exposed via
+`Stream.StatusCode` and `Stream.Header`.
+
+SSE parsing is bounded by `hfopts.Options.MaxResponseBodyBytes`. For streams it
+caps both each line and the accumulated event payload, defaulting to 1 MiB when
+unset. This prevents a malformed or hostile response from growing the decoder's
+buffers without bound while still allowing callers to raise the limit for larger
+frames.
+
+### Chat streaming
+
+`ChatStream` is the stream handle that wraps an SSE stream of
+`ChatStreamResponse` chunks. `ChatStreamResponse` is the per-chunk DTO returned
+by `Recv`; `ChatStream` itself is not a response type. It merges tool-call
+metadata across deltas so each chunk includes complete tool-call identifiers.
+Callers must `Close()` the stream to release the underlying HTTP connection and
+decoder goroutine. Termination is final: once `io.EOF` is observed, no further
+chunks are delivered.
+
+A `ChatStream` is not safe for concurrent `Recv` calls. Its accumulator is
+owned by the single consumer. `Close` may be called concurrently with `Recv`.
+
+### Feature extraction output shapes
+
+Feature extraction converts an input into numerical vectors (**embeddings**).
+Each embedding has a fixed length, its **dimension**, and represents the input
+in a space where semantically similar inputs are close together. Embeddings are
+commonly used for semantic search, retrieval-augmented generation (RAG),
+clustering, classification, deduplication, and recommendation.
+
+Feature extraction supports two model-dependent output families:
+
+- **Pooled:** `ExtractPooledFeatures` and `ExtractPooledFeaturesBatch` return
+  `FeatureExtractionPooledEmbedding` / `[]FeatureExtractionPooledEmbedding`
+  (`[]float64` per input). Use these with sentence-transformers-style models
+  that reduce the model output to one vector for the whole input.
+- **Token-level:** `ExtractTokenFeatures` and `ExtractTokenFeaturesBatch`
+  return `FeatureExtractionTokenEmbeddings` /
+  `[]FeatureExtractionTokenEmbeddings` (`[][]float64` for one input,
+  `[][][]float64` for a batch). Use these with transformers-style models such as
+  BART when you need per-token hidden states and will apply your own pooling.
+
+The shape is determined by the model, not the request, so callers choose the
+method that matches the model's output.
+
+`FeatureExtractionPooledEmbedding` and `FeatureExtractionTokenEmbeddings` are
+defined slice types. Each is assignable to and from its raw slice type
+(`[]float64` and `[][]float64` respectively). Batch results are slices of these
+named types, so converting a whole batch to a raw nested slice requires
+converting each element.
+
+## Where to Make Changes
+
+| Task                   | Location                                           |
+| ---------------------- | -------------------------------------------------- |
+| Request/response types | `hftypes/*` (no re-exports needed)                 |
+| Endpoint behavior      | `internal/task/*` + `Client` method in `client.go` |
+| Provider / wire format | `hfproviders/*`                                    |
+| Options                | `hfopts/options.go`                                |
+| Raw HTTP/SSE           | `hfraw/raw.go`                                     |
+| Unit tests             | Next to the code they exercise                     |
+| Integration tests      | `internal/integration_tests/*_integration_test.go` |
+| Runnable examples      | `examples/<provider>/<task>/<variant>/`            |

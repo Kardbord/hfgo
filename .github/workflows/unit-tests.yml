@@ -1,39 +1,58 @@
+---
 name: Unit Tests
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - v*-draft
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - v*-draft
   schedule:
-    - cron: "35 21 * * 3"
+    - cron: "15 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  build:
+  unit-tests:
+    name: Unit tests
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write # Required for OIDC token to upload coverage and test results
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            os-flag: ubuntu
+          - os: windows-latest
+            os-flag: windows
+          - os: macos-latest
+            os-flag: macos
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: ./.github/actions/setup-go
         with:
-          go-version: 1.17
-
-      - name: Build
-        run: go build -v ./...
-
-      - name: Vet
-        run: go vet -v ./...
+          install-gotestsum: 'true'
 
       - name: Test
-        run: go test -timeout 300s -v ./...
-        env:
-          HUGGING_FACE_TOKEN: ${{ secrets.HUGGING_FACE_TOKEN }}
+        run: gotestsum --junitfile junit.xml --format github-actions --format-icons hivis -- -shuffle on -timeout 600s -v -coverprofile coverage.out -covermode atomic ./...
 
-      - name: Build Examples
-        run: cd examples && ./build_examples.sh || exit 1
-        shell: bash
+      - name: Test (race)
+        run: gotestsum --format github-actions --format-icons hivis -- -race -shuffle on -timeout 600s -v ./...
+
+      - name: Upload coverage to Codecov
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/upload-codecov
+        with:
+          flags: unit,${{ matrix.os-flag }}
+          artifact-name: test-results-${{ matrix.os }}

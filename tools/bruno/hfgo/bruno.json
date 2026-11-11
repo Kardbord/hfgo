@@ -1,0 +1,18 @@
+{
+  "version": "1",
+  "name": "hfgo",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git",
+    ".env"
+  ],
+  "size": 0.01974964141845703,
+  "filesCount": 52,
+  "presets": {
+    "requestType": "http"
+  },
+  "scripts": {
+    "moduleWhitelist": []
+  }
+}

@@ -1,0 +1,30 @@
+meta {
+  name: Table Question Answering - Single
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_table_question_answering}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inputs": {
+      "table": {
+        "Name": ["Alice", "Bob", "Carol"],
+        "Age": ["25", "30", "35"],
+        "City": ["New York", "London", "Paris"]
+      },
+      "question": "How old is Bob?"
+    },
+    "parameters": {}
+  }
+}

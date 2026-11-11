@@ -1,0 +1,16 @@
+# Bruno collection files to ignore
+*.tmp
+*.temp
+.env
+.env.local
+.env.*.local
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo

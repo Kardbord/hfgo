@@ -1,0 +1,26 @@
+meta {
+  name: Summarization - Params
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_summarization}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inputs": "The industrial revolution transformed agriculture, manufacturing, mining, and transport, leading to massive social and economic changes.",
+    "parameters": {
+      "clean_up_tokenization_spaces": true,
+      "truncation": "only_first"
+    }
+  }
+}

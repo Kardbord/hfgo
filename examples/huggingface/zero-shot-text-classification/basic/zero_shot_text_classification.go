@@ -1,0 +1,66 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
+)
+
+func main() {
+	token := os.Getenv("HF_TOKEN")
+	if token == "" {
+		log.Fatal("HF_TOKEN environment variable is not set")
+	}
+
+	// Create a new client with your API token and desired model
+	client := hfgo.NewClient(
+		hfopts.WithToken(token),
+		hfopts.WithModel("facebook/bart-large-mnli"),
+	)
+
+	input := "This was a masterpiece. Not completely faithful to the books, but enthralling from beginning to end. Might be my favorite of the three."
+
+	candidates := []string{
+		"enthralled",
+		"bored",
+	}
+
+	fmt.Println("Classifying inputs:")
+	PrintJSON(input)
+	fmt.Println("Into candidate labels:")
+	PrintJSON(candidates)
+	fmt.Println("...")
+
+	// Make the classification request
+	classifications, err := client.ZeroShotClassifyText(
+		context.Background(),
+		hftypes.ZeroShotTextClassificationRequest{
+			Input: input,
+			Parameters: &hftypes.ZeroShotTextClassificationParameters{
+				CandidateLabels: candidates,
+				MultiLabel:      new(false),
+			},
+		},
+	)
+	if err != nil {
+		log.Fatalf("error running text classification: %v\n", err)
+	}
+
+	fmt.Println("Results:")
+	PrintJSON(classifications)
+}
+
+func PrintJSON[T any](v T) {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		log.Fatalf("error printing JSON: %v\n", err)
+	}
+
+	fmt.Println(string(b))
+}

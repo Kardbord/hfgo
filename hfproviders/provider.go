@@ -1,0 +1,269 @@
+package hfproviders
+
+import (
+	"context"
+	"fmt"
+	"reflect"
+
+	"github.com/Kardbord/hfgo/v4/hferrors"
+	"github.com/Kardbord/hfgo/v4/internal/utils"
+)
+
+// AsProvider casts the given [Provider] implementation into the desired
+// [Provider] type, e.g. [SummarizationProvider], [ChatProvider], etc.
+// If provider is nil (including a typed-nil pointer wrapped in the interface)
+// or does not implement the desired provider type, an error is returned
+// stating so.
+func AsProvider[T Provider](provider Provider) (T, error) {
+	if utils.IsNil(provider) {
+		var zero T
+
+		return zero, &hferrors.SDKError{
+			Kind:    hferrors.SDKErrorKindConfiguration,
+			Message: "provider must not be nil",
+			Err:     nil,
+		}
+	}
+
+	tProvider, ok := provider.(T)
+	if !ok {
+		return tProvider, &hferrors.SDKError{
+			Kind: hferrors.SDKErrorKindConfiguration,
+			Message: fmt.Sprintf(
+				"%s does not implement %s",
+				provider.Name(),
+				reflect.TypeFor[T](),
+			),
+			Err: nil,
+		}
+	}
+
+	return tProvider, nil
+}
+
+// Provider knows how to construct API endpoints and transform between HF-spec
+// and provider-spec wire formats for a given task and model. Implementations
+// must be safe for concurrent use.
+//
+// Endpoint methods return paths relative to the caller-configured
+// Options.BaseURL. The transport rejects absolute paths, so a provider can
+// never redirect a request (and its bearer token) to a host the caller did
+// not choose. Authentication is owned by the caller via Options.Token and
+// Options.Headers; provider and codec implementations must not set an
+// Authorization header.
+type Provider interface {
+	// ProviderSuffix returns the routing token this provider wants appended to
+	// model IDs for wire formats that carry the model in the request body. It
+	// is a general model-routing capability rather than a chat-specific one, so
+	// any task that adopts a model-in-body format can reuse it. An empty string
+	// means no suffix is appended (e.g. for the default Hugging Face provider,
+	// where the router selects the provider server-side).
+	ProviderSuffix() string
+
+	// Name returns the name of the given provider for debug purposes.
+	Name() string
+}
+
+// EndpointParams carries the inputs to a per-task endpoint resolution method,
+// e.g. [ChatProvider.ChatEndpoint]. The per-call context is passed to the
+// endpoint method separately. The typed dispatch layer guarantees a
+// non-empty Model before any endpoint method is called.
+type EndpointParams struct {
+	// Model identifies the model the request is routed to. For chat tasks
+	// it is the resolved routing identifier including any provider suffix
+	// (e.g. "zai-org/GLM-5.3:zai-org"), because chat payloads carry the model
+	// themselves. For pipeline tasks it is the configured model ID; routing
+	// there is expressed in the endpoint path. Model-dependent endpoints
+	// may validate it defensively; model-independent endpoints (e.g.
+	// ChatEndpoint) must not reject an empty Model.
+	Model string
+}
+
+// Endpoint describes a resolved task endpoint: the HTTP method to use and the
+// path to send it to, relative to Options.BaseURL. An empty Method is
+// defaulted to POST by the typed dispatch layer.
+type Endpoint struct {
+	// Method is the HTTP request method, e.g. [net/http.MethodPost].
+	// Providers should use the http.Method* constants. An empty Method is
+	// treated as POST.
+	Method string
+
+	// Path is the request path relative to Options.BaseURL. Absolute paths
+	// are rejected by the transport so a provider can never redirect a
+	// request away from the caller's configured host.
+	Path string
+
+	// Mapping optionally carries the [ModelMapping] the provider resolved
+	// while constructing this endpoint, e.g. to build the path from the
+	// provider-side model ID. The pipeline forwards it to
+	// [EncodeParams.Mapping] so codecs reuse the resolution instead of
+	// looking the same mapping up again. Nil when the provider resolved no
+	// mapping, in which case codecs fall back to their own resolver (if
+	// any).
+	Mapping *ModelMapping
+}
+
+// ChatProvider is a Provider that supplies an endpoint and Codec for the Chat task.
+type ChatProvider interface {
+	Provider
+	ChatEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	ChatCodec() ChatCodec
+}
+
+// ChatStreamProvider is a Provider that supplies an endpoint and Codec for the ChatStream task.
+type ChatStreamProvider interface {
+	Provider
+	ChatEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	ChatStreamCodec() ChatStreamCodec
+}
+
+// FeatureExtractionPooledBatchProvider is a Provider that supplies an endpoint
+// and pooled Codec for the FeatureExtractionBatch task.
+type FeatureExtractionPooledBatchProvider interface {
+	Provider
+	FeatureExtractionBatchEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	FeatureExtractionPooledBatchCodec() FeatureExtractionPooledBatchCodec
+}
+
+// FeatureExtractionPooledProvider is a Provider that supplies an endpoint and
+// pooled Codec for the FeatureExtraction task.
+type FeatureExtractionPooledProvider interface {
+	Provider
+	FeatureExtractionEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	FeatureExtractionPooledCodec() FeatureExtractionPooledCodec
+}
+
+// FeatureExtractionTokenProvider is a Provider that supplies an endpoint and
+// token-level Codec for the FeatureExtraction task.
+type FeatureExtractionTokenProvider interface {
+	Provider
+	FeatureExtractionEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	FeatureExtractionTokenCodec() FeatureExtractionTokenCodec
+}
+
+// FeatureExtractionTokenBatchProvider is a Provider that supplies an endpoint
+// and token-level Codec for the FeatureExtractionBatch task.
+type FeatureExtractionTokenBatchProvider interface {
+	Provider
+	FeatureExtractionBatchEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	FeatureExtractionTokenBatchCodec() FeatureExtractionTokenBatchCodec
+}
+
+// FillMaskProvider is a Provider that supplies an endpoint and Codec for the FillMask task.
+type FillMaskProvider interface {
+	Provider
+	FillMaskEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	FillMaskCodec() FillMaskCodec
+}
+
+// ImageClassificationProvider is a Provider that supplies an endpoint and Codec
+// for the ImageClassification task.
+type ImageClassificationProvider interface {
+	Provider
+	ImageClassificationEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	ImageClassificationCodec() ImageClassificationCodec
+}
+
+// ObjectDetectionProvider is a Provider that supplies an endpoint and Codec for
+// the ObjectDetection task.
+type ObjectDetectionProvider interface {
+	Provider
+	ObjectDetectionEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	ObjectDetectionCodec() ObjectDetectionCodec
+}
+
+// ImageSegmentationProvider is a Provider that supplies an endpoint and Codec
+// for the ImageSegmentation task.
+type ImageSegmentationProvider interface {
+	Provider
+	ImageSegmentationEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	ImageSegmentationCodec() ImageSegmentationCodec
+}
+
+// QuestionAnsweringProvider is a Provider that supplies an endpoint and Codec
+// for the QuestionAnswering task.
+type QuestionAnsweringProvider interface {
+	Provider
+	QuestionAnsweringEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	QuestionAnsweringCodec() QuestionAnsweringCodec
+}
+
+// SummarizationProvider is a Provider that supplies an endpoint and Codec for
+// the Summarization task.
+type SummarizationProvider interface {
+	Provider
+	SummarizationEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	SummarizationCodec() SummarizationCodec
+}
+
+// TableQuestionAnsweringProvider is a Provider that supplies an endpoint and
+// Codec for the TableQuestionAnswering task.
+type TableQuestionAnsweringProvider interface {
+	Provider
+	TableQuestionAnsweringEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	TableQuestionAnsweringCodec() TableQuestionAnsweringCodec
+}
+
+// TextClassificationProvider is a Provider that supplies an endpoint and Codec
+// for the TextClassification task.
+type TextClassificationProvider interface {
+	Provider
+	TextClassificationEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	TextClassificationCodec() TextClassificationCodec
+}
+
+// ImageToImageProvider is a Provider that supplies an endpoint and Codec for
+// the ImageToImage task.
+type ImageToImageProvider interface {
+	Provider
+	ImageToImageEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	ImageToImageCodec() ImageToImageCodec
+}
+
+// TextToImageProvider is a Provider that supplies an endpoint and Codec for the
+// TextToImage task.
+type TextToImageProvider interface {
+	Provider
+	TextToImageEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	TextToImageCodec() TextToImageCodec
+}
+
+// TextToVideoProvider is a Provider that supplies an endpoint and Codec for the
+// TextToVideo task.
+type TextToVideoProvider interface {
+	Provider
+	TextToVideoEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	TextToVideoCodec() TextToVideoCodec
+}
+
+// TokenClassificationProvider is a Provider that supplies an endpoint and Codec
+// for the TokenClassification task.
+type TokenClassificationProvider interface {
+	Provider
+	TokenClassificationEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	TokenClassificationCodec() TokenClassificationCodec
+}
+
+// TranslationProvider is a Provider that supplies an endpoint and Codec for the
+// Translation task.
+type TranslationProvider interface {
+	Provider
+	TranslationEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	TranslationCodec() TranslationCodec
+}
+
+// ZeroShotTextClassificationProvider is a Provider that supplies an endpoint
+// and Codec for the ZeroShotTextClassification task.
+type ZeroShotTextClassificationProvider interface {
+	Provider
+	ZeroShotTextClassificationEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	ZeroShotTextClassificationCodec() ZeroShotTextClassificationCodec
+}
+
+// SpeechRecognitionProvider is a Provider that supplies an endpoint and Codec
+// for the SpeechRecognition task.
+type SpeechRecognitionProvider interface {
+	Provider
+	SpeechRecognitionEndpoint(ctx context.Context, params EndpointParams) (Endpoint, error)
+	SpeechRecognitionCodec() SpeechRecognitionCodec
+}

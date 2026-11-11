@@ -1,0 +1,58 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+
+	"github.com/Kardbord/hfgo/v4"
+	"github.com/Kardbord/hfgo/v4/hfopts"
+	"github.com/Kardbord/hfgo/v4/hftypes"
+)
+
+func main() {
+	token := os.Getenv("HF_TOKEN")
+	if token == "" {
+		log.Fatal("HF_TOKEN environment variable is not set")
+	}
+
+	// Create a new client with your API token and desired model
+	client := hfgo.NewClient(
+		hfopts.WithToken(token),
+		hfopts.WithModel("ProsusAI/finbert"),
+	)
+
+	input := "This was a masterpiece. Not completely faithful to the books, but enthralling from beginning to end. Might be my favorite of the three."
+
+	fmt.Println("Classifying input:")
+	PrintJSON(input)
+	fmt.Println("...")
+
+	// Make the classification request
+	classifications, err := client.ClassifyText(
+		context.Background(),
+		hftypes.TextClassificationRequest{
+			Input: input,
+			Parameters: &hftypes.TextClassificationParameters{
+				TopK: new(2),
+			},
+		},
+	)
+	if err != nil {
+		log.Fatalf("error running text classification: %v\n", err)
+	}
+
+	fmt.Println("Results:")
+	PrintJSON(classifications)
+}
+
+func PrintJSON[T any](v T) {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		log.Fatalf("error printing JSON: %v\n", err)
+	}
+
+	fmt.Println(string(b))
+}

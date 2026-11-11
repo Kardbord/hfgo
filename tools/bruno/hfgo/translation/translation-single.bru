@@ -1,0 +1,26 @@
+meta {
+  name: Translation - Single
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_translation}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inputs": "Hello, how are you doing today?",
+    "parameters": {
+      "src_lang": "en",
+      "tgt_lang": "de"
+    }
+  }
+}

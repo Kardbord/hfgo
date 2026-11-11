@@ -1,0 +1,40 @@
+name: Upload coverage to Codecov
+description: >
+  Upload coverage, test results, and test artifacts to Codecov via OIDC. Keeps the pinned codecov actions and their common configuration in one place.
+
+inputs:
+  flags:
+    description: Codecov flags, e.g. 'unit,ubuntu' or 'integration'.
+    required: true
+  artifact-name:
+    description: Name for the uploaded test artifacts.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+      with:
+        files: coverage.out
+        flags: ${{ inputs.flags }}
+        codecov_yml_path: .github/codecov.yml
+        disable_search: true
+        fail_ci_if_error: false
+        use_oidc: true
+    - name: Upload test results to Codecov
+      uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+      with:
+        files: junit.xml
+        flags: ${{ inputs.flags }}
+        codecov_yml_path: .github/codecov.yml
+        disable_search: true
+        fail_ci_if_error: false
+        use_oidc: true
+        report_type: test_results
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: |
+          junit.xml
+          coverage.out

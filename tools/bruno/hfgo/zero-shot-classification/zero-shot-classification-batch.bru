@@ -1,0 +1,28 @@
+meta {
+  name: Zero-Shot Classification - Batch
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{HF_BASE_URL}}/hf-inference/models/{{model_zero_shot_classification}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inputs": [
+      "This product changed my life!",
+      "I was bored the whole time."
+    ],
+    "parameters": {
+      "candidate_labels": ["positive", "negative", "neutral"]
+    }
+  }
+}
