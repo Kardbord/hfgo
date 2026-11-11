@@ -8,12 +8,6 @@
 // per-request [hfopts.Option] such as [hfopts.WithModel] when a task needs a
 // different model.
 //
-// # Status
-//
-// v4 is a release candidate. The API may change before v4.0.0, and earlier major
-// versions are deprecated and no longer maintained. See the releases page for
-// the latest version: https://github.com/Kardbord/hfgo/releases
-//
 // # Packages
 //
 //   - This package: the [Client] and one method per inference task.
