@@ -17,13 +17,6 @@ An unofficial Go SDK for the [Hugging Face Inference API](https://huggingface.co
 It provides type-safe client methods for every supported inference task and a
 pluggable provider layer for alternate wire formats.
 
-## ⚠️ v4 Release Candidate
-
-**v4** is currently in release candidate status. The API may
-evolve before the final v4.0.0 release. **v3** and earlier are deprecated
-and no longer maintained. See [#72](https://github.com/Kardbord/hfgo/issues/72)
-for more information.
-
 ## Requirements
 
 - **Go 1.27 or later.**
